@@ -5,6 +5,7 @@ from dev.scripts.devctl.runtime.packet_absorption import (
     packet_absorbed,
     packet_absorption_receipt_from_mapping,
     packet_semantically_ingested,
+    valid_semantic_ingestion_receipts,
 )
 
 
@@ -134,6 +135,99 @@ def test_semantic_ingestion_requires_structured_action_item_rows() -> None:
     )
 
 
+def test_valid_semantic_ingestion_supersedes_older_invalid_ingestion() -> None:
+    packet = _observed_actionable_packet()
+    invalid_receipt = build_packet_semantic_ingestion_receipt(
+        packet_id="rev_pkt_4383",
+        body_sha256="abc123",
+        ingested_by_actor="codex",
+        ingested_by_role="reviewer",
+        ingested_by_session_id="session-1",
+        ingested_at_utc="2026-05-17T18:46:00Z",
+        action_item_rows=(
+            {
+                **_semantic_action_rows()[0],
+                "evidence_refs": (),
+            },
+        ),
+        resulting_decision="defer_until_output_consumption_green",
+        decision_rationale="older receipt predates stricter evidence requirements",
+    )
+    valid_receipt = build_packet_semantic_ingestion_receipt(
+        packet_id="rev_pkt_4383",
+        body_sha256="abc123",
+        ingested_by_actor="codex",
+        ingested_by_role="reviewer",
+        ingested_by_session_id="session-1",
+        ingested_at_utc="2026-05-17T18:47:00Z",
+        action_item_rows=_semantic_action_rows(),
+        resulting_decision="defer_until_output_consumption_green",
+        decision_rationale="corrected receipt has explicit typed rows and evidence",
+    )
+
+    report = evaluate_packet_absorption_required(
+        {
+            "packets": [packet],
+            "semantic_ingestion_receipts": [
+                invalid_receipt.to_dict(),
+                valid_receipt.to_dict(),
+            ],
+        }
+    )
+
+    assert packet_semantically_ingested(
+        packet,
+        semantic_ingestion_receipts=(
+            invalid_receipt.to_dict(),
+            valid_receipt.to_dict(),
+        ),
+    ) is True
+    assert report.ok is True
+
+
+def test_latest_valid_semantic_ingestion_wins_over_newer_invalid_ingestion() -> None:
+    packet = _observed_actionable_packet()
+    valid_receipt = build_packet_semantic_ingestion_receipt(
+        packet_id="rev_pkt_4383",
+        body_sha256="abc123",
+        ingested_by_actor="codex",
+        ingested_by_role="reviewer",
+        ingested_by_session_id="session-1",
+        ingested_at_utc="2026-05-17T18:47:00Z",
+        action_item_rows=_semantic_action_rows(),
+        resulting_decision="defer_until_output_consumption_green",
+        decision_rationale="valid receipt has explicit rows and evidence",
+    )
+    invalid_receipt = build_packet_semantic_ingestion_receipt(
+        packet_id="rev_pkt_4383",
+        body_sha256="abc123",
+        ingested_by_actor="codex",
+        ingested_by_role="reviewer",
+        ingested_by_session_id="session-1",
+        ingested_at_utc="2026-05-17T18:48:00Z",
+        action_item_rows=(
+            {
+                **_semantic_action_rows()[0],
+                "evidence_refs": (),
+            },
+        ),
+        resulting_decision="defer_until_output_consumption_green",
+        decision_rationale="newer invalid receipt remains audit evidence only",
+    )
+
+    valid = valid_semantic_ingestion_receipts(
+        packet,
+        semantic_ingestion_receipts=(
+            valid_receipt.to_dict(),
+            invalid_receipt.to_dict(),
+        ),
+    )
+
+    assert [receipt["receipt_id"] for receipt in valid] == [
+        valid_receipt.receipt_id
+    ]
+
+
 def test_semantic_ingestion_does_not_satisfy_acked_absorption() -> None:
     packet = {
         **_observed_actionable_packet(),
@@ -192,6 +286,7 @@ def test_absorption_receipt_satisfies_actionable_ack() -> None:
         absorbed_by_role="reviewer",
         absorbed_by_session_id="session-1",
         absorbed_at_utc="2026-05-17T18:45:00Z",
+        source_semantic_ingestion_receipt_id="packet_semantic_ingestion:rev_pkt_4383:test",
         action_item_dispositions=("P86:deferred",),
         resulting_decision="continue_output_consumption_slice",
         decision_rationale="packet action items were classified",
@@ -216,6 +311,7 @@ def test_accepted_absorption_requires_evidence_refs() -> None:
         absorbed_by_role="reviewer",
         absorbed_by_session_id="session-1",
         absorbed_at_utc="2026-05-17T18:45:00Z",
+        source_semantic_ingestion_receipt_id="packet_semantic_ingestion:rev_pkt_4383:test",
         action_item_dispositions=("P235:accepted",),
         resulting_decision="implement_output_consumption_slice",
         decision_rationale="packet action item accepted",
@@ -242,6 +338,7 @@ def test_accepted_absorption_with_evidence_refs_passes() -> None:
         absorbed_by_role="reviewer",
         absorbed_by_session_id="session-1",
         absorbed_at_utc="2026-05-17T18:45:00Z",
+        source_semantic_ingestion_receipt_id="packet_semantic_ingestion:rev_pkt_4383:test",
         action_item_dispositions=("P235:accepted",),
         resulting_decision="implement_output_consumption_slice",
         decision_rationale="packet action item accepted",
@@ -264,6 +361,7 @@ def test_packet_absorption_receipt_round_trips() -> None:
         absorbed_by_role="reviewer",
         absorbed_by_session_id="session-1",
         absorbed_at_utc="2026-05-17T18:45:00Z",
+        source_semantic_ingestion_receipt_id="packet_semantic_ingestion:rev_pkt_4383:test",
         action_item_dispositions=("P86:deferred",),
         resulting_decision="continue_output_consumption_slice",
         decision_rationale="packet action items were classified",
@@ -275,6 +373,11 @@ def test_packet_absorption_receipt_round_trips() -> None:
 
     assert parsed.receipt_id == receipt.receipt_id
     assert parsed.packet_id == "rev_pkt_4383"
+    assert (
+        parsed.source_semantic_ingestion_receipt_id
+        == "packet_semantic_ingestion:rev_pkt_4383:test"
+    )
+    assert parsed.source_semantic_ingestion_event_id == ""
     assert parsed.action_item_dispositions == (
         "P86:deferred",
     )
@@ -291,6 +394,7 @@ def test_incomplete_absorption_receipt_does_not_satisfy_packet() -> None:
         absorbed_by_role="reviewer",
         absorbed_by_session_id="session-1",
         absorbed_at_utc="2026-05-17T18:45:00Z",
+        source_semantic_ingestion_receipt_id="packet_semantic_ingestion:rev_pkt_4383:test",
         action_item_dispositions=("P86:deferred",),
         resulting_decision="continue_output_consumption_slice",
         decision_rationale="packet action items were classified",
@@ -318,6 +422,7 @@ def test_invalid_absorption_disposition_fails() -> None:
         absorbed_by_role="reviewer",
         absorbed_by_session_id="session-1",
         absorbed_at_utc="2026-05-17T18:45:00Z",
+        source_semantic_ingestion_receipt_id="packet_semantic_ingestion:rev_pkt_4383:test",
         action_item_dispositions=("P86:maybe_later",),
         resulting_decision="continue_output_consumption_slice",
         decision_rationale="packet action items were classified",
@@ -334,3 +439,27 @@ def test_invalid_absorption_disposition_fails() -> None:
         violation["reason"] == "packet_absorption_invalid_disposition"
         for violation in report.violations
     )
+
+
+def test_blocked_absorption_disposition_remains_distinct() -> None:
+    packet = _actionable_packet()
+    receipt = build_packet_absorption_receipt(
+        packet_id="rev_pkt_4383",
+        body_sha256="abc123",
+        absorbed_by_actor="codex",
+        absorbed_by_role="reviewer",
+        absorbed_by_session_id="session-1",
+        absorbed_at_utc="2026-05-17T18:45:00Z",
+        source_semantic_ingestion_receipt_id="packet_semantic_ingestion:rev_pkt_4383:test",
+        action_item_dispositions=("P86:blocked",),
+        resulting_decision="block_until_operator_scope_decision",
+        decision_rationale="packet action item is blocked, not accepted",
+        blocked_reason="publication authority is not green",
+    )
+
+    report = evaluate_packet_absorption_required(
+        {"packets": [packet], "receipts": [receipt.to_dict()]}
+    )
+
+    assert report.ok is True
+    assert receipt.action_item_dispositions == ("P86:blocked",)

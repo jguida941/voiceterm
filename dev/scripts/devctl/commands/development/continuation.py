@@ -7,6 +7,7 @@ from collections.abc import Mapping
 
 from ...runtime.anchor_scope import has_structured_anchor_scope
 from ...runtime.goal_progress_receipt import resolve_goal_progress_receipt
+from ...runtime.packet_transport_expiry import packet_transport_expired
 from ...runtime.session_route_scope import packet_matches_session_route
 from .continuation_commands import next_required_command, watcher_report_needed
 from .models import (
@@ -164,6 +165,8 @@ def _has_stop_anchor(
         if not isinstance(packet, Mapping):
             continue
         if str(packet.get("kind") or "").strip() != "stop_anchor":
+            continue
+        if packet_transport_expired(packet):
             continue
         if not has_structured_anchor_scope(packet):
             continue

@@ -72,23 +72,6 @@ def record_packet_semantic_ingestion(
         "packet body parsed into typed semantic-ingestion rows; "
         "absorption remains a separate lifecycle step"
     )
-    existing = _existing_semantic_ingestion_event(
-        bundle.events,
-        packet_id=packet_id,
-        actor=actor_id,
-        role=role_id,
-        session=session,
-        body_digest=digest,
-    )
-    if existing:
-        from .event_reducer import refresh_event_bundle
-
-        return refresh_event_bundle(
-            repo_root=repo_root,
-            review_channel_path=review_channel_path,
-            artifact_paths=artifact_paths,
-        ), existing
-
     ingested_at = utc_timestamp()
     receipt = build_packet_semantic_ingestion_receipt(
         packet_id=packet_id,
@@ -101,6 +84,25 @@ def record_packet_semantic_ingestion(
         resulting_decision=decision,
         decision_rationale=rationale,
     ).to_dict()
+    receipt_id = coerce_string(receipt.get("receipt_id"))
+    existing = _existing_semantic_ingestion_event(
+        bundle.events,
+        packet_id=packet_id,
+        actor=actor_id,
+        role=role_id,
+        session=session,
+        body_digest=digest,
+        receipt_id=receipt_id,
+    )
+    if existing:
+        from .event_reducer import refresh_event_bundle
+
+        return refresh_event_bundle(
+            repo_root=repo_root,
+            review_channel_path=review_channel_path,
+            artifact_paths=artifact_paths,
+        ), existing
+
     event = {
         "event_type": PACKET_SEMANTIC_INGESTION_EVENT_TYPE,
         "event_id": "",
@@ -131,6 +133,7 @@ def record_packet_semantic_ingestion(
             role=role_id,
             session=session,
             body_digest=digest,
+            receipt_id=receipt_id,
         ),
         "metadata": {
             "actor": actor_id,
@@ -239,6 +242,7 @@ def _existing_semantic_ingestion_event(
     role: str,
     session: str,
     body_digest: str,
+    receipt_id: str = "",
 ) -> dict[str, object] | None:
     for event in reversed(events):
         if (
@@ -254,6 +258,10 @@ def _existing_semantic_ingestion_event(
             and coerce_string(payload.get("ingested_by_role")) == role
             and coerce_string(payload.get("ingested_by_session_id")) == session
             and coerce_string(payload.get("body_sha256")) == body_digest
+            and (
+                not receipt_id
+                or coerce_string(payload.get("receipt_id")) == receipt_id
+            )
         ):
             return event
     return None
@@ -266,10 +274,11 @@ def _semantic_ingestion_idempotency_key(
     role: str,
     session: str,
     body_digest: str,
+    receipt_id: str = "",
 ) -> str:
     return (
         "packet_semantic_ingestion_recorded:"
-        f"{packet_id}:{actor}:{role}:{session}:{body_digest}"
+        f"{packet_id}:{actor}:{role}:{session}:{body_digest}:{receipt_id}"
     )
 
 

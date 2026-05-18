@@ -82,7 +82,7 @@ def collaboration_lifecycle_current_state(
     acted_on_events: list[dict[str, object]],
 ) -> str:
     action = _text(acted_on_events[-1].get("action")) if acted_on_events else ""
-    if action in {"archived", "dismissed"}:
+    if action in {"archived", "dismissed", "absorbed"}:
         return action
     if _text(packet.get("status")) == "expired":
         return "archived"

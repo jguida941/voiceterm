@@ -1350,7 +1350,7 @@ class PushCommandTests(unittest.TestCase):
         },
     )
     @patch("dev.scripts.devctl.governance.push_state._git_stdout")
-    def test_detect_push_enforcement_trusts_persisted_current_head_publish(
+    def test_detect_push_enforcement_rejects_unverified_current_head_publish_report(
         self,
         git_stdout_mock,
         _load_latest_push_report_mock,
@@ -1378,8 +1378,9 @@ class PushCommandTests(unittest.TestCase):
 
         state = detect_push_enforcement_state(make_policy())
 
-        self.assertEqual(state["recommended_action"], "no_push_needed")
-        self.assertEqual(state["publication_backlog_state"], "none")
+        self.assertEqual(state["recommended_action"], "use_devctl_push")
+        self.assertEqual(state["publication_backlog_state"], "queued")
+        self.assertFalse(state["latest_push_report_governed_push_verified"])
         self.assertTrue(state["latest_push_report_matches_current_approved_target"])
         self.assertTrue(state["latest_push_report_matches_current_head"])
         self.assertTrue(state["latest_push_report_matches_current_branch"])
@@ -1537,7 +1538,7 @@ class PushCommandTests(unittest.TestCase):
         },
     )
     @patch("dev.scripts.devctl.governance.push_state._git_stdout")
-    def test_detect_push_enforcement_trusts_blank_target_identity_publish_receipt(
+    def test_detect_push_enforcement_does_not_trust_unverified_publish_report(
         self,
         git_stdout_mock,
         _load_latest_push_report_mock,
@@ -1565,8 +1566,9 @@ class PushCommandTests(unittest.TestCase):
 
         state = detect_push_enforcement_state(make_policy())
 
-        self.assertEqual(state["recommended_action"], "no_push_needed")
-        self.assertEqual(state["publication_backlog_state"], "none")
+        self.assertEqual(state["recommended_action"], "use_devctl_push")
+        self.assertEqual(state["publication_backlog_state"], "queued")
+        self.assertFalse(state["latest_push_report_governed_push_verified"])
         self.assertTrue(state["latest_push_report_matches_current_approved_target"])
 
     @patch("dev.scripts.devctl.commands.vcs.push.remote_exists", return_value=True)

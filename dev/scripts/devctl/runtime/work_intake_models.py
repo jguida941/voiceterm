@@ -49,7 +49,12 @@ class SessionContinuityState:
     unresolved_plan_references: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, object]:
-        return asdict(self)
+        payload = asdict(self)
+        for field_name in ("summary", "next_action", "review_instruction"):
+            value = str(payload.get(field_name) or "").strip()
+            if value:
+                payload[field_name] = _brief_startup_text(value, limit=180)
+        return payload
 
 
 @dataclass(frozen=True, slots=True)
@@ -310,6 +315,13 @@ def session_pacing_markdown_lines(pacing: object) -> tuple[str, ...]:
     return tuple(lines)
 
 
+def _brief_startup_text(value: str, *, limit: int) -> str:
+    compact = " ".join(str(value or "").split())
+    if len(compact) <= limit:
+        return compact
+    return compact[: max(limit - 3, 0)].rstrip() + "..."
+
+
 @dataclass(frozen=True, slots=True)
 class WorkIntakePacket:
     """First bounded startup/work-routing packet for AI sessions."""
@@ -354,6 +366,110 @@ class WorkIntakePacket:
         return payload
 
 
+def startup_work_intake_dict(packet: WorkIntakePacket) -> dict[str, object]:
+    """Return the bounded WorkIntake projection for startup-context JSON."""
+    payload: dict[str, object] = {}
+    scope_hints = tuple(getattr(packet, "scope_hints", ()) or ())
+    warm_refs = tuple(getattr(packet, "warm_refs", ()) or ())
+    writeback_sinks = tuple(getattr(packet, "writeback_sinks", ()) or ())
+    if scope_hints:
+        payload["scope_hints"] = list(scope_hints[:4])
+    if warm_refs:
+        payload["warm_refs"] = list(warm_refs[:4])
+    if writeback_sinks:
+        payload["writeback_sinks"] = list(writeback_sinks[:4])
+    payload["confidence"] = str(getattr(packet, "confidence", "low") or "low")
+    active_target = getattr(packet, "active_target", None)
+    if active_target is not None:
+        payload["active_target"] = _startup_object_dict(active_target)
+    continuity = getattr(packet, "continuity", SessionContinuityState())
+    payload["continuity"] = {
+        key: value
+        for key, value in _startup_object_dict(continuity).items()
+        if value not in ("", (), [])
+    }
+    routing_obj = getattr(packet, "routing", IntakeRoutingState())
+    routing: dict[str, object] = {}
+    startup_reads = tuple(getattr(routing_obj, "startup_reads", ()) or ())
+    if startup_reads:
+        routing["startup_reads"] = list(startup_reads[:4])
+    for field_name in (
+        "selected_workflow_profile",
+        "development_branch",
+        "preflight_command",
+        "post_push_bundle",
+    ):
+        value = getattr(routing_obj, field_name, "")
+        if value:
+            routing[field_name] = value
+    rule_summary = str(getattr(routing_obj, "rule_summary", "") or "")
+    if rule_summary:
+        routing["rule_summary"] = _brief_startup_text(
+            rule_summary,
+            limit=180,
+        )
+    match_evidence = tuple(getattr(routing_obj, "match_evidence", ()) or ())
+    rejected_rule_traces = tuple(
+        getattr(routing_obj, "rejected_rule_traces", ()) or ()
+    )
+    if match_evidence:
+        routing["match_evidence_count"] = len(match_evidence)
+    if rejected_rule_traces:
+        routing["rejected_rule_trace_count"] = len(rejected_rule_traces)
+    if routing:
+        payload["routing"] = routing
+    payload["ownership"] = _startup_object_dict(
+        getattr(packet, "ownership", WorkIntakeOwnershipState())
+    )
+    payload["coordination"] = _startup_object_dict(
+        getattr(packet, "coordination", WorkIntakeCoordinationState())
+    )
+    plan_routing_obj = getattr(packet, "plan_routing", PlanRoutingState())
+    if getattr(plan_routing_obj, "phase_id", "") or getattr(
+        plan_routing_obj, "task_id", ""
+    ):
+        plan_routing = _startup_object_dict(plan_routing_obj)
+        if plan_routing.get("task_summary"):
+            plan_routing["task_summary"] = _brief_startup_text(
+                str(plan_routing["task_summary"]),
+                limit=180,
+            )
+        if isinstance(plan_routing.get("dependencies"), list):
+            plan_routing["dependencies"] = plan_routing["dependencies"][:4]
+        payload["plan_routing"] = {
+            key: value
+            for key, value in plan_routing.items()
+            if value not in ("", (), [])
+        }
+    pacing = _startup_object_dict(
+        getattr(packet, "session_pacing", SessionPacingState())
+    )
+    if isinstance(pacing.get("implementation_refs"), list):
+        pacing["implementation_refs"] = pacing["implementation_refs"][:4]
+    if pacing.get("summary"):
+        pacing["summary"] = _brief_startup_text(str(pacing["summary"]), limit=180)
+    payload["session_pacing"] = {
+        key: value for key, value in pacing.items() if value not in ("", (), [])
+    }
+    fallback_reason = str(getattr(packet, "fallback_reason", "") or "")
+    if fallback_reason:
+        payload["fallback_reason"] = _brief_startup_text(
+            fallback_reason,
+            limit=180,
+        )
+    return payload
+
+
+def _startup_object_dict(value: object) -> dict[str, object]:
+    if hasattr(value, "to_dict"):
+        result = value.to_dict()
+        if isinstance(result, dict):
+            return result
+    if hasattr(value, "__dict__"):
+        return dict(getattr(value, "__dict__", {}) or {})
+    return {}
+
+
 __all__ = [
     "IntakeRoutingState",
     "PlanTargetRef",
@@ -365,4 +481,5 @@ __all__ = [
     "WorkIntakePacket",
     "work_intake_coordination_from_mapping",
     "session_pacing_markdown_lines",
+    "startup_work_intake_dict",
 ]

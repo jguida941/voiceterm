@@ -15,6 +15,7 @@ from .development_packet_failure_owner import (
 )
 from .collaboration_packet_kinds import COLLABORATION_LIFECYCLE_PACKET_KINDS
 from .master_plan_contract import PlanRow
+from .packet_absorption_resolution import absorption_resolves_packet_pressure
 from .packet_carry_forward_sources import packet_ids_from_plan_row
 from .packet_review_only import is_review_only_notice
 
@@ -163,12 +164,58 @@ def _terminal_receipt(packet: Mapping[str, object], *, classification: str) -> s
     if _has_unresolved_expired_archive_classification(packet):
         return ""
     lifecycle = _text(packet.get("lifecycle_current_state"))
+    if lifecycle == "absorbed":
+        return _absorption_terminal_receipt(packet, classification=classification)
     if lifecycle in {"archived", "applied", "dismissed"}:
         return lifecycle
     disposition = packet.get("disposition")
     if isinstance(disposition, Mapping):
-        return _text(disposition.get("sink"))
+        sink = _text(disposition.get("sink"))
+        if sink == "absorbed":
+            return _absorption_terminal_receipt(packet, classification=classification)
+        return sink
     return ""
+
+
+def _absorption_terminal_receipt(
+    packet: Mapping[str, object],
+    *,
+    classification: str,
+) -> str:
+    if not absorption_resolves_packet_pressure(packet):
+        return ""
+    if classification in DURABLE_PACKET_CLASSIFICATIONS:
+        return _durable_absorption_terminal_receipt(packet) or "absorbed"
+    return "absorbed"
+
+
+def _durable_absorption_terminal_receipt(packet: Mapping[str, object]) -> str:
+    """Return terminal absorption proof only for non-accepted durable dispositions.
+
+    For plan/finding/guard/knowledge packets, "absorbed" means the body was
+    semantically disposed. It is not proof that accepted work was bound into a
+    PlanRow, action_request, reducer-visible finding, or closure receipt.
+    """
+    receipt = packet.get("packet_absorption_receipt") or packet.get(
+        "absorption_receipt"
+    )
+    if not isinstance(receipt, Mapping):
+        return ""
+    dispositions = {
+        _text(item)
+        for item in _rows(receipt.get("action_item_dispositions"))
+        if _text(item)
+    }
+    terminal_dispositions = {
+        "blocked",
+        "rejected",
+        "deferred",
+        "superseded",
+        "already_shipped",
+        "needs_operator_decision",
+    }
+    terminal = sorted(dispositions & terminal_dispositions)
+    return f"absorbed:{terminal[0]}" if terminal else ""
 
 
 def _terminal_marker(packet: Mapping[str, object], *, status: str) -> str:

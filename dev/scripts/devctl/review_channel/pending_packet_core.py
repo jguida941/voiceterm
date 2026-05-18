@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping
 
 from ..runtime.packet_transport_expiry import packet_transport_expired
-from ..runtime.packet_absorption import packet_absorbed
+from ..runtime.packet_absorption_resolution import absorption_resolves_packet_pressure
 from .pending_packet_approval_resolution import (
     approval_resolution_key,
     is_applied_approval_decision,
@@ -65,6 +65,11 @@ def partition_live_pending_packets(
 
 
 def _live_queue_status(packet: object) -> bool:
+    if (
+        _has_absorption_receipt(packet)
+        and _absorbed_packet_resolves_queue_pressure(packet)
+    ):
+        return False
     status = str(_packet_value(packet, "status") or "").strip()
     if status == "pending":
         return True
@@ -73,16 +78,38 @@ def _live_queue_status(packet: object) -> bool:
     kind = str(_packet_value(packet, "kind") or "").strip()
     if kind not in _ACK_ABSORPTION_REQUIRED_KINDS:
         return False
-    return not _has_absorption_receipt(packet)
+    return not (
+        _has_absorption_receipt(packet)
+        and _absorbed_packet_resolves_queue_pressure(packet)
+    )
 
 
 def _has_absorption_receipt(packet: object) -> bool:
     if not isinstance(packet, Mapping):
         return False
-    receipt = _packet_value(packet, "absorption_receipt")
-    return isinstance(receipt, Mapping) and packet_absorbed(
+    receipts = [
+        receipt
+        for receipt in (
+            _packet_value(packet, "absorption_receipt"),
+            _packet_value(packet, "packet_absorption_receipt"),
+        )
+        if isinstance(receipt, Mapping)
+    ]
+    for events_key in ("absorption_events", "packet_absorption_events"):
+        value = _packet_value(packet, events_key)
+        if not isinstance(value, Iterable) or isinstance(value, (str, bytes)):
+            continue
+        for item in value:
+            if not isinstance(item, Mapping):
+                continue
+            receipt = item.get("packet_absorption_receipt")
+            if isinstance(receipt, Mapping):
+                receipts.append(receipt)
+            elif str(item.get("contract_id") or "").strip() == "PacketAbsorptionReceipt":
+                receipts.append(item)
+    return bool(receipts) and absorption_resolves_packet_pressure(
         packet,
-        absorption_receipts=(receipt,),
+        absorption_receipts=tuple(receipts),
     )
 
 
@@ -177,16 +204,29 @@ def _has_terminal_action_request_receipt(packet: object) -> bool:
 
 def _is_resolved_lifecycle(packet: object) -> bool:
     lifecycle = str(_packet_value(packet, "lifecycle_current_state") or "").strip()
+    if lifecycle == "absorbed":
+        return _absorbed_packet_resolves_queue_pressure(packet)
     if lifecycle in {"applied", "dismissed", "archived"}:
         return True
     disposition = _packet_value(packet, "disposition")
     if not isinstance(disposition, Mapping):
         return False
-    return str(disposition.get("sink") or "").strip() in {
-        "applied",
-        "dismissed",
-        "archived",
-    }
+    sink = str(disposition.get("sink") or "").strip()
+    if sink == "absorbed":
+        return _absorbed_packet_resolves_queue_pressure(packet)
+    return sink in {"applied", "dismissed", "archived"}
+
+
+def _absorbed_packet_resolves_queue_pressure(packet: object) -> bool:
+    """Return whether absorption is enough to remove this packet from live queue.
+
+    Durable plan/finding packets need a durable binding or a terminal semantic
+    disposition before absorption can clear live pressure. Otherwise the packet
+    was only parsed, not safely converted into typed work.
+    """
+    if not isinstance(packet, Mapping):
+        return False
+    return absorption_resolves_packet_pressure(packet)
 
 
 def _coerce_int(value: object, *, default: int) -> int:

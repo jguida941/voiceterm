@@ -8,6 +8,7 @@ from ..runtime.review_packet_inbox_actionable import attention_urgency
 from ..runtime.value_coercion import coerce_text as _text
 from .event_models import event_id_rank
 from .packet_loop_attention import (
+    packet_absorption_required,
     packet_body_attention_required,
     packet_semantic_ingestion_required,
 )
@@ -52,10 +53,24 @@ def body_open_packets(
             role=role,
             session=session,
         )
+        or packet_absorption_required(
+            packet,
+            actor=actor,
+            role=role,
+            session=session,
+        )
     ]
     rows.sort(
         reverse=True,
         key=lambda packet: (
+            2
+            if packet_absorption_required(
+                packet,
+                actor=actor,
+                role=role,
+                session=session,
+            )
+            else 0,
             1
             if packet_semantic_ingestion_required(
                 packet,

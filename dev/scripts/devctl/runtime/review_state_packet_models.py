@@ -230,6 +230,14 @@ class ReviewPacketState:
     semantic_ingested_event_id: str = ""
     packet_semantic_ingestion_receipt: dict[str, object] | None = None
     semantic_ingestion_events: tuple[dict[str, object], ...] = ()
+    absorbed_at_utc: str = ""
+    absorbed_by: str = ""
+    absorbed_role: str = ""
+    absorbed_session_id: str = ""
+    absorbed_event_id: str = ""
+    packet_absorption_receipt: dict[str, object] | None = None
+    absorption_receipt: dict[str, object] | None = None
+    absorption_events: tuple[dict[str, object], ...] = ()
     expires_at_utc: str = ""
     semantic_zref: str = ""
     source_identity: dict[str, str] = field(default_factory=dict)

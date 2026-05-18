@@ -54,6 +54,14 @@ AGENT_LOOP_AUTHORITY_FIELDS = (
     "body_open_packet_id",
     "unopened_body_packet_ids",
     "pivot_required",
+    "semantic_ingestion_required",
+    "semantic_ingestion_packet_id",
+    "semantic_ingestion_command",
+    "semantic_ingestion_reason",
+    "absorption_required",
+    "absorption_packet_id",
+    "absorption_command",
+    "absorption_reason",
 )
 
 
@@ -335,6 +343,14 @@ def _with_packet_attention(
             "pending_packet_count": "pending_packet_count",
             "unopened_body_packet_ids": "unopened_body_packet_ids",
             "pivot_required": "pivot_required",
+            "semantic_ingestion_required": "semantic_ingestion_required",
+            "semantic_ingestion_packet_id": "semantic_ingestion_packet_id",
+            "semantic_ingestion_command": "semantic_ingestion_command",
+            "semantic_ingestion_reason": "semantic_ingestion_reason",
+            "absorption_required": "absorption_required",
+            "absorption_packet_id": "absorption_packet_id",
+            "absorption_command": "absorption_command",
+            "absorption_reason": "absorption_reason",
         }
         for target_key, source_key in merge_map.items():
             if source_key in packet_attention:
@@ -391,7 +407,7 @@ def _full_output_artifact_ref(
         return {}
     if coerce_string(artifact.get("capture_scope")).lower() != "full":
         return {}
-    for field in ("path", "sha256", "byte_count"):
+    for field in ("path", "sha256", "byte_count", "created_at_utc"):
         if not coerce_string(artifact.get(field)):
             return {}
     artifact_receipt_id = coerce_string(artifact.get("command_output_receipt_id"))

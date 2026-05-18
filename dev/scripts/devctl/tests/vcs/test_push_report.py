@@ -10,6 +10,10 @@ from dev.scripts.devctl.commands.vcs.push_report import (
     build_push_report,
     render_push_report,
 )
+from dev.scripts.devctl.governance.push_state_selection import (
+    ProjectedPushReport,
+    records_current_target_publication,
+)
 
 
 def _policy() -> SimpleNamespace:
@@ -105,6 +109,8 @@ def test_push_report_marks_remote_published_post_push_pending() -> None:
 
     assert report["published_remote"] is True
     assert report["post_push_green"] is False
+    assert report["publication_mode"] == "governed_push"
+    assert report["governed_push_verified"] is True
     assert report["push_diagnostic"]["summary"] == "remote_published_post_push_pending"
     assert report["push_diagnostic"]["git_push_state"] == "landed"
     assert report["push_diagnostic"]["post_push_state"] == "failed"
@@ -141,6 +147,8 @@ def test_push_report_marks_already_pushed_without_git_push_attempt() -> None:
     )
 
     assert report["published_remote"] is True
+    assert report["publication_mode"] == "governed_push"
+    assert report["governed_push_verified"] is True
     assert report["push_diagnostic"] == {
         "summary": "remote_already_published_post_push_pending",
         "validation_state": "passed",
@@ -148,3 +156,41 @@ def test_push_report_marks_already_pushed_without_git_push_attempt() -> None:
         "git_push_state": "not_required",
         "post_push_state": "pending",
     }
+
+
+def test_push_report_marks_remote_publication_without_push_evidence_raw() -> None:
+    report = build_push_report(
+        _inputs(
+            execute=True,
+            action_result={"ok": False, "reason": "post_push_bundle_failed"},
+            push_stages=PushStageTruth(
+                validation_ready=True,
+                published_remote=True,
+            ),
+            push_step=None,
+            post_push_steps=[],
+        )
+    )
+
+    assert report["published_remote"] is True
+    assert report["publication_mode"] == "raw_no_verify"
+    assert report["governed_push_verified"] is False
+    assert report["operator_bypass_evidence_required"] is True
+
+
+def test_raw_no_verify_projection_does_not_prove_governed_publication() -> None:
+    assert records_current_target_publication(
+        report=ProjectedPushReport(
+            branch="feature/demo",
+            remote="origin",
+            head_commit="abc123",
+            published_remote=True,
+            publication_mode="ungoverned_remote_advance",
+            governed_push_verified=False,
+            matches_current_branch=True,
+            matches_current_head=True,
+            matches_current_approved_target=True,
+            matches_current_worktree=True,
+        ),
+        current_target_remote="origin",
+    ) is False

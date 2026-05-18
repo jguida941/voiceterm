@@ -90,6 +90,15 @@ def build_push_report(inputs: PushReportInputs) -> dict[str, Any]:
     report["push_stages"] = asdict(inputs.push_stages)
     report["published_remote"] = inputs.push_stages.published_remote
     report["post_push_green"] = inputs.push_stages.post_push_green
+    governed_push_verified = _governed_push_verified(inputs)
+    report["governed_push_verified"] = governed_push_verified
+    report["publication_mode"] = _publication_mode(
+        inputs,
+        governed_push_verified=governed_push_verified,
+    )
+    report["operator_bypass_evidence_required"] = bool(
+        inputs.push_stages.published_remote and not governed_push_verified
+    )
     report["push_pipeline_phases"] = build_push_pipeline_phases(
         pre_validation_managed_projection_sync=(
             inputs.pre_validation_managed_projection_sync
@@ -198,6 +207,10 @@ def render_push_report(report: dict[str, Any]) -> str:
         lines.append(f"- validation_ready: {push_stages.get('validation_ready')}")
         lines.append(f"- published_remote: {push_stages.get('published_remote')}")
         lines.append(f"- post_push_green: {push_stages.get('post_push_green')}")
+        lines.append(f"- publication_mode: {report.get('publication_mode')}")
+        lines.append(
+            f"- governed_push_verified: {report.get('governed_push_verified')}"
+        )
     append_push_pipeline_phase_lines(lines, report.get("push_pipeline_phases"))
     diagnostic = report.get("push_diagnostic") or {}
     if diagnostic:
@@ -296,3 +309,32 @@ def _render_step_lines(step: dict[str, Any]) -> list[str]:
 
 def _timestamp() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def _governed_push_verified(inputs: PushReportInputs) -> bool:
+    if not inputs.push_stages.published_remote:
+        return False
+    reason = str(inputs.action_result.get("reason") or "")
+    if reason == "branch_already_pushed" and inputs.execute:
+        return True
+    push_step = inputs.push_step
+    if not isinstance(push_step, dict):
+        return False
+    try:
+        return int(push_step.get("returncode")) == 0
+    except (TypeError, ValueError):
+        return False
+
+
+def _publication_mode(
+    inputs: PushReportInputs,
+    *,
+    governed_push_verified: bool,
+) -> str:
+    if governed_push_verified:
+        return "governed_push"
+    if inputs.push_stages.published_remote:
+        return "raw_no_verify"
+    if inputs.push_stages.validation_ready:
+        return "validation_only"
+    return "not_published"

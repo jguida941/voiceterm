@@ -28,7 +28,12 @@ from .implementation_admissibility import (
 
 _LANES = frozenset({"dashboard", "implementer", "observer", "reviewer"})
 _READ_ACTIONS = ("startup-context.summary", "review-channel.status", "context-graph.bootstrap")
-_FINDING_ACTIONS = ("review-channel.post_finding",)
+_COORDINATION_POST_ACTIONS = (
+    "review-channel.post_finding",
+    "review-channel.post_action_request",
+    "review-channel.post_continuation_anchor",
+    "review-channel.post_stop_anchor",
+)
 _IMPLEMENTATION_ACTIONS = ("implementation.edit", "vcs.stage", "vcs.commit")
 _MUTATING_ACTIONS = (
     "implementation.edit", "vcs.stage", "vcs.commit", "vcs.push",
@@ -138,7 +143,7 @@ def build_agent_lane_decision(
             occupied_lane=current_lane,
             eligible_lanes=(lane,),
             granted_capabilities=granted_capabilities,
-            permissions=(*_READ_ACTIONS, *_FINDING_ACTIONS),
+            permissions=(*_READ_ACTIONS, *_COORDINATION_POST_ACTIONS),
             blocked_permissions=_MUTATING_ACTIONS,
             edit_gate=LaneEditGateDecision(
                 status="findings_only",
@@ -158,7 +163,11 @@ def build_agent_lane_decision(
             occupied_lane=current_lane,
             eligible_lanes=(lane,),
             granted_capabilities=granted_capabilities,
-            permissions=(*_READ_ACTIONS, *_FINDING_ACTIONS, "review.checkpoint"),
+            permissions=(
+                *_READ_ACTIONS,
+                *_COORDINATION_POST_ACTIONS,
+                "review.checkpoint",
+            ),
             blocked_permissions=_IMPLEMENTATION_ACTIONS,
             edit_gate=LaneEditGateDecision(
                 status="review_findings_only",
@@ -173,7 +182,11 @@ def build_agent_lane_decision(
         occupied_lane=current_lane,
         eligible_lanes=(lane,),
         granted_capabilities=granted_capabilities,
-        permissions=(*_READ_ACTIONS, *_FINDING_ACTIONS, *_IMPLEMENTATION_ACTIONS),
+        permissions=(
+            *_READ_ACTIONS,
+            *_COORDINATION_POST_ACTIONS,
+            *_IMPLEMENTATION_ACTIONS,
+        ),
         blocked_permissions=(),
         edit_gate=LaneEditGateDecision(
             active_implementation_owner=owner,

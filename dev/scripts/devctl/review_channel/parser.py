@@ -44,6 +44,7 @@ REVIEW_ACTION_CHOICES = (
     "history",
     "show",
     "ingest",
+    "absorb",
     "check-ack-freshness",
     "bridge-poll",
     "render-bridge",

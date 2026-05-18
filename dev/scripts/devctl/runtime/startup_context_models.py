@@ -49,6 +49,7 @@ from .startup_governance_projection import startup_governance_dict
 from .startup_packet_inbox import startup_packet_inbox_dict
 from .startup_push_decision import PushDecisionState
 from .work_intake import WorkIntakePacket
+from .work_intake_models import startup_work_intake_dict
 from .worktree_orphan_snapshot import OrphanSnapshot
 
 
@@ -210,7 +211,7 @@ class StartupContext:
         if self.governance is not None:
             d["governance"] = startup_governance_dict(self.governance)
         if self.work_intake is not None:
-            d["work_intake"] = self.work_intake.to_dict()
+            d["work_intake"] = startup_work_intake_dict(self.work_intake)
         if self.coordination is not None:
             d["coordination"] = startup_coordination_dict(self.coordination)
         if self.authority_snapshot is not None:

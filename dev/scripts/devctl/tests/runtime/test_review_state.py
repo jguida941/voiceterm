@@ -12,6 +12,64 @@ from dev.scripts.devctl.runtime.review_state_round_proof import (
 
 
 class ReviewStateTests(unittest.TestCase):
+    def test_review_state_preserves_packet_absorption_receipts(self) -> None:
+        receipt = {
+            "contract_id": "PacketAbsorptionReceipt",
+            "receipt_id": "packet_absorption:rev_pkt_1:abc",
+            "packet_id": "rev_pkt_1",
+            "body_sha256": "digest-1",
+            "absorbed_by_actor": "codex",
+            "absorbed_by_role": "reviewer",
+            "absorbed_by_session_id": "session-1",
+            "absorbed_at_utc": "2026-05-18T00:00:00Z",
+            "source_semantic_ingestion_receipt_id": "semantic:rev_pkt_1:abc",
+            "source_semantic_ingestion_event_id": "rev_evt_semantic",
+            "action_item_dispositions": ["rev_pkt_1:item:deferred"],
+            "decision_rationale": "packet action rows were dispositioned",
+            "resulting_decision": "packet_absorbed",
+            "evidence_refs": ["packet:rev_pkt_1"],
+        }
+
+        state = review_state_from_payload(
+            {
+                "schema_version": 1,
+                "contract_id": "ReviewState",
+                "command": "review-channel",
+                "action": "status",
+                "ok": True,
+                "packets": [
+                    {
+                        "packet_id": "rev_pkt_1",
+                        "kind": "finding",
+                        "from_agent": "claude",
+                        "to_agent": "codex",
+                        "status": "pending",
+                        "lifecycle_current_state": "absorbed",
+                        "packet_absorption_receipt": receipt,
+                        "absorption_receipt": receipt,
+                        "absorption_events": [
+                            {
+                                "event_id": "rev_evt_absorb",
+                                "packet_absorption_receipt": receipt,
+                            }
+                        ],
+                    }
+                ],
+            }
+        )
+
+        self.assertIsNotNone(state)
+        assert state is not None
+        packet = state.to_dict()["packets"][0]
+        self.assertEqual(
+            packet["packet_absorption_receipt"]["receipt_id"],
+            "packet_absorption:rev_pkt_1:abc",
+        )
+        self.assertEqual(
+            packet["absorption_events"][0]["packet_absorption_receipt"]["packet_id"],
+            "rev_pkt_1",
+        )
+
     def test_review_state_round_trips_typed_round_proofs(self) -> None:
         state = review_state_from_payload(
             {

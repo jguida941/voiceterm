@@ -95,6 +95,13 @@ def acted_on_disposition(
             reason="Packet was explicitly dismissed by the addressed actor.",
             anchor=target_anchor,
         )
+    if action == "absorbed":
+        return archive_disposition(
+            status="absorbed",
+            classification="absorbed_with_receipt",
+            reason="Packet was resolved through a typed PacketAbsorptionReceipt.",
+            anchor=target_anchor,
+        )
     if action == "archived" and has_creation_binding(packet):
         return archive_disposition(
             status="archived",

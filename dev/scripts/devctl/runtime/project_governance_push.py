@@ -65,6 +65,9 @@ class PushEnforcement:
     latest_push_report_reason: str = ""
     latest_push_report_published_remote: bool = False
     latest_push_report_post_push_green: bool = False
+    latest_push_report_publication_mode: str = ""
+    latest_push_report_governed_push_verified: bool = False
+    latest_push_report_operator_bypass_evidence_required: bool = False
     current_worktree_identity: str = ""
     current_approved_target_identity: str = ""
     latest_push_report_approved_worktree_identity: str = ""
@@ -81,6 +84,9 @@ class PushEnforcement:
     selected_push_report_reason: str = ""
     selected_push_report_published_remote: bool = False
     selected_push_report_post_push_green: bool = False
+    selected_push_report_publication_mode: str = ""
+    selected_push_report_governed_push_verified: bool = False
+    selected_push_report_operator_bypass_evidence_required: bool = False
     selected_push_report_approved_worktree_identity: str = ""
     selected_push_report_approved_target_identity: str = ""
     selected_push_report_matches_current_approved_target: bool = False
@@ -97,6 +103,8 @@ class PushEnforcement:
     current_push_authorization_matches_current_approved_target: bool = False
     current_push_authorization_matches_current_worktree: bool = True
     current_push_authorization_valid: bool = False
+    publication_audit_required: bool = False
+    operator_bypass_evidence_required: bool = False
 
 
 def _fallback_payload_value(
@@ -127,14 +135,30 @@ def _push_report_projection_kwargs(
         )
 
     approved_worktree_identity = coerce_string(_value("approved_worktree_identity"))
+    published_remote = coerce_bool(_value("published_remote"))
+    publication_mode = coerce_string(_value("publication_mode"))
+    governed_raw = _value("governed_push_verified")
+    governed_push_verified = (
+        coerce_bool(governed_raw)
+        if governed_raw is not None
+        else bool(
+            published_remote
+            and publication_mode not in {"raw_no_verify", "ungoverned_remote_advance"}
+        )
+    )
     return {
         f"{prefix}_branch": coerce_string(_value("branch")),
         f"{prefix}_remote": coerce_string(_value("remote")),
         f"{prefix}_head_commit": coerce_string(_value("head_commit")),
         f"{prefix}_status": coerce_string(_value("status")),
         f"{prefix}_reason": coerce_string(_value("reason")),
-        f"{prefix}_published_remote": coerce_bool(_value("published_remote")),
+        f"{prefix}_published_remote": published_remote,
         f"{prefix}_post_push_green": coerce_bool(_value("post_push_green")),
+        f"{prefix}_publication_mode": publication_mode,
+        f"{prefix}_governed_push_verified": governed_push_verified,
+        f"{prefix}_operator_bypass_evidence_required": coerce_bool(
+            _value("operator_bypass_evidence_required")
+        ),
         f"{prefix}_approved_worktree_identity": approved_worktree_identity,
         f"{prefix}_approved_target_identity": coerce_string(
             _value("approved_target_identity")
@@ -270,6 +294,12 @@ def push_enforcement_from_mapping(
         ),
         publication_backlog_urgent=coerce_bool(
             payload.get("publication_backlog_urgent")
+        ),
+        publication_audit_required=coerce_bool(
+            payload.get("publication_audit_required")
+        ),
+        operator_bypass_evidence_required=coerce_bool(
+            payload.get("operator_bypass_evidence_required")
         ),
         recommend_after_ahead_commits=(
             publication_policy.recommend_after_ahead_commits

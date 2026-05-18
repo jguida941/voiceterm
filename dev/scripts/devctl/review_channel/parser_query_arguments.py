@@ -32,6 +32,39 @@ def _packet_lookup_arguments(arg_builder: Callable[..., Any]) -> list[Any]:
             ),
         ),
         arg_builder(
+            "--actor-role",
+            help=(
+                "Role for --actor when the action subject differs from the "
+                "packet target role, such as reviewer posting a finding to a "
+                "dashboard or implementer lane."
+            ),
+        ),
+        arg_builder(
+            "--executor-actor",
+            help=(
+                "Optional local executor actor when a typed lifecycle command "
+                "is run as an authorized proxy for --actor."
+            ),
+        ),
+        arg_builder(
+            "--executor-role",
+            help="Optional local executor role for proxied lifecycle commands.",
+        ),
+        arg_builder(
+            "--executor-session-id",
+            help=(
+                "Optional local executor session id for proxied lifecycle "
+                "commands."
+            ),
+        ),
+        arg_builder(
+            "--proxy-authority-ref",
+            help=(
+                "Typed authority reference that permits executor_actor to run "
+                "the scoped lifecycle action for --actor."
+            ),
+        ),
+        arg_builder(
             "--revision",
             help=(
                 "Expected current instruction revision for typed role actions "

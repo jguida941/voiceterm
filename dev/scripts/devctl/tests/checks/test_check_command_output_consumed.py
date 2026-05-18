@@ -207,6 +207,51 @@ def test_tail_only_authority_output_accepts_structured_full_artifact() -> None:
     assert report["ok"] is True
 
 
+def test_structured_full_artifact_requires_created_at_utc() -> None:
+    output = build_command_output_receipt(
+        command_name="agent-loop",
+        command=("python3", "dev/scripts/devctl.py", "agent-loop"),
+        cwd=".",
+        exit_code=0,
+        stdout='{"may_mutate": true}',
+        capture_scope="tail",
+    )
+    output_payload = output.to_dict()
+    output_payload["full_output_artifact_ref"] = {
+        "contract_id": "CommandOutputFullArtifact",
+        "command_output_receipt_id": output.receipt_id,
+        "path": "dev/reports/command_output/full.json",
+        "sha256": "a" * 64,
+        "byte_count": 21,
+        "capture_scope": "full",
+    }
+    consumption = build_command_output_consumption_receipt(
+        command_output_receipt_id=output.receipt_id,
+        command_name="agent-loop",
+        output_sha256="a" * 64,
+        consumed_by_actor="codex",
+        consumed_by_role="reviewer",
+        consumed_at_utc="2026-05-17T18:30:00Z",
+        extracted_authority_fields=("may_mutate",),
+        extracted_authority_values={"may_mutate": True},
+        resulting_decision="continue",
+        decision_rationale="controller allowed mutation",
+    )
+
+    report = build_report(
+        report_override={
+            "command_output_receipt": output_payload,
+            "consumption": consumption.to_dict(),
+        }
+    )
+
+    assert report["ok"] is False
+    assert any(
+        violation["reason"] == "authority_output_tail_without_full_artifact"
+        for violation in report["violations"]
+    )
+
+
 def test_structured_full_artifact_requires_consumption_hash_match() -> None:
     output = build_command_output_receipt(
         command_name="agent-loop",
@@ -469,5 +514,58 @@ def test_agent_loop_full_output_requires_packet_attention_fields() -> None:
     assert any(
         violation["reason"] == "consumption_missing_authority_field"
         and violation["detail"] == "body_open_required"
+        for violation in report["violations"]
+    )
+
+
+def test_agent_loop_full_output_requires_semantic_ingestion_fields() -> None:
+    output = build_command_output_receipt(
+        command_name="agent-loop",
+        command=("python3", "dev/scripts/devctl.py", "agent-loop"),
+        cwd=".",
+        exit_code=0,
+        stdout=(
+            '{"agent_loop_decision": {"decision": "wait", '
+            '"may_mutate": false, "can_run_next_command": false}, '
+            '"packet_attention": {'
+            '"semantic_ingestion_required": true, '
+            '"semantic_ingestion_packet_id": "rev_pkt_1", '
+            '"semantic_ingestion_command": "python3 dev/scripts/devctl.py review-channel --action ingest", '
+            '"semantic_ingestion_reason": "packet_body_observed_without_semantic_ingestion"'
+            "}}"
+        ),
+    )
+    consumption = build_command_output_consumption_receipt(
+        command_output_receipt_id=output.receipt_id,
+        command_name="agent-loop",
+        output_sha256=output.stdout_sha256,
+        consumed_by_actor="codex",
+        consumed_by_role="reviewer",
+        consumed_at_utc="2026-05-17T18:30:00Z",
+        extracted_authority_fields=(
+            "decision",
+            "may_mutate",
+            "can_run_next_command",
+        ),
+        extracted_authority_values={
+            "decision": "wait",
+            "may_mutate": False,
+            "can_run_next_command": False,
+        },
+        resulting_decision="wait",
+        decision_rationale="semantic ingestion required",
+    )
+
+    report = build_report(
+        report_override={
+            "command_output_receipt": output.to_dict(),
+            "consumption": consumption.to_dict(),
+        }
+    )
+
+    assert report["ok"] is False
+    assert any(
+        violation["reason"] == "consumption_missing_authority_field"
+        and violation["detail"] == "semantic_ingestion_required"
         for violation in report["violations"]
     )

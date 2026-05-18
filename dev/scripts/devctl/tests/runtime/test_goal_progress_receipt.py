@@ -49,6 +49,48 @@ def test_goal_progress_receipt_accepts_percentage_evidence() -> None:
     assert receipt.progress_percentage_toward_goal == 100
 
 
+def test_expired_continuation_anchor_does_not_drive_goal_progress() -> None:
+    expired_anchor = _continuation_anchor()
+    expired_anchor["expires_at_utc"] = "2000-01-01T00:00:00Z"
+    expired_anchor["metadata"] = {"transport_expiry_explicit": True}
+
+    receipt = resolve_goal_progress_receipt(
+        {
+            "packets": [
+                expired_anchor,
+                _goal_progress(evidence_refs=["goal_progress:4/5"]),
+            ]
+        },
+        actor="codex",
+        continuation_goal="rev_pkt_anchor",
+    )
+
+    assert receipt.status == "missing"
+    assert receipt.continuation_anchor_packet_id == ""
+    assert receipt.latest_progress_packet_id == ""
+
+
+def test_live_expiring_continuation_anchor_still_drives_goal_progress() -> None:
+    live_anchor = _continuation_anchor()
+    live_anchor["expires_at_utc"] = "2999-01-01T00:00:00Z"
+    live_anchor["metadata"] = {"transport_expiry_explicit": True}
+
+    receipt = resolve_goal_progress_receipt(
+        {
+            "packets": [
+                live_anchor,
+                _goal_progress(evidence_refs=["goal_progress:4/5"]),
+            ]
+        },
+        actor="codex",
+        continuation_goal="rev_pkt_anchor",
+    )
+
+    assert receipt.status == "in_progress"
+    assert receipt.continuation_anchor_packet_id == "rev_pkt_anchor"
+    assert receipt.latest_progress_packet_id == "rev_pkt_progress"
+
+
 def test_continuation_signal_reports_goal_progress_fields() -> None:
     signal = continuation_signal(
         packet_attention=DevelopmentPacketAttention(),
@@ -119,6 +161,35 @@ def test_complete_goal_progress_still_requires_stop_anchor() -> None:
     assert stopped.continuation_required is False
     assert stopped.final_response_allowed is True
     assert stopped.reasons == ()
+
+
+def test_expired_stop_anchor_does_not_close_live_continuation_goal() -> None:
+    expired_stop = _stop_anchor()
+    expired_stop["expires_at_utc"] = "2000-01-01T00:00:00Z"
+    expired_stop["metadata"] = {"transport_expiry_explicit": True}
+
+    signal = continuation_signal(
+        packet_attention=DevelopmentPacketAttention(),
+        orchestration=_reviewer_route(),
+        watcher_lease=DevelopmentWatcherLease(status="live"),
+        review_state={
+            "packets": [
+                _continuation_anchor(),
+                _goal_progress(evidence_refs=["goal_progress:2/2"]),
+                expired_stop,
+            ]
+        },
+        actor="codex",
+        current_action="next",
+        fallback_commands=(
+            "python3 dev/scripts/devctl.py develop next --actor codex --format md",
+        ),
+    )
+
+    assert signal.continuation_required is True
+    assert signal.final_response_allowed is False
+    assert signal.continuation_anchor_packet_id == "rev_pkt_anchor"
+    assert "continuation_anchor_active:rev_pkt_anchor" in signal.reasons
 
 
 def _continuation_anchor() -> dict[str, object]:

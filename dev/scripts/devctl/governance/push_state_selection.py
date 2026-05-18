@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from dataclasses import replace
 
 from .push_state_report import (
     current_target_remote as _current_target_remote,
@@ -25,6 +26,9 @@ class ProjectedPushReport:
     reason: str = ""
     published_remote: bool = False
     post_push_green: bool = False
+    publication_mode: str = ""
+    governed_push_verified: bool = False
+    operator_bypass_evidence_required: bool = False
     approved_target_identity: str = ""
     approved_worktree_identity: str = ""
     matches_current_branch: bool = False
@@ -77,6 +81,14 @@ def project_push_report(
         reason=str(report.get("reason") or "").strip(),
         published_remote=bool(push_stages.get("published_remote")),
         post_push_green=bool(push_stages.get("post_push_green")),
+        publication_mode=_publication_mode(report, push_stages=push_stages),
+        governed_push_verified=_governed_push_verified(
+            report,
+            push_stages=push_stages,
+        ),
+        operator_bypass_evidence_required=bool(
+            report.get("operator_bypass_evidence_required")
+        ),
         approved_target_identity=approved_target_identity,
         approved_worktree_identity=approved_worktree_identity,
         matches_current_branch=matches_branch,
@@ -106,6 +118,14 @@ def load_push_report_projections(
         selected_report,
         inputs=inputs,
     )
+    if selected_source == "receipt_history" and selected_projection.published_remote:
+        selected_projection = replace(
+            selected_projection,
+            publication_mode=(
+                selected_projection.publication_mode or "governed_push"
+            ),
+            governed_push_verified=True,
+        )
     recorded_publication = records_current_target_publication(
         report=selected_projection,
         current_target_remote=_current_target_remote(
@@ -163,9 +183,54 @@ def records_current_target_publication(
     """Return whether one selected report proves current-target publication."""
     return bool(
         report.published_remote
+        and report.governed_push_verified
+        and report.publication_mode not in {"raw_no_verify", "ungoverned_remote_advance"}
         and report.matches_current_branch
         and report.matches_current_head
         and report.matches_current_approved_target
         and report.matches_current_worktree
         and (not report.remote or report.remote == current_target_remote)
     )
+
+
+def _governed_push_verified(
+    report: dict[str, object],
+    *,
+    push_stages: dict[str, object],
+) -> bool:
+    explicit = report.get("governed_push_verified")
+    if explicit is not None:
+        return bool(explicit)
+    if _publication_mode(report, push_stages=push_stages) in {
+        "raw_no_verify",
+        "ungoverned_remote_advance",
+    }:
+        return False
+    if str(report.get("command") or "") != "push":
+        return False
+    if not bool(push_stages.get("published_remote")):
+        return False
+    if str(report.get("reason") or "") == "branch_already_pushed":
+        return True
+    push_step = report.get("push_step")
+    if not isinstance(push_step, dict):
+        return False
+    try:
+        return int(push_step.get("returncode")) == 0
+    except (TypeError, ValueError):
+        return False
+
+
+def _publication_mode(
+    report: dict[str, object],
+    *,
+    push_stages: dict[str, object],
+) -> str:
+    explicit = str(report.get("publication_mode") or "").strip()
+    if explicit:
+        return explicit
+    if bool(push_stages.get("published_remote")):
+        return "legacy_push_report"
+    if bool(push_stages.get("validation_ready")):
+        return "validation_only"
+    return "not_published"

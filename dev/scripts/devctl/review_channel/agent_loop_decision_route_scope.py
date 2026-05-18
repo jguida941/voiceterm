@@ -97,9 +97,11 @@ def packet_targets_fresh_route(
         return True
     routes = fresh_session_routes(review_state, actor_id=actor_id)
     if not routes:
+        if has_session_route_evidence(review_state, actor_id=actor_id):
+            return False
         if allow_actor_pending_pressure:
             return True
-        return not has_session_route_evidence(review_state, actor_id=actor_id)
+        return True
     return any(
         packet_route_matches_scope(
             packet,

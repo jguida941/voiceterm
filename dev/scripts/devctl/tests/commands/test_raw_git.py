@@ -246,7 +246,33 @@ def test_raw_git_commit_wrapper_requires_control_decision_before_git(
 
     assert rc == 1
     assert report["ok"] is False
-    assert report["reason"] == "control_decision_required"
+    assert report["reason"] == "control_decision_scope_required"
+    assert calls == []
+
+
+def test_raw_git_commit_wrapper_requires_actor_role_session_scope_before_git(
+    tmp_path: Path,
+) -> None:
+    calls: list[tuple[str, ...]] = []
+
+    def fake_git(args: tuple[str, ...], capture: bool) -> GitCommandResult:
+        calls.append(args)
+        return GitCommandResult(0, "", "")
+
+    args = Namespace(
+        raw_git_action="commit",
+        git_args=["-m", "slice"],
+        actor="codex",
+        role="reviewer",
+        session_id="",
+    )
+
+    report, rc = run_raw_git_action(args, repo_root=tmp_path, git_runner=fake_git)
+
+    assert rc == 1
+    assert report["ok"] is False
+    assert report["reason"] == "control_decision_scope_required"
+    assert "--session-id" in report["detail"]
     assert calls == []
 
 

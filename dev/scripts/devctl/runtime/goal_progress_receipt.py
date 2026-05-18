@@ -6,6 +6,7 @@ from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 
 from .collaboration_packet_kinds import GOAL_PROGRESS_PACKET_KIND
+from .packet_transport_expiry import packet_transport_expired
 from .session_termination_policy import CONTINUATION_ANCHOR_PACKET_KIND
 from .value_coercion import coerce_int, coerce_mapping, coerce_string
 
@@ -53,17 +54,23 @@ def resolve_goal_progress_receipt(
     goal = coerce_string(continuation_goal)
     anchor = _latest_continuation_anchor(state, actor_id=actor_id)
     anchor_id = coerce_string(anchor.get("packet_id"))
+    base = {
+        "actor_id": actor_id,
+        "continuation_goal": goal or anchor_id,
+        "continuation_anchor_packet_id": anchor_id,
+    }
+    if not anchor_id:
+        return GoalProgressReceipt(
+            **base,
+            status="missing",
+            summary="No active continuation_anchor packet is available for goal progress.",
+        )
     match_tokens = _match_tokens(goal=goal, anchor_id=anchor_id)
     progress_packet = _latest_goal_progress_packet(
         state,
         actor_id=actor_id,
         match_tokens=match_tokens,
     )
-    base = {
-        "actor_id": actor_id,
-        "continuation_goal": goal or anchor_id,
-        "continuation_anchor_packet_id": anchor_id,
-    }
     if not progress_packet:
         return GoalProgressReceipt(
             **base,
@@ -224,6 +231,8 @@ def _actor_matches(packet: Mapping[str, object], *, actor_id: str) -> bool:
 
 
 def _active(packet: Mapping[str, object]) -> bool:
+    if packet_transport_expired(packet):
+        return False
     status = coerce_string(packet.get("status"))
     lifecycle = coerce_string(packet.get("lifecycle_current_state"))
     return status in {"", "pending", "acked", "acknowledged"} and lifecycle not in {

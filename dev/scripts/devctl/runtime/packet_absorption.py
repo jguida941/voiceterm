@@ -27,6 +27,7 @@ ACTIONABLE_PACKET_KINDS = frozenset(
 PACKET_ABSORPTION_ALLOWED_DISPOSITIONS = frozenset(
     {
         "accepted",
+        "blocked",
         "rejected",
         "deferred",
         "superseded",
@@ -50,6 +51,8 @@ class PacketAbsorptionReceipt:
     absorbed_by_role: str
     absorbed_by_session_id: str
     absorbed_at_utc: str
+    source_semantic_ingestion_receipt_id: str = ""
+    source_semantic_ingestion_event_id: str = ""
     action_item_dispositions: tuple[str, ...] = ()
     resulting_decision: str = ""
     decision_rationale: str = ""
@@ -156,6 +159,8 @@ def build_packet_absorption_receipt(
     absorbed_by_role: str,
     absorbed_by_session_id: str,
     absorbed_at_utc: str,
+    source_semantic_ingestion_receipt_id: str = "",
+    source_semantic_ingestion_event_id: str = "",
     action_item_dispositions: Sequence[str] = (),
     resulting_decision: str = "",
     decision_rationale: str = "",
@@ -175,6 +180,8 @@ def build_packet_absorption_receipt(
             coerce_string(absorbed_by_actor),
             coerce_string(absorbed_by_role),
             coerce_string(absorbed_by_session_id),
+            coerce_string(source_semantic_ingestion_receipt_id),
+            coerce_string(source_semantic_ingestion_event_id),
             "\x1f".join(dispositions),
             coerce_string(resulting_decision),
             coerce_string(decision_rationale),
@@ -194,6 +201,12 @@ def build_packet_absorption_receipt(
         absorbed_by_role=coerce_string(absorbed_by_role),
         absorbed_by_session_id=coerce_string(absorbed_by_session_id),
         absorbed_at_utc=coerce_string(absorbed_at_utc),
+        source_semantic_ingestion_receipt_id=coerce_string(
+            source_semantic_ingestion_receipt_id
+        ),
+        source_semantic_ingestion_event_id=coerce_string(
+            source_semantic_ingestion_event_id
+        ),
         action_item_dispositions=dispositions,
         resulting_decision=coerce_string(resulting_decision),
         decision_rationale=coerce_string(decision_rationale),
@@ -265,6 +278,12 @@ def packet_absorption_receipt_from_mapping(
         absorbed_by_role=coerce_string(payload.get("absorbed_by_role")),
         absorbed_by_session_id=coerce_string(payload.get("absorbed_by_session_id")),
         absorbed_at_utc=coerce_string(payload.get("absorbed_at_utc")),
+        source_semantic_ingestion_receipt_id=coerce_string(
+            payload.get("source_semantic_ingestion_receipt_id")
+        ),
+        source_semantic_ingestion_event_id=coerce_string(
+            payload.get("source_semantic_ingestion_event_id")
+        ),
         action_item_dispositions=coerce_string_items(
             payload.get("action_item_dispositions")
         ),
@@ -350,9 +369,12 @@ def evaluate_packet_absorption_required(
         packet_id = coerce_string(packet.get("packet_id"))
         packet_receipts = receipts_by_packet_id.get(packet_id, ())
         semantic_receipts = ingestion_by_packet_id.get(packet_id, ())
-        violations.extend(
-            _semantic_ingestion_receipt_violations(packet, semantic_receipts)
+        semantic_violations = _semantic_ingestion_receipt_violations(
+            packet,
+            semantic_receipts,
         )
+        if not _valid_semantic_ingestion_receipts(packet, semantic_receipts):
+            violations.extend(semantic_violations)
         if _packet_body_observed(packet) and not packet_semantically_ingested(
             packet,
             semantic_ingestion_receipts=semantic_receipts,
@@ -446,14 +468,7 @@ def packet_semantically_ingested(
     absorption_rows = tuple(
         receipt for receipt in absorption_receipts if isinstance(receipt, Mapping)
     )
-    if (
-        packet_id
-        and not _semantic_ingestion_receipt_violations(packet, semantic_receipts)
-        and any(
-            coerce_string(receipt.get("packet_id")) == packet_id
-            for receipt in semantic_receipts
-        )
-    ):
+    if packet_id and _valid_semantic_ingestion_receipts(packet, semantic_receipts):
         return True
     return packet_absorbed(packet, absorption_receipts=absorption_rows)
 
@@ -493,6 +508,19 @@ def packet_semantically_ingested_by(
         semantic_ingestion_receipts=scoped_receipts,
         absorption_receipts=absorption_receipts,
     )
+
+
+def valid_semantic_ingestion_receipts(
+    packet: Mapping[str, object],
+    *,
+    semantic_ingestion_receipts: Sequence[Mapping[str, object]] = (),
+) -> tuple[Mapping[str, object], ...]:
+    """Return valid semantic-ingestion receipts for a packet, preserving order."""
+    receipts = (
+        *tuple(row for row in semantic_ingestion_receipts if isinstance(row, Mapping)),
+        *_inline_semantic_ingestion_receipts(packet),
+    )
+    return _valid_semantic_ingestion_receipts(packet, receipts)
 
 
 def semantic_ingestion_missing_for_packet(
@@ -543,6 +571,17 @@ def _collect_packets_and_receipts(
                         receipts,
                         semantic_ingestion_receipts,
                     )
+        inline_absorption = (
+            payload.get("absorption_receipt")
+            or payload.get("packet_absorption_receipt")
+        )
+        if isinstance(inline_absorption, Mapping):
+            _collect_packets_and_receipts(
+                inline_absorption,
+                packets,
+                receipts,
+                semantic_ingestion_receipts,
+            )
         inline_ingestion = payload.get("semantic_ingestion_receipt")
         if isinstance(inline_ingestion, Mapping):
             _collect_packets_and_receipts(
@@ -573,13 +612,14 @@ def _absorbed(
     packet_id = coerce_string(packet.get("packet_id"))
     if any(coerce_string(receipt.get("packet_id")) == packet_id for receipt in absorption_receipts):
         return True
-    receipt = packet.get("absorption_receipt")
-    if (
-        isinstance(receipt, Mapping)
-        and coerce_string(receipt.get("packet_id")) == packet_id
-        and not _receipt_violations(packet, (receipt,))
-    ):
-        return True
+    for key in ("absorption_receipt", "packet_absorption_receipt"):
+        receipt = packet.get(key)
+        if (
+            isinstance(receipt, Mapping)
+            and coerce_string(receipt.get("packet_id")) == packet_id
+            and not _receipt_violations(packet, (receipt,))
+        ):
+            return True
     return False
 
 
@@ -650,6 +690,21 @@ def _semantic_ingestion_receipt_violations(
                 )
             )
     return violations
+
+
+def _valid_semantic_ingestion_receipts(
+    packet: Mapping[str, object],
+    receipts: Sequence[Mapping[str, object]],
+) -> tuple[Mapping[str, object], ...]:
+    packet_id = coerce_string(packet.get("packet_id"))
+    if not packet_id:
+        return ()
+    return tuple(
+        receipt
+        for receipt in receipts
+        if coerce_string(receipt.get("packet_id")) == packet_id
+        and not _semantic_ingestion_receipt_violations(packet, (receipt,))
+    )
 
 
 def _inline_semantic_ingestion_receipts(
@@ -795,6 +850,7 @@ def _receipt_violations(
                 "absorbed_by_role",
                 "absorbed_by_session_id",
                 "absorbed_at_utc",
+                "source_semantic_ingestion_receipt_id",
                 "resulting_decision",
                 "decision_rationale",
             )
@@ -888,9 +944,9 @@ def _disposition_specific_missing_fields(
                 missing.append("deferred:defer_reason")
             if not next_slice_refs:
                 missing.append("deferred:next_slice_refs")
-        elif status == "rejected":
+        elif status in {"blocked", "rejected"}:
             if not blocked_reason:
-                missing.append("rejected:blocked_reason")
+                missing.append(f"{status}:blocked_reason")
         elif status == "needs_operator_decision":
             if not blocked_reason:
                 missing.append("needs_operator_decision:blocked_reason")
@@ -947,4 +1003,5 @@ __all__ = [
     "packet_semantically_ingested",
     "packet_semantically_ingested_by",
     "semantic_ingestion_missing_for_packet",
+    "valid_semantic_ingestion_receipts",
 ]

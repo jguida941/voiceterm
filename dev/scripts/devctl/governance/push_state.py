@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import asdict, dataclass
+from dataclasses import replace
 from pathlib import Path
 
 from ..commands.vcs.push_artifact import (
@@ -147,6 +148,13 @@ def _build_push_enforcement_snapshot(
         latest_push_report_reason=inputs.latest_push_report.reason,
         latest_push_report_published_remote=inputs.latest_push_report.published_remote,
         latest_push_report_post_push_green=inputs.latest_push_report.post_push_green,
+        latest_push_report_publication_mode=inputs.latest_push_report.publication_mode,
+        latest_push_report_governed_push_verified=(
+            inputs.latest_push_report.governed_push_verified
+        ),
+        latest_push_report_operator_bypass_evidence_required=(
+            inputs.latest_push_report.operator_bypass_evidence_required
+        ),
         current_worktree_identity=inputs.runtime.current_worktree_identity,
         current_approved_target_identity=inputs.runtime.current_approved_target_identity,
         latest_push_report_approved_worktree_identity=(
@@ -176,6 +184,15 @@ def _build_push_enforcement_snapshot(
         ),
         selected_push_report_post_push_green=(
             inputs.selected_push_report_state.post_push_green
+        ),
+        selected_push_report_publication_mode=(
+            inputs.selected_push_report_state.publication_mode
+        ),
+        selected_push_report_governed_push_verified=(
+            inputs.selected_push_report_state.governed_push_verified
+        ),
+        selected_push_report_operator_bypass_evidence_required=(
+            inputs.selected_push_report_state.operator_bypass_evidence_required
         ),
         selected_push_report_approved_worktree_identity=(
             inputs.selected_push_report_state.approved_worktree_identity
@@ -215,6 +232,8 @@ def _build_push_enforcement_snapshot(
             inputs.runtime.current_push_authorization_matches_current_worktree
         ),
         current_push_authorization_valid=inputs.runtime.current_push_authorization_valid,
+        publication_audit_required=inputs.publication_audit_required,
+        operator_bypass_evidence_required=inputs.operator_bypass_evidence_required,
     )
 
 
@@ -276,6 +295,35 @@ def detect_push_enforcement_state(
             current_worktree_identity=runtime.current_worktree_identity,
         ),
     )
+    raw_remote_advance = _raw_remote_advance_without_governed_push_receipt(
+        runtime=runtime,
+        recorded_remote_publication_for_current_target=(
+            recorded_remote_publication_for_current_target
+        ),
+    )
+    if raw_remote_advance:
+        selected_push_report_source = "remote_state_audit"
+        selected_push_report_state = replace(
+            selected_push_report_state,
+            branch=runtime.current_branch,
+            remote=_remote_from_upstream(
+                runtime.upstream_ref,
+                default_remote=policy.default_remote,
+            ),
+            head_commit=runtime.current_head_commit,
+            status="published_remote",
+            reason="ungoverned_remote_advance",
+            published_remote=True,
+            post_push_green=False,
+            publication_mode="ungoverned_remote_advance",
+            governed_push_verified=False,
+            operator_bypass_evidence_required=True,
+            matches_current_branch=True,
+            matches_current_head=True,
+            matches_current_approved_target=True,
+            matches_current_worktree=True,
+        )
+        recorded_remote_publication_for_current_target = False
     has_remote_work_to_push = not (
         recorded_remote_publication_for_current_target
         or (runtime.ahead_of_upstream_commits == 0 and runtime.upstream_ref)
@@ -337,6 +385,8 @@ def detect_push_enforcement_state(
             managed_projection_drift=bool(managed_projection_dirty_paths),
             managed_projection_dirty_paths=managed_projection_dirty_paths,
             advisory_context_dirty_paths=advisory_context_dirty_paths,
+            publication_audit_required=raw_remote_advance,
+            operator_bypass_evidence_required=raw_remote_advance,
         ),
     )
     return asdict(snapshot)
@@ -364,6 +414,8 @@ class _PushEnforcementSnapshotInputs:
     managed_projection_drift: bool
     managed_projection_dirty_paths: tuple[str, ...]
     advisory_context_dirty_paths: tuple[str, ...]
+    publication_audit_required: bool = False
+    operator_bypass_evidence_required: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -418,6 +470,25 @@ def _recommended_action_and_checkpoint_reason(
     ):
         return "no_push_needed", "clean_worktree"
     return "use_devctl_push", "clean_worktree"
+
+
+def _raw_remote_advance_without_governed_push_receipt(
+    *,
+    runtime: "_PushRuntimeInputs",
+    recorded_remote_publication_for_current_target: bool,
+) -> bool:
+    return bool(
+        runtime.upstream_ref
+        and runtime.current_head_commit
+        and runtime.ahead_of_upstream_commits == 0
+        and not recorded_remote_publication_for_current_target
+    )
+
+
+def _remote_from_upstream(upstream_ref: str, *, default_remote: str) -> str:
+    if "/" in upstream_ref:
+        return upstream_ref.split("/", 1)[0]
+    return default_remote
 
 
 def _detect_runtime_inputs(

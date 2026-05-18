@@ -26,6 +26,7 @@ _PENDING_LIFECYCLES = frozenset(
         "task_produced",
         "task_blocked",
         "operator_routed",
+        "absorbed",
     }
 )
 

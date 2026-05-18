@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+import shlex
 from dataclasses import asdict
 
 from dev.scripts.devctl.review_channel.agent_packet_attention import (
@@ -344,9 +346,107 @@ def test_observed_actionable_packet_stays_runtime_attention() -> None:
     )
 
     assert attention.pending_packet_count == 1
-    assert attention.body_open_required is True
+    assert attention.body_open_required is False
     assert attention.body_open_packet_id == "rev_pkt_action"
-    assert "--action ingest" in attention.body_open_command
+    assert attention.body_open_command == ""
+    assert attention.semantic_ingestion_required is True
+    assert attention.semantic_ingestion_packet_id == "rev_pkt_action"
+    assert "--action ingest" in attention.semantic_ingestion_command
+    argv = shlex.split(attention.semantic_ingestion_command)
+    semantic_row = json.loads(argv[argv.index("--semantic-action-item") + 1])
+    assert semantic_row["contract_id"] == "PacketSemanticActionItem"
+    assert semantic_row["disposition"] == "deferred"
+    assert semantic_row["packet_ref"] == "packet:rev_pkt_action"
+    assert semantic_row["target_ref"] == "packet:rev_pkt_action"
+    assert semantic_row["evidence_refs"] == ["packet:rev_pkt_action#body_observed"]
+    assert semantic_row["next_slice_refs"] == ["packet:rev_pkt_action"]
+    assert attention.latest_attention_packet_id == "rev_pkt_action"
+    assert attention.wake_required is True
+
+
+def test_valid_stage_commit_action_request_semantic_row_can_be_accepted() -> None:
+    packet = {
+        "packet_id": "rev_pkt_action",
+        "from_agent": "codex",
+        "to_agent": "claude",
+        "kind": "action_request",
+        "requested_action": "stage_commit_pipeline",
+        "target_kind": "runtime",
+        "target_ref": "devctl_commit:lifecycle_proxy_absorb_checkpoint",
+        "body": "Run the governed checkpoint through devctl commit.",
+        "status": "pending",
+        "lifecycle_current_state": "delivery_pending",
+        "latest_event_id": "rev_evt_52",
+        "target_role": "implementer",
+        "target_session_id": "s1",
+    }
+    digest = packet_body_digest(packet)
+    packet["body_observation_events"] = [
+        {
+            "body_observed_by": "claude",
+            "body_observed_role": "implementer",
+            "body_observed_session_id": "s1",
+            "body_digest": digest,
+        }
+    ]
+
+    attention = packet_attention_for_agent(
+        {"packets": [packet]},
+        actor="claude",
+        role="implementer",
+        session="s1",
+    )
+
+    argv = shlex.split(attention.semantic_ingestion_command)
+    semantic_row = json.loads(argv[argv.index("--semantic-action-item") + 1])
+    assert semantic_row["kind"] == "stage_commit_pipeline"
+    assert semantic_row["disposition"] == "accepted"
+    assert semantic_row["target_ref"] == "devctl_commit:lifecycle_proxy_absorb_checkpoint"
+    assert "next_slice_refs" not in semantic_row
+
+
+def test_absorbed_action_request_stays_runtime_attention_until_consumed() -> None:
+    packet = {
+        "packet_id": "rev_pkt_action",
+        "from_agent": "codex",
+        "to_agent": "claude",
+        "kind": "action_request",
+        "requested_action": "stage_commit_pipeline",
+        "target_kind": "runtime",
+        "target_ref": "devctl_commit:lifecycle_proxy_absorb_checkpoint",
+        "body": "Run the governed checkpoint through devctl commit.",
+        "status": "pending",
+        "lifecycle_current_state": "absorbed",
+        "disposition": {"sink": "absorbed"},
+        "latest_event_id": "rev_evt_52",
+        "target_role": "implementer",
+        "target_session_id": "s1",
+        "absorption_receipt": {
+            "contract_id": "PacketAbsorptionReceipt",
+            "packet_id": "rev_pkt_action",
+            "body_sha256": "digest",
+            "absorbed_by_actor": "claude",
+            "absorbed_by_role": "implementer",
+            "absorbed_by_session_id": "s1",
+            "absorbed_at_utc": "2026-05-17T18:45:00Z",
+            "source_semantic_ingestion_receipt_id": (
+                "packet_semantic_ingestion:rev_pkt_action:test"
+            ),
+            "action_item_dispositions": ["rev_pkt_action:stage_commit_pipeline:accepted"],
+            "resulting_decision": "stage_commit_pipeline_action_request_parsed",
+            "decision_rationale": "governed commit has not consumed this packet yet",
+            "evidence_refs": ["packet:rev_pkt_action#body_observed"],
+        },
+    }
+
+    attention = packet_attention_for_agent(
+        {"packets": [packet]},
+        actor="claude",
+        role="implementer",
+        session="s1",
+    )
+
+    assert attention.pending_packet_count == 1
     assert attention.latest_attention_packet_id == "rev_pkt_action"
     assert attention.wake_required is True
 
@@ -407,10 +507,14 @@ def test_semantically_ingested_actionable_packet_leaves_body_gate() -> None:
 
     assert attention.pending_packet_count == 1
     assert attention.body_open_required is False
+    assert attention.body_open_command == ""
+    assert attention.absorption_required is True
+    assert attention.absorption_packet_id == "rev_pkt_action"
+    assert "--action absorb" in attention.absorption_command
     assert attention.latest_attention_packet_id == "rev_pkt_action"
 
 
-def test_durably_ingested_finding_with_route_observation_does_not_remain_runtime_attention() -> None:
+def test_durably_ingested_finding_with_route_observation_requires_absorption() -> None:
     packet = {
         "packet_id": "rev_pkt_finding",
         "from_agent": "codex",
@@ -469,10 +573,13 @@ def test_durably_ingested_finding_with_route_observation_does_not_remain_runtime
         session="s1",
     )
 
-    assert attention.pending_packet_count == 0
+    assert attention.pending_packet_count == 1
     assert attention.body_open_required is False
-    assert attention.latest_attention_packet_id == ""
-    assert attention.wake_required is False
+    assert attention.absorption_required is True
+    assert attention.absorption_packet_id == "rev_pkt_finding"
+    assert "--action absorb" in attention.absorption_command
+    assert attention.latest_attention_packet_id == "rev_pkt_finding"
+    assert attention.wake_required is True
 
 
 def test_durably_ingested_finding_stays_visible_until_route_observed() -> None:

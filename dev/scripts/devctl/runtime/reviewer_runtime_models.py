@@ -125,6 +125,10 @@ class PacketAttentionState:
     semantic_ingestion_packet_id: str = ""
     semantic_ingestion_command: str = ""
     semantic_ingestion_reason: str = ""
+    absorption_required: bool = False
+    absorption_packet_id: str = ""
+    absorption_command: str = ""
+    absorption_reason: str = ""
     superseded_packet_id: str = ""
     pivot_required: bool = False
     wake_required: bool = False
@@ -235,6 +239,10 @@ def build_packet_attention_state(
     semantic_ingestion_packet_id: str = "",
     semantic_ingestion_command: str = "",
     semantic_ingestion_reason: str = "",
+    absorption_required: bool = False,
+    absorption_packet_id: str = "",
+    absorption_command: str = "",
+    absorption_reason: str = "",
     superseded_packet_id: str = "",
 ) -> PacketAttentionState:
     """Derive typed per-actor_session attention state.
@@ -258,12 +266,22 @@ def build_packet_attention_state(
         pivot_reasons.append("pending_packets_unconsumed")
         wake_required = True
     unopened_ids = tuple(str(row).strip() for row in unopened_body_packet_ids if str(row).strip())
-    body_open_required = bool(unopened_ids or body_open_packet_id)
+    body_open_required = bool(
+        unopened_ids
+        or (
+            body_open_packet_id
+            and not semantic_ingestion_required
+            and not absorption_required
+        )
+    )
     if body_open_required:
         pivot_reasons.append("packet_bodies_unread")
         wake_required = True
     if semantic_ingestion_required:
         pivot_reasons.append("packet_semantic_ingestion_required")
+        wake_required = True
+    if absorption_required:
+        pivot_reasons.append("packet_absorption_required")
         wake_required = True
     if superseded_packet_id:
         pivot_reasons.append("active_packet_superseded")
@@ -275,7 +293,9 @@ def build_packet_attention_state(
         pivot_reasons.append("actor_identity_ambiguous")
     pivot_required = bool(pivot_reasons)
     stale_reason = ""
-    if semantic_ingestion_required:
+    if absorption_required:
+        stale_reason = "packet_absorption_required"
+    elif semantic_ingestion_required:
         stale_reason = "packet_semantic_ingestion_required"
     elif body_open_required:
         stale_reason = "packet_body_open_required"
@@ -303,6 +323,10 @@ def build_packet_attention_state(
         semantic_ingestion_packet_id=semantic_ingestion_packet_id,
         semantic_ingestion_command=semantic_ingestion_command,
         semantic_ingestion_reason=semantic_ingestion_reason,
+        absorption_required=absorption_required,
+        absorption_packet_id=absorption_packet_id,
+        absorption_command=absorption_command,
+        absorption_reason=absorption_reason,
         superseded_packet_id=superseded_packet_id,
         pivot_required=pivot_required,
         wake_required=wake_required,

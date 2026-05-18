@@ -28,6 +28,7 @@ _FOCUSABLE_LIFECYCLE_STATES = ACTIVE_LIFECYCLE_STATES | frozenset(
         "task_produced",
         "task_blocked",
         "operator_routed",
+        "absorbed",
     }
 )
 

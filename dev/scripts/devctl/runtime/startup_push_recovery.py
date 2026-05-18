@@ -57,6 +57,13 @@ def artifact_records_current_head_publish(push_enforcement: "PushEnforcement") -
         push_enforcement,
         "published_remote",
     )
+    if selected_push_report_text(push_enforcement, "publication_mode") in {
+        "raw_no_verify",
+        "ungoverned_remote_advance",
+    }:
+        return False
+    if not selected_push_report_bool(push_enforcement, "governed_push_verified"):
+        return False
     return bool(
         selected_push_report_published_remote
         and _artifact_matches_current_publication_target(push_enforcement)

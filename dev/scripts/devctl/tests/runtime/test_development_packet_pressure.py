@@ -240,6 +240,151 @@ def test_existing_plan_row_owner_removes_durable_owner_gap() -> None:
     assert decision["decision"] == "continue_current_work"
 
 
+def test_absorbed_durable_plan_packet_without_owner_still_requires_binding() -> None:
+    packet = _packet(
+        "rev_pkt_absorbed_plan",
+        kind="plan_patch_review",
+        target_kind="plan",
+        target_ref="plan:MP-377",
+        lifecycle_current_state="absorbed",
+        disposition={"sink": "absorbed"},
+    )
+    packet["packet_absorption_receipt"] = {
+        "contract_id": "PacketAbsorptionReceipt",
+        "packet_id": "rev_pkt_absorbed_plan",
+        "action_item_dispositions": ["accepted"],
+        "evidence_refs": ["packet_semantic_ingestion:rev_pkt_absorbed_plan:abc"],
+    }
+
+    pressure, classifications, decision, packet_ingest_decisions = packet_pressure_report(
+        {"packets": [packet]},
+        rows=(),
+        actor="codex",
+    )
+
+    assert pressure["durable_owner_gap_total"] == 1
+    assert classifications[0]["classification"] == "durable plan"
+    assert classifications[0]["terminal_receipt"] == ""
+    assert classifications[0]["action_required"] is True
+    assert decision["decision"] == "ingest_durable_intent"
+
+
+def test_absorbed_durable_plan_packet_with_owner_clears_binding_pressure() -> None:
+    packet = _packet(
+        "rev_pkt_9051",
+        kind="plan_patch_review",
+        target_kind="plan",
+        target_ref="plan:MP-377",
+        lifecycle_current_state="absorbed",
+        disposition={"sink": "absorbed"},
+    )
+    packet["packet_absorption_receipt"] = {
+        "contract_id": "PacketAbsorptionReceipt",
+        "packet_id": "rev_pkt_9051",
+        "action_item_dispositions": ["accepted"],
+        "evidence_refs": ["packet_semantic_ingestion:rev_pkt_9051:abc"],
+    }
+    row = PlanRow(
+        row_id="MP377-P0-ABSORBED-OWNER-S1",
+        title="Durable owner for absorbed packet",
+        status="queued",
+        sdlc_stage="impl",
+        sourced_from_packets=("rev_pkt_9051",),
+    )
+
+    pressure, classifications, decision, packet_ingest_decisions = packet_pressure_report(
+        {"packets": [packet]},
+        rows=(row,),
+        actor="codex",
+    )
+
+    assert pressure["durable_owner_gap_total"] == 0
+    assert classifications[0]["durable_owner"] == row.row_id
+    assert classifications[0]["action_required"] is False
+    assert decision["decision"] == "continue_current_work"
+
+
+def test_absorbed_durable_plan_packet_with_deferred_disposition_is_terminal() -> None:
+    packet = _packet(
+        "rev_pkt_absorbed_deferred_plan",
+        kind="plan_patch_review",
+        target_kind="plan",
+        target_ref="plan:MP-377",
+        lifecycle_current_state="absorbed",
+        disposition={"sink": "absorbed"},
+    )
+    packet["packet_absorption_receipt"] = {
+        "contract_id": "PacketAbsorptionReceipt",
+        "packet_id": "rev_pkt_absorbed_deferred_plan",
+        "body_sha256": "abc123",
+        "absorbed_by_actor": "codex",
+        "absorbed_by_role": "reviewer",
+        "absorbed_by_session_id": "session-1",
+        "absorbed_at_utc": "2026-05-17T18:45:00Z",
+        "source_semantic_ingestion_receipt_id": (
+            "packet_semantic_ingestion:rev_pkt_absorbed_deferred_plan:abc"
+        ),
+        "action_item_dispositions": ["deferred"],
+        "resulting_decision": "plan_intent_deferred",
+        "decision_rationale": "plan intent was explicitly deferred to later slice",
+        "defer_reason": "later slice owns the work",
+        "next_slice_refs": ["slice:later"],
+        "evidence_refs": ["packet_semantic_ingestion:rev_pkt_absorbed_deferred_plan:abc"],
+    }
+
+    pressure, classifications, decision, packet_ingest_decisions = packet_pressure_report(
+        {"packets": [packet]},
+        rows=(),
+        actor="codex",
+    )
+
+    assert pressure["durable_owner_gap_total"] == 0
+    assert classifications[0]["terminal_receipt"] == "absorbed:deferred"
+    assert classifications[0]["action_required"] is False
+    assert decision["decision"] == "continue_current_work"
+
+
+def test_absorbed_durable_plan_packet_with_incomplete_deferred_evidence_stays_pressure() -> None:
+    packet = _packet(
+        "rev_pkt_absorbed_deferred_incomplete_plan",
+        kind="plan_patch_review",
+        target_kind="plan",
+        target_ref="plan:MP-377",
+        lifecycle_current_state="absorbed",
+        disposition={"sink": "absorbed"},
+    )
+    packet["packet_absorption_receipt"] = {
+        "contract_id": "PacketAbsorptionReceipt",
+        "packet_id": "rev_pkt_absorbed_deferred_incomplete_plan",
+        "body_sha256": "abc123",
+        "absorbed_by_actor": "codex",
+        "absorbed_by_role": "reviewer",
+        "absorbed_by_session_id": "session-1",
+        "absorbed_at_utc": "2026-05-17T18:45:00Z",
+        "source_semantic_ingestion_receipt_id": (
+            "packet_semantic_ingestion:rev_pkt_absorbed_deferred_incomplete_plan:abc"
+        ),
+        "action_item_dispositions": ["deferred"],
+        "resulting_decision": "plan_intent_deferred",
+        "decision_rationale": "plan intent was deferred without complete evidence",
+        "defer_reason": "missing next_slice_refs must not clear pressure",
+        "evidence_refs": [
+            "packet_semantic_ingestion:rev_pkt_absorbed_deferred_incomplete_plan:abc"
+        ],
+    }
+
+    pressure, classifications, decision, packet_ingest_decisions = packet_pressure_report(
+        {"packets": [packet]},
+        rows=(),
+        actor="codex",
+    )
+
+    assert pressure["durable_owner_gap_total"] == 1
+    assert classifications[0]["terminal_receipt"] == ""
+    assert classifications[0]["action_required"] is True
+    assert decision["decision"] == "ingest_durable_intent"
+
+
 def test_existing_anchor_owner_removes_packet_from_next_pressure() -> None:
     packet = _packet(
         "rev_pkt_51",
@@ -486,6 +631,45 @@ def test_pending_action_request_pivots_even_with_durable_owner() -> None:
     assert decision["decision"] == "continue_to_packet_review"
     assert decision["reason_code"] == "pending_packet_requires_review"
     assert "review-channel --action show" in decision["next_command"]
+
+
+def test_absorbed_action_request_still_pivots_until_commit_consumes_it() -> None:
+    packet = _packet(
+        "rev_pkt_61",
+        kind="action_request",
+        target_kind="runtime",
+        target_ref="devctl_commit:lifecycle_proxy_absorb_checkpoint",
+    )
+    packet["requested_action"] = "stage_commit_pipeline"
+    packet["lifecycle_current_state"] = "absorbed"
+    packet["disposition"] = {"sink": "absorbed"}
+    packet["absorption_receipt"] = {
+        "contract_id": "PacketAbsorptionReceipt",
+        "packet_id": "rev_pkt_61",
+        "body_sha256": "abc123",
+        "absorbed_by_actor": "codex",
+        "absorbed_by_role": "reviewer",
+        "absorbed_by_session_id": "session-1",
+        "absorbed_at_utc": "2026-05-17T18:45:00Z",
+        "source_semantic_ingestion_receipt_id": (
+            "packet_semantic_ingestion:rev_pkt_61:test"
+        ),
+        "action_item_dispositions": ["rev_pkt_61:stage_commit_pipeline:accepted"],
+        "resulting_decision": "stage_commit_pipeline_action_request_parsed",
+        "decision_rationale": "action_request still awaits governed commit consumption",
+        "evidence_refs": ["packet:rev_pkt_61#body_observed"],
+    }
+
+    pressure, classifications, decision, packet_ingest_decisions = packet_pressure_report(
+        {"packets": [packet]},
+        rows=(),
+        actor="codex",
+    )
+
+    assert pressure["live_total"] == 1
+    assert classifications[0]["terminal_receipt"] == ""
+    assert decision["decision"] == "continue_to_packet_review"
+    assert decision["reason_code"] == "pending_packet_requires_review"
 
 
 def test_expired_action_request_with_class_owner_is_not_live_review_pressure() -> None:

@@ -102,6 +102,7 @@ class ReviewChannelAction(StrEnum):
     HISTORY = "history"
     SHOW = "show"
     INGEST = "ingest"
+    ABSORB = "absorb"
     CHECK_ACK_FRESHNESS = "check-ack-freshness"
     BRIDGE_POLL = "bridge-poll"
     RENDER_BRIDGE = "render-bridge"
@@ -123,6 +124,7 @@ EVENT_ACTION_SET = frozenset(
         ReviewChannelAction.HISTORY,
         ReviewChannelAction.SHOW,
         ReviewChannelAction.INGEST,
+        ReviewChannelAction.ABSORB,
         ReviewChannelAction.CHECK_ACK_FRESHNESS,
     }
 )
@@ -146,6 +148,7 @@ PACKET_TRANSITION_ACTIONS = frozenset(
         ReviewChannelAction.DISMISS,
         ReviewChannelAction.APPLY,
         ReviewChannelAction.INGEST,
+        ReviewChannelAction.ABSORB,
     }
 )
 LIMITED_QUERY_ACTIONS = frozenset(

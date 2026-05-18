@@ -15,12 +15,12 @@ from .agent_loop_decision_builder import (
     CONTINUE_TO_GOAL_ACTION,
     SCOPED_IMPLEMENTATION_EDIT_ACTION,
     attention_reason,
-    body_open_decision,
-    body_open_required,
     decision,
     decision_from_loop_state,
     lifecycle_from_loop_state,
     next_command_for_turn,
+    packet_lifecycle_action_decision,
+    packet_lifecycle_action_required,
     readable_decision_fields,
 )
 from .agent_loop_decision_models import AgentLoopDecision
@@ -64,8 +64,10 @@ def communication_attention_decision(
 ) -> AgentLoopDecision:
     pivot_packet_id = packets.attention_packet_id or packets.active_packet_id
     pivot_packet = packet_by_id(ctx.review_state, pivot_packet_id)
-    if body_open_required(ctx):
-        return body_open_decision(ctx, packets, pivot_packet_id, pivot_packet)
+    if packet_lifecycle_action_required(ctx):
+        return packet_lifecycle_action_decision(
+            ctx, packets, pivot_packet_id, pivot_packet
+        )
     return decision(
         ctx,
         "blocked",
@@ -88,8 +90,10 @@ def communication_attention_decision(
 def attention_decision(ctx: AgentLoopContext, packets: PacketState) -> AgentLoopDecision:
     pivot_packet_id = packets.attention_packet_id or packets.active_packet_id
     pivot_packet = packet_by_id(ctx.review_state, pivot_packet_id)
-    if body_open_required(ctx):
-        return body_open_decision(ctx, packets, pivot_packet_id, pivot_packet)
+    if packet_lifecycle_action_required(ctx):
+        return packet_lifecycle_action_decision(
+            ctx, packets, pivot_packet_id, pivot_packet
+        )
     return decision(
         ctx,
         "work",
@@ -205,7 +209,7 @@ def requested_packet_body_open_decision(
 ) -> AgentLoopDecision:
     packet_id = packets.attention_packet_id or packets.active_packet_id
     packet = packets.attention_packet or packets.active_packet
-    return body_open_decision(
+    return packet_lifecycle_action_decision(
         ctx,
         packets,
         packet_id,

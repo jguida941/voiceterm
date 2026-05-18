@@ -148,6 +148,9 @@ def decision(
             ctx.attention.get("semantic_ingestion_packet_id")
         ),
         semantic_ingestion_reason=_text(ctx.attention.get("semantic_ingestion_reason")),
+        absorption_required=coerce_bool(ctx.attention.get("absorption_required")),
+        absorption_packet_id=_text(ctx.attention.get("absorption_packet_id")),
+        absorption_reason=_text(ctx.attention.get("absorption_reason")),
         allowed_actions=ctx.allowed_actions,
         blocked_actions=ctx.blocked_actions,
         granted_capabilities=ctx.granted_capabilities,
@@ -318,7 +321,23 @@ def semantic_ingestion_command(ctx: AgentLoopContext) -> str:
     return _text(ctx.attention.get("semantic_ingestion_command"))
 
 
-def body_open_decision(
+def absorption_required(ctx: AgentLoopContext) -> bool:
+    return coerce_bool(ctx.attention.get("absorption_required"))
+
+
+def absorption_command(ctx: AgentLoopContext) -> str:
+    return _text(ctx.attention.get("absorption_command"))
+
+
+def packet_lifecycle_action_required(ctx: AgentLoopContext) -> bool:
+    return (
+        body_open_required(ctx)
+        or semantic_ingestion_required(ctx)
+        or absorption_required(ctx)
+    )
+
+
+def packet_lifecycle_action_decision(
     ctx: AgentLoopContext,
     packets: PacketState,
     pivot_packet_id: str,
@@ -326,13 +345,26 @@ def body_open_decision(
     *,
     next_command_override: str = "",
 ) -> AgentLoopDecision:
-    packet_id = _text(ctx.attention.get("body_open_packet_id")) or pivot_packet_id
+    absorption_required_now = absorption_required(ctx)
     semantic_required = semantic_ingestion_required(ctx)
+    packet_id = (
+        _text(ctx.attention.get("absorption_packet_id"))
+        if absorption_required_now
+        else _text(ctx.attention.get("semantic_ingestion_packet_id"))
+        if semantic_required
+        else _text(ctx.attention.get("body_open_packet_id"))
+    ) or pivot_packet_id
     required_action = (
-        "ingest_packet_semantics" if semantic_required else "open_packet_body"
+        "absorb_packet"
+        if absorption_required_now
+        else "ingest_packet_semantics"
+        if semantic_required
+        else "open_packet_body"
     )
     reason_code = (
-        "packet_semantic_ingestion_required"
+        "packet_absorption_required"
+        if absorption_required_now
+        else "packet_semantic_ingestion_required"
         if semantic_required
         else "packet_body_open_required"
     )
@@ -354,6 +386,7 @@ def body_open_decision(
         plan_target_ref=_text(pivot_packet.get("target_ref")),
         next_command_override=(
             next_command_override
+            or absorption_command(ctx)
             or semantic_ingestion_command(ctx)
             or body_open_command(ctx)
         ),

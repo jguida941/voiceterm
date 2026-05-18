@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import json
+import shlex
+from collections.abc import Mapping, Sequence
+
 
 def packet_body_open_command(
     *,
@@ -27,9 +31,31 @@ def packet_semantic_ingestion_command(
     actor: str,
     role: str = "",
     session: str = "",
+    action_item_rows: Sequence[Mapping[str, object]] = (),
 ) -> str:
     command = (
         "python3 dev/scripts/devctl.py review-channel --action ingest "
+        f"--packet-id {packet_id} --actor {actor} --terminal none --format md"
+    )
+    if role:
+        command += f" --target-role {role}"
+    if session:
+        command += f" --target-session-id {session}"
+    for row in action_item_rows:
+        encoded = json.dumps(dict(row), sort_keys=True, separators=(",", ":"))
+        command += f" --semantic-action-item {shlex.quote(encoded)}"
+    return command
+
+
+def packet_absorption_command(
+    *,
+    packet_id: str,
+    actor: str,
+    role: str = "",
+    session: str = "",
+) -> str:
+    command = (
+        "python3 dev/scripts/devctl.py review-channel --action absorb "
         f"--packet-id {packet_id} --actor {actor} --terminal none --format md"
     )
     if role:

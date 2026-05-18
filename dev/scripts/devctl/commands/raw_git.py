@@ -96,7 +96,7 @@ def add_parser(sub) -> None:
     )
     parser.add_argument(
         "--actor",
-        default="codex",
+        default="",
         help="Actor executing the raw git operation.",
     )
     parser.add_argument(
@@ -245,6 +245,9 @@ def run_raw_git_action(
     verb = RawGitVerb(action)
     if _is_git_help_request(git_args):
         return _git_noop_report(verb, git_args, "git_help_noop"), 0
+    scope_error = _raw_git_scope_error(args)
+    if scope_error:
+        return _error_report("control_decision_scope_required", scope_error), 1
     obedience_report = _raw_git_control_decision_obedience_report(
         args,
         verb=verb,
@@ -263,7 +266,7 @@ def run_raw_git_action(
         return (
             _error_report(
                 "control_decision_required",
-                "raw-git requires a live AgentLoopDecision/control decision before git executes.",
+        "raw-git requires a live AgentLoopDecision/control decision before git executes.",
             ),
             1,
         )
@@ -330,7 +333,7 @@ def run_raw_git_action(
     receipt = build_raw_git_bypass_receipt(
         git_verb=verb,
         executed_at_utc=_now_utc(),
-        executed_by_actor=str(getattr(args, "actor", "") or "codex").strip(),
+        executed_by_actor=str(getattr(args, "actor", "") or "").strip(),
         bypass_authority=preflight.bypass_authority,
         commit_sha=commit_sha if verb is RawGitVerb.COMMIT else "",
         push_range=push_range,
@@ -468,6 +471,26 @@ def _raw_git_control_decision_obedience_report(
     ).to_dict()
     report["command"] = "raw-git.control_decision_obedience"
     return report
+
+
+def _raw_git_scope_error(args: Any) -> str:
+    if _allow_missing_control_decision(args):
+        return ""
+    missing = [
+        flag
+        for flag, attr in (
+            ("--actor", "actor"),
+            ("--role", "role"),
+            ("--session-id", "session_id"),
+        )
+        if not str(getattr(args, attr, "") or "").strip()
+    ]
+    if not missing:
+        return ""
+    return (
+        "raw-git requires scoped controller-decision identity before git executes: "
+        + ", ".join(missing)
+    )
 
 
 def _allow_missing_control_decision(args: Any) -> bool:
@@ -716,7 +739,7 @@ def _raw_git_feature_proof_receipt(
             commit_sha=commit_sha,
         ),
         commit_sha=commit_sha,
-        implementer_actor=str(getattr(args, "actor", "") or "codex").strip() or "codex",
+        implementer_actor=str(getattr(args, "actor", "") or "").strip(),
         review_fleet_roles_ran=_string_items(
             getattr(args, "review_fleet_role", ()) or ()
         )

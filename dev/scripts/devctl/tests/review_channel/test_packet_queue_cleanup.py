@@ -100,6 +100,75 @@ def test_live_pending_packets_excludes_failed_action_request() -> None:
     assert [packet["packet_id"] for packet in live_packets] == ["live"]
 
 
+def test_live_pending_packets_keeps_absorbed_action_request_until_consumed() -> None:
+    packet = _packet(
+        packet_id="absorbed-action-request",
+        kind="action_request",
+        requested_action="stage_commit_pipeline",
+        expires_at_utc="2999-01-01T00:00:00Z",
+    ) | {
+        "lifecycle_current_state": "absorbed",
+        "disposition": {"sink": "absorbed"},
+        "absorption_receipt": {
+            "contract_id": "PacketAbsorptionReceipt",
+            "packet_id": "absorbed-action-request",
+            "body_sha256": "abc123",
+            "absorbed_by_actor": "codex",
+            "absorbed_by_role": "reviewer",
+            "absorbed_by_session_id": "session-1",
+            "absorbed_at_utc": "2026-05-17T18:45:00Z",
+            "source_semantic_ingestion_receipt_id": (
+                "packet_semantic_ingestion:absorbed-action-request:test"
+            ),
+            "action_item_dispositions": [
+                "absorbed-action-request:stage_commit_pipeline:accepted"
+            ],
+            "resulting_decision": "stage_commit_pipeline_action_request_parsed",
+            "decision_rationale": "action_request still awaits governed commit consumption",
+            "evidence_refs": ["packet:absorbed-action-request#body_observed"],
+        },
+    }
+
+    live_packets = live_pending_packets([packet])
+
+    assert [row["packet_id"] for row in live_packets] == ["absorbed-action-request"]
+
+
+def test_live_pending_packets_excludes_absorbed_action_request_after_consumption() -> None:
+    packet = _packet(
+        packet_id="absorbed-action-request",
+        kind="action_request",
+        requested_action="stage_commit_pipeline",
+        expires_at_utc="2999-01-01T00:00:00Z",
+    ) | {
+        "lifecycle_current_state": "absorbed",
+        "disposition": {"sink": "absorbed"},
+        "apply_pending_after_execution_at_utc": "2026-05-17T18:46:00Z",
+        "absorption_receipt": {
+            "contract_id": "PacketAbsorptionReceipt",
+            "packet_id": "absorbed-action-request",
+            "body_sha256": "abc123",
+            "absorbed_by_actor": "codex",
+            "absorbed_by_role": "reviewer",
+            "absorbed_by_session_id": "session-1",
+            "absorbed_at_utc": "2026-05-17T18:45:00Z",
+            "source_semantic_ingestion_receipt_id": (
+                "packet_semantic_ingestion:absorbed-action-request:test"
+            ),
+            "action_item_dispositions": [
+                "absorbed-action-request:stage_commit_pipeline:accepted"
+            ],
+            "resulting_decision": "stage_commit_pipeline_action_request_parsed",
+            "decision_rationale": "action_request was consumed by governed commit",
+            "evidence_refs": ["packet:absorbed-action-request#body_observed"],
+        },
+    }
+
+    live_packets = live_pending_packets([packet])
+
+    assert live_packets == ()
+
+
 def test_live_pending_packets_keeps_acked_actionable_without_absorption() -> None:
     packets = [
         _packet(
@@ -159,11 +228,15 @@ def test_live_pending_packets_excludes_acked_actionable_with_absorption() -> Non
                 "absorbed_by_role": "reviewer",
                 "absorbed_by_session_id": "session-1",
                 "absorbed_at_utc": "2026-05-17T18:45:00Z",
+                "source_semantic_ingestion_receipt_id": (
+                    "packet_semantic_ingestion:absorbed-finding:test"
+                ),
                 "action_item_dispositions": ["P235:deferred"],
                 "resulting_decision": "continue_output_consumption_slice",
                 "decision_rationale": "packet action items were classified",
                 "defer_reason": "current output-consumption slice is blocking",
                 "next_slice_refs": ["MP-378-ARCH-SELF-IMPROVEMENT-LOOP-S1"],
+                "evidence_refs": ["packet:absorbed-finding#body_observed"],
             }
         }
     ]
@@ -171,6 +244,157 @@ def test_live_pending_packets_excludes_acked_actionable_with_absorption() -> Non
     live_packets = live_pending_packets(packets)
 
     assert live_packets == ()
+
+
+def test_live_pending_packets_keeps_absorbed_plan_without_durable_binding() -> None:
+    packet = _packet(
+        packet_id="absorbed-plan",
+        status="pending",
+        kind="plan_patch_review",
+        requested_action="ingest_plan_intent",
+        expires_at_utc="2999-01-01T00:00:00Z",
+    ) | {
+        "target_kind": "plan",
+        "target_ref": "plan:MP-377",
+        "lifecycle_current_state": "absorbed",
+        "disposition": {"sink": "absorbed"},
+        "absorption_receipt": {
+            "contract_id": "PacketAbsorptionReceipt",
+            "packet_id": "absorbed-plan",
+            "body_sha256": "abc123",
+            "absorbed_by_actor": "codex",
+            "absorbed_by_role": "reviewer",
+            "absorbed_by_session_id": "session-1",
+            "absorbed_at_utc": "2026-05-17T18:45:00Z",
+            "source_semantic_ingestion_receipt_id": (
+                "packet_semantic_ingestion:absorbed-plan:test"
+            ),
+            "action_item_dispositions": ["accepted"],
+            "resulting_decision": "plan_intent_requires_durable_binding",
+            "decision_rationale": "packet plan intent was parsed",
+            "evidence_refs": ["packet:absorbed-plan#body_observed"],
+        },
+    }
+
+    live_packets = live_pending_packets([packet])
+
+    assert [row["packet_id"] for row in live_packets] == ["absorbed-plan"]
+
+
+def test_live_pending_packets_excludes_absorbed_plan_with_durable_binding() -> None:
+    packet = _packet(
+        packet_id="absorbed-plan",
+        status="pending",
+        kind="plan_patch_review",
+        requested_action="ingest_plan_intent",
+        expires_at_utc="2999-01-01T00:00:00Z",
+    ) | {
+        "target_kind": "plan",
+        "target_ref": "plan:MP-377",
+        "lifecycle_current_state": "absorbed",
+        "disposition": {"sink": "absorbed"},
+        "durable_binding": {
+            "contract_id": "PacketCreationBinding",
+            "status": "recorded",
+            "binding_target_kind": "plan_row",
+            "binding_target": "PKT-BIND-ABSORBED-PLAN",
+        },
+        "absorption_receipt": {
+            "contract_id": "PacketAbsorptionReceipt",
+            "packet_id": "absorbed-plan",
+            "body_sha256": "abc123",
+            "absorbed_by_actor": "codex",
+            "absorbed_by_role": "reviewer",
+            "absorbed_by_session_id": "session-1",
+            "absorbed_at_utc": "2026-05-17T18:45:00Z",
+            "source_semantic_ingestion_receipt_id": (
+                "packet_semantic_ingestion:absorbed-plan:test"
+            ),
+            "action_item_dispositions": ["accepted"],
+            "resulting_decision": "plan_intent_bound_to_plan_row",
+            "decision_rationale": "packet plan intent was parsed and bound",
+            "evidence_refs": ["packet:absorbed-plan#body_observed"],
+        },
+    }
+
+    live_packets = live_pending_packets([packet])
+
+    assert live_packets == ()
+
+
+def test_live_pending_packets_excludes_absorbed_plan_with_deferred_disposition() -> None:
+    packet = _packet(
+        packet_id="absorbed-plan-deferred",
+        status="pending",
+        kind="plan_patch_review",
+        requested_action="ingest_plan_intent",
+        expires_at_utc="2999-01-01T00:00:00Z",
+    ) | {
+        "target_kind": "plan",
+        "target_ref": "plan:MP-377",
+        "lifecycle_current_state": "absorbed",
+        "disposition": {"sink": "absorbed"},
+        "absorption_receipt": {
+            "contract_id": "PacketAbsorptionReceipt",
+            "packet_id": "absorbed-plan-deferred",
+            "body_sha256": "abc123",
+            "absorbed_by_actor": "codex",
+            "absorbed_by_role": "reviewer",
+            "absorbed_by_session_id": "session-1",
+            "absorbed_at_utc": "2026-05-17T18:45:00Z",
+            "source_semantic_ingestion_receipt_id": (
+                "packet_semantic_ingestion:absorbed-plan-deferred:test"
+            ),
+            "action_item_dispositions": ["deferred"],
+            "resulting_decision": "plan_intent_deferred",
+            "decision_rationale": "packet plan intent was parsed and deferred",
+            "defer_reason": "current checkpoint authority lane is blocking",
+            "next_slice_refs": ["MP377-P0-MAY17-CLOUD-DASHBOARD-REPO-SPLIT-S1"],
+            "evidence_refs": ["packet:absorbed-plan-deferred#body_observed"],
+        },
+    }
+
+    live_packets = live_pending_packets([packet])
+
+    assert live_packets == ()
+
+
+def test_live_pending_packets_keeps_absorbed_plan_with_incomplete_terminal_evidence() -> None:
+    packet = _packet(
+        packet_id="absorbed-plan-deferred-incomplete",
+        status="pending",
+        kind="plan_patch_review",
+        requested_action="ingest_plan_intent",
+        expires_at_utc="2999-01-01T00:00:00Z",
+    ) | {
+        "target_kind": "plan",
+        "target_ref": "plan:MP-377",
+        "lifecycle_current_state": "absorbed",
+        "disposition": {"sink": "absorbed"},
+        "absorption_receipt": {
+            "contract_id": "PacketAbsorptionReceipt",
+            "packet_id": "absorbed-plan-deferred-incomplete",
+            "body_sha256": "abc123",
+            "absorbed_by_actor": "codex",
+            "absorbed_by_role": "reviewer",
+            "absorbed_by_session_id": "session-1",
+            "absorbed_at_utc": "2026-05-17T18:45:00Z",
+            "source_semantic_ingestion_receipt_id": (
+                "packet_semantic_ingestion:absorbed-plan-deferred-incomplete:test"
+            ),
+            "action_item_dispositions": ["deferred"],
+            "resulting_decision": "plan_intent_deferred",
+            "decision_rationale": "packet plan intent was parsed and deferred",
+            "defer_reason": "missing target slice evidence must not clear pressure",
+            "evidence_refs": ["packet:absorbed-plan-deferred-incomplete#body_observed"],
+        },
+    }
+
+    live_packets = live_pending_packets([packet])
+
+    assert [row["packet_id"] for row in live_packets] == [
+        "absorbed-plan-deferred-incomplete"
+    ]
 
 
 def test_live_pending_packets_preserves_typed_packets() -> None:

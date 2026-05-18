@@ -71,6 +71,9 @@ class AgentLoopDecision:
     semantic_ingestion_required: bool = False
     semantic_ingestion_packet_id: str = ""
     semantic_ingestion_reason: str = ""
+    absorption_required: bool = False
+    absorption_packet_id: str = ""
+    absorption_reason: str = ""
     allowed_actions: tuple[str, ...] = ()
     blocked_actions: tuple[str, ...] = ()
     granted_capabilities: tuple[str, ...] = ()
@@ -142,6 +145,9 @@ class AgentLoopDecision:
             "semantic_ingestion_required": self.semantic_ingestion_required,
             "semantic_ingestion_packet_id": self.semantic_ingestion_packet_id,
             "semantic_ingestion_reason": self.semantic_ingestion_reason,
+            "absorption_required": self.absorption_required,
+            "absorption_packet_id": self.absorption_packet_id,
+            "absorption_reason": self.absorption_reason,
             "allowed_actions": list(self.allowed_actions),
             "blocked_actions": list(self.blocked_actions),
             "granted_capabilities": list(self.granted_capabilities),

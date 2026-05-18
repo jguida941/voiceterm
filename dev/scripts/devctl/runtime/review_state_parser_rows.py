@@ -238,6 +238,16 @@ def packet_states_from_value(value: object) -> tuple[ReviewPacketState, ...]:
                 semantic_ingestion_events=_mapping_rows(
                     mapping.get("semantic_ingestion_events")
                 ),
+                absorbed_at_utc=_string(mapping.get("absorbed_at_utc")),
+                absorbed_by=_string(mapping.get("absorbed_by")),
+                absorbed_role=_string(mapping.get("absorbed_role")),
+                absorbed_session_id=_string(mapping.get("absorbed_session_id")),
+                absorbed_event_id=_string(mapping.get("absorbed_event_id")),
+                packet_absorption_receipt=_optional_mapping(
+                    mapping.get("packet_absorption_receipt")
+                ),
+                absorption_receipt=_optional_mapping(mapping.get("absorption_receipt")),
+                absorption_events=_mapping_rows(mapping.get("absorption_events")),
                 expires_at_utc=_string(mapping.get("expires_at_utc")),
                 semantic_zref=_string(mapping.get("semantic_zref")),
                 source_identity={

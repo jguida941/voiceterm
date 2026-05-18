@@ -8,7 +8,11 @@ from ..runtime.review_packet_inbox_actionable import (
     is_actionable,
     packet_is_communication_only,
 )
-from ..runtime.packet_absorption import packet_semantically_ingested_by
+from ..runtime.packet_absorption import (
+    packet_absorbed,
+    packet_semantically_ingested_by,
+)
+from ..runtime.packet_absorption_resolution import absorption_resolves_packet_pressure
 from ..runtime.session_termination_policy import SESSION_TERMINATION_PACKET_KINDS
 from ..runtime.value_coercion import coerce_text
 from .packet_body_observation import packet_body_digest, packet_body_observed_by
@@ -126,6 +130,38 @@ def packet_semantic_ingestion_required(
     )
 
 
+def packet_absorption_required(
+    packet: Mapping[str, object],
+    *,
+    actor: str,
+    role: str = "",
+    session: str = "",
+) -> bool:
+    """Return whether an ingested actionable packet still needs absorption."""
+    actor_id = coerce_text(actor)
+    if not actor_id or not is_actionable(packet):
+        return False
+    digest = packet_body_digest(packet)
+    if not digest:
+        return False
+    if not packet_body_observed_by(
+        packet,
+        actor=actor_id,
+        role=role,
+        session=session,
+        body_digest=digest,
+    ):
+        return False
+    if not packet_semantically_ingested_by(
+        packet,
+        actor=actor_id,
+        role=role,
+        session=session,
+    ):
+        return False
+    return not packet_absorbed(packet)
+
+
 def _route_scoped_peer_review_observation_required(
     packet: Mapping[str, object],
     *,
@@ -150,6 +186,10 @@ def packet_requires_runtime_attention(
     session: str = "",
 ) -> bool:
     """Return whether one pending packet should keep an agent-loop awake."""
+    if packet_absorbed(packet) and absorption_resolves_packet_pressure(packet):
+        return False
+    if packet_absorption_required(packet, actor=actor, role=role, session=session):
+        return True
     if packet_durable_ingestion_succeeded(packet) and not _command_lane_packet(packet):
         return packet_body_attention_required(
             packet,

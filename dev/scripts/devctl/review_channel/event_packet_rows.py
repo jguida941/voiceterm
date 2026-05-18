@@ -15,6 +15,10 @@ from .packet_semantic_ingestion import (
     PACKET_SEMANTIC_INGESTION_EVENT_TYPES,
     packet_semantic_ingestion_payload_for_packet,
 )
+from .packet_absorption import (
+    PACKET_ABSORPTION_EVENT_TYPES,
+    packet_absorption_payload_for_packet,
+)
 from .packet_debt_remediation_contracts import PACKET_DURABLE_INGESTION_EVENT_TYPES
 from .packet_lifecycle import apply_lifecycle_transition, project_packet_lifecycle
 from .packet_source_identity import source_identity
@@ -130,6 +134,13 @@ def packet_from_event(event: dict[str, object]) -> ReviewPacketRow:
         semantic_ingested_event_id="",
         packet_semantic_ingestion_receipt={},
         semantic_ingestion_events=[],
+        absorbed_at_utc="",
+        absorbed_by="",
+        absorbed_role="",
+        absorbed_session_id="",
+        absorbed_event_id="",
+        packet_absorption_receipt={},
+        absorption_events=[],
         execution_started_at_utc="",
         execution_started_by="",
         execution_failed_at_utc="",
@@ -179,6 +190,8 @@ def apply_packet_transition(
         return _apply_packet_body_observation(next_packet, event)
     if event_type in PACKET_SEMANTIC_INGESTION_EVENT_TYPES:
         return _apply_packet_semantic_ingestion(next_packet, event)
+    if event_type in PACKET_ABSORPTION_EVENT_TYPES:
+        return _apply_packet_absorption(next_packet, event)
     next_packet["status"] = event.get("status") or action_request_lifecycle_status(
         event_type
     )
@@ -336,6 +349,43 @@ def _apply_packet_semantic_ingestion(
     if body_digest:
         packet["body_digest"] = body_digest
     return project_packet_lifecycle(packet)
+
+
+def _apply_packet_absorption(
+    packet: dict[str, object],
+    event: dict[str, object],
+) -> dict[str, object]:
+    payload = packet_absorption_payload_for_packet(event, packet)
+    absorbed_by = str(payload.get("absorbed_by_actor") or "").strip()
+    absorbed_at = str(payload.get("absorbed_at_utc") or "").strip()
+    event_id = str(payload.get("event_id") or event.get("event_id") or "").strip()
+    events = list(packet.get("absorption_events") or [])
+    if not any(
+        isinstance(row, dict)
+        and str(row.get("event_id") or "").strip() == event_id
+        and event_id
+        for row in events
+    ):
+        events.append(payload)
+    packet["absorption_events"] = events
+    packet["packet_absorption_receipt"] = payload
+    packet["absorption_receipt"] = payload
+    if absorbed_by:
+        packet["absorbed_by"] = absorbed_by
+    absorbed_role = str(payload.get("absorbed_by_role") or "").strip()
+    absorbed_session = str(payload.get("absorbed_by_session_id") or "").strip()
+    if absorbed_role:
+        packet["absorbed_role"] = absorbed_role
+    if absorbed_session:
+        packet["absorbed_session_id"] = absorbed_session
+    if absorbed_at:
+        packet["absorbed_at_utc"] = absorbed_at
+    if event_id:
+        packet["absorbed_event_id"] = event_id
+    body_digest = str(payload.get("body_sha256") or "").strip()
+    if body_digest:
+        packet["body_digest"] = body_digest
+    return apply_lifecycle_transition(packet, event)
 
 
 def _plan_integration_payload(event: Mapping[str, object]) -> dict[str, object]:

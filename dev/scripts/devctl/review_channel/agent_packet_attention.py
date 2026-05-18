@@ -9,9 +9,14 @@ from ..runtime.reviewer_runtime_models import (
     PacketAttentionState,
     build_packet_attention_state,
 )
+from ..runtime.packet_absorption_resolution import (
+    packet_has_effective_durable_binding,
+    packet_requires_durable_binding,
+)
 from ..runtime.value_coercion import coerce_text as _text
 from .active_packet_authority import current_active_packet_for_agent
 from .agent_packet_attention_body import (
+    packet_absorption_command,
     packet_body_open_command,
     packet_semantic_ingestion_command,
 )
@@ -31,7 +36,10 @@ from .agent_sync_readers import (
     agent_sync_row_for_actor,
 )
 from .packet_contract import normalize_packet_route_role
-from .packet_loop_attention import packet_semantic_ingestion_required
+from .packet_loop_attention import (
+    packet_absorption_required,
+    packet_semantic_ingestion_required,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -110,6 +118,11 @@ def _fallback_attention(
     session_id: str,
     fallback: Mapping[str, object],
 ) -> PacketAttentionState:
+    absorption_required = bool(fallback.get("absorption_required"))
+    semantic_ingestion_required = bool(fallback.get("semantic_ingestion_required"))
+    body_open_required = bool(fallback.get("body_open_required")) and not (
+        semantic_ingestion_required or absorption_required
+    )
     return build_packet_attention_state(
         observation_actor_id="",
         observation_session_id=session_id,
@@ -127,7 +140,23 @@ def _fallback_attention(
             if _text(row)
         ),
         body_open_packet_id=_text(fallback.get("body_open_packet_id")),
-        body_open_command=_text(fallback.get("body_open_command")),
+        body_open_command=_text(fallback.get("body_open_command"))
+        if body_open_required
+        else "",
+        semantic_ingestion_required=semantic_ingestion_required,
+        semantic_ingestion_packet_id=_text(
+            fallback.get("semantic_ingestion_packet_id")
+        ),
+        semantic_ingestion_command=_text(fallback.get("semantic_ingestion_command"))
+        if semantic_ingestion_required and not absorption_required
+        else "",
+        semantic_ingestion_reason=_text(fallback.get("semantic_ingestion_reason")),
+        absorption_required=absorption_required,
+        absorption_packet_id=_text(fallback.get("absorption_packet_id")),
+        absorption_command=_text(fallback.get("absorption_command"))
+        if absorption_required
+        else "",
+        absorption_reason=_text(fallback.get("absorption_reason")),
         superseded_packet_id=_text(fallback.get("superseded_packet_id")),
     )
 
@@ -191,13 +220,6 @@ def _build_attention(context: _AttentionBuildInput) -> PacketAttentionState:
             for packet in body_open_packet_rows
         if _text(packet.get("packet_id"))
     )
-    body_open_command = _packet_attention_command(
-        body_open_packet,
-        packet_id=body_open_packet_id,
-        actor=context.actor,
-        role=context.role,
-        session=context.session,
-    )
     semantic_ingestion_required = bool(
         body_open_packet_id
         and packet_semantic_ingestion_required(
@@ -207,8 +229,55 @@ def _build_attention(context: _AttentionBuildInput) -> PacketAttentionState:
             session=context.session,
         )
     )
+    absorption_required = bool(
+        body_open_packet_id
+        and packet_absorption_required(
+            body_open_packet,
+            actor=context.actor,
+            role=context.role,
+            session=context.session,
+        )
+    )
+    body_open_required = bool(
+        body_open_packet_id
+        and not semantic_ingestion_required
+        and not absorption_required
+    )
+    body_open_command = (
+        packet_body_open_command(
+            packet_id=body_open_packet_id,
+            actor=context.actor,
+            role=context.role,
+            session=context.session,
+        )
+        if body_open_required
+        else ""
+    )
     semantic_ingestion_command = (
-        body_open_command if semantic_ingestion_required else ""
+        packet_semantic_ingestion_command(
+            packet_id=body_open_packet_id,
+            actor=context.actor,
+            role=context.role,
+            session=context.session,
+            action_item_rows=_semantic_action_item_rows(body_open_packet),
+        )
+        if semantic_ingestion_required and not absorption_required
+        else ""
+    )
+    absorption_command = (
+        packet_absorption_command(
+            packet_id=body_open_packet_id,
+            actor=context.actor,
+            role=context.role,
+            session=context.session,
+        )
+        if absorption_required
+        else ""
+    )
+    absorption_reason = (
+        "packet_semantically_ingested_without_absorption"
+        if absorption_required
+        else ""
     )
     if (
         not context.packet_rows_authoritative
@@ -221,8 +290,7 @@ def _build_attention(context: _AttentionBuildInput) -> PacketAttentionState:
             body_open_packet_id=body_open_packet_id,
         )
         body_open_command = _text(fallback.get("body_open_command")) or (
-            _packet_attention_command(
-                {},
+            packet_body_open_command(
                 packet_id=body_open_packet_id,
                 actor=context.actor,
                 role=context.role,
@@ -242,19 +310,31 @@ def _build_attention(context: _AttentionBuildInput) -> PacketAttentionState:
         last_observed_event_id=last_observed,
         last_observed_at_utc=_text(fallback.get("last_observed_at_utc")),
         pending_packet_count=pending_packet_count,
-        unopened_body_packet_ids=unopened_body_packet_ids,
+        unopened_body_packet_ids=(
+            ()
+            if semantic_ingestion_required or absorption_required
+            else unopened_body_packet_ids
+        ),
         body_open_packet_id=body_open_packet_id,
         body_open_command=body_open_command,
-        semantic_ingestion_required=semantic_ingestion_required,
+        semantic_ingestion_required=(
+            semantic_ingestion_required and not absorption_required
+        ),
         semantic_ingestion_packet_id=(
-            body_open_packet_id if semantic_ingestion_required else ""
+            body_open_packet_id
+            if semantic_ingestion_required and not absorption_required
+            else ""
         ),
         semantic_ingestion_command=semantic_ingestion_command,
         semantic_ingestion_reason=(
             "packet_body_observed_without_semantic_ingestion"
-            if semantic_ingestion_required
+            if semantic_ingestion_required and not absorption_required
             else ""
         ),
+        absorption_required=absorption_required,
+        absorption_packet_id=body_open_packet_id if absorption_required else "",
+        absorption_command=absorption_command,
+        absorption_reason=absorption_reason,
         superseded_packet_id=superseded_packet_id,
     )
 
@@ -296,38 +376,108 @@ def _matching_fallback_attention(
     return fallback
 
 
-def _packet_attention_command(
-    packet: Mapping[str, object],
-    *,
-    packet_id: str,
-    actor: str,
-    role: str,
-    session: str,
-) -> str:
-    if not packet_id:
-        return ""
-    if packet and packet_semantic_ingestion_required(
-        packet,
-        actor=actor,
-        role=role,
-        session=session,
-    ):
-        return packet_semantic_ingestion_command(
-            packet_id=packet_id,
-            actor=actor,
-            role=role,
-            session=session,
-        )
-    return packet_body_open_command(
-        packet_id=packet_id,
-        actor=actor,
-        role=role,
-        session=session,
-    )
-
-
 __all__ = [
     "packet_attention_for_agent",
     "packet_body_open_command",
     "packet_semantic_ingestion_command",
+    "packet_absorption_command",
 ]
+
+
+def _semantic_action_item_rows(
+    packet: Mapping[str, object],
+) -> tuple[Mapping[str, object], ...]:
+    packet_id = _text(packet.get("packet_id"))
+    if not packet_id:
+        return ()
+    kind = _semantic_action_kind(packet)
+    target_ref = _semantic_target_ref(packet, packet_id=packet_id)
+    disposition = _semantic_action_disposition(packet)
+    row = {
+        "contract_id": "PacketSemanticActionItem",
+        "schema_version": 1,
+        "action_item_id": f"{packet_id}:{kind}",
+        "kind": kind,
+        "disposition": disposition,
+        "target_ref": target_ref,
+        "packet_ref": f"packet:{packet_id}",
+        "reason": _semantic_action_reason(packet),
+        "evidence_refs": [f"packet:{packet_id}#body_observed"],
+    }
+    slice_ref = _text(packet.get("target_ref")) or _text(packet.get("intake_ref"))
+    if slice_ref:
+        row["slice_ref"] = slice_ref
+    if disposition == "deferred":
+        row["next_slice_refs"] = _semantic_next_slice_refs(
+            packet,
+            packet_id=packet_id,
+            target_ref=target_ref,
+        )
+    return (row,)
+
+
+def _semantic_action_disposition(packet: Mapping[str, object]) -> str:
+    if packet_has_effective_durable_binding(packet):
+        return "accepted"
+    if _packet_is_valid_action_request(packet):
+        return "accepted"
+    if packet_requires_durable_binding(packet):
+        return "deferred"
+    return "accepted"
+
+
+def _semantic_action_kind(packet: Mapping[str, object]) -> str:
+    requested = _text(packet.get("requested_action"))
+    kind = _text(packet.get("kind"))
+    if requested and requested != "review_only":
+        return requested
+    return kind or "packet"
+
+
+def _packet_is_valid_action_request(packet: Mapping[str, object]) -> bool:
+    return (
+        _text(packet.get("kind")) == "action_request"
+        and bool(_text(packet.get("requested_action")))
+        and bool(_text(packet.get("target_kind")))
+        and bool(_text(packet.get("target_ref")))
+    )
+
+
+def _semantic_target_ref(
+    packet: Mapping[str, object],
+    *,
+    packet_id: str,
+) -> str:
+    target_ref = _text(packet.get("target_ref"))
+    if target_ref:
+        return target_ref
+    target_kind = _text(packet.get("target_kind"))
+    if target_kind:
+        return f"{target_kind}:{packet_id}"
+    return f"packet:{packet_id}"
+
+
+def _semantic_action_reason(packet: Mapping[str, object]) -> str:
+    summary = _text(packet.get("summary"))
+    body = _text(packet.get("body"))
+    if summary and body:
+        return f"{summary}: {body[:180]}"
+    return summary or body[:220] or "packet body parsed into typed semantic action row"
+
+
+def _semantic_next_slice_refs(
+    packet: Mapping[str, object],
+    *,
+    packet_id: str,
+    target_ref: str,
+) -> list[str]:
+    refs: list[str] = []
+    for value in (
+        _text(packet.get("target_ref")),
+        _text(packet.get("intake_ref")),
+        target_ref,
+        f"packet:{packet_id}",
+    ):
+        if value and value not in refs:
+            refs.append(value)
+    return refs or [f"packet:{packet_id}"]

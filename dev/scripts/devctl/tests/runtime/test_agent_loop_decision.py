@@ -334,6 +334,317 @@ def test_loop_blocks_mutation_until_peer_packet_body_is_opened() -> None:
     assert decision.proof_state == "missing"
 
 
+def test_semantically_ingested_packet_requires_absorption_before_continue_to_goal() -> None:
+    packet = _packet(
+        packet_id="rev_pkt_absorb",
+        from_agent="claude",
+        to_agent="codex",
+        kind="action_request",
+        body="Packet is parsed but not absorbed.",
+        latest_event_id="rev_evt_101",
+        target_role="implementer",
+        target_session_id="codex-main",
+    )
+    digest = packet_body_digest(packet)
+    packet["body_observation_events"] = [
+        {
+            "body_observed_by": "codex",
+            "body_observed_role": "implementer",
+            "body_observed_session_id": "codex-main",
+            "body_digest": digest,
+        }
+    ]
+    packet["packet_semantic_ingestion_receipt"] = {
+        "contract_id": "PacketSemanticIngestionReceipt",
+        "packet_id": "rev_pkt_absorb",
+        "receipt_id": "semantic_ingestion:rev_pkt_absorb:1",
+        "body_sha256": digest,
+        "ingested_by_actor": "codex",
+        "ingested_by_role": "implementer",
+        "ingested_by_session_id": "codex-main",
+        "ingested_at_utc": "2026-05-17T18:46:00Z",
+        "resulting_decision": "continue_packet_review",
+        "decision_rationale": "packet body was parsed into typed action rows",
+        "action_item_rows": [
+            {
+                "contract_id": "PacketSemanticActionItem",
+                "schema_version": 1,
+                "action_item_id": "rev_pkt_absorb:apply",
+                "kind": "apply",
+                "disposition": "deferred",
+                "target_ref": "packet:rev_pkt_absorb",
+                "packet_ref": "packet:rev_pkt_absorb",
+                "reason": "absorption is still required",
+                "evidence_refs": ["packet:rev_pkt_absorb#semantic"],
+                "next_slice_refs": ["packet:rev_pkt_absorb#absorb"],
+            }
+        ],
+    }
+
+    decision = build_agent_loop_decision(
+        review_state=_state(packet),
+        dashboard={"now": {"next_command": "python3 dev/scripts/devctl.py push --execute"}},
+        actor_id="codex",
+        actor_role="implementer",
+        session_id="codex-main",
+    )
+
+    assert decision.required_action == "absorb_packet"
+    assert decision.reason_code == "packet_absorption_required"
+    assert decision.decision == "run_next_command"
+    assert decision.safe_to_continue is False
+    assert decision.may_mutate is False
+    assert decision.active_packet_id == "rev_pkt_absorb"
+    assert decision.absorption_required is True
+    assert decision.absorption_packet_id == "rev_pkt_absorb"
+    assert decision.next_command == (
+        "python3 dev/scripts/devctl.py review-channel --action absorb "
+        "--packet-id rev_pkt_absorb --actor codex --terminal none --format md "
+        "--target-role implementer --target-session-id codex-main"
+    )
+
+
+def test_continue_to_goal_survives_packet_attention_without_lifecycle_gate() -> None:
+    review_state = _state()
+    review_state.pop("packets")
+    review_state["reviewer_runtime"]["packet_attention"] = {
+        "observation_actor_id": "codex",
+        "observation_session_id": "codex-main",
+        "latest_inbox_event_id": "rev_evt_101",
+        "latest_attention_packet_id": "rev_pkt_goal",
+        "last_observed_event_id": "rev_evt_100",
+        "pending_packet_count": 1,
+        "wake_required": True,
+        "pivot_required": True,
+        "stale_reason": "wake_required",
+    }
+
+    decision = build_agent_loop_decision(
+        review_state=review_state,
+        dashboard={"now": {}},
+        actor_id="codex",
+        actor_role="implementer",
+        session_id="codex-main",
+    )
+
+    assert decision.required_action == "continue_to_goal"
+    assert decision.reason_code == "peer_input_required"
+    assert decision.decision == "continue_to_goal"
+    assert decision.loop_mode == "continue_to_goal"
+    assert decision.active_packet_id == "rev_pkt_goal"
+    assert decision.attention_packet_id == "rev_pkt_goal"
+    assert decision.absorption_required is False
+    assert "--action absorb" not in decision.next_command
+
+
+def test_continue_to_goal_survives_real_packet_noise_without_lifecycle_gate() -> None:
+    review_state = _state(
+        _packet(
+            packet_id="rev_pkt_noise",
+            from_agent="claude",
+            to_agent="codex",
+            kind="task_progress",
+            body="",
+            latest_event_id="rev_evt_101",
+            target_role="implementer",
+            target_session_id="codex-main",
+        )
+    )
+    review_state["agent_sync"] = {
+        "agents": {
+            "codex": {
+                "last_consumed_event_id_lower_bound": "rev_evt_100",
+            }
+        }
+    }
+
+    decision = build_agent_loop_decision(
+        review_state=review_state,
+        dashboard={"now": {}},
+        actor_id="codex",
+        actor_role="implementer",
+        session_id="codex-main",
+    )
+
+    assert decision.required_action == "continue_to_goal"
+    assert decision.decision == "continue_to_goal"
+    assert decision.reason_code == "peer_input_required"
+    assert decision.active_packet_id == "rev_pkt_noise"
+    assert decision.attention_packet_id == "rev_pkt_noise"
+    assert decision.body_open_required is False
+    assert decision.semantic_ingestion_required is False
+    assert decision.absorption_required is False
+    assert "--action show" not in decision.next_command
+    assert "--action ingest" not in decision.next_command
+    assert "--action absorb" not in decision.next_command
+
+
+def test_absorbed_packet_clears_packet_pressure_before_goal_continuation() -> None:
+    packet = _packet(
+        packet_id="rev_pkt_absorbed",
+        from_agent="claude",
+        to_agent="codex",
+        kind="finding",
+        body="Packet is parsed and absorbed.",
+        latest_event_id="rev_evt_101",
+        target_role="implementer",
+        target_session_id="codex-main",
+    )
+    digest = packet_body_digest(packet)
+    packet["body_observation_events"] = [
+        {
+            "body_observed_by": "codex",
+            "body_observed_role": "implementer",
+            "body_observed_session_id": "codex-main",
+            "body_digest": digest,
+        }
+    ]
+    packet["packet_semantic_ingestion_receipt"] = {
+        "contract_id": "PacketSemanticIngestionReceipt",
+        "packet_id": "rev_pkt_absorbed",
+        "receipt_id": "semantic_ingestion:rev_pkt_absorbed:1",
+        "body_sha256": digest,
+        "ingested_by_actor": "codex",
+        "ingested_by_role": "implementer",
+        "ingested_by_session_id": "codex-main",
+        "ingested_at_utc": "2026-05-17T18:46:00Z",
+        "resulting_decision": "continue_packet_review",
+        "decision_rationale": "packet body was parsed into typed action rows",
+        "action_item_rows": [
+            {
+                "contract_id": "PacketSemanticActionItem",
+                "schema_version": 1,
+                "action_item_id": "rev_pkt_absorbed:done",
+                "kind": "finding",
+                "disposition": "already_shipped",
+                "target_ref": "packet:rev_pkt_absorbed",
+                "packet_ref": "packet:rev_pkt_absorbed",
+                "reason": "packet work is already reflected in evidence",
+                "evidence_refs": ["proof:rev_pkt_absorbed"],
+            }
+        ],
+    }
+    packet["packet_absorption_receipt"] = {
+        "contract_id": "PacketAbsorptionReceipt",
+        "packet_id": "rev_pkt_absorbed",
+        "body_sha256": digest,
+        "absorbed_by_actor": "codex",
+        "absorbed_by_role": "implementer",
+        "absorbed_by_session_id": "codex-main",
+        "absorbed_at_utc": "2026-05-17T18:47:00Z",
+        "source_semantic_ingestion_receipt_id": "semantic_ingestion:rev_pkt_absorbed:1",
+        "source_semantic_ingestion_event_id": "rev_evt_semantic",
+        "action_item_dispositions": ["rev_pkt_absorbed:done:already_shipped"],
+        "resulting_decision": "packet_pressure_cleared",
+        "decision_rationale": "semantic action rows have typed evidence",
+        "evidence_refs": ["proof:rev_pkt_absorbed"],
+    }
+
+    decision = build_agent_loop_decision(
+        review_state=_state(packet),
+        dashboard={"now": {}},
+        actor_id="codex",
+        actor_role="implementer",
+        session_id="codex-main",
+    )
+
+    assert decision.pending_packet_count == 0
+    assert decision.active_packet_id == ""
+    assert decision.attention_packet_id == ""
+    assert decision.body_open_required is False
+    assert decision.semantic_ingestion_required is False
+    assert decision.absorption_required is False
+    assert "--action show" not in decision.next_command
+    assert "--action ingest" not in decision.next_command
+    assert "--action absorb" not in decision.next_command
+
+
+def test_absorbed_action_request_without_consumption_keeps_pressure_not_absorb() -> None:
+    packet = _packet(
+        packet_id="rev_pkt_action_absorbed",
+        from_agent="claude",
+        to_agent="codex",
+        kind="action_request",
+        body="Please run governed commit for this scoped patch.",
+        lifecycle_current_state="absorbed",
+        latest_event_id="rev_evt_101",
+        target_role="implementer",
+        target_session_id="codex-main",
+        target_ref="devctl_commit:checkpoint",
+    )
+    digest = packet_body_digest(packet)
+    packet["body_observation_events"] = [
+        {
+            "body_observed_by": "codex",
+            "body_observed_role": "implementer",
+            "body_observed_session_id": "codex-main",
+            "body_digest": digest,
+        }
+    ]
+    packet["packet_semantic_ingestion_receipt"] = {
+        "contract_id": "PacketSemanticIngestionReceipt",
+        "packet_id": "rev_pkt_action_absorbed",
+        "receipt_id": "semantic_ingestion:rev_pkt_action_absorbed:1",
+        "body_sha256": digest,
+        "ingested_by_actor": "codex",
+        "ingested_by_role": "implementer",
+        "ingested_by_session_id": "codex-main",
+        "ingested_at_utc": "2026-05-17T18:46:00Z",
+        "resulting_decision": "continue_packet_review",
+        "decision_rationale": "packet body was parsed into typed action rows",
+        "action_item_rows": [
+            {
+                "contract_id": "PacketSemanticActionItem",
+                "schema_version": 1,
+                "action_item_id": "rev_pkt_action_absorbed:commit",
+                "kind": "stage_commit_pipeline",
+                "disposition": "accepted",
+                "target_ref": "devctl_commit:checkpoint",
+                "packet_ref": "rev_pkt_action_absorbed",
+                "reason": "governed commit action request must be consumed",
+                "evidence_refs": ["packet:rev_pkt_action_absorbed"],
+            }
+        ],
+    }
+    receipt = {
+        "contract_id": "PacketAbsorptionReceipt",
+        "packet_id": "rev_pkt_action_absorbed",
+        "body_sha256": digest,
+        "absorbed_by_actor": "codex",
+        "absorbed_by_role": "implementer",
+        "absorbed_by_session_id": "codex-main",
+        "absorbed_at_utc": "2026-05-17T18:47:00Z",
+        "source_semantic_ingestion_receipt_id": (
+            "semantic_ingestion:rev_pkt_action_absorbed:1"
+        ),
+        "source_semantic_ingestion_event_id": "rev_evt_semantic",
+        "action_item_dispositions": [
+            "rev_pkt_action_absorbed:commit:accepted"
+        ],
+        "resulting_decision": "packet_absorbed",
+        "decision_rationale": "semantic action rows were recorded",
+        "evidence_refs": ["packet:rev_pkt_action_absorbed"],
+    }
+    packet["packet_absorption_receipt"] = receipt
+    packet["absorption_events"] = [
+        {"event_id": "rev_evt_absorb", "packet_absorption_receipt": receipt}
+    ]
+
+    decision = build_agent_loop_decision(
+        review_state=_state(packet),
+        dashboard={"now": {}},
+        actor_id="codex",
+        actor_role="implementer",
+        session_id="codex-main",
+    )
+
+    assert decision.active_packet_id == "rev_pkt_action_absorbed"
+    assert decision.attention_packet_id == "rev_pkt_action_absorbed"
+    assert decision.required_action == "continue_to_goal"
+    assert decision.absorption_required is False
+    assert "--action absorb" not in decision.next_command
+
+
 def test_digest_sidecar_toggle_blocks_blind_continuation_after_packet_open() -> None:
     packet = _packet(
         packet_id="rev_pkt_digest",
@@ -457,7 +768,7 @@ def test_digest_sidecar_derives_peer_bidirectionally_from_typed_owner_lanes() ->
     assert "agent-mind --agent codex" in decision.next_command
 
 
-def test_digest_sidecar_does_not_invent_codex_claude_peer_without_typed_topology() -> None:
+def test_semantic_ingestion_does_not_invent_codex_claude_peer_sidecar() -> None:
     packet = _packet(
         packet_id="rev_pkt_digest",
         from_agent="claude",
@@ -490,7 +801,9 @@ def test_digest_sidecar_does_not_invent_codex_claude_peer_without_typed_topology
         session_id="codex-review",
     )
 
-    assert decision.required_action == "execute_active_packet"
+    assert decision.required_action == "ingest_packet_semantics"
+    assert decision.reason_code == "packet_semantic_ingestion_required"
+    assert "--action ingest" in decision.next_command
     assert "agent-mind --agent claude" not in decision.next_command
 
 
@@ -563,7 +876,7 @@ def test_peer_collaboration_edge_does_not_resolve_from_owner_strings_only() -> N
     assert edge is None
 
 
-def test_digest_sidecar_toggle_off_keeps_existing_packet_execution_path() -> None:
+def test_digest_sidecar_toggle_off_still_requires_semantic_ingestion() -> None:
     packet = _packet(
         packet_id="rev_pkt_digest",
         from_agent="claude",
@@ -591,12 +904,13 @@ def test_digest_sidecar_toggle_off_keeps_existing_packet_execution_path() -> Non
         session_id="codex-main",
     )
 
-    assert decision.required_action == "execute_active_packet"
+    assert decision.required_action == "ingest_packet_semantics"
+    assert decision.reason_code == "packet_semantic_ingestion_required"
     assert decision.active_packet_id == "rev_pkt_digest"
-    assert decision.safe_to_continue is True
+    assert decision.safe_to_continue is False
 
 
-def test_digest_sidecar_toggle_continues_after_current_digest_observation() -> None:
+def test_current_digest_observation_still_requires_semantic_ingestion() -> None:
     packet = _packet(
         packet_id="rev_pkt_digest",
         from_agent="claude",
@@ -639,9 +953,10 @@ def test_digest_sidecar_toggle_continues_after_current_digest_observation() -> N
         session_id="codex-main",
     )
 
-    assert decision.required_action == "execute_active_packet"
+    assert decision.required_action == "ingest_packet_semantics"
+    assert decision.reason_code == "packet_semantic_ingestion_required"
     assert decision.active_packet_id == "rev_pkt_digest"
-    assert decision.safe_to_continue is True
+    assert decision.safe_to_continue is False
 
 
 def test_same_provider_reviewer_session_does_not_inherit_implementer_grants() -> None:

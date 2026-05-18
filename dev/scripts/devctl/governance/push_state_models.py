@@ -53,6 +53,9 @@ class PushEnforcementSnapshot:
     latest_push_report_reason: str = ""
     latest_push_report_published_remote: bool = False
     latest_push_report_post_push_green: bool = False
+    latest_push_report_publication_mode: str = ""
+    latest_push_report_governed_push_verified: bool = False
+    latest_push_report_operator_bypass_evidence_required: bool = False
     current_worktree_identity: str = ""
     current_approved_target_identity: str = ""
     latest_push_report_approved_worktree_identity: str = ""
@@ -69,6 +72,9 @@ class PushEnforcementSnapshot:
     selected_push_report_reason: str = ""
     selected_push_report_published_remote: bool = False
     selected_push_report_post_push_green: bool = False
+    selected_push_report_publication_mode: str = ""
+    selected_push_report_governed_push_verified: bool = False
+    selected_push_report_operator_bypass_evidence_required: bool = False
     selected_push_report_approved_worktree_identity: str = ""
     selected_push_report_approved_target_identity: str = ""
     selected_push_report_matches_current_approved_target: bool = False
@@ -85,6 +91,8 @@ class PushEnforcementSnapshot:
     current_push_authorization_matches_current_approved_target: bool = False
     current_push_authorization_matches_current_worktree: bool = False
     current_push_authorization_valid: bool = False
+    publication_audit_required: bool = False
+    operator_bypass_evidence_required: bool = False
 
 
 @dataclass(frozen=True, slots=True)

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import shlex
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import asdict, dataclass
 
@@ -12,6 +13,12 @@ ATTEMPTED_ACTION_RECEIPT_CONTRACT_ID = "AttemptedActionReceipt"
 ATTEMPTED_ACTION_RECEIPT_SCHEMA_VERSION = 1
 CONTROL_DECISION_OBEYED_CONTRACT_ID = "ControlDecisionObeyedGuard"
 CONTROL_DECISION_OBEYED_SCHEMA_VERSION = 1
+_REVIEW_CHANNEL_POST_ACTION_BY_KIND = {
+    "finding": "review-channel.post_finding",
+    "action_request": "review-channel.post_action_request",
+    "continuation_anchor": "review-channel.post_continuation_anchor",
+    "stop_anchor": "review-channel.post_stop_anchor",
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -23,11 +30,20 @@ class AttemptedActionReceipt:
     actor: str
     role: str
     session_id: str
+    executor_actor: str
+    executor_role: str
+    executor_session_id: str
+    subject_actor: str
+    subject_role: str
+    subject_session_id: str
+    proxy_execution: bool
+    proxy_authority_ref: str
     mutates: bool
     writes_state: bool
     executes_command: bool
     source_decision_id: str
     source_snapshot_id: str
+    source_latest_event_id: str
     started_at_utc: str
     schema_version: int = ATTEMPTED_ACTION_RECEIPT_SCHEMA_VERSION
     contract_id: str = ATTEMPTED_ACTION_RECEIPT_CONTRACT_ID
@@ -107,14 +123,38 @@ def build_attempted_action_receipt(
     actor: str = "",
     role: str = "",
     session_id: str = "",
+    executor_actor: str = "",
+    executor_role: str = "",
+    executor_session_id: str = "",
+    subject_actor: str = "",
+    subject_role: str = "",
+    subject_session_id: str = "",
+    proxy_authority_ref: str = "",
     mutates: bool = False,
     writes_state: bool = False,
     executes_command: bool = False,
     source_decision_id: str = "",
     source_snapshot_id: str = "",
+    source_latest_event_id: str = "",
     started_at_utc: str = "",
 ) -> AttemptedActionReceipt:
     argv_tuple = tuple(coerce_string(item) for item in argv if coerce_string(item))
+    subject_actor_value = coerce_string(subject_actor) or coerce_string(actor)
+    subject_role_value = coerce_string(subject_role) or coerce_string(role)
+    subject_session_value = coerce_string(subject_session_id) or coerce_string(
+        session_id
+    )
+    executor_actor_value = coerce_string(executor_actor) or subject_actor_value
+    executor_role_value = coerce_string(executor_role) or subject_role_value
+    executor_session_value = coerce_string(executor_session_id) or subject_session_value
+    proxy_execution = _proxy_execution(
+        executor_actor=executor_actor_value,
+        executor_role=executor_role_value,
+        executor_session_id=executor_session_value,
+        subject_actor=subject_actor_value,
+        subject_role=subject_role_value,
+        subject_session_id=subject_session_value,
+    )
     fingerprint_source = "\x00".join(
         (
             coerce_string(action_kind),
@@ -123,11 +163,20 @@ def build_attempted_action_receipt(
             coerce_string(actor),
             coerce_string(role),
             coerce_string(session_id),
+            executor_actor_value,
+            executor_role_value,
+            executor_session_value,
+            subject_actor_value,
+            subject_role_value,
+            subject_session_value,
+            str(proxy_execution),
+            coerce_string(proxy_authority_ref),
             str(bool(mutates)),
             str(bool(writes_state)),
             str(bool(executes_command)),
             coerce_string(source_decision_id),
             coerce_string(source_snapshot_id),
+            coerce_string(source_latest_event_id),
         )
     )
     fingerprint = hashlib.sha256(fingerprint_source.encode("utf-8")).hexdigest()[:16]
@@ -139,11 +188,20 @@ def build_attempted_action_receipt(
         actor=coerce_string(actor),
         role=coerce_string(role),
         session_id=coerce_string(session_id),
+        executor_actor=executor_actor_value,
+        executor_role=executor_role_value,
+        executor_session_id=executor_session_value,
+        subject_actor=subject_actor_value,
+        subject_role=subject_role_value,
+        subject_session_id=subject_session_value,
+        proxy_execution=proxy_execution,
+        proxy_authority_ref=coerce_string(proxy_authority_ref),
         mutates=bool(mutates),
         writes_state=bool(writes_state),
         executes_command=bool(executes_command),
         source_decision_id=coerce_string(source_decision_id),
         source_snapshot_id=coerce_string(source_snapshot_id),
+        source_latest_event_id=coerce_string(source_latest_event_id),
         started_at_utc=coerce_string(started_at_utc),
     )
 
@@ -204,6 +262,8 @@ def _violations_for_action(
     action: Mapping[str, object],
 ) -> list[ControlDecisionObedienceViolation]:
     violations: list[ControlDecisionObedienceViolation] = []
+    violations.extend(_scope_violations_for_action(decision, action))
+    violations.extend(_proxy_violations_for_action(decision, action))
     may_mutate = coerce_bool(decision.get("may_mutate"))
     can_run_next_command = coerce_bool(decision.get("can_run_next_command"))
     override = decision.get("operator_override")
@@ -224,7 +284,7 @@ def _violations_for_action(
     if (
         can_run_next_command is False
         and _action_executes_command(action)
-        and not _allowed_packet_attention_action(action, decision=decision)
+        and not _allowed_controller_action(action, decision=decision)
     ):
         violations.append(
             ControlDecisionObedienceViolation(
@@ -242,7 +302,7 @@ def _violations_for_action(
                 detail=_action_detail(action),
             )
         )
-    if decision_value == "wait" and not _allowed_packet_attention_action(
+    if decision_value == "wait" and not _allowed_controller_action(
         action,
         decision=decision,
     ):
@@ -252,7 +312,7 @@ def _violations_for_action(
                 detail=_action_detail(action),
             )
         )
-    if body_open_required and not _allowed_packet_attention_action(
+    if body_open_required and not _allowed_controller_action(
         action,
         decision=decision,
     ):
@@ -263,7 +323,7 @@ def _violations_for_action(
             )
         )
     if required_action.startswith("wait_for_scoped_packet") and not (
-        _allowed_packet_attention_action(action, decision=decision)
+        _allowed_controller_action(action, decision=decision)
     ):
         violations.append(
             ControlDecisionObedienceViolation(
@@ -274,12 +334,129 @@ def _violations_for_action(
     return violations
 
 
+def _scope_violations_for_action(
+    decision: Mapping[str, object],
+    action: Mapping[str, object],
+) -> list[ControlDecisionObedienceViolation]:
+    violations: list[ControlDecisionObedienceViolation] = []
+    for decision_key, action_key, reason in (
+        ("actor_id", "actor", "attempted_action_actor_scope_mismatch"),
+        ("actor_role", "role", "attempted_action_role_scope_mismatch"),
+        ("session_id", "session_id", "attempted_action_session_scope_mismatch"),
+    ):
+        expected = coerce_string(decision.get(decision_key)).strip()
+        if not expected:
+            continue
+        actual = coerce_string(action.get(action_key)).strip()
+        if not actual or actual != expected:
+            violations.append(
+                ControlDecisionObedienceViolation(
+                    reason=reason,
+                    detail=(
+                        f"{action_key}={actual or '(missing)'};"
+                        f"expected={expected}"
+                    ),
+                )
+            )
+    return violations
+
+
+def _proxy_violations_for_action(
+    decision: Mapping[str, object],
+    action: Mapping[str, object],
+) -> list[ControlDecisionObedienceViolation]:
+    if not _action_proxy_execution(action):
+        return []
+    proxy_ref = coerce_string(action.get("proxy_authority_ref")).strip()
+    if not proxy_ref:
+        return [
+            ControlDecisionObedienceViolation(
+                reason="attempted_action_proxy_authority_missing",
+                detail=(
+                    f"executor_actor={coerce_string(action.get('executor_actor')) or '(missing)'};"
+                    f"subject_actor={coerce_string(action.get('subject_actor')) or coerce_string(action.get('actor')) or '(missing)'}"
+                ),
+            )
+        ]
+    decision_refs = _decision_proxy_authority_refs(decision)
+    if not decision_refs:
+        return [
+            ControlDecisionObedienceViolation(
+                reason="attempted_action_proxy_authority_unbound",
+                detail="Loaded decision has no receipt_id/source_snapshot_id/source_latest_event_id.",
+            )
+        ]
+    if proxy_ref not in decision_refs:
+        return [
+            ControlDecisionObedienceViolation(
+                reason="attempted_action_proxy_authority_mismatch",
+                detail=f"proxy_authority_ref={proxy_ref};expected_one_of={','.join(sorted(decision_refs))}",
+            )
+        ]
+    return []
+
+
+def _decision_proxy_authority_refs(decision: Mapping[str, object]) -> set[str]:
+    return {
+        value
+        for value in (
+            coerce_string(decision.get("receipt_id")).strip(),
+            coerce_string(decision.get("source_decision_id")).strip(),
+            coerce_string(decision.get("source_snapshot_id")).strip(),
+            coerce_string(decision.get("source_latest_event_id")).strip(),
+        )
+        if value
+    }
+
+
+def _action_proxy_execution(action: Mapping[str, object]) -> bool:
+    explicit = action.get("proxy_execution")
+    if explicit is not None:
+        return coerce_bool(explicit)
+    return _proxy_execution(
+        executor_actor=coerce_string(action.get("executor_actor")),
+        executor_role=coerce_string(action.get("executor_role")),
+        executor_session_id=coerce_string(action.get("executor_session_id")),
+        subject_actor=(
+            coerce_string(action.get("subject_actor"))
+            or coerce_string(action.get("actor"))
+        ),
+        subject_role=(
+            coerce_string(action.get("subject_role")) or coerce_string(action.get("role"))
+        ),
+        subject_session_id=(
+            coerce_string(action.get("subject_session_id"))
+            or coerce_string(action.get("session_id"))
+        ),
+    )
+
+
+def _proxy_execution(
+    *,
+    executor_actor: str,
+    executor_role: str,
+    executor_session_id: str,
+    subject_actor: str,
+    subject_role: str,
+    subject_session_id: str,
+) -> bool:
+    if not executor_actor or not subject_actor:
+        return False
+    if executor_actor != subject_actor:
+        return True
+    if executor_role and subject_role and executor_role != subject_role:
+        return True
+    if executor_session_id and subject_session_id and executor_session_id != subject_session_id:
+        return True
+    return False
+
+
 def _action_mutates(
     action: Mapping[str, object],
     *,
     decision: Mapping[str, object],
 ) -> bool:
-    if _allowed_packet_attention_action(action, decision=decision):
+    if _allowed_controller_action(action, decision=decision):
         return False
     if coerce_bool(action.get("mutates")) or coerce_bool(action.get("writes_state")):
         return True
@@ -305,6 +482,17 @@ def _action_executes_command(action: Mapping[str, object]) -> bool:
     return bool(_action_text(action))
 
 
+def _allowed_controller_action(
+    action: Mapping[str, object],
+    *,
+    decision: Mapping[str, object],
+) -> bool:
+    return _allowed_packet_attention_action(
+        action,
+        decision=decision,
+    ) or _allowed_review_channel_post(action, decision=decision)
+
+
 def _allowed_packet_attention_action(
     action: Mapping[str, object],
     *,
@@ -313,10 +501,18 @@ def _allowed_packet_attention_action(
     text = _action_text(action)
     is_show = "review-channel --action show" in text
     is_ingest = "review-channel --action ingest" in text
-    if not (is_show or is_ingest):
+    is_absorb = "review-channel --action absorb" in text
+    if not (is_show or is_ingest or is_absorb):
         return False
     packet_id = _packet_id_from_action(action)
-    if is_ingest:
+    if is_absorb:
+        if not coerce_bool(decision.get("absorption_required")):
+            return False
+        allowed_packet_ids = {
+            coerce_string(decision.get("absorption_packet_id")),
+            coerce_string(decision.get("attention_packet_id")),
+        }
+    elif is_ingest:
         if not coerce_bool(decision.get("semantic_ingestion_required")):
             return False
         allowed_packet_ids = {
@@ -333,6 +529,84 @@ def _allowed_packet_attention_action(
         }
     allowed_packet_ids.discard("")
     return bool(allowed_packet_ids) and packet_id in allowed_packet_ids
+
+
+def _allowed_review_channel_post(
+    action: Mapping[str, object],
+    *,
+    decision: Mapping[str, object],
+) -> bool:
+    argv = _action_argv(action)
+    if not _argv_is_review_channel_post(argv, action):
+        return False
+    kind = _argv_option_value(argv, "--kind").strip().lower()
+    required_allowed_action = _REVIEW_CHANNEL_POST_ACTION_BY_KIND.get(kind)
+    if not required_allowed_action:
+        return False
+    allowed_actions = decision.get("allowed_actions")
+    if not isinstance(allowed_actions, Sequence) or isinstance(
+        allowed_actions,
+        (str, bytes),
+    ):
+        return False
+    normalized_allowed = {
+        coerce_string(item).strip().lower() for item in allowed_actions
+    }
+    if required_allowed_action not in normalized_allowed:
+        return False
+    if kind == "action_request":
+        return _allowed_review_channel_action_request_post(argv)
+    return True
+
+
+def _allowed_review_channel_action_request_post(argv: Sequence[str]) -> bool:
+    requested_action = _argv_option_value(argv, "--requested-action").strip()
+    target_kind = _argv_option_value(argv, "--target-kind").strip()
+    target_ref = _argv_option_value(argv, "--target-ref").strip()
+    target_revision = _argv_option_value(argv, "--target-revision").strip()
+    guard_evidence = _argv_option_value(argv, "--full-guard-bundle-evidence").strip()
+    return (
+        requested_action == "stage_commit_pipeline"
+        and target_kind == "runtime"
+        and target_ref.startswith("devctl_commit:")
+        and bool(target_revision)
+        and bool(guard_evidence)
+    )
+
+
+def _argv_is_review_channel_post(
+    argv: Sequence[str],
+    action: Mapping[str, object],
+) -> bool:
+    normalized = tuple(coerce_string(item).strip().lower() for item in argv)
+    if "review-channel" not in normalized:
+        return False
+    if _argv_option_value(normalized, "--action").strip().lower() == "post":
+        return True
+    return coerce_string(action.get("action_kind")).strip().lower() == "review-channel.post"
+
+
+def _argv_option_value(argv: Sequence[str], option: str) -> str:
+    for index, token in enumerate(argv):
+        if coerce_string(token).strip().lower() != option:
+            continue
+        if index + 1 >= len(argv):
+            return ""
+        return coerce_string(argv[index + 1])
+    return ""
+
+
+def _action_argv(action: Mapping[str, object]) -> tuple[str, ...]:
+    argv = action.get("argv")
+    if isinstance(argv, Sequence) and not isinstance(argv, (str, bytes)):
+        return tuple(coerce_string(item).strip() for item in argv if coerce_string(item).strip())
+    command = coerce_string(action.get("command")).strip()
+    if command:
+        try:
+            return tuple(shlex.split(command))
+        except ValueError:
+            return tuple(command.split())
+    return ()
 
 
 def _packet_id_from_action(action: Mapping[str, object]) -> str:

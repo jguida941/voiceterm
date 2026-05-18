@@ -28,6 +28,7 @@ _ACK_EVENT_TYPE = "packet_acked"
 _ACTION_BY_EVENT_TYPE = {
     "packet_applied": "applied",
     "packet_dismissed": "dismissed",
+    "packet_absorption_recorded": "absorbed",
     "packet_expired": "archived",
     "action_request_execution_failed": "failed",
     "action_request_apply_pending_after_execution": "apply_pending_after_execution",
@@ -385,6 +386,8 @@ def _action_reason(action: str, *, event: Mapping[str, object]) -> str:
         return "packet_applied"
     if action == "dismissed":
         return "packet_dismissed"
+    if action == "absorbed":
+        return "packet_absorbed"
     if action == "failed":
         return "action_request_execution_failed"
     if action == "apply_pending_after_execution":

@@ -36,6 +36,7 @@ def test_packet_absorption_guard_accepts_matching_receipt() -> None:
         absorbed_by_role="reviewer",
         absorbed_by_session_id="session-1",
         absorbed_at_utc="2026-05-17T18:45:00Z",
+        source_semantic_ingestion_receipt_id="packet_semantic_ingestion:rev_pkt_4383:test",
         action_item_dispositions=("P86:deferred",),
         resulting_decision="continue_output_consumption_slice",
         decision_rationale="packet action item deferred behind current blocker",
