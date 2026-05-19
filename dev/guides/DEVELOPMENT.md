@@ -2056,7 +2056,11 @@ Workflow permissions note:
    The publication-scope guard uses the same preflight-resolved base/head refs
    as check-router through `check_publication_scope_integrity_for_push.py`, so
    a new extraction branch with no configured upstream does not fall back to
-   `@{u}` and block before the authorized range is evaluated.
+   `@{u}` and block before the authorized range is evaluated. Check-router also
+   rewrites release-bundle calls to the standalone publication-scope guard into
+   that push adapter when a range scope is active, so the release bundle cannot
+   reintroduce a ref-less `@{u}` lookup after push preflight already selected
+   the authorized base/head pair.
    Publication preflight is fail-fast by default:
    `repo_governance.push.preflight.fail_fast_on_blocker=true` means
    check-router is invoked without `--keep-going`, so the first blocking route

@@ -16367,6 +16367,15 @@ publication-scope, and substrate-plan-row guard entrypoints so release hygiene
 can prove those guards are discoverable instead of treating them as hidden
 tooling.
 
+The subsequent release bundle pass exposed a third scoped-publication leak:
+the top-level push preflight used the range-aware publication-scope adapter,
+but the nested release bundle still invoked the standalone
+`check_publication_scope_integrity.py`, which falls back to `@{u}` and fails on
+new extraction branches without an upstream. Check-router now rewrites that
+direct guard entry to `check_publication_scope_integrity_for_push.py` whenever
+the router has a commit range, preserving the same base/head refs through the
+whole publication preflight.
+
 Evidence:
 
 - `dev/scripts/README.md`

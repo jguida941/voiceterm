@@ -4667,6 +4667,11 @@ Phase metadata: phase_id=MP377-P0; owner_doc=`dev/active/ai_governance_platform.
       to `check_publication_scope_integrity.py`. This prevents no-upstream
       extraction branches from failing the publication-scope guard on `@{u}`
       while still failing closed on real dirty publication contamination.
+      2026-05-19 Phase 0.6.A dogfood follow-up C: range-scoped check-router
+      release bundles now rewrite direct `check_publication_scope_integrity.py`
+      entries to the same push adapter, so nested release validation cannot
+      reintroduce a ref-less upstream lookup after governed push selected the
+      authorized publication range.
 - [ ] `MP377-P0-T08` Extend `PlatformFindingIngest` for finding durability without distraction: every review-channel finding and ad-hoc capture must mirror into `FindingBacklog` / `governance-review` with severity, plan anchor, evidence ref, lifecycle outcome, stale-pending visibility, dashboard counts, startup `quality_signals.open_findings_summary`, and findings-priority ordering. This extends the existing finding spine only.
       owner_doc: `dev/active/ai_governance_platform.md`
       status: `in_progress`

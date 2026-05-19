@@ -3429,7 +3429,10 @@ Governed push controller note:
   push-preflight adapter that resolves the same branch-aware base/head refs
   used by check-router before delegating to
   `check_publication_scope_integrity.py`; no-upstream extraction branches must
-  not fall back to `@{u}` during governed publication.
+  not fall back to `@{u}` during governed publication. When check-router runs a
+  range-scoped release bundle, direct `check_publication_scope_integrity.py`
+  entries are routed through this adapter so the bundle keeps the same
+  publication base/head refs as governed push.
 - Keep branch allowlist updates in `dev/config/devctl_repo_policy.json` aligned
   with active extraction branches so governed push fails for real policy drift,
   not for an obsolete VoiceTerm-era branch prefix.

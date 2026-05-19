@@ -16,6 +16,7 @@ from ...runtime.validation_scope import ValidationScope, ValidationScopeKind
 def _range_aware_script_fragments() -> frozenset[str]:
     fragments: set[str] = {
         "dev/scripts/devctl.py docs-check",
+        "dev/scripts/checks/check_publication_scope_integrity.py",
     }
     fragments.update(
         CHECK_SCRIPT_RELATIVE_PATHS[script_id]
@@ -73,11 +74,38 @@ def append_router_range_args(
 ) -> str:
     if not since_ref or "--since-ref" in command:
         return command
+    if "dev/scripts/checks/check_publication_scope_integrity.py" in command:
+        return _publication_scope_integrity_for_range(
+            command,
+            since_ref=since_ref,
+            head_ref=head_ref,
+        )
     if not any(fragment in command for fragment in ROUTER_RANGE_AWARE_SCRIPT_FRAGMENTS):
         return command
     return (
         command
         + " --since-ref "
+        + shlex.quote(str(since_ref))
+        + " --head-ref "
+        + shlex.quote(str(head_ref or "HEAD"))
+    )
+
+
+def _publication_scope_integrity_for_range(
+    command: str,
+    *,
+    since_ref: str,
+    head_ref: str,
+) -> str:
+    routed = command.replace(
+        "dev/scripts/checks/check_publication_scope_integrity.py",
+        "dev/scripts/checks/check_publication_scope_integrity_for_push.py",
+    )
+    if "--base-ref" in routed:
+        return routed
+    return (
+        routed
+        + " --base-ref "
         + shlex.quote(str(since_ref))
         + " --head-ref "
         + shlex.quote(str(head_ref or "HEAD"))

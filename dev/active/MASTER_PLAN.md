@@ -8580,6 +8580,7 @@ Captured from `rev_pkt_4030` through `rev_pkt_4038` via
 - [ ] `MP-NEW-030` Governed push publication follow-up: load `PushAuthorizationRecord` from the canonical event-backed commit-pipeline projection before falling back to legacy review-status roots, so governed push can consume the authorization emitted by governed commit.
   - progress 2026-05-14: executor-routed push now also passes its in-process `RemoteCommitPipelineContract` to the publication gate, covering the dogfood case where preflight projection refreshes momentarily regenerate `commit_pipeline.json` without the local authorization.
   - progress 2026-05-19: push preflight routes publication-scope integrity through `check_publication_scope_integrity_for_push.py`, carrying the same base/head refs as check-router so no-upstream `extraction/*` branches validate the authorized range instead of failing on `@{u}`.
+  - progress 2026-05-19: check-router rewrites range-scoped release-bundle invocations of `check_publication_scope_integrity.py` to the same push adapter, preventing the nested release bundle from reintroducing a ref-less `@{u}` lookup after governed push selected the publication range.
 - [ ] `PKT-BIND-REV-PKT-4054` Packet decision: R123 response: governed-push rationale and next-slice routing (source `rev_pkt_4054`; target `plan:MP-377`; posted `2026-05-15T00:48:49.255269Z`; binding `plan_row`).
 
 ### MP-NEW P171-P185 Packet Recovery and No-Silent-Expiry Intake

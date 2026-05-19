@@ -1018,6 +1018,7 @@ class CheckRouterTests(unittest.TestCase):
             [
                 "python3 dev/scripts/devctl.py check --profile release",
                 "python3 dev/scripts/devctl.py docs-check --strict-tooling",
+                "python3 dev/scripts/checks/check_publication_scope_integrity.py",
                 "python3 dev/scripts/checks/check_ground_truth_probe_gate.py",
                 "python3 dev/scripts/checks/check_startup_authority_contract.py",
                 "python3 dev/scripts/checks/check_tandem_consistency.py",
@@ -1041,6 +1042,10 @@ class CheckRouterTests(unittest.TestCase):
             planned,
         )
         self.assertIn("docs-check --strict-tooling", planned)
+        self.assertIn(
+            "check_publication_scope_integrity_for_push.py --base-ref origin/develop --head-ref HEAD",
+            planned,
+        )
         self.assertIn("check_ground_truth_probe_gate.py", planned)
         self.assertIn(
             "check_startup_authority_contract.py --validation-scope pipeline_authorized_phase",
