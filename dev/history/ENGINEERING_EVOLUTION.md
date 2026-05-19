@@ -16654,3 +16654,24 @@ Evidence:
 - `dev/state/plan_source_snapshots.jsonl`
 - `dev/active/MASTER_PLAN.md`
 - `dev/scripts/checks/check_plan_index_commit_continuity.py`
+
+### 2026-05-19 - Multi-agent sync communication-only focus helper stays shape-clean
+
+The SLICE-Z routed guard later reached `check_code_shape.py` and caught that
+the communication-only `open_packet_body` allowance had grown the already-large
+`runtime_truth_agent_loop_instruction.py` file beyond its permitted budget.
+The communication-only packet predicate and active-focus check now live in a
+small sibling helper module, keeping the instruction validator focused on
+queue/inbox mismatch assembly while preserving the stricter typed body-open
+semantics.
+
+Reviewer-round addenda `rev_pkt_4525` and `rev_pkt_4526` were also bound into
+the active plan during this continuation window so the newly reported
+develop-next and plan-freshness guard gaps remain durable typed intake.
+
+Evidence:
+
+- `dev/scripts/checks/multi_agent_sync/runtime_truth_agent_loop_instruction.py`
+- `dev/scripts/checks/multi_agent_sync/runtime_truth_agent_loop_communication.py`
+- `dev/scripts/devctl/tests/checks/test_check_multi_agent_sync.py`
+- `dev/active/MASTER_PLAN.md`

@@ -15,6 +15,11 @@ from dev.scripts.devctl.review_channel.agent_loop_decision_queue_targets import 
     _normalize_role,
 )
 
+from .runtime_truth_agent_loop_communication import (
+    _active_focus_is_communication_only,
+    _packet_is_communication_only,
+)
+
 
 def instruction_authority_mismatch_errors(
     payload: Mapping[str, object],
@@ -205,22 +210,6 @@ def _scope_has_executing_packet(
     return False
 
 
-def _active_focus_is_communication_only(
-    active_rows: tuple[Mapping[str, str], ...],
-    active_packets: frozenset[str],
-    packet_index: Mapping[str, Mapping[str, object]],
-) -> bool:
-    for row in active_rows:
-        packet_id = row.get("packet_id", "")
-        if packet_id not in active_packets:
-            continue
-        if row.get("required_action") != "open_packet_body":
-            continue
-        if _packet_is_communication_only(packet_index.get(packet_id)):
-            return True
-    return False
-
-
 def _body_open_subqueue_matches(
     active_rows: tuple[Mapping[str, str], ...],
     *,
@@ -362,18 +351,6 @@ def _packet_index(payload: Mapping[str, object]) -> dict[str, Mapping[str, objec
         if packet_id:
             indexed[packet_id] = row
     return indexed
-
-
-def _packet_is_communication_only(packet: Mapping[str, object] | None) -> bool:
-    if not packet:
-        return False
-    for key in ("durable_binding", "packet_creation_binding"):
-        binding = packet.get(key)
-        if not isinstance(binding, Mapping):
-            continue
-        if coerce_text(binding.get("binding_target_kind")) == "communication_only":
-            return True
-    return False
 
 
 def _string_rows(value: object) -> tuple[str, ...]:

@@ -771,7 +771,10 @@ Three quality layers matter in practice:
   leaked into live collaboration participants or runtime registry entries
   without live delegated-worker receipts. The runtime packet-debt portion is
   scoped to actionable pending packets, so read-only operator notices do not
-  require synthetic agent-loop decisions.
+  require synthetic agent-loop decisions. Its agent-loop instruction helpers
+  treat scoped communication-only `open_packet_body` focus as stricter body
+  ingestion proof, not as permission for older queue/inbox projections to
+  regain mutation authority.
 - Keep one workflow, not a dev-vs-agent fork:
   - `active_dual_agent` is the fully enforced Codex/Claude loop. Use
     `python3 dev/scripts/devctl.py tandem-validate --format md` after code edits.
