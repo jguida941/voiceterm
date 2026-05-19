@@ -99,6 +99,8 @@ def packet_from_event(event: dict[str, object]) -> ReviewPacketRow:
         target_session_id=event.get("target_session_id"),
         anchor_scope=event.get("anchor_scope"),
         requested_session_visibility=event.get("requested_session_visibility"),
+        release_mode=event.get("release_mode"),
+        release_commit_count=event.get("release_commit_count"),
         pipeline_generation=event.get("pipeline_generation"),
         staged_snapshot_hash=event.get("staged_snapshot_hash"),
         guard_results_summary=event.get("guard_results_summary"),

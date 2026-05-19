@@ -156,6 +156,7 @@ def post_packet(
         "approval_required": request.approval_required,
         **request.attention.to_event_fields(),
         **request.target.to_event_fields(),
+        **request.anchor_release.to_event_fields(),
         **request.runtime_approval.to_event_fields(),
         **request.guard_bundle_evidence.to_event_fields(),
         "plan_proposal": (

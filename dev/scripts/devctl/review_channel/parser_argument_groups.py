@@ -9,6 +9,7 @@ from .events import (
     DEFAULT_REVIEW_CHANNEL_SESSION_ID,
 )
 from .packet_contract import (
+    VALID_ANCHOR_RELEASE_MODES,
     VALID_ATTENTION_CLASSES,
     VALID_ATTENTION_URGENCIES,
     VALID_PACKET_KINDS,
@@ -112,7 +113,30 @@ def build_packet_arguments(arg_builder: Callable[..., Any]) -> list[Any]:
             help="Adapter profile recorded on attached context-pack refs",
         ),
         *_packet_target_arguments(arg_builder),
+        *_anchor_release_arguments(arg_builder),
         *_packet_runtime_approval_arguments(arg_builder),
+    ]
+
+
+def _anchor_release_arguments(arg_builder: Callable[..., Any]) -> list[Any]:
+    return [
+        arg_builder(
+            "--release-mode",
+            choices=sorted(VALID_ANCHOR_RELEASE_MODES),
+            help=(
+                "Continuation-anchor release mode. `commit_count` keeps the "
+                "session alive until --release-commit-count distinct typed "
+                "commit SHAs have been observed after the anchor."
+            ),
+        ),
+        arg_builder(
+            "--release-commit-count",
+            type=int,
+            help=(
+                "Number of distinct typed commit SHAs required to auto-release "
+                "a commit-counted continuation anchor."
+            ),
+        ),
     ]
 
 

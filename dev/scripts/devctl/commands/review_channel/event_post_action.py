@@ -9,6 +9,7 @@ from ...runtime.collaboration_packet_kinds import TASK_PRODUCED_PACKET_KIND
 from ...review_channel.context_refs import resolve_context_pack_refs
 from ...review_channel.events import post_packet
 from ...review_channel.packet_contract import (
+    PacketAnchorReleaseFields,
     PacketAttentionFields,
     PacketGuardBundleEvidenceFields,
     PacketPostRequest,
@@ -87,6 +88,10 @@ def _post_request(context: EventActionContext) -> PacketPostRequest:
         attention=PacketAttentionFields.from_values(
             attention_urgency=getattr(args, "attention_urgency", None),
             attention_class=getattr(args, "attention_class", None),
+        ),
+        anchor_release=PacketAnchorReleaseFields.from_values(
+            release_mode=getattr(args, "release_mode", None),
+            release_commit_count=getattr(args, "release_commit_count", None),
         ),
     )
 

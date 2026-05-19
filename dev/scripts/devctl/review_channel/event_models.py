@@ -43,6 +43,8 @@ class ReviewPacketRow(TypedDict):
     target_session_id: object
     anchor_scope: object
     requested_session_visibility: object
+    release_mode: object
+    release_commit_count: object
     pipeline_generation: object
     staged_snapshot_hash: object
     guard_results_summary: object

@@ -663,6 +663,9 @@ def _commit_evidence_packet(
     posted_at: str,
     sha: str,
     packet_id: str = "rev_pkt_commit",
+    evidence_refs: list[str] | None = None,
+    source_identity: dict[str, object] | None = None,
+    target_revision: str | None = None,
 ) -> dict[str, object]:
     """Synthetic packet carrying typed commit evidence in target_revision."""
     return {
@@ -671,8 +674,13 @@ def _commit_evidence_packet(
         "status": "pending",
         "to_agent": "codex",
         "posted_at": posted_at,
-        "target_revision": sha,
-        "evidence_ref": f"commit:{sha}:claude-slice-evidence",
+        "target_revision": sha if target_revision is None else target_revision,
+        "evidence_refs": (
+            [f"commit:{sha}:claude-slice-evidence"]
+            if evidence_refs is None
+            else evidence_refs
+        ),
+        "source_identity": source_identity or {},
     }
 
 
@@ -719,6 +727,145 @@ def test_slice_counted_anchor_blocks_task_complete_below_threshold() -> None:
 
     assert decision.terminate is False
     assert decision.reason == "continuation_anchor_slice_counted_pending"
+
+
+def test_slice_counted_anchor_auto_releases_after_commit_threshold() -> None:
+    """SLICE-Z: 2 of 2 commits typed-after-anchor releases the anchor."""
+    anchor = _anchor(
+        packet_id="rev_pkt_slice_z",
+        posted_at="2026-05-19T16:50:00+00:00",
+        release_mode="commit_count",
+        release_commit_count=2,
+    )
+    commit_a = _commit_evidence_packet(
+        posted_at="2026-05-19T17:00:00+00:00",
+        sha="abc1234",
+        packet_id="rev_pkt_commit_a",
+    )
+    commit_b = _commit_evidence_packet(
+        posted_at="2026-05-19T17:10:00+00:00",
+        sha="def5678",
+        packet_id="rev_pkt_commit_b",
+    )
+
+    decision = task_complete_decision(
+        session_id="session-1",
+        packets=(anchor, commit_a, commit_b),
+        policy=SessionTerminationPolicy(),
+        actor="codex",
+    )
+
+    assert decision.terminate is True
+    assert decision.reason == "policy_default"
+
+
+def test_slice_counted_anchor_auto_releases_keep_awake_policy_after_threshold() -> None:
+    """SLICE-Z: release threshold is an explicit stop condition for keep-awake policy."""
+    anchor = _anchor(
+        packet_id="rev_pkt_slice_z",
+        posted_at="2026-05-19T16:50:00+00:00",
+        release_mode="commit_count",
+        release_commit_count=1,
+    )
+    commit_a = _commit_evidence_packet(
+        posted_at="2026-05-19T17:00:00+00:00",
+        sha="abc1234",
+        packet_id="rev_pkt_commit_a",
+    )
+
+    decision = task_complete_decision(
+        session_id="session-1",
+        packets=(anchor, commit_a),
+        policy=SessionTerminationPolicy(
+            mode=SESSION_TERMINATION_MODE_KEEP_AWAKE_VIA_PACKETS
+        ),
+        actor="codex",
+    )
+
+    assert decision.terminate is True
+    assert decision.reason == "continuation_anchor_slice_counted_released"
+
+
+def test_slice_counted_anchor_checks_body_observation_before_commit_count() -> None:
+    """SLICE-Z: an unread scoped anchor body still blocks before release math."""
+    anchor = _anchor(
+        packet_id="rev_pkt_slice_z",
+        posted_at="2026-05-19T16:50:00+00:00",
+        body="Read this continuation anchor before ending.",
+        release_mode="commit_count",
+        release_commit_count=1,
+    )
+    commit_a = _commit_evidence_packet(
+        posted_at="2026-05-19T17:00:00+00:00",
+        sha="abc1234",
+        packet_id="rev_pkt_commit_a",
+    )
+
+    decision = task_complete_decision(
+        session_id="session-1",
+        packets=(anchor, commit_a),
+        policy=SessionTerminationPolicy(),
+        actor="codex",
+    )
+
+    assert decision.terminate is False
+    assert decision.reason == "continuation_anchor_body_unobserved"
+
+
+def test_slice_counted_anchor_ignores_route_mismatch() -> None:
+    """SLICE-Z: commit-counted anchors keep normal route/session scope."""
+    anchor = _anchor(
+        packet_id="rev_pkt_slice_z",
+        target_session_id="session-other",
+        posted_at="2026-05-19T16:50:00+00:00",
+        release_mode="commit_count",
+        release_commit_count=2,
+    )
+
+    decision = task_complete_decision(
+        session_id="session-1",
+        packets=(anchor,),
+        policy=SessionTerminationPolicy(),
+        actor="codex",
+    )
+
+    assert decision.terminate is True
+    assert decision.reason == "policy_default"
+
+
+def test_slice_counted_anchor_counts_plural_refs_and_source_identity() -> None:
+    """SLICE-Z: typed evidence comes from evidence_refs and source_identity."""
+    anchor = _anchor(
+        packet_id="rev_pkt_slice_z",
+        posted_at="2026-05-19T16:50:00+00:00",
+        release_mode="commit_count",
+        release_commit_count=2,
+    )
+    commit_a = _commit_evidence_packet(
+        posted_at="2026-05-19T17:00:00+00:00",
+        sha="0000000",
+        packet_id="rev_pkt_commit_a",
+        target_revision="HEAD",
+        evidence_refs=["commit:abc1234"],
+    )
+    commit_b = _commit_evidence_packet(
+        posted_at="2026-05-19T17:10:00+00:00",
+        sha="0000000",
+        packet_id="rev_pkt_commit_b",
+        target_revision="HEAD",
+        evidence_refs=[],
+        source_identity={"head_sha": "def5678"},
+    )
+
+    decision = task_complete_decision(
+        session_id="session-1",
+        packets=(anchor, commit_a, commit_b),
+        policy=SessionTerminationPolicy(),
+        actor="codex",
+    )
+
+    assert decision.terminate is True
+    assert decision.reason == "policy_default"
 
 
 def test_slice_counted_anchor_fails_closed_when_release_metadata_invalid() -> None:

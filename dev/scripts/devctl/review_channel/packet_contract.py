@@ -20,6 +20,11 @@ from .event_store import (
     DEFAULT_REVIEW_CHANNEL_SESSION_ID,
 )
 from .packet_agents import default_packet_agent_ids
+from .packet_anchor_release import (
+    PacketAnchorReleaseFields,
+    VALID_ANCHOR_RELEASE_MODES,
+    validate_anchor_release_fields,
+)
 from .pending_packet_models import (
     PacketGuardBundleEvidenceFields,
     PacketRuntimeApprovalFields,
@@ -261,6 +266,9 @@ class PacketPostRequest:
         default_factory=PacketGuardBundleEvidenceFields
     )
     attention: PacketAttentionFields = field(default_factory=PacketAttentionFields)
+    anchor_release: PacketAnchorReleaseFields = field(
+        default_factory=PacketAnchorReleaseFields
+    )
     plan_proposal: PlanProposal = field(default_factory=PlanProposal)
 
 
@@ -326,6 +334,7 @@ def validate_post_request(
         raise ValueError(
             "--expires-in-minutes=0 is only valid for session termination anchors."
         )
+    validate_anchor_release_fields(request)
     validate_target_fields(
         kind=request.kind,
         requested_action=request.requested_action,

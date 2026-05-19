@@ -1,6 +1,6 @@
 # /voice
 
-Capture one prompt with VoiceTerm and use the transcript as the next
+Capture one prompt with GuardIR and use the transcript as the next
 Codex input draft.
 
 ## Command

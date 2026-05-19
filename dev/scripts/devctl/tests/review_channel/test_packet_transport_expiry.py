@@ -9,6 +9,7 @@ from dev.scripts.devctl.review_channel.events import (
     resolve_artifact_paths,
 )
 from dev.scripts.devctl.review_channel.packet_contract import (
+    PacketAnchorReleaseFields,
     PacketPostRequest,
     PacketTargetFields,
 )
@@ -91,6 +92,34 @@ def test_posted_continuation_anchor_records_explicit_transport_expiry(
 
     assert event["expires_at_utc"]
     assert event["metadata"][TRANSPORT_EXPIRY_EXPLICIT_METADATA_KEY] is True
+
+
+def test_posted_continuation_anchor_records_typed_release_metadata(
+    tmp_path: Path,
+) -> None:
+    artifact_paths = resolve_artifact_paths(repo_root=tmp_path)
+    bundle, event = post_packet(
+        repo_root=tmp_path,
+        review_channel_path=_review_channel_path(tmp_path),
+        artifact_paths=artifact_paths,
+        request=PacketPostRequest(
+            from_agent="claude",
+            to_agent="codex",
+            kind="continuation_anchor",
+            summary="Keep working for two slice commits",
+            body="Continue until the slice-counted anchor releases.",
+            anchor_release=PacketAnchorReleaseFields.from_values(
+                release_mode="commit_count",
+                release_commit_count=2,
+            ),
+        ),
+    )
+
+    packet = bundle.review_state["packets"][0]
+    assert event["release_mode"] == "commit_count"
+    assert event["release_commit_count"] == 2
+    assert packet["release_mode"] == "commit_count"
+    assert packet["release_commit_count"] == 2
 
 
 def test_posted_action_request_uses_default_transport_expiry(

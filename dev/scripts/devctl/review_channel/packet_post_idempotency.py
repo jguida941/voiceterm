@@ -40,6 +40,8 @@ PACKET_POST_IDEMPOTENCY_FIELDS = (
     "target_role",
     "target_session_id",
     "requested_session_visibility",
+    "release_mode",
+    "release_commit_count",
     "anchor_refs",
     "intake_ref",
     "mutation_op",
