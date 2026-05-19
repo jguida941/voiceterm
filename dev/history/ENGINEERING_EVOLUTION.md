@@ -16223,6 +16223,25 @@ Evidence:
 - `dev/scripts/checks/check_contract_registry_composite_key_uniqueness.py`
 - `dev/state/non_trivial_output_proof_remediation_findings.jsonl`
 
+### 2026-05-18 - Commit receipts stop inflating guard validation into real-life test proof
+
+`FeatureProofReceipt.real_life_test_status=proven_passed` now requires a
+concrete pytest node id selected by the commit receipt builder. A commit can
+still pass validation through guard bundles, projection refreshes, and plan
+refs, but that evidence is recorded as `not_tested_with_rationale` unless a
+real test node was selected. Existing local `proven_passed` artifacts that lack
+pytest-node evidence are carried through
+`dev/state/non_trivial_output_proof_remediation_findings.jsonl` instead of
+being rewritten or silently accepted.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/commit_receipt.py`
+- `dev/scripts/devctl/tests/runtime/test_commit_receipt.py`
+- `dev/scripts/checks/check_non_trivial_output_proof.py`
+- `dev/scripts/devctl/tests/checks/test_check_non_trivial_output_proof.py`
+- `dev/state/non_trivial_output_proof_remediation_findings.jsonl`
+
 ### 2026-05-16 - Raw-git governed exceptions get commit-anchor closure
 
 R287 closed the write-once raw-git governed-exception debt loop. The

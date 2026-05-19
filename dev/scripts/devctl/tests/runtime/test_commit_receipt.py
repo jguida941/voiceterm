@@ -147,8 +147,9 @@ def test_feature_proof_receipt_covers_operator_proof_chain(tmp_path: Path) -> No
     assert feature_proof.tests_passed_count == 1
     assert feature_proof.tests_failed_count == 0
     assert feature_proof.connectivity_guards_passed is True
-    assert feature_proof.real_life_test_status == "proven_passed"
-    assert feature_proof.not_tested_rationale is None
+    assert feature_proof.real_life_test_status == "not_tested_with_rationale"
+    assert feature_proof.not_tested_rationale is not None
+    assert "no concrete pytest node" in feature_proof.not_tested_rationale
     assert (
         feature_proof.dogfood_invocation_evidence_ref
         == "dev/reports/feature_lifecycle_proofs/abc123.json"
@@ -160,7 +161,7 @@ def test_feature_proof_receipt_covers_operator_proof_chain(tmp_path: Path) -> No
         json.loads((tmp_path / relpath).read_text())
     )
     assert parsed.commit_sha == "abc123"
-    assert parsed.real_life_test_status == "proven_passed"
+    assert parsed.real_life_test_status == "not_tested_with_rationale"
 
 
 def test_feature_proof_receipt_includes_selected_pytest_node_ids(
@@ -215,6 +216,8 @@ def test_feature_proof_receipt_includes_selected_pytest_node_ids(
         f"{test_relpath}::TestSelectedClass::test_method_is_recorded"
         in feature_proof.tests_run
     )
+    assert feature_proof.real_life_test_status == "proven_passed"
+    assert feature_proof.not_tested_rationale is None
     proof = validate_non_trivial_output_proof(feature_proof, repo_root=tmp_path)
     assert proof.has_real_tests is True
 

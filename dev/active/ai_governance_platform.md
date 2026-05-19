@@ -15015,7 +15015,10 @@ identity into executable contracts:
   disk, real pytest node ids in `tests_run`, and no self-referential FPR
   artifact or directory refs. Existing failing receipts are represented in
   `dev/state/non_trivial_output_proof_remediation_findings.jsonl` as typed
-  remediation findings.
+  remediation findings. Commit receipt construction may set
+  `real_life_test_status=proven_passed` only when the builder selected a
+  concrete pytest node id; validation bundles, guard actions, projection
+  refreshes, and plan refs remain `not_tested_with_rationale`.
 - `packet_transport_expiry.py` now assigns default TTLs to long-lived packet
   kinds: 30 days for `task_produced`, 14 days for `decision`, and 7 days for
   `question` and `finding`. `packet_kind_ttl.py` exposes typed resolver

@@ -321,6 +321,7 @@ def build_feature_proof_receipt(
         selected_paths,
         repo_root=repo_root,
     )
+    real_tests_proven = validation_passed and bool(pytest_node_refs)
     guard_ref = _guard_action_ref(pipeline.guard_action_id)
     tests_run = _unique_refs(
         (
@@ -379,8 +380,24 @@ def build_feature_proof_receipt(
         connectivity_guards_ran=connectivity_guards or tests_run,
         connectivity_guards_passed=validation_passed,
         dogfood_invocation_evidence_ref=dogfood_ref,
-        real_life_test_status="proven_passed" if validation_passed else "proven_failed",
-        not_tested_rationale=None,
+        real_life_test_status=(
+            "proven_passed"
+            if real_tests_proven
+            else (
+                "not_tested_with_rationale"
+                if validation_passed
+                else "proven_failed"
+            )
+        ),
+        not_tested_rationale=(
+            None
+            if real_tests_proven or not validation_passed
+            else (
+                "Governed commit validation passed, but no concrete pytest "
+                "node was selected for this commit; do not claim real-life "
+                "test proof from guard-bundle/projection evidence alone."
+            )
+        ),
         bypass_audit_trail_refs=_bypass_audit_trail_refs(commit_receipt),
         proven_at_utc=commit_receipt.recorded_at_utc,
         evidence_artifacts=artifacts,

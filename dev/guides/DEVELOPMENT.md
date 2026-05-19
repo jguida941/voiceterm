@@ -710,6 +710,10 @@ Three quality layers matter in practice:
   `check_non_trivial_output_proof.py` to reject `proven_passed` receipts whose
   evidence refs do not resolve, whose tests are shell strings instead of
   pytest node ids, or whose artifacts point back at their own FPR directory.
+  `FeatureProofReceipt.real_life_test_status=proven_passed` is reserved for
+  concrete pytest node ids selected by the receipt builder; validation bundles,
+  guard actions, projection refreshes, and plan refs alone must be recorded as
+  `not_tested_with_rationale`.
   Existing legacy failures must be carried as
   `NonTrivialOutputProofRemediationFinding` rows, not silently rewritten.
 - Packet-pressure TTLs now live in runtime code, not dashboard interpretation:

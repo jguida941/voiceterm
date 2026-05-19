@@ -203,8 +203,11 @@
   test status, bypass refs, and supporting artifacts. Governed commit emission
   writes it beside `CommitReceipt` and `FeatureLifecycleProof`; raw-git
   operator-bypass commits now emit or update equivalent proof through the
-  `devctl raw-git` wrapper. `check_feature_has_proof_receipt.py` is the
-  shared governance safety net for commits in a push/check range.
+  `devctl raw-git` wrapper. A receipt may claim
+  `real_life_test_status=proven_passed` only from a concrete pytest node id,
+  never from validation-bundle, guard-action, projection, or plan-ref evidence
+  alone. `check_feature_has_proof_receipt.py` is the shared governance safety
+  net for commits in a push/check range.
 - 2026-05-15 meta-capture decomposer (R155/R156): `develop ingest-plan`
   now decomposes packet bodies that already name concrete `MP-NEW-*` closure
   rows or bounded slice ranges before falling back to opaque `PKT-BIND`

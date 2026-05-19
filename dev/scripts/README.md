@@ -3346,6 +3346,11 @@ Feature-proof output truth note:
   pytest-node evidence (`::` in `tests_run`), and circular FPR self-reference,
   then writes `dev/state/non_trivial_output_proof_remediation_findings.jsonl`
   when asked to backfill remediation findings.
+- `commit_receipt.py` may mark `FeatureProofReceipt.real_life_test_status` as
+  `proven_passed` only when the receipt builder selected a concrete pytest node
+  id. Guard bundles, projection refreshes, and plan refs can pass validation, but
+  they must stay `not_tested_with_rationale` instead of becoming real-life test
+  proof.
 
 Packet TTL and registry identity note:
 - `dev/scripts/devctl/runtime/packet_transport_expiry.py` owns per-kind packet
