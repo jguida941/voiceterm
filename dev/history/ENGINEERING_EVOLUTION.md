@@ -16359,8 +16359,17 @@ nested `devctl check` commands. The bridge-stub-compatible VoiceTerm handoff
 test was updated so product-shell review artifact loading no longer requires
 `bridge.md` to carry active instruction authority.
 
+The governed-push preflight then exposed a release-hygiene catalog gap:
+several stable `dev/scripts/checks/check_*.py` entrypoints existed but had no
+row in the maintainer script inventory. `dev/scripts/README.md` now documents
+the command-output, control-decision, packet-absorption, launcher-authority,
+publication-scope, and substrate-plan-row guard entrypoints so release hygiene
+can prove those guards are discoverable instead of treating them as hidden
+tooling.
+
 Evidence:
 
+- `dev/scripts/README.md`
 - `dev/scripts/devctl/cli_parser/builders_checks.py`
 - `dev/scripts/devctl/commands/check/phases.py`
 - `dev/scripts/devctl/commands/check/router_range.py`

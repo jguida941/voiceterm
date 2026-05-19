@@ -52,6 +52,12 @@
   publication veto for an already-authorized commit range. VoiceTerm handoff
   display tests must not require `bridge.md` to carry active instruction
   authority; the bridge artifact is projection-only evidence.
+- 2026-05-19 publication-preflight hygiene follow-up keeps stable check
+  entrypoints visible to maintainers. Release hygiene now blocks undocumented
+  `dev/scripts/checks/check_*.py` shims, so guard entrypoints such as
+  control-decision, packet-absorption, launcher-authority, publication-scope,
+  and substrate-plan-row checks must be listed in `dev/scripts/README.md`
+  before governed push can publish.
 - 2026-05-11 slice 18 fix arc + bilateral protocol consolidation (MP-377):
   claude reviewer-role's session arc identified 7 bugs in slice 18 via two
   codex-review passes (5 findings from 17:16:09Z + 2 additional findings from

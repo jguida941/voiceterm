@@ -111,6 +111,12 @@ Current ingestion status:
   authorized, while still preserving the guard output as evidence. VoiceTerm
   handoff display must load the bridge artifact as projection-only evidence and
   must not depend on `bridge.md` carrying active instruction text.
+- 2026-05-19 publication-preflight hygiene repair keeps stable guard shims
+  discoverable as part of the same release proof. Release hygiene blocks
+  undocumented `dev/scripts/checks/check_*.py` entrypoints, so command-output,
+  control-decision, packet-absorption, launcher-authority, publication-scope,
+  and substrate-plan-row guards are listed in `dev/scripts/README.md` before
+  governed push is allowed to publish.
 - 2026-05-12 bypass-launch blocker repair: blanket trusted/headless launch
   elevation now has a typed lifecycle boundary. `BypassRequest` evaluates into
   `BypassEvaluation`, produces a scoped `BypassReceipt`, and remains usable only

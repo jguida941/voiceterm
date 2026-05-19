@@ -3333,6 +3333,10 @@ receive the flag. Live projection guards such as startup-authority and
 tandem-consistency still emit evidence, but stale reviewer or bridge freshness
 does not veto an already authorized publication range.
 
+Release hygiene also treats the script inventory as publication evidence. New
+or newly enforced stable `dev/scripts/checks/check_*.py` entrypoints must have
+rows in `dev/scripts/README.md` before governed push can publish the range.
+
 **Test with different backends:**
 
 ```bash
