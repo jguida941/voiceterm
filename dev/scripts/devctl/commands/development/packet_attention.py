@@ -99,6 +99,7 @@ def packet_attention_from_review_state(
         review_state,
         agent=agent,
         packet_id=latest_packet_id,
+        exit_context=exit_context,
     )
     if body_followup.required and body_followup.packet_id:
         latest_packet_id = body_followup.packet_id

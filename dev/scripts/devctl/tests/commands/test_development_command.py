@@ -4899,6 +4899,51 @@ def test_packet_attention_requires_semantic_ingestion_after_body_observed() -> N
     assert "--semantic-action-item" in attention.required_command
 
 
+def test_packet_attention_body_followup_ignores_ingested_packet_rows() -> None:
+    stale_packet = {
+        "packet_id": "rev_pkt_4305",
+        "from_agent": "claude",
+        "to_agent": "codex",
+        "kind": "finding",
+        "attention_urgency": "blocking",
+        "status": "pending",
+        "lifecycle_current_state": "pending",
+        "latest_event_id": "rev_evt_82643",
+        "body": "Retracted fake-proof finding already promoted to typed plan intake.",
+        "expires_at_utc": "2999-01-01T00:00:00Z",
+    }
+    current_packet = {
+        "packet_id": "rev_pkt_4429",
+        "from_agent": "operator",
+        "to_agent": "codex",
+        "kind": "finding",
+        "status": "pending",
+        "lifecycle_current_state": "pending",
+        "latest_event_id": "rev_evt_83466",
+        "body": "Current reducer-trust finding that still needs attention.",
+        "expires_at_utc": "2999-01-01T00:00:00Z",
+    }
+    packet_row = PlanRow(
+        row_id="PKT-BIND-REV-PKT-4305",
+        title="Durable packet binding for stale finding",
+        status="queued",
+        sdlc_stage=SDLCStage.SPEC,
+        sourced_from_packets=("rev_pkt_4305",),
+        target_ref="plan:MP-377",
+    )
+
+    attention = packet_attention_from_review_state(
+        {"packets": [stale_packet, current_packet]},
+        rows=(packet_row,),
+    )
+
+    assert attention.attention_required is True
+    assert attention.latest_attention_packet_id == "rev_pkt_4429"
+    assert attention.wake_reason == "packet_body_open_required"
+    assert "--packet-id rev_pkt_4429" in attention.required_command
+    assert "rev_pkt_4305" not in attention.required_command
+
+
 def test_packet_attention_followup_lifecycle_order(monkeypatch) -> None:
     review_state = {
         "packets": [

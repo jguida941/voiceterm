@@ -9031,3 +9031,4 @@ auditable while new post-mandate commits must resolve.
 - [ ] `PKT-BIND-REV-PKT-4409` Packet finding: R13e (source `rev_pkt_4409`; target `plan-source://guardir/extraction-plan`; posted `2026-05-18T21:11:25.290924Z`; binding `plan_row`).
 - [ ] `PKT-BIND-REV-PKT-4410` Packet finding: R14e (source `rev_pkt_4410`; target `plan-source://guardir/extraction-plan`; posted `2026-05-18T21:14:21.464447Z`; binding `plan_row`).
 - [ ] `PKT-BIND-REV-PKT-4411` Packet finding: R15e (source `rev_pkt_4411`; target `plan-source://guardir/extraction-plan`; posted `2026-05-18T21:17:18.950882Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4468` Packet work: Continue Phase 0.6D reducer-trust packet-attention authority fix (source `rev_pkt_4468`; target `phase-0.6D-reducer-trust`; posted `2026-05-19T12:54:44.317653Z`; binding `plan_row`).

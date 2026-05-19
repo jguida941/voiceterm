@@ -23,8 +23,9 @@ from ...review_channel.packet_semantic_action_items import (
     semantic_action_item_rows_for_packet,
 )
 from .packet_attention_commands import PacketShowCommandRoute, show_packet_command
-from .packet_attention_lifecycle import packet_by_id
+from .packet_attention_lifecycle import packet_by_id, packet_exits_next_pool
 from .packet_attention_support import _int, _work_board_rows
+from .packet_attention_types import PacketExitContext
 
 
 @dataclass(frozen=True, slots=True)
@@ -43,6 +44,7 @@ def packet_body_followup_for_selection(
     *,
     agent: str,
     packet_id: str,
+    exit_context: PacketExitContext | None = None,
 ) -> PacketBodyFollowup:
     """Return the strongest body lifecycle follow-up for the selected packet."""
 
@@ -56,8 +58,15 @@ def packet_body_followup_for_selection(
     required, reason, body_packet_id, command = _body_attention_followup(
         body_attention
     )
+    if required and _packet_exits_next_pool(
+        exit_context,
+        packet_id=body_packet_id,
+    ):
+        required, reason, body_packet_id, command = False, "", "", ""
     if required:
         return PacketBodyFollowup(route, True, reason, body_packet_id, command)
+    if _packet_exits_next_pool(exit_context, packet_id=packet_id):
+        return PacketBodyFollowup(route)
     required, reason, body_packet_id, command = _selected_packet_body_followup(
         packet_by_id(review_state, packet_id),
         actor=agent,
@@ -108,6 +117,16 @@ def _body_attention_followup(body_attention: object) -> tuple[bool, str, str, st
             str(getattr(body_attention, "absorption_command", "") or "").strip(),
         )
     return False, "", "", ""
+
+
+def _packet_exits_next_pool(
+    exit_context: PacketExitContext | None,
+    *,
+    packet_id: str,
+) -> bool:
+    if exit_context is None:
+        return False
+    return packet_exits_next_pool(exit_context, packet_id=packet_id)
 
 
 def _selected_packet_body_followup(
