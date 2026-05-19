@@ -16734,3 +16734,22 @@ Evidence:
 - `dev/scripts/devctl/runtime/startup_context.py`
 - `dev/scripts/devctl/tests/runtime/test_operator_mode_fail_closed.py`
 - `command_output:test-python:58087152439b4736`
+
+### 2026-05-19 - Reviewer-round intake rows capture proof-integrity follow-ups
+
+The live reviewer-round packets after the SLICE-Z guard repair introduced
+additional durable follow-up rows for the coverage-ledger and proof-integrity
+work: plan-intake atomicity, stash lifecycle visibility, stale receipt stores,
+Phase 1 proof-integrity enforcement, per-commit proof receipts, and
+operator-directed relay/state-disambiguation gaps. Those packets are now bound
+as `PKT-BIND` rows so the findings survive review-channel lifecycle absorption
+instead of remaining only in runtime packet history.
+
+Evidence:
+
+- `dev/active/MASTER_PLAN.md`
+- `dev/state/plan_index.jsonl`
+- `packet:rev_pkt_4533`
+- `packet:rev_pkt_4534`
+- `packet:rev_pkt_4535`
+- `packet:rev_pkt_4536`
