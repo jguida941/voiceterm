@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -10,38 +9,22 @@ from types import SimpleNamespace
 from typing import Any
 
 from ...collect import collect_git_status
-from ...common import emit_output, pipe_output, run_cmd, write_output
+from ...common import pipe_output, run_cmd, write_output
 from ...config import REPO_ROOT
 from ...governance.push_policy import build_post_push_commands, load_push_policy
-from ...governance.push_routing import (
-    PushPreflightReportRouting,
-    PushRefRoutingState,
-    PushValidationRouting,
-    build_preflight_shell_command,
-    resolve_preflight_since_ref,
-)
-from ...governance.push_state import current_head_commit_sha, current_upstream_ref
+from ...governance.push_state import current_head_commit_sha
 from ...review_channel.event_store import push_window_write_suspension
 from ...review_channel.service_identity import worktree_identity_for_repo
 from ...runtime import TypedAction
-from ...runtime.control_decision_artifacts import load_control_decision_payload
-from ...runtime.control_decision_obedience import (
-    build_attempted_action_receipt,
-    evaluate_control_decision_obedience,
-)
 from ...runtime.push_authorization import publication_authorization_decision
 from ...runtime.vcs import (
-    branch_divergence,
-    remote_branch_exists,
     remote_exists,
     run_git_capture,
 )
 from . import push_flow
 from .governed_executor_actions import build_push_action
-from .orphan_snapshot_advisory import append_orphan_snapshot_advisory
-from .push_bridge_sync import (
-    sync_bridge_projection_before_preflight as _sync_bridge_projection_before_preflight,
-)
+from .push_control_decision import push_control_decision_obedience_report
+from .push_control_decision_report import emit_push_control_decision_report
 from .push_executor_routing import maybe_run_executor_routed_push
 from .push_findings import (
     APPROVED_TARGET_IDENTITY_VIOLATION,
@@ -60,22 +43,14 @@ from .push_pipeline_state_sync import sync_commit_pipeline_with_push_report
 from .push_pipeline_scope import (
     authorized_head_sha,
     commit_pipeline_authorizes_publication_scope,
-    refresh_authorized_preflight_head_after_managed_receipts,
 )
-from .push_preflight_projection import (
-    refresh_managed_projections_before_preflight,
-)
+from .push_preflight_flow import PushPreflightFlowInputs, run_fetch_and_preflight
 from .push_publication_gate import (
     PushPublicationGateInputs,
     finish_preflight_before_publication,
 )
 from .push_preflight_timeout import (
     PUSH_PREFLIGHT_TIMEOUT_SECONDS,
-    build_preflight_command_kwargs,
-)
-from .push_preflight_report import (
-    PUSH_PREFLIGHT_CHECK_ROUTER_REPORT,
-    annotate_preflight_step,
 )
 from .push_report import PushStageTruth
 from .push_report_context import (
@@ -283,143 +258,6 @@ def _protected_branch_errors(branch: str, policy) -> list[str]:
     return [f"Direct pushes to protected branch `{branch}` are blocked by repo policy."]
 
 
-def _run_fetch_and_preflight(
-    state: PushRunState,
-    policy,
-    args,
-    *,
-    repo_root: Path = REPO_ROOT,
-    run_cmd_fn=None,
-    commit_pipeline: Any = None,
-) -> None:
-    if state.errors:
-        return
-    command_runner = run_cmd if run_cmd_fn is None else run_cmd_fn
-    state.fetch_step = command_runner(
-        "git-fetch",
-        ["git", "fetch", state.remote],
-        cwd=repo_root,
-    )
-    if state.fetch_step["returncode"] != 0:
-        state.errors.append(f"git fetch failed for remote `{state.remote}`.")
-        return
-
-    state.branch_has_remote = remote_branch_exists(
-        state.remote,
-        state.branch,
-        repo_root=repo_root,
-    )
-    route_state = PushRefRoutingState(
-        current_branch=state.branch,
-        upstream_ref=current_upstream_ref(repo_root=repo_root),
-        branch_has_remote=state.branch_has_remote,
-    )
-    state.post_push_since_ref = resolve_preflight_since_ref(
-        remote=state.remote,
-        development_branch=policy.development_branch,
-        release_branch=policy.release_branch,
-        since_ref_template=policy.preflight.since_ref_template,
-        route_state=route_state,
-    )
-    if state.branch_has_remote and not _record_divergence(
-        state,
-        state.remote,
-        state.branch,
-        repo_root=repo_root,
-    ):
-        return
-    if state.branch_has_remote and state.ahead == 0:
-        return
-    append_orphan_snapshot_advisory(
-        state.warnings,
-        repo_root=repo_root,
-        scan_trigger="push_preflight",
-    )
-    if args.skip_preflight:
-        state.preflight_step = dict(
-            name="push-preflight",
-            cmd=[],
-            cwd=str(repo_root),
-            returncode=0,
-            duration_s=0.0,
-            skipped=True,
-            reason="preflight skipped by policy",
-        )
-        return
-
-    with push_window_write_suspension(
-        repo_root=repo_root,
-        window_kind="push_preflight",
-        requested_by=REQUESTED_BY,
-        reason="governed push preflight owns projection writes",
-        head_sha=current_head_commit_sha(repo_root=repo_root),
-        branch=state.branch,
-    ):
-        _sync_bridge_projection_before_preflight(state, repo_root=repo_root)
-        refresh_managed_projections_before_preflight(
-            state,
-            policy,
-            repo_root=repo_root,
-            command_runner=command_runner,
-            quality_policy_path=getattr(args, "quality_policy", None),
-        )
-        if state.errors:
-            return
-        refresh_authorized_preflight_head_after_managed_receipts(
-            state,
-            commit_pipeline=commit_pipeline,
-            repo_root=repo_root,
-        )
-        preflight_command = build_preflight_shell_command(
-            policy,
-            remote=state.remote,
-            route_state=route_state,
-            quality_policy_path=getattr(args, "quality_policy", None),
-            validation_routing=PushValidationRouting(
-                head_ref=state.push_authorization_head_commit or "HEAD",
-                range_scope_only=bool(state.push_authorization_head_commit),
-                validation_scope="pipeline_authorized_phase",
-            ),
-            report_routing=PushPreflightReportRouting(
-                output_path=PUSH_PREFLIGHT_CHECK_ROUTER_REPORT,
-            ),
-        )
-        state.preflight_step = command_runner(
-            "push-preflight",
-            ["bash", "-lc", preflight_command],
-            **build_preflight_command_kwargs(command_runner, repo_root=repo_root),
-        )
-        annotate_preflight_step(
-            state.preflight_step,
-            report_path=repo_root / PUSH_PREFLIGHT_CHECK_ROUTER_REPORT,
-        )
-        if state.preflight_step["returncode"] != 0:
-            state.errors.append("Configured push preflight failed.")
-
-
-def _record_divergence(
-    state: PushRunState,
-    remote: str,
-    branch: str,
-    *,
-    repo_root: Path = REPO_ROOT,
-) -> bool:
-    divergence = branch_divergence(remote, branch, repo_root=repo_root)
-    if divergence["error"]:
-        state.errors.append(
-            f"Unable to compute divergence for `{branch}`: {divergence['error']}"
-        )
-        return False
-    state.ahead = int(divergence["ahead"] or 0)
-    behind = int(divergence["behind"] or 0)
-    if behind > 0:
-        state.errors.append(
-            f"Branch `{branch}` is behind {remote}/{branch}; sync it before push."
-        )
-        return False
-    return True
-
-
 def _matches_allowed_prefixes(branch: str, prefixes: tuple[str, ...]) -> bool:
     if not prefixes:
         return True
@@ -429,6 +267,14 @@ def _matches_allowed_prefixes(branch: str, prefixes: tuple[str, ...]) -> bool:
 def _emit_push_progress_notice(message: str) -> None:
     """Emit an interactive progress notice without corrupting stdout reports."""
     print(f"[devctl push] {message}", file=sys.stderr, flush=True)
+
+
+def _run_fetch_and_preflight(state: Any, policy: Any, args: Any) -> None:
+    """Compatibility adapter for sync's governed-push path."""
+    run_fetch_and_preflight(
+        state,
+        PushPreflightFlowInputs(policy=policy, args=args),
+    )
 
 
 def run_push_action(
@@ -469,13 +315,16 @@ def run_push_action(
             ),
             stages=PushStageTruth(),
         )
-    _run_fetch_and_preflight(
+    run_fetch_and_preflight(
         state,
-        resolved_policy,
-        args,
-        repo_root=repo_root,
-        run_cmd_fn=run_cmd_fn,
-        commit_pipeline=commit_pipeline,
+        PushPreflightFlowInputs(
+            policy=resolved_policy,
+            args=args,
+            repo_root=repo_root,
+            requested_by=REQUESTED_BY,
+            run_cmd_fn=run_cmd if run_cmd_fn is None else run_cmd_fn,
+            commit_pipeline=commit_pipeline,
+        ),
     )
     head_commit = finish_preflight_before_publication(
         state,
@@ -581,7 +430,7 @@ def run(args) -> int:
     from .governed_executor import GovernedVcsExecutor
 
     if bool(getattr(args, "execute", False)):
-        obedience_report = _push_control_decision_obedience_report(
+        obedience_report = push_control_decision_obedience_report(
             args,
             repo_root=REPO_ROOT,
         )
@@ -596,7 +445,7 @@ def run(args) -> int:
                     "reason": "no_valid_control_decision",
                 },
             }
-            _emit_push_control_decision_report(args, report)
+            emit_push_control_decision_report(args, report)
             return 1
 
     resolved_policy = load_push_policy(
@@ -625,96 +474,6 @@ def run(args) -> int:
         return routed_exit
     exit_code, _ = run_push_action(args, policy=resolved_policy)
     return exit_code
-
-
-def _push_control_decision_obedience_report(
-    args: Any,
-    *,
-    repo_root: Path,
-) -> dict[str, object]:
-    if bool(getattr(args, "allow_missing_control_decision_for_test", False)):
-        return {
-            "ok": True,
-            "command": "devctl.push.control_decision_obedience",
-            "contract_id": "ControlDecisionObeyedGuard",
-            "diagnostic_bypass": "allow_missing_control_decision_for_test",
-        }
-    decision = load_control_decision_payload(args, repo_root=repo_root)
-    if not decision:
-        return {}
-    attempted_action = build_attempted_action_receipt(
-        action_kind="devctl.push.execute",
-        command=_push_attempted_command(args),
-        argv=tuple(_push_attempted_argv(args)),
-        actor=str(getattr(args, "actor", "") or ""),
-        role=str(getattr(args, "role", "") or ""),
-        session_id=str(getattr(args, "session_id", "") or ""),
-        mutates=True,
-        writes_state=True,
-        executes_command=True,
-        source_decision_id=str(decision.get("receipt_id") or ""),
-        source_snapshot_id=str(decision.get("source_snapshot_id") or ""),
-        started_at_utc="",
-    ).to_dict()
-    report = evaluate_control_decision_obedience(
-        decision=decision,
-        attempted_actions=(attempted_action,),
-    ).to_dict()
-    report["command"] = "devctl.push.control_decision_obedience"
-    report["attempted_action"] = attempted_action
-    return report
-
-
-def _push_attempted_argv(args: Any) -> list[str]:
-    argv = ["push"]
-    if bool(getattr(args, "execute", False)):
-        argv.append("--execute")
-    remote = str(getattr(args, "remote", "") or "").strip()
-    if remote:
-        argv.extend(["--remote", remote])
-    quality_policy = str(getattr(args, "quality_policy", "") or "").strip()
-    if quality_policy:
-        argv.extend(["--quality-policy", quality_policy])
-    if bool(getattr(args, "skip_preflight", False)):
-        argv.append("--skip-preflight")
-    if bool(getattr(args, "skip_post_push", False)):
-        argv.append("--skip-post-push")
-    return argv
-
-
-def _push_attempted_command(args: Any) -> str:
-    return " ".join(("python3", "dev/scripts/devctl.py", *_push_attempted_argv(args)))
-
-
-def _emit_push_control_decision_report(args: Any, report: dict[str, object]) -> None:
-    output = json.dumps(report, indent=2, sort_keys=True)
-    if str(getattr(args, "format", "json") or "json") == "md":
-        output = _render_push_control_decision_report(report)
-    emit_output(
-        output,
-        output_path=getattr(args, "output", None),
-        pipe_command=getattr(args, "pipe_command", None),
-        pipe_args=getattr(args, "pipe_args", None),
-        writer=write_output,
-        piper=pipe_output,
-    )
-
-
-def _render_push_control_decision_report(report: dict[str, object]) -> str:
-    lines = ["# devctl push", ""]
-    lines.append(f"- ok: {report.get('ok')}")
-    lines.append(f"- reason: {report.get('reason')}")
-    obedience = report.get("control_decision_obedience")
-    if isinstance(obedience, dict):
-        lines.append(f"- obedience_ok: {obedience.get('ok')}")
-        lines.append(f"- violation_count: {obedience.get('violation_count')}")
-        violations = obedience.get("violations")
-        if isinstance(violations, list) and violations:
-            lines.extend(("", "## Violations", ""))
-            for violation in violations:
-                if isinstance(violation, dict):
-                    lines.append(f"- {violation.get('reason')}: {violation.get('detail')}")
-    return "\n".join(lines)
 
 
 def build_push_args(

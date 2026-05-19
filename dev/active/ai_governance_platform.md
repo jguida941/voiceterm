@@ -96,6 +96,12 @@ Current ingestion status:
   `task_progress`, and artifact-evidence posts require exact
   `AgentLoopDecision.allowed_actions` entries rather than a generic
   `post_finding` authority.
+- 2026-05-19 Phase 0.6.A push-controller repair closes the publication side of
+  the same live-controller bug. The governed push gate may derive its
+  `devctl.push.execute` decision from the current remote commit pipeline
+  `PushAuthorizationRecord` instead of requiring an unrelated
+  `AgentLoopDecision`, while branch policy explicitly permits `extraction/*`
+  as the active GuardIR extraction lane.
 - 2026-05-12 bypass-launch blocker repair: blanket trusted/headless launch
   elevation now has a typed lifecycle boundary. `BypassRequest` evaluates into
   `BypassEvaluation`, produces a scoped `BypassReceipt`, and remains usable only

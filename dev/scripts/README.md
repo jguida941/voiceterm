@@ -3401,3 +3401,23 @@ Reviewer-mode authority note:
   `build_conductor_capability_state()`. Provider ids such as `codex` and
   `claude` are adapter labels; collaboration role assignments decide which
   provider is the reviewer or implementer.
+
+Governed push controller note:
+- `dev/scripts/devctl/commands/vcs/push_control_decision.py` derives the
+  controller-obedience report for `devctl.push.execute`.
+- `dev/scripts/devctl/commands/vcs/push_authorization_control.py` projects the
+  current remote commit pipeline `PushAuthorizationRecord` into the exact
+  allowed actions `devctl.push.execute` and `vcs.push`. That record must still
+  authorize the current HEAD; raw push and stale AgentLoopDecision projections
+  are not publication authority.
+- `dev/scripts/devctl/commands/vcs/push_attempted_command.py` keeps attempted
+  push command rendering shared by the controller report and tests.
+- `dev/scripts/devctl/commands/vcs/push_control_decision_report.py` owns the
+  JSON/Markdown rendering for push controller-obedience failures.
+- `dev/scripts/devctl/commands/vcs/push_preflight_flow.py` owns fetch,
+  divergence, bridge-projection sync, and validation preflight routing so
+  `push.py` stays a coordinator instead of accumulating preflight/controller
+  concerns.
+- Keep branch allowlist updates in `dev/config/devctl_repo_policy.json` aligned
+  with active extraction branches so governed push fails for real policy drift,
+  not for an obsolete VoiceTerm-era branch prefix.

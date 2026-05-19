@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `extraction/guardir-core-p0-proof-integrity`
-- HEAD: `36a930f774ea` — Phase 0.6A: fix typed collaboration routing and controller reads
-- Tree hash: `33dc95c10992`
-- Generation stamp: `snap-0b4227cf2356`
-- Generated at (UTC): 2026-05-19T02:43:07Z
-- Push decision: `run_devctl_push` — push_preconditions_satisfied
+- HEAD: `fcb709ef30e1` — Refresh external review snapshot for 36a930f7
+- Tree hash: `6bb7a7ba43c5`
+- Generation stamp: `snap-32eb93d6c5d5`
+- Generated at (UTC): 2026-05-19T03:35:26Z
+- Push decision: `await_checkpoint` — staged_index_budget_exceeded
 - Reviewer mode: `tools_only` (interaction: `local_terminal`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 185 files, +29570/-1827
+- Delta since last snapshot: 24 commits, 185 files, +29558/-1819
 - Governance findings: 26 open / 0 fixed / 26 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -28,23 +28,23 @@ production client (VoiceTerm...
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `extraction/guardir-core-p0-proof-integrity`
-- HEAD SHA: `36a930f774ea9bb7c0b4032a1fb2f33609a57f58`
+- HEAD SHA: `fcb709ef30e1abf07794acc1e0824c9c42a98754`
 - HEAD author: Justin Guida
 - HEAD timestamp (UTC): 2026-05-18T22:42:45-04:00
 
 ## 2. Governance state
 
 ### Push decision
-- action: `run_devctl_push`
-- reason: push_preconditions_satisfied
-- push_eligible_now: True
-- worktree_clean: True
-- staged_path_count: 0
+- action: `await_checkpoint`
+- reason: staged_index_budget_exceeded
+- push_eligible_now: False
+- worktree_clean: False
+- staged_path_count: 18
 - unstaged_path_count: 0
-- next_step_command: `python3 dev/scripts/devctl.py push --execute`
-- latest_push_report_state: `published_remote` (post_push_bundle_pending)
+- next_step_command: `n/a`
+- latest_push_report_state: `blocked` (validation_failed)
 - publication_backlog: queued
-- publication_guidance: Local branch still has unpublished work waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
+- publication_guidance: Local branch still has unpublished work waiting for governed push once the current slice is checkpoint-clean.
 
 ### Reviewer runtime
 - reviewer_mode: `tools_only`
@@ -60,16 +60,17 @@ production client (VoiceTerm...
 - active plan: **AI Governance Platform Plan**
 - plan path: `dev/active/ai_governance_platform.md`
 - active MP scope: `MP-377`
-- advisory: `no_push_needed` — clean_worktree
+- advisory: `checkpoint_before_continue` — staged_index_budget_exceeded
+- checkpoint_required: **yes**
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `36a930f774ea`
+Range: last 24 commits ending at `fcb709ef30e1`
 
 - commits: 24
 - files changed: 185
-- insertions: +29570
-- deletions: -1827
+- insertions: +29558
+- deletions: -1819
 - bundle classes touched: tooling, docs
 - authority surfaces touched: 13 file(s)
 
@@ -77,30 +78,30 @@ Range: last 24 commits ending at `36a930f774ea`
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `36a930f7` | Phase 0.6A: fix typed collaboration routing and controller… | 21 | +1391/-447 | tooling |  |
-| 2 | `ddaf58f5` | Refresh external review snapshot for f2f152dd | 1 | +67/-64 | tooling |  |
-| 3 | `f2f152dd` | Phase 0A: bridge and boot-card projection kill-switch | 18 | +328/-224 | tooling |  |
-| 4 | `b161e95b` | Phase 0.6.C: AGENTS.md vs CLAUDE.md projection-parity viola… | 2 | +2/-2 | tooling |  |
-| 5 | `286b8703` | Phase 0.6.A: add alias-authority-parity guardrail | 2 | +2/-1 | tooling |  |
-| 6 | `87f1248e` | Narrow Phase 0.6 to entrypoint, bridge containment, and top… | 2 | +69/-68 | tooling |  |
-| 7 | `815901f4` | Refresh external review snapshot for b16d00a4 | 2 | +72/-74 | docs |  |
-| 8 | `b16d00a4` | Phase 0.4-Bootstrap IMPLEMENTATION: launcher + post authori… | 21 | +900/-13 | tooling |  |
-| 9 | `b85ed85a` | Phase 0.6 amendment: Entry-Point Hardening + Bridge Retirem… | 2 | +96/-1 | tooling |  |
-| 10 | `f453f8c1` | Refresh external review snapshot for f6ef179c | 2 | +56/-53 | docs |  |
-| 11 | `f6ef179c` | Phase 0.4-Bootstrap amendment: Bootstrap/Launcher/Topology… | 2 | +55/-1 | tooling |  |
-| 12 | `5bf86443` | Refresh external review snapshot for 4b51058a | 1 | +42/-42 | tooling |  |
-| 13 | `4b51058a` | Refresh external review snapshot for 50039a1b | 2 | +49/-43 | tooling |  |
-| 14 | `50039a1b` | Phase 0.4: Sync canonical GuardIR extraction plan | 1 | +386/-65 | tooling |  |
-| 15 | `bf21b66a` | Refresh external review snapshot for ccf6b4f5 | 2 | +49/-48 | docs |  |
-| 16 | `ccf6b4f5` | Phase 0.1: Preserve cached-hammock + may17 + approved extra… | 4 | +6246/-0 | tooling |  |
-| 17 | `d92dc2ff` | Refresh external review snapshot for 92ef4032 | 2 | +73/-65 | docs |  |
-| 18 | `92ef4032` | UNREVIEWED PRESERVATION SNAPSHOT — voiceterm governance pat… | 69 | +7933/-165 | tooling |  |
-| 19 | `835060c2` | Refresh external review snapshot for 47944776 | 2 | +80/-74 | docs |  |
-| 20 | `47944776` | Add semantic output consumption gates | 67 | +6820/-72 | tooling |  |
-| 21 | `85932c69` | Refresh external review snapshot for 6859108d | 2 | +79/-72 | docs |  |
-| 22 | `6859108d` | Add publication scope integrity guard | 7 | +395/-5 | tooling |  |
-| 23 | `4529338e` | Enforce successful closure proof for plan rows | 62 | +4313/-163 | tooling |  |
-| 24 | `a066d4c7` | Refresh external review snapshot for e5354d23 | 2 | +67/-65 | docs |  |
+| 1 | `fcb709ef` | Refresh external review snapshot for 36a930f7 | 1 | +55/-57 | tooling |  |
+| 2 | `36a930f7` | Phase 0.6A: fix typed collaboration routing and controller… | 21 | +1391/-447 | tooling |  |
+| 3 | `ddaf58f5` | Refresh external review snapshot for f2f152dd | 1 | +67/-64 | tooling |  |
+| 4 | `f2f152dd` | Phase 0A: bridge and boot-card projection kill-switch | 18 | +328/-224 | tooling |  |
+| 5 | `b161e95b` | Phase 0.6.C: AGENTS.md vs CLAUDE.md projection-parity viola… | 2 | +2/-2 | tooling |  |
+| 6 | `286b8703` | Phase 0.6.A: add alias-authority-parity guardrail | 2 | +2/-1 | tooling |  |
+| 7 | `87f1248e` | Narrow Phase 0.6 to entrypoint, bridge containment, and top… | 2 | +69/-68 | tooling |  |
+| 8 | `815901f4` | Refresh external review snapshot for b16d00a4 | 2 | +72/-74 | docs |  |
+| 9 | `b16d00a4` | Phase 0.4-Bootstrap IMPLEMENTATION: launcher + post authori… | 21 | +900/-13 | tooling |  |
+| 10 | `b85ed85a` | Phase 0.6 amendment: Entry-Point Hardening + Bridge Retirem… | 2 | +96/-1 | tooling |  |
+| 11 | `f453f8c1` | Refresh external review snapshot for f6ef179c | 2 | +56/-53 | docs |  |
+| 12 | `f6ef179c` | Phase 0.4-Bootstrap amendment: Bootstrap/Launcher/Topology… | 2 | +55/-1 | tooling |  |
+| 13 | `5bf86443` | Refresh external review snapshot for 4b51058a | 1 | +42/-42 | tooling |  |
+| 14 | `4b51058a` | Refresh external review snapshot for 50039a1b | 2 | +49/-43 | tooling |  |
+| 15 | `50039a1b` | Phase 0.4: Sync canonical GuardIR extraction plan | 1 | +386/-65 | tooling |  |
+| 16 | `bf21b66a` | Refresh external review snapshot for ccf6b4f5 | 2 | +49/-48 | docs |  |
+| 17 | `ccf6b4f5` | Phase 0.1: Preserve cached-hammock + may17 + approved extra… | 4 | +6246/-0 | tooling |  |
+| 18 | `d92dc2ff` | Refresh external review snapshot for 92ef4032 | 2 | +73/-65 | docs |  |
+| 19 | `92ef4032` | UNREVIEWED PRESERVATION SNAPSHOT — voiceterm governance pat… | 69 | +7933/-165 | tooling |  |
+| 20 | `835060c2` | Refresh external review snapshot for 47944776 | 2 | +80/-74 | docs |  |
+| 21 | `47944776` | Add semantic output consumption gates | 67 | +6820/-72 | tooling |  |
+| 22 | `85932c69` | Refresh external review snapshot for 6859108d | 2 | +79/-72 | docs |  |
+| 23 | `6859108d` | Add publication scope integrity guard | 7 | +395/-5 | tooling |  |
+| 24 | `4529338e` | Enforce successful closure proof for plan rows | 62 | +4313/-163 | tooling |  |
 
 ### Files
 
@@ -109,10 +110,10 @@ Range: last 24 commits ending at `36a930f774ea`
 | `.github/workflows/release_preflight.yml` | tooling | +3/-0 |
 | `.github/workflows/tooling_control_plane.yml` | tooling | +9/-0 |
 | `AGENTS.md` | docs | +9/-8 |
-| `bridge.md` | docs | +66/-188 |
+| `bridge.md` | docs | +61/-183 |
 | `dev/active/MASTER_PLAN.md` | tooling | +111/-0 |
 | `dev/active/ai_governance_platform.md` | tooling | +27/-1 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +676/-643 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +669/-640 |
 | `dev/audits/plan_intake/2026-05-18-cached-hammock-role-audit.md` | tooling | +4314/-0 |
 | `dev/audits/plan_intake/2026-05-18-guardir-extraction-plan.md` | tooling | +1224/-140 |
 | `dev/audits/plan_intake/2026-05-18-may17-plan.md` | tooling | +1373/-0 |
@@ -157,7 +158,6 @@ Range: last 24 commits ending at `36a930f774ea`
 - false positives: 0
 
 Recent findings:
-- `dogfood.command.test-python` — `dev/scripts/devctl/commands/python_tests.py` (n/a, verdict=`confirmed_issue`)
 - `dogfood.command.test-python` — `dev/scripts/devctl/commands/python_test_runner/command.py` (n/a, verdict=`confirmed_issue`)
 - `dogfood.command.process-cleanup` — `dev/scripts/devctl/commands/process/cleanup.py` (n/a, verdict=`confirmed_issue`)
 - `dogfood.command.install-git-hooks` — `dev/scripts/devctl/commands/governance/install_git_hooks.py` (n/a, verdict=`confirmed_issue`)
@@ -167,6 +167,7 @@ Recent findings:
 - `dogfood.command.remote-control` — `dev/scripts/devctl/commands/remote_control/command.py` (n/a, verdict=`confirmed_issue`)
 - `dogfood.command.probe-report` — `dev/scripts/devctl/commands/probe_report.py` (n/a, verdict=`confirmed_issue`)
 - `role_oriented_packet_inbox` — `dev/scripts/devctl/review_channel/event_reducer_inbox.py` (high, verdict=`confirmed_issue`)
+- `dogfood.command.reports-cleanup` — `dev/scripts/devctl/commands/reports_cleanup.py` (n/a, verdict=`confirmed_issue`)
 
 ### Probe report
 - run_state: `missing`
@@ -230,6 +231,7 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`fcb709ef`** — Refresh external review snapshot for 36a930f7
 - **`36a930f7`** — Phase 0.6A: fix typed collaboration routing and controller reads
 - **`ddaf58f5`** — Refresh external review snapshot for f2f152dd
 - **`f2f152dd`** — Phase 0A: bridge and boot-card projection kill-switch
@@ -266,7 +268,6 @@ Recent findings:
 - **`85932c69`** — Refresh external review snapshot for 6859108d
 - **`6859108d`** — Add publication scope integrity guard
 - **`4529338e`** — Enforce successful closure proof for plan rows
-- **`a066d4c7`** — Refresh external review snapshot for e5354d23
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -285,14 +286,13 @@ Recent findings:
 - open governance findings: 26
 
 ### Startup advisories
-- no_push_needed: clean_worktree
+- checkpoint_before_continue: staged_index_budget_exceeded
 
 ### Stale warnings
+- Keep editing the current slice.
 - Move straight to the governed push path.
 
 ### Open gap rows
-- **governance_open** (`dev/scripts/devctl/commands/python_tests.py`): dogfood.command.test-python: Auto-ingested devctl finalization failure rc=1.
-repo_path=/Users/jguida941/testing_upgrade/codex-voice
 - **governance_open** (`dev/scripts/devctl/commands/python_test_runner/command.py`): dogfood.command.test-python: Auto-ingested devctl finalization failure rc=1.
 repo_path=/Users/jguida941/testing_upgrade/codex-voice
 - **governance_open** (`dev/scripts/devctl/commands/process/cleanup.py`): dogfood.command.process-cleanup: Auto-ingested devctl finalization failure rc=1.
@@ -307,7 +307,9 @@ repo_path=/Users/jguida941/testing_upgrade/codex-voice
 repo_path=/Users/jguida941/testing_upgrade/codex-voice
 - **governance_open** (`dev/scripts/devctl/commands/remote_control/command.py`): dogfood.command.remote-control: Auto-ingested devctl finalization failure rc=1.
 repo_path=/Users/jguida941/testing_upgrade/codex-voice
+- **governance_open** (`dev/scripts/devctl/commands/probe_report.py`): dogfood.command.probe-report: Auto-ingested devctl finalization failure rc=1.
+repo_path=/Users/jguida941/testing_upgrade/codex-voice
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-0b4227cf2356` binds this file to HEAD `36a930f774ea`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-32eb93d6c5d5` binds this file to HEAD `fcb709ef30e1`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.

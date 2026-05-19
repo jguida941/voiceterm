@@ -16304,3 +16304,32 @@ Evidence:
 - `dev/scripts/checks/review_channel_bridge/report.py`
 - `dev/scripts/devctl/governance/instruction_boot_card.py`
 - `dev/scripts/devctl/tests/review_channel/test_bridge_render.py`
+
+### 2026-05-19 - Governed push consumes typed publication authorization
+
+Phase 0.6.A found that the review-channel controller repair was not enough to
+publish the bounded slice: `devctl push --execute` still required an
+AgentLoopDecision-style artifact even after the governed commit pipeline had
+persisted a valid `PushAuthorizationRecord`. The push gate now derives the
+controller decision for `devctl.push.execute` from that remote commit pipeline
+record when it still authorizes the current HEAD, keeping publication tied to
+typed commit/push evidence instead of raw git or stale packet projections.
+
+The same slice updates repo policy so `extraction/*` branches are valid GuardIR
+working branches for governed push. That preserves the extraction plan's branch
+contract without treating VoiceTerm-era `feature/*` defaults as portable
+governance authority.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/vcs/push.py`
+- `dev/scripts/devctl/commands/vcs/push_control_decision.py`
+- `dev/scripts/devctl/commands/vcs/push_authorization_control.py`
+- `dev/scripts/devctl/commands/vcs/push_attempted_command.py`
+- `dev/scripts/devctl/commands/vcs/push_control_decision_report.py`
+- `dev/scripts/devctl/commands/vcs/push_preflight_flow.py`
+- `dev/scripts/devctl/commands/sync.py`
+- `dev/scripts/devctl/runtime/control_decision_action_matching.py`
+- `dev/config/devctl_repo_policy.json`
+- `dev/scripts/devctl/tests/vcs/test_push.py`
+- `dev/scripts/devctl/tests/vcs/test_sync.py`

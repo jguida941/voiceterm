@@ -299,6 +299,7 @@
         "master"
       ],
       "allowed_branch_prefixes": [
+        "extraction/",
         "feature/",
         "fix/"
       ],

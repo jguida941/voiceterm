@@ -3268,6 +3268,15 @@ modules, builds lifecycle graph edges from each `TransitionContract`, and uses
 `walk_context_graph` to verify required/produced state reachability and
 declared graph paths.
 
+**Governed push controller authority:**
+
+`devctl push --execute` must use the repo-owned publication path. After a
+governed commit, the current remote commit pipeline `PushAuthorizationRecord`
+is valid controller authority for `devctl.push.execute` when it still
+authorizes the current HEAD. Do not require a separate stale
+`AgentLoopDecision` projection for publication, and do not replace the typed
+push authorization with raw `git push`.
+
 **Receipt-state evidence:**
 
 Governed validation and commit receipts carry additive pre/post state evidence

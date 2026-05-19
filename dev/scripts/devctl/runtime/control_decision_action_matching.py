@@ -38,7 +38,10 @@ def allowed_controller_action(
     *,
     decision: Mapping[str, object],
 ) -> bool:
-    return _allowed_packet_attention_action(
+    return _allowed_exact_action_kind(
+        action,
+        decision=decision,
+    ) or _allowed_packet_attention_action(
         action,
         decision=decision,
     ) or _allowed_review_channel_post(action, decision=decision)
@@ -90,6 +93,29 @@ def _allowed_packet_attention_action(
         }
     allowed_packet_ids.discard("")
     return bool(allowed_packet_ids) and packet_id in allowed_packet_ids
+
+
+def _allowed_exact_action_kind(
+    action: Mapping[str, object],
+    *,
+    decision: Mapping[str, object],
+) -> bool:
+    allowed_actions = decision.get("allowed_actions")
+    if not isinstance(allowed_actions, Sequence) or isinstance(
+        allowed_actions,
+        (str, bytes),
+    ):
+        return False
+    normalized_allowed = {
+        coerce_string(item).strip().lower() for item in allowed_actions
+    }
+    candidates = {
+        coerce_string(action.get("action_kind")).strip().lower(),
+        coerce_string(action.get("command_name")).strip().lower(),
+        coerce_string(action.get("next_action")).strip().lower(),
+    }
+    candidates.discard("")
+    return bool(candidates & normalized_allowed)
 
 
 def _allowed_review_channel_post(

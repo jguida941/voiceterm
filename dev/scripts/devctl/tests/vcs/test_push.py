@@ -13,6 +13,9 @@ from unittest.mock import MagicMock, patch
 from dev.scripts.devctl.cli import build_parser
 from dev.scripts.devctl.commands.vcs import (
     push,
+    push_bridge_sync,
+    push_control_decision,
+    push_preflight_flow,
     push_preflight_commit,
     push_preflight_projection,
     push_preflight_report,
@@ -233,9 +236,9 @@ class PushParserTests(unittest.TestCase):
         self.assertEqual(args.session_id, "session-1")
         self.assertEqual(args.control_decision_input, "decision.json")
 
-    @patch("dev.scripts.devctl.commands.vcs.push.emit_output")
+    @patch("dev.scripts.devctl.commands.vcs.push_control_decision_report.emit_output")
     @patch("dev.scripts.devctl.commands.vcs.push.run_push_action")
-    @patch("dev.scripts.devctl.commands.vcs.push.load_control_decision_payload")
+    @patch("dev.scripts.devctl.commands.vcs.push_control_decision.load_control_decision_payload")
     def test_run_blocks_execute_when_control_decision_forbids_push(
         self,
         load_decision_mock,
@@ -274,12 +277,108 @@ class PushParserTests(unittest.TestCase):
         self.assertIn("control_decision_obedience_failed", emitted)
         self.assertIn("AttemptedActionReceipt", emitted)
 
+    @patch("dev.scripts.devctl.commands.vcs.push_authorization_control.current_head_commit_sha")
+    @patch("dev.scripts.devctl.commands.vcs.push_authorization_control.publication_authorization_decision")
+    @patch("dev.scripts.devctl.commands.vcs.push_authorization_control.load_canonical_remote_commit_pipeline_contract")
+    @patch("dev.scripts.devctl.commands.vcs.push_control_decision.load_control_decision_payload")
+    def test_push_obedience_accepts_commit_pipeline_authorization(
+        self,
+        load_decision_mock,
+        load_pipeline_mock,
+        publication_authorization_mock,
+        current_head_mock,
+    ) -> None:
+        authorization = PushAuthorizationRecord(
+            authorization_id="push-auth-test",
+            pipeline_id="pipeline-test",
+            authorized_head_sha="a" * 40,
+            review_verdict="approved",
+            approval_mode="commit_pipeline_approval",
+            guard_status="pass",
+            decision_packet_id="rev_pkt_approval",
+        )
+        pipeline = RemoteCommitPipelineContract(
+            pipeline_id="pipeline-test",
+            state="commit_recorded",
+            branch="feature/test",
+            remote="origin",
+            commit_sha="a" * 40,
+            snapshot_id="snap-test",
+            push_authorization=authorization,
+        )
+        load_decision_mock.return_value = {}
+        load_pipeline_mock.return_value = pipeline
+        publication_authorization_mock.return_value = SimpleNamespace(
+            authorized=True,
+            reason="push_authorization_current",
+            summary="Publication is authorized for the current HEAD.",
+            push_authorization=authorization,
+        )
+        current_head_mock.return_value = "a" * 40
+        args = make_args(
+            execute=True,
+            allow_missing_control_decision_for_test=False,
+        )
+
+        report = push_control_decision.push_control_decision_obedience_report(
+            args,
+            repo_root=Path("/tmp/repo"),
+        )
+
+        self.assertTrue(report["ok"])
+        self.assertEqual(report["violation_count"], 0)
+        self.assertEqual(
+            report["attempted_action"]["action_kind"],
+            "devctl.push.execute",
+        )
+        self.assertEqual(
+            report["attempted_action"]["source_decision_id"],
+            "push-auth-test",
+        )
+        load_pipeline_mock.assert_called_once()
+
+    @patch("dev.scripts.devctl.commands.vcs.push_authorization_control.current_head_commit_sha")
+    @patch("dev.scripts.devctl.commands.vcs.push_authorization_control.publication_authorization_decision")
+    @patch("dev.scripts.devctl.commands.vcs.push_authorization_control.load_canonical_remote_commit_pipeline_contract")
+    @patch("dev.scripts.devctl.commands.vcs.push_control_decision.load_control_decision_payload")
+    def test_push_obedience_blocks_without_valid_publication_authorization(
+        self,
+        load_decision_mock,
+        load_pipeline_mock,
+        publication_authorization_mock,
+        current_head_mock,
+    ) -> None:
+        load_decision_mock.return_value = {}
+        load_pipeline_mock.return_value = RemoteCommitPipelineContract(
+            pipeline_id="pipeline-test",
+            state="commit_recorded",
+        )
+        publication_authorization_mock.return_value = SimpleNamespace(
+            authorized=False,
+            reason="push_authorization_missing",
+            summary="No push authorization is available.",
+            push_authorization=None,
+        )
+        current_head_mock.return_value = "a" * 40
+        args = make_args(
+            execute=True,
+            allow_missing_control_decision_for_test=False,
+        )
+
+        report = push_control_decision.push_control_decision_obedience_report(
+            args,
+            repo_root=Path("/tmp/repo"),
+        )
+
+        self.assertEqual(report, {})
+
     def test_repo_policy_disallows_skip_preflight_by_default(self) -> None:
         policy = load_push_policy()
 
         self.assertFalse(policy.bypass.allow_skip_preflight)
         self.assertFalse(policy.bypass.allow_skip_post_push)
         self.assertTrue(policy.preflight.fail_fast_on_blocker)
+        self.assertIn("extraction/", policy.allowed_branch_prefixes)
         self.assertEqual(policy.preflight.parallel_workers, 4)
 
 
@@ -298,7 +397,7 @@ class PushAuthorizedPipelineDirtyWorktreeTests(unittest.TestCase):
             pipeline = self._pipeline_for_head(repo_root, branch=branch, head=head)
 
             with patch(
-                "dev.scripts.devctl.commands.vcs.push.build_preflight_shell_command",
+                "dev.scripts.devctl.commands.vcs.push_preflight_flow.build_preflight_shell_command",
                 return_value="git status --short",
             ) as build_preflight_mock:
                 rc, report = push.run_push_action(
@@ -347,7 +446,7 @@ class PushAuthorizedPipelineDirtyWorktreeTests(unittest.TestCase):
             (repo_root / "scratch.txt").write_text("uncommitted\n", encoding="utf-8")
 
             with patch(
-                "dev.scripts.devctl.commands.vcs.push.build_preflight_shell_command",
+                "dev.scripts.devctl.commands.vcs.push_preflight_flow.build_preflight_shell_command",
                 return_value="git status --short",
             ) as build_preflight_mock:
                 rc, report = push.run_push_action(
@@ -387,7 +486,7 @@ class PushAuthorizedPipelineDirtyWorktreeTests(unittest.TestCase):
             )
 
             with patch(
-                "dev.scripts.devctl.commands.vcs.push.build_preflight_shell_command",
+                "dev.scripts.devctl.commands.vcs.push_preflight_flow.build_preflight_shell_command",
                 return_value="git status --short",
             ) as build_preflight_mock:
                 rc, report = push.run_push_action(
@@ -438,7 +537,7 @@ class PushAuthorizedPipelineDirtyWorktreeTests(unittest.TestCase):
             )
 
             with patch(
-                "dev.scripts.devctl.commands.vcs.push.build_preflight_shell_command",
+                "dev.scripts.devctl.commands.vcs.push_preflight_flow.build_preflight_shell_command",
                 return_value="git status --short",
             ) as build_preflight_mock:
                 rc, report = push.run_push_action(
@@ -508,7 +607,7 @@ class PushAuthorizedPipelineDirtyWorktreeTests(unittest.TestCase):
             pipeline = self._pipeline_for_head(repo_root, branch=branch, head=head)
 
             with patch(
-                "dev.scripts.devctl.commands.vcs.push.build_preflight_shell_command",
+                "dev.scripts.devctl.commands.vcs.push_preflight_flow.build_preflight_shell_command",
                 return_value="git status --short",
             ):
                 rc, report = push.run_push_action(
@@ -588,7 +687,7 @@ class PushAuthorizedPipelineDirtyWorktreeTests(unittest.TestCase):
 class PushCommandTests(unittest.TestCase):
     def setUp(self) -> None:
         self._sync_bridge_patcher = patch(
-            "dev.scripts.devctl.commands.vcs.push._sync_bridge_projection_before_preflight"
+            "dev.scripts.devctl.commands.vcs.push_preflight_flow._sync_bridge_projection_before_preflight"
         )
         self.sync_bridge_mock = self._sync_bridge_patcher.start()
         self.addCleanup(self._sync_bridge_patcher.stop)
@@ -610,7 +709,7 @@ class PushCommandTests(unittest.TestCase):
         self.projection_receipt_mock = self._projection_receipt_patcher.start()
         self.addCleanup(self._projection_receipt_patcher.stop)
         self._review_snapshot_refresh_patcher = patch(
-            "dev.scripts.devctl.commands.vcs.push.refresh_managed_projections_before_preflight"
+            "dev.scripts.devctl.commands.vcs.push_preflight_flow.refresh_managed_projections_before_preflight"
         )
         self.review_snapshot_refresh_mock = (
             self._review_snapshot_refresh_patcher.start()
@@ -1648,19 +1747,19 @@ class PushCommandTests(unittest.TestCase):
     @patch("dev.scripts.devctl.commands.vcs.push.write_output")
     @patch("dev.scripts.devctl.commands.vcs.push.run_cmd")
     @patch(
-        "dev.scripts.devctl.commands.vcs.push.current_upstream_ref",
+        "dev.scripts.devctl.commands.vcs.push_preflight_flow.current_upstream_ref",
         return_value="origin/feature/demo",
     )
     @patch(
-        "dev.scripts.devctl.commands.vcs.push.build_preflight_shell_command",
+        "dev.scripts.devctl.commands.vcs.push_preflight_flow.build_preflight_shell_command",
         return_value="python3 dev/scripts/devctl.py check-router --since-ref origin/feature/demo --execute",
     )
     @patch(
-        "dev.scripts.devctl.commands.vcs.push.branch_divergence",
+        "dev.scripts.devctl.commands.vcs.push_preflight_flow.branch_divergence",
         return_value={"behind": 0, "ahead": 2, "error": None},
     )
     @patch(
-        "dev.scripts.devctl.commands.vcs.push.remote_branch_exists", return_value=True
+        "dev.scripts.devctl.commands.vcs.push_preflight_flow.remote_branch_exists", return_value=True
     )
     @patch("dev.scripts.devctl.commands.vcs.push.remote_exists", return_value=True)
     @patch("dev.scripts.devctl.commands.vcs.push.load_push_policy")
@@ -1780,11 +1879,11 @@ class PushCommandTests(unittest.TestCase):
     @patch("dev.scripts.devctl.commands.vcs.push.write_output")
     @patch("dev.scripts.devctl.commands.vcs.push.run_cmd")
     @patch(
-        "dev.scripts.devctl.commands.vcs.push.branch_divergence",
+        "dev.scripts.devctl.commands.vcs.push_preflight_flow.branch_divergence",
         return_value={"behind": 0, "ahead": 2, "error": None},
     )
     @patch(
-        "dev.scripts.devctl.commands.vcs.push.remote_branch_exists", return_value=True
+        "dev.scripts.devctl.commands.vcs.push_preflight_flow.remote_branch_exists", return_value=True
     )
     @patch("dev.scripts.devctl.commands.vcs.push.remote_exists", return_value=True)
     @patch("dev.scripts.devctl.commands.vcs.push.load_push_policy")
@@ -1858,11 +1957,11 @@ class PushCommandTests(unittest.TestCase):
     @patch("dev.scripts.devctl.commands.vcs.push.write_output")
     @patch("dev.scripts.devctl.commands.vcs.push.run_cmd")
     @patch(
-        "dev.scripts.devctl.commands.vcs.push.branch_divergence",
+        "dev.scripts.devctl.commands.vcs.push_preflight_flow.branch_divergence",
         return_value={"behind": 0, "ahead": 0, "error": None},
     )
     @patch(
-        "dev.scripts.devctl.commands.vcs.push.remote_branch_exists", return_value=True
+        "dev.scripts.devctl.commands.vcs.push_preflight_flow.remote_branch_exists", return_value=True
     )
     @patch("dev.scripts.devctl.commands.vcs.push.remote_exists", return_value=True)
     @patch("dev.scripts.devctl.commands.vcs.push.load_push_policy")
@@ -1922,11 +2021,11 @@ class PushCommandTests(unittest.TestCase):
     @patch("dev.scripts.devctl.commands.vcs.push.write_output")
     @patch("dev.scripts.devctl.commands.vcs.push.run_cmd")
     @patch(
-        "dev.scripts.devctl.commands.vcs.push.branch_divergence",
+        "dev.scripts.devctl.commands.vcs.push_preflight_flow.branch_divergence",
         return_value={"behind": 0, "ahead": 0, "error": None},
     )
     @patch(
-        "dev.scripts.devctl.commands.vcs.push.remote_branch_exists", return_value=True
+        "dev.scripts.devctl.commands.vcs.push_preflight_flow.remote_branch_exists", return_value=True
     )
     @patch("dev.scripts.devctl.commands.vcs.push.remote_exists", return_value=True)
     @patch("dev.scripts.devctl.commands.vcs.push.load_push_policy")
@@ -1996,15 +2095,15 @@ class PushCommandTests(unittest.TestCase):
         return_value=["git status", "git log --oneline --decorate -n 10"],
     )
     @patch(
-        "dev.scripts.devctl.commands.vcs.push.current_upstream_ref",
+        "dev.scripts.devctl.commands.vcs.push_preflight_flow.current_upstream_ref",
         return_value="",
     )
     @patch(
-        "dev.scripts.devctl.commands.vcs.push.build_preflight_shell_command",
+        "dev.scripts.devctl.commands.vcs.push_preflight_flow.build_preflight_shell_command",
         return_value="python3 dev/scripts/devctl.py check-router --since-ref origin/develop --execute",
     )
     @patch(
-        "dev.scripts.devctl.commands.vcs.push.remote_branch_exists", return_value=False
+        "dev.scripts.devctl.commands.vcs.push_preflight_flow.remote_branch_exists", return_value=False
     )
     @patch("dev.scripts.devctl.commands.vcs.push.remote_exists", return_value=True)
     @patch("dev.scripts.devctl.commands.vcs.push.load_push_policy")
@@ -2175,19 +2274,19 @@ class PushCommandTests(unittest.TestCase):
     @patch("dev.scripts.devctl.commands.vcs.push.write_output")
     @patch("dev.scripts.devctl.commands.vcs.push.run_cmd")
     @patch(
-        "dev.scripts.devctl.commands.vcs.push.current_upstream_ref",
+        "dev.scripts.devctl.commands.vcs.push_preflight_flow.current_upstream_ref",
         return_value="origin/feature/demo",
     )
     @patch(
-        "dev.scripts.devctl.commands.vcs.push.build_preflight_shell_command",
+        "dev.scripts.devctl.commands.vcs.push_preflight_flow.build_preflight_shell_command",
         return_value="python3 dev/scripts/devctl.py check-router --since-ref origin/feature/demo --execute",
     )
     @patch(
-        "dev.scripts.devctl.commands.vcs.push.branch_divergence",
+        "dev.scripts.devctl.commands.vcs.push_preflight_flow.branch_divergence",
         return_value={"behind": 0, "ahead": 1, "error": None},
     )
     @patch(
-        "dev.scripts.devctl.commands.vcs.push.remote_branch_exists", return_value=True
+        "dev.scripts.devctl.commands.vcs.push_preflight_flow.remote_branch_exists", return_value=True
     )
     @patch("dev.scripts.devctl.commands.vcs.push.remote_exists", return_value=True)
     @patch("dev.scripts.devctl.commands.vcs.push.load_push_policy")
@@ -2269,7 +2368,7 @@ class PushCommandTests(unittest.TestCase):
 class PushBridgeSyncTests(unittest.TestCase):
     def setUp(self) -> None:
         self._orphan_advisory_patcher = patch(
-            "dev.scripts.devctl.commands.vcs.push.append_orphan_snapshot_advisory"
+            "dev.scripts.devctl.commands.vcs.push_preflight_flow.append_orphan_snapshot_advisory"
         )
         self.orphan_advisory_mock = self._orphan_advisory_patcher.start()
         self.addCleanup(self._orphan_advisory_patcher.stop)
@@ -2448,28 +2547,30 @@ class PushBridgeSyncTests(unittest.TestCase):
 
         with (
             patch(
-                "dev.scripts.devctl.commands.vcs.push.remote_branch_exists",
+                "dev.scripts.devctl.commands.vcs.push_preflight_flow.remote_branch_exists",
                 return_value=True,
             ),
             patch(
-                "dev.scripts.devctl.commands.vcs.push.current_upstream_ref",
+                "dev.scripts.devctl.commands.vcs.push_preflight_flow.current_upstream_ref",
                 return_value="origin/feature/demo",
             ),
             patch(
-                "dev.scripts.devctl.commands.vcs.push.branch_divergence",
+                "dev.scripts.devctl.commands.vcs.push_preflight_flow.branch_divergence",
                 return_value={"behind": 0, "ahead": 1, "error": None},
             ),
             patch(
-                "dev.scripts.devctl.commands.vcs.push.append_orphan_snapshot_advisory",
+                "dev.scripts.devctl.commands.vcs.push_preflight_flow.append_orphan_snapshot_advisory",
                 side_effect=_append_advisory,
             ) as advisory_mock,
         ):
-            push._run_fetch_and_preflight(
+            push_preflight_flow.run_fetch_and_preflight(
                 state,
-                policy,
-                args,
-                repo_root=Path("/tmp/repo"),
-                run_cmd_fn=_runner,
+                push_preflight_flow.PushPreflightFlowInputs(
+                    policy=policy,
+                    args=args,
+                    repo_root=Path("/tmp/repo"),
+                    run_cmd_fn=_runner,
+                ),
             )
 
         self.assertEqual(state.errors, [])
@@ -2519,40 +2620,42 @@ class PushBridgeSyncTests(unittest.TestCase):
 
         with (
             patch(
-                "dev.scripts.devctl.commands.vcs.push.remote_branch_exists",
+                "dev.scripts.devctl.commands.vcs.push_preflight_flow.remote_branch_exists",
                 return_value=True,
             ),
             patch(
-                "dev.scripts.devctl.commands.vcs.push.current_upstream_ref",
+                "dev.scripts.devctl.commands.vcs.push_preflight_flow.current_upstream_ref",
                 return_value="origin/feature/demo",
             ),
             patch(
-                "dev.scripts.devctl.commands.vcs.push.branch_divergence",
+                "dev.scripts.devctl.commands.vcs.push_preflight_flow.branch_divergence",
                 return_value={"behind": 0, "ahead": 1, "error": None},
             ),
             patch(
-                "dev.scripts.devctl.commands.vcs.push.append_orphan_snapshot_advisory",
+                "dev.scripts.devctl.commands.vcs.push_preflight_flow.append_orphan_snapshot_advisory",
                 side_effect=_append_advisory,
             ),
             patch(
-                "dev.scripts.devctl.commands.vcs.push._sync_bridge_projection_before_preflight",
+                "dev.scripts.devctl.commands.vcs.push_preflight_flow._sync_bridge_projection_before_preflight",
                 side_effect=_sync_bridge,
             ),
             patch(
-                "dev.scripts.devctl.commands.vcs.push.refresh_managed_projections_before_preflight",
+                "dev.scripts.devctl.commands.vcs.push_preflight_flow.refresh_managed_projections_before_preflight",
                 side_effect=_refresh_projections,
             ),
             patch(
-                "dev.scripts.devctl.commands.vcs.push.build_preflight_shell_command",
+                "dev.scripts.devctl.commands.vcs.push_preflight_flow.build_preflight_shell_command",
                 return_value="python3 dev/scripts/devctl.py check-router --execute",
             ) as build_preflight_mock,
         ):
-            push._run_fetch_and_preflight(
+            push_preflight_flow.run_fetch_and_preflight(
                 state,
-                policy,
-                args,
-                repo_root=Path("/tmp/repo"),
-                run_cmd_fn=_runner,
+                push_preflight_flow.PushPreflightFlowInputs(
+                    policy=policy,
+                    args=args,
+                    repo_root=Path("/tmp/repo"),
+                    run_cmd_fn=_runner,
+                ),
             )
 
         self.assertEqual(state.errors, [])
@@ -2568,7 +2671,7 @@ class PushBridgeSyncTests(unittest.TestCase):
         )
         self.assertEqual(
             build_preflight_mock.call_args.kwargs["report_routing"].output_path,
-            push.PUSH_PREFLIGHT_CHECK_ROUTER_REPORT,
+            push_preflight_flow.PUSH_PREFLIGHT_CHECK_ROUTER_REPORT,
         )
 
     @patch("dev.scripts.devctl.commands.vcs.push.remote_exists", return_value=True)
@@ -2634,19 +2737,19 @@ class PushBridgeSyncTests(unittest.TestCase):
 
         with (
             patch(
-                "dev.scripts.devctl.commands.vcs.push.remote_branch_exists",
+                "dev.scripts.devctl.commands.vcs.push_preflight_flow.remote_branch_exists",
                 return_value=True,
             ),
             patch(
-                "dev.scripts.devctl.commands.vcs.push.current_upstream_ref",
+                "dev.scripts.devctl.commands.vcs.push_preflight_flow.current_upstream_ref",
                 return_value="origin/feature/demo",
             ),
             patch(
-                "dev.scripts.devctl.commands.vcs.push.branch_divergence",
+                "dev.scripts.devctl.commands.vcs.push_preflight_flow.branch_divergence",
                 return_value={"behind": 0, "ahead": 1, "error": None},
             ),
             patch(
-                "dev.scripts.devctl.commands.vcs.push.append_orphan_snapshot_advisory"
+                "dev.scripts.devctl.commands.vcs.push_preflight_flow.append_orphan_snapshot_advisory"
             ),
             patch.object(
                 push_preflight_projection,
@@ -2654,24 +2757,26 @@ class PushBridgeSyncTests(unittest.TestCase):
                 return_value=False,
             ),
             patch(
-                "dev.scripts.devctl.commands.vcs.push."
-                "_sync_bridge_projection_before_preflight"
+                "dev.scripts.devctl.commands.vcs.push_preflight_flow."
+            "_sync_bridge_projection_before_preflight"
             ),
             patch(
-                "dev.scripts.devctl.commands.vcs.push.refresh_managed_projections_before_preflight",
+                "dev.scripts.devctl.commands.vcs.push_preflight_flow.refresh_managed_projections_before_preflight",
                 side_effect=_refresh_projections,
             ),
             patch(
-                "dev.scripts.devctl.commands.vcs.push.build_preflight_shell_command",
+                "dev.scripts.devctl.commands.vcs.push_preflight_flow.build_preflight_shell_command",
                 return_value="python3 dev/scripts/devctl.py check-router --execute",
             ),
         ):
-            push._run_fetch_and_preflight(
+            push_preflight_flow.run_fetch_and_preflight(
                 state,
-                policy,
-                make_args(),
-                repo_root=push.REPO_ROOT,
-                run_cmd_fn=_runner,
+                push_preflight_flow.PushPreflightFlowInputs(
+                    policy=policy,
+                    args=make_args(),
+                    repo_root=push.REPO_ROOT,
+                    run_cmd_fn=_runner,
+                ),
             )
 
         self.assertEqual(state.errors, [])
@@ -4708,7 +4813,7 @@ class PushBridgeSyncTests(unittest.TestCase):
                     return_value=(True, ""),
                 ) as sync_mock,
             ):
-                push._sync_bridge_projection_before_preflight(
+                push_bridge_sync.sync_bridge_projection_before_preflight(
                     state,
                     repo_root=repo_root,
                 )
@@ -4733,7 +4838,7 @@ class PushBridgeSyncTests(unittest.TestCase):
                 "dev.scripts.devctl.commands.vcs.push_bridge_sync._sync_bridge_from_typed_projection_if_needed",
             ) as sync_mock,
         ):
-            push._sync_bridge_projection_before_preflight(
+            push_bridge_sync.sync_bridge_projection_before_preflight(
                 state,
                 repo_root=Path("/tmp/repo"),
             )
@@ -5369,15 +5474,15 @@ class PushBridgeSyncTests(unittest.TestCase):
 
     @patch("dev.scripts.devctl.commands.vcs.push.write_output")
     @patch(
-        "dev.scripts.devctl.commands.vcs.push.current_upstream_ref",
+        "dev.scripts.devctl.commands.vcs.push_preflight_flow.current_upstream_ref",
         return_value="",
     )
     @patch(
-        "dev.scripts.devctl.commands.vcs.push.build_preflight_shell_command",
+        "dev.scripts.devctl.commands.vcs.push_preflight_flow.build_preflight_shell_command",
         return_value="python3 dev/scripts/devctl.py check-router --since-ref origin/develop --execute",
     )
     @patch(
-        "dev.scripts.devctl.commands.vcs.push.remote_branch_exists", return_value=False
+        "dev.scripts.devctl.commands.vcs.push_preflight_flow.remote_branch_exists", return_value=False
     )
     @patch("dev.scripts.devctl.commands.vcs.push.remote_exists", return_value=True)
     @patch("dev.scripts.devctl.commands.vcs.push.load_push_policy")
@@ -5428,7 +5533,7 @@ class PushBridgeSyncTests(unittest.TestCase):
                 "reason": "unit_test",
             },
         ), patch(
-            "dev.scripts.devctl.commands.vcs.push."
+            "dev.scripts.devctl.commands.vcs.push_preflight_flow."
             "_sync_bridge_projection_before_preflight"
         ):
             rc = push.run(make_args(execute=True, skip_post_push=True))
@@ -5457,15 +5562,15 @@ class PushBridgeSyncTests(unittest.TestCase):
         return_value=["git status"],
     )
     @patch(
-        "dev.scripts.devctl.commands.vcs.push.current_upstream_ref",
+        "dev.scripts.devctl.commands.vcs.push_preflight_flow.current_upstream_ref",
         return_value="",
     )
     @patch(
-        "dev.scripts.devctl.commands.vcs.push.build_preflight_shell_command",
+        "dev.scripts.devctl.commands.vcs.push_preflight_flow.build_preflight_shell_command",
         return_value="python3 dev/scripts/devctl.py check-router --since-ref origin/develop --execute",
     )
     @patch(
-        "dev.scripts.devctl.commands.vcs.push.remote_branch_exists", return_value=False
+        "dev.scripts.devctl.commands.vcs.push_preflight_flow.remote_branch_exists", return_value=False
     )
     @patch("dev.scripts.devctl.commands.vcs.push.remote_exists", return_value=True)
     @patch("dev.scripts.devctl.commands.vcs.push.load_push_policy")
@@ -5523,8 +5628,8 @@ class PushBridgeSyncTests(unittest.TestCase):
                 return_value=False,
             ),
             patch(
-                "dev.scripts.devctl.commands.vcs.push."
-                "_sync_bridge_projection_before_preflight"
+                "dev.scripts.devctl.commands.vcs.push_preflight_flow."
+            "_sync_bridge_projection_before_preflight"
             ),
         ):
             rc = push.run(make_args(execute=True))
@@ -5559,15 +5664,15 @@ class PushBridgeSyncTests(unittest.TestCase):
         return_value=["git status"],
     )
     @patch(
-        "dev.scripts.devctl.commands.vcs.push.current_upstream_ref",
+        "dev.scripts.devctl.commands.vcs.push_preflight_flow.current_upstream_ref",
         return_value="",
     )
     @patch(
-        "dev.scripts.devctl.commands.vcs.push.build_preflight_shell_command",
+        "dev.scripts.devctl.commands.vcs.push_preflight_flow.build_preflight_shell_command",
         return_value="python3 dev/scripts/devctl.py check-router --since-ref origin/develop --execute",
     )
     @patch(
-        "dev.scripts.devctl.commands.vcs.push.remote_branch_exists", return_value=False
+        "dev.scripts.devctl.commands.vcs.push_preflight_flow.remote_branch_exists", return_value=False
     )
     @patch("dev.scripts.devctl.commands.vcs.push.remote_exists", return_value=True)
     @patch("dev.scripts.devctl.commands.vcs.push.load_push_policy")
@@ -5628,8 +5733,8 @@ class PushBridgeSyncTests(unittest.TestCase):
                 return_value=False,
             ),
             patch(
-                "dev.scripts.devctl.commands.vcs.push."
-                "_sync_bridge_projection_before_preflight"
+                "dev.scripts.devctl.commands.vcs.push_preflight_flow."
+            "_sync_bridge_projection_before_preflight"
             ),
         ):
             rc = push.run(make_args(execute=True))
@@ -5670,19 +5775,19 @@ class PushBridgeSyncTests(unittest.TestCase):
         return_value=["git status"],
     )
     @patch(
-        "dev.scripts.devctl.commands.vcs.push.current_upstream_ref",
+        "dev.scripts.devctl.commands.vcs.push_preflight_flow.current_upstream_ref",
         return_value="origin/feature/demo",
     )
     @patch(
-        "dev.scripts.devctl.commands.vcs.push.build_preflight_shell_command",
+        "dev.scripts.devctl.commands.vcs.push_preflight_flow.build_preflight_shell_command",
         return_value="python3 dev/scripts/devctl.py check-router --since-ref origin/feature/demo --execute",
     )
     @patch(
-        "dev.scripts.devctl.commands.vcs.push.branch_divergence",
+        "dev.scripts.devctl.commands.vcs.push_preflight_flow.branch_divergence",
         return_value={"behind": 0, "ahead": 1, "error": None},
     )
     @patch(
-        "dev.scripts.devctl.commands.vcs.push.remote_branch_exists", return_value=True
+        "dev.scripts.devctl.commands.vcs.push_preflight_flow.remote_branch_exists", return_value=True
     )
     @patch("dev.scripts.devctl.commands.vcs.push.remote_exists", return_value=True)
     @patch("dev.scripts.devctl.commands.vcs.push.load_push_policy")
@@ -5781,8 +5886,8 @@ class PushBridgeSyncTests(unittest.TestCase):
                 return_value=False,
             ),
             patch(
-                "dev.scripts.devctl.commands.vcs.push."
-                "_sync_bridge_projection_before_preflight"
+                "dev.scripts.devctl.commands.vcs.push_preflight_flow."
+            "_sync_bridge_projection_before_preflight"
             ),
         ):
             rc = push.run(make_args(execute=True))
@@ -5897,10 +6002,10 @@ class PushBridgeSyncTests(unittest.TestCase):
     ) -> None:
         policy = make_policy()
 
-        command = push.build_preflight_shell_command(
+        command = push_preflight_flow.build_preflight_shell_command(
             policy,
             remote="origin",
-            route_state=push.PushRefRoutingState(
+            route_state=push_preflight_flow.PushRefRoutingState(
                 current_branch="feature/demo",
                 upstream_ref="origin/feature/demo",
                 branch_has_remote=True,
@@ -5915,15 +6020,15 @@ class PushBridgeSyncTests(unittest.TestCase):
     ) -> None:
         policy = make_policy()
 
-        command = push.build_preflight_shell_command(
+        command = push_preflight_flow.build_preflight_shell_command(
             policy,
             remote="origin",
-            route_state=push.PushRefRoutingState(
+            route_state=push_preflight_flow.PushRefRoutingState(
                 current_branch="feature/demo",
                 upstream_ref="origin/feature/demo",
                 branch_has_remote=True,
             ),
-            validation_routing=push.PushValidationRouting(
+            validation_routing=push_preflight_flow.PushValidationRouting(
                 head_ref="authorized-sha",
                 range_scope_only=True,
                 validation_scope="pipeline_authorized_phase",
@@ -5944,10 +6049,10 @@ class PushBridgeSyncTests(unittest.TestCase):
             preflight=PushPreflightPolicy(parallel_workers=8),
         )
 
-        command = push.build_preflight_shell_command(
+        command = push_preflight_flow.build_preflight_shell_command(
             policy,
             remote="origin",
-            route_state=push.PushRefRoutingState(
+            route_state=push_preflight_flow.PushRefRoutingState(
                 current_branch="feature/demo",
                 upstream_ref="origin/feature/demo",
                 branch_has_remote=True,
@@ -5961,22 +6066,22 @@ class PushBridgeSyncTests(unittest.TestCase):
     ) -> None:
         policy = make_policy()
 
-        command = push.build_preflight_shell_command(
+        command = push_preflight_flow.build_preflight_shell_command(
             policy,
             remote="origin",
-            route_state=push.PushRefRoutingState(
+            route_state=push_preflight_flow.PushRefRoutingState(
                 current_branch="feature/demo",
                 upstream_ref="origin/feature/demo",
                 branch_has_remote=True,
             ),
-            report_routing=push.PushPreflightReportRouting(
-                output_path=push.PUSH_PREFLIGHT_CHECK_ROUTER_REPORT,
+            report_routing=push_preflight_flow.PushPreflightReportRouting(
+                output_path=push_preflight_flow.PUSH_PREFLIGHT_CHECK_ROUTER_REPORT,
             ),
         )
 
         self.assertIn("--format json", command)
         self.assertIn(
-            f"--output {push.PUSH_PREFLIGHT_CHECK_ROUTER_REPORT}",
+            f"--output {push_preflight_flow.PUSH_PREFLIGHT_CHECK_ROUTER_REPORT}",
             command,
         )
 
@@ -6013,7 +6118,7 @@ class PushBridgeSyncTests(unittest.TestCase):
 
         self.assertEqual(
             step["report_path"],
-            push.PUSH_PREFLIGHT_CHECK_ROUTER_REPORT,
+            push_preflight_flow.PUSH_PREFLIGHT_CHECK_ROUTER_REPORT,
         )
         self.assertEqual(
             step["failure_output"],
@@ -6027,10 +6132,10 @@ class PushBridgeSyncTests(unittest.TestCase):
             preflight=PushPreflightPolicy(fail_fast_on_blocker=False),
         )
 
-        command = push.build_preflight_shell_command(
+        command = push_preflight_flow.build_preflight_shell_command(
             policy,
             remote="origin",
-            route_state=push.PushRefRoutingState(
+            route_state=push_preflight_flow.PushRefRoutingState(
                 current_branch="feature/demo",
                 upstream_ref="origin/feature/demo",
                 branch_has_remote=True,
@@ -6109,11 +6214,11 @@ class PushLiveExecutionTests(unittest.TestCase):
 
             with (
                 patch(
-                    "dev.scripts.devctl.commands.vcs.push.build_preflight_shell_command",
+                    "dev.scripts.devctl.commands.vcs.push_preflight_flow.build_preflight_shell_command",
                     return_value="git status --short",
                 ),
                 patch(
-                    "dev.scripts.devctl.commands.vcs.push.refresh_managed_projections_before_preflight",
+                    "dev.scripts.devctl.commands.vcs.push_preflight_flow.refresh_managed_projections_before_preflight",
                     side_effect=_record_projection_phase,
                 ),
             ):
