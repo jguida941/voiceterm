@@ -121,7 +121,7 @@
 - source_contract: `InstructionBootCard`
 - source_command: `python3 dev/scripts/devctl.py render-surfaces --write --format md`
 - source_path: `dev/state/plan_index.jsonl`
-- repo_pack_id: `voiceterm`
+- repo_pack_id: `guardir`
 - repo_pack_version: `0.1.0-dev`
 - surface_provenance: `SurfaceProvenance`
 - projection_only: true

@@ -553,9 +553,9 @@
     },
     "surface_generation": {
       "repo_pack_metadata": {
-        "pack_id": "voiceterm",
+        "pack_id": "guardir",
         "pack_version": "0.1.0-dev",
-        "product_name": "VoiceTerm",
+        "product_name": "GuardIR",
         "repo_name": "codex-voice"
       },
       "context": {
