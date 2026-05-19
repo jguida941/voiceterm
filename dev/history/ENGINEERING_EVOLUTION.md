@@ -313,6 +313,28 @@ Evidence:
 - `command_output:test-python:0cd51be125ac4430`
 - `dev/scripts/devctl/platform/runtime_state_contract_rows_review_core.py`
 
+## 2026-05-19 - Task-started packets get explicit PKT-BIND backfill
+
+The role-flip orchestration loop exposed post-mandate `task_started` packets
+that had been treated as communication-only at post time even though
+`check_packet_pkt_bind_completeness.py` requires durable `PKT-BIND-REV-PKT-*`
+plan rows once the grace window expires. The gap caused the routed tooling
+bundle to fail after the SLICE-Z repair range was otherwise green.
+
+The violating packets were remediated through the typed
+`develop ingest-plan --packet-id ... --mutation-op task_started_packet_binding`
+path rather than manual JSONL edits. That produced plan rows, ingestion
+receipts, and source snapshots for `rev_pkt_4493`, `rev_pkt_4494`,
+`rev_pkt_4495`, `rev_pkt_4502`, `rev_pkt_4503`, `rev_pkt_4506`,
+`rev_pkt_4511`, `rev_pkt_4517`, and `rev_pkt_4520`.
+
+Evidence:
+
+- `dev/state/plan_index.jsonl`
+- `dev/state/plan_ingestion_receipts.jsonl`
+- `dev/state/plan_source_snapshots.jsonl`
+- `dev/scripts/checks/check_packet_pkt_bind_completeness.py`
+
 ### 2026-05-14 - Automation opportunity packets stay advisory and evidence-bound
 
 Review-channel now has a dedicated `automation_opportunity` packet kind for
