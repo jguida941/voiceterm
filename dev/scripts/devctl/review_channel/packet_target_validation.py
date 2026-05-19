@@ -11,6 +11,10 @@ from ..runtime.anchor_scope import (
     SESSION_TERMINATION_ANCHOR_KINDS,
     VALID_ANCHOR_SCOPES,
 )
+from ..runtime.collaboration_packet_kinds import (
+    TASK_PRODUCED_PACKET_KIND,
+    TASK_PROGRESS_PACKET_KIND,
+)
 from .pending_packet_models import (
     PacketGuardBundleEvidenceFields,
     PacketRuntimeApprovalFields,
@@ -38,7 +42,12 @@ VALID_PLAN_MUTATION_OPS = {
     "set_checklist_state",
 }
 RUNTIME_TARGET_PACKET_KINDS = {"commit_approval"}
-NON_AUTHORITATIVE_TARGET_PACKET_KINDS = {"finding", "automation_opportunity"}
+NON_AUTHORITATIVE_TARGET_PACKET_KINDS = {
+    "finding",
+    "automation_opportunity",
+    TASK_PRODUCED_PACKET_KIND,
+    TASK_PROGRESS_PACKET_KIND,
+}
 ANCHOR_REF_RE = re.compile(
     r"^(checklist|section|session_resume|progress|audit|packet):[A-Za-z0-9][A-Za-z0-9._-]*$"
 )

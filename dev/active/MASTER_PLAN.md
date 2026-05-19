@@ -29,6 +29,15 @@
   default requested worker fanout is zero unless explicitly requested, and
   `bridge.md` remains a compatibility projection until native
   `CollaborationSession` topology lands.
+- 2026-05-19 Phase 0.6.A live-controller repair keeps collaboration
+  provider-neutral before VoiceTerm quarantine resumes. Packets addressed to an
+  actor remain visible even when the packet target role differs from the
+  actor's current role, `review-channel show` blocks before body disclosure
+  unless the active `AgentLoopDecision` authorizes the read, and body
+  observations record the reader's actor role/session rather than the packet
+  target route. Collapsed post kinds require exact controller actions for
+  `post_task_produced`, `post_task_progress`, or `post_evidence`; parser/alias
+  parity alone is not green without this live path.
 - 2026-05-11 slice 18 fix arc + bilateral protocol consolidation (MP-377):
   claude reviewer-role's session arc identified 7 bugs in slice 18 via two
   codex-review passes (5 findings from 17:16:09Z + 2 additional findings from

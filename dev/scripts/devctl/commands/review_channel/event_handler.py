@@ -8,7 +8,6 @@ file-size soft limit.
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 import json
 import time
@@ -57,6 +56,19 @@ from ...time_utils import utc_timestamp
 from .event_action_support import (
     EventActionContext,
     run_inbox_like_action,
+)
+from .event_attempted_action_scope import (
+    ProxyAuthorityRoute,
+    ProxyAuthoritySource,
+    action_actor as _action_actor,
+    action_role as _action_role,
+    action_session_id as _action_session_id,
+    executor_actor as _executor_actor,
+    executor_role as _executor_role,
+    executor_session_id as _executor_session_id,
+    proxy_authority_ref as _proxy_authority_ref,
+    review_channel_attempted_argv as _review_channel_attempted_argv,
+    review_channel_attempted_command as _review_channel_attempted_command,
 )
 from .event_ack_freshness_action import run_check_ack_freshness_action
 from .event_handler_side_effects import (
@@ -329,8 +341,6 @@ def _run_loaded_bundle_action(
                     context=context,
                     args=args,
                     bundle=bundle,
-                    packet=packets[0],
-                    packets=packets,
                     gate=gate,
                 )
             control_decision_gate = gate
@@ -341,8 +351,8 @@ def _run_loaded_bundle_action(
                 bundle=bundle,
                 packet=packets[0],
                 actor=actor,
-                role=str(getattr(args, "target_role", "") or ""),
-                session_id=str(getattr(args, "target_session_id", "") or ""),
+                role=_action_role(args),
+                session_id=_action_session_id(args),
             )
             packets = filter_history_packets(
                 bundle.review_state,
@@ -640,15 +650,19 @@ def _review_channel_lifecycle_gate(
     source_latest_event_id = coerce_string(decision.get("source_latest_event_id"))
     proxy_authority_ref = _proxy_authority_ref(
         args,
-        executor_actor=executor_actor,
-        executor_role=executor_role,
-        executor_session_id=executor_session_id,
-        subject_actor=subject_actor,
-        subject_role=subject_role,
-        subject_session_id=subject_session_id,
-        source_decision_id=source_decision_id,
-        source_snapshot_id=source_snapshot_id,
-        source_latest_event_id=source_latest_event_id,
+        route=ProxyAuthorityRoute(
+            executor_actor=executor_actor,
+            executor_role=executor_role,
+            executor_session_id=executor_session_id,
+            subject_actor=subject_actor,
+            subject_role=subject_role,
+            subject_session_id=subject_session_id,
+        ),
+        source=ProxyAuthoritySource(
+            decision_id=source_decision_id,
+            snapshot_id=source_snapshot_id,
+            latest_event_id=source_latest_event_id,
+        ),
     )
     attempted = build_attempted_action_receipt(
         action_kind=f"review-channel.{getattr(args, 'action', '')}",
@@ -713,160 +727,6 @@ def _control_decision_args(args) -> SimpleNamespace:
     values["role"] = _action_role(args)
     values["session_id"] = _action_session_id(args)
     return SimpleNamespace(**values)
-
-
-def _action_actor(args) -> str:
-    return coerce_string(
-        getattr(args, "actor", "")
-        or getattr(args, "from_agent", "")
-        or getattr(args, "to_agent", "")
-    ).strip()
-
-
-def _action_role(args) -> str:
-    actor_role = coerce_string(getattr(args, "actor_role", "")).strip()
-    if actor_role:
-        return actor_role
-    if coerce_string(getattr(args, "action", "")).strip() == "post":
-        return coerce_string(getattr(args, "role", "")).strip()
-    return coerce_string(
-        getattr(args, "role", "") or getattr(args, "target_role", "")
-    ).strip()
-
-
-def _action_session_id(args) -> str:
-    if coerce_string(getattr(args, "action", "")).strip() == "post":
-        return coerce_string(getattr(args, "session_id", "")).strip()
-    return coerce_string(
-        getattr(args, "target_session_id", "") or getattr(args, "session_id", "")
-    ).strip()
-
-
-def _executor_actor(args, *, fallback_actor: str) -> str:
-    explicit = coerce_string(getattr(args, "executor_actor", "")).strip()
-    if explicit:
-        return explicit
-    env_actor = coerce_string(os.environ.get("DEVCTL_EXECUTOR_ACTOR")).strip()
-    if env_actor:
-        return env_actor
-    if coerce_string(os.environ.get("CODEX_THREAD_ID")).strip():
-        return "codex"
-    return fallback_actor
-
-
-def _executor_role(
-    args,
-    *,
-    fallback_role: str,
-    executor_actor: str,
-    subject_actor: str,
-) -> str:
-    explicit = coerce_string(getattr(args, "executor_role", "")).strip()
-    if explicit:
-        return explicit
-    env_role = coerce_string(os.environ.get("DEVCTL_EXECUTOR_ROLE")).strip()
-    if env_role:
-        return env_role
-    return fallback_role if executor_actor == subject_actor else ""
-
-
-def _executor_session_id(
-    args,
-    *,
-    fallback_session_id: str,
-    executor_actor: str,
-    subject_actor: str,
-) -> str:
-    explicit = coerce_string(getattr(args, "executor_session_id", "")).strip()
-    if explicit:
-        return explicit
-    env_session = coerce_string(os.environ.get("DEVCTL_EXECUTOR_SESSION_ID")).strip()
-    if env_session:
-        return env_session
-    if executor_actor != subject_actor:
-        return coerce_string(os.environ.get("CODEX_THREAD_ID")).strip()
-    return fallback_session_id
-
-
-def _proxy_authority_ref(
-    args,
-    *,
-    executor_actor: str,
-    executor_role: str,
-    executor_session_id: str,
-    subject_actor: str,
-    subject_role: str,
-    subject_session_id: str,
-    source_decision_id: str,
-    source_snapshot_id: str,
-    source_latest_event_id: str,
-) -> str:
-    explicit = coerce_string(getattr(args, "proxy_authority_ref", "")).strip()
-    if explicit:
-        return explicit
-    if not _is_proxy_execution(
-        executor_actor=executor_actor,
-        executor_role=executor_role,
-        executor_session_id=executor_session_id,
-        subject_actor=subject_actor,
-        subject_role=subject_role,
-        subject_session_id=subject_session_id,
-    ):
-        return ""
-    return source_decision_id or source_snapshot_id or source_latest_event_id
-
-
-def _is_proxy_execution(
-    *,
-    executor_actor: str,
-    executor_role: str,
-    executor_session_id: str,
-    subject_actor: str,
-    subject_role: str,
-    subject_session_id: str,
-) -> bool:
-    if not executor_actor or not subject_actor:
-        return False
-    if executor_actor != subject_actor:
-        return True
-    if executor_role and subject_role and executor_role != subject_role:
-        return True
-    if executor_session_id and subject_session_id and executor_session_id != subject_session_id:
-        return True
-    return False
-
-
-def _review_channel_attempted_argv(args, *, packet_id: str = "") -> tuple[str, ...]:
-    argv = ["review-channel", "--action", coerce_string(getattr(args, "action", ""))]
-    packet_kind = coerce_string(getattr(args, "kind", "")).strip()
-    if packet_kind:
-        argv.extend(("--kind", packet_kind))
-    if packet_id:
-        argv.extend(("--packet-id", packet_id))
-    for option, attr in (
-        ("--requested-action", "requested_action"),
-        ("--target-kind", "target_kind"),
-        ("--target-ref", "target_ref"),
-        ("--target-revision", "target_revision"),
-        ("--full-guard-bundle-evidence", "full_guard_bundle_evidence"),
-    ):
-        value = coerce_string(getattr(args, attr, "")).strip()
-        if value:
-            argv.extend((option, value))
-    actor = _action_actor(args)
-    if actor:
-        argv.extend(("--actor", actor))
-    actor_role = coerce_string(getattr(args, "actor_role", "")).strip()
-    if actor_role:
-        argv.extend(("--actor-role", actor_role))
-    session_id = coerce_string(getattr(args, "session_id", "")).strip()
-    if session_id:
-        argv.extend(("--session-id", session_id))
-    return tuple(item for item in argv if item)
-
-
-def _review_channel_attempted_command(args, *, packet_id: str = "") -> str:
-    return " ".join(("python3", "dev/scripts/devctl.py", *_review_channel_attempted_argv(args, packet_id=packet_id)))
 
 
 def _allow_missing_control_decision_for_test(*, args, repo_root: Path) -> bool:

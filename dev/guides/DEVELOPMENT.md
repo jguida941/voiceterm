@@ -79,6 +79,14 @@ Use docs like this:
   permission, proof status, commit/push status, or plan closure. Stale or empty
   bridge content is `projection_stale` only; typed state, contracts, receipts,
   repo policy, source code, and guards remain the authority chain.
+- Typed collaboration routing is provider-neutral. `review-channel inbox` must
+  surface packets addressed to an actor even when the packet's target role does
+  not match the actor's current role; such packets are reported as routing
+  mismatches instead of disappearing. `review-channel show` is also a governed
+  read: it must either block before body disclosure or record a body observation
+  against the actual actor role/session that opened the packet. Packet target
+  role/session stay route metadata and must not replace the actor route in the
+  observation receipt.
 - Agent-supervision recovery stays typed and explicit. Use `devctl
   agent-supervise --format json` to inspect host/process liveness. Add
   `--execute` only when the report contains `SpawnDeadAgentAction`; the command

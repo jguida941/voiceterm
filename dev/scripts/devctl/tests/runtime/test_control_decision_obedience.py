@@ -304,6 +304,169 @@ def test_post_finding_does_not_authorize_action_request() -> None:
     assert "command_attempt_after_can_run_next_command_false" in reasons
 
 
+def test_allowed_post_task_produced_obeys_controller_action_routing() -> None:
+    decision = {
+        **_blocked_decision(),
+        "actor_id": "codex",
+        "actor_role": "reviewer",
+        "session_id": "codex-session",
+        "allowed_actions": ["review-channel.post_task_produced"],
+    }
+
+    report = evaluate_control_decision_obedience(
+        decision=decision,
+        attempted_actions=(
+            {
+                "argv": (
+                    "review-channel",
+                    "--action",
+                    "post",
+                    "--kind",
+                    "task_produced",
+                    "--actor",
+                    "codex",
+                    "--actor-role",
+                    "reviewer",
+                    "--session-id",
+                    "codex-session",
+                ),
+                "actor": "codex",
+                "role": "reviewer",
+                "session_id": "codex-session",
+                "mutates": True,
+                "writes_state": True,
+                "executes_command": True,
+            },
+        ),
+    )
+
+    assert report.ok is True
+
+
+def test_allowed_post_task_progress_obeys_controller_action_routing() -> None:
+    decision = {
+        **_blocked_decision(),
+        "actor_id": "codex",
+        "actor_role": "reviewer",
+        "session_id": "codex-session",
+        "allowed_actions": ["review-channel.post_task_progress"],
+    }
+
+    report = evaluate_control_decision_obedience(
+        decision=decision,
+        attempted_actions=(
+            {
+                "argv": (
+                    "review-channel",
+                    "--action",
+                    "post",
+                    "--kind",
+                    "task_progress",
+                    "--actor",
+                    "codex",
+                    "--actor-role",
+                    "reviewer",
+                    "--session-id",
+                    "codex-session",
+                ),
+                "actor": "codex",
+                "role": "reviewer",
+                "session_id": "codex-session",
+                "mutates": True,
+                "writes_state": True,
+                "executes_command": True,
+            },
+        ),
+    )
+
+    assert report.ok is True
+
+
+def test_artifact_task_produced_requires_post_evidence_action() -> None:
+    decision = {
+        **_blocked_decision(),
+        "actor_id": "codex",
+        "actor_role": "reviewer",
+        "session_id": "codex-session",
+        "allowed_actions": ["review-channel.post_task_produced"],
+    }
+
+    report = evaluate_control_decision_obedience(
+        decision=decision,
+        attempted_actions=(
+            {
+                "argv": (
+                    "review-channel",
+                    "--action",
+                    "post",
+                    "--kind",
+                    "task_produced",
+                    "--target-kind",
+                    "artifact",
+                    "--actor",
+                    "codex",
+                    "--actor-role",
+                    "reviewer",
+                    "--session-id",
+                    "codex-session",
+                ),
+                "actor": "codex",
+                "role": "reviewer",
+                "session_id": "codex-session",
+                "mutates": True,
+                "writes_state": True,
+                "executes_command": True,
+            },
+        ),
+    )
+
+    reasons = {violation["reason"] for violation in report.violations}
+    assert report.ok is False
+    assert "mutation_attempt_after_may_mutate_false" in reasons
+    assert "command_attempt_after_can_run_next_command_false" in reasons
+
+
+def test_allowed_post_evidence_obeys_controller_action_routing() -> None:
+    decision = {
+        **_blocked_decision(),
+        "actor_id": "codex",
+        "actor_role": "reviewer",
+        "session_id": "codex-session",
+        "allowed_actions": ["review-channel.post_evidence"],
+    }
+
+    report = evaluate_control_decision_obedience(
+        decision=decision,
+        attempted_actions=(
+            {
+                "argv": (
+                    "review-channel",
+                    "--action",
+                    "post",
+                    "--kind",
+                    "task_produced",
+                    "--target-kind",
+                    "artifact",
+                    "--actor",
+                    "codex",
+                    "--actor-role",
+                    "reviewer",
+                    "--session-id",
+                    "codex-session",
+                ),
+                "actor": "codex",
+                "role": "reviewer",
+                "session_id": "codex-session",
+                "mutates": True,
+                "writes_state": True,
+                "executes_command": True,
+            },
+        ),
+    )
+
+    assert report.ok is True
+
+
 def test_post_action_request_rejects_wrong_requested_action() -> None:
     decision = {
         **_blocked_decision(),

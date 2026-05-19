@@ -5,6 +5,7 @@ from __future__ import annotations
 from ..runtime.review_packet_inbox_liveness import is_expired_unresolved
 
 from .pending_packets import live_pending_packets, partition_live_packet_queue
+from .packet_body_observation import packet_body_digest, packet_body_observed_by
 from .packet_route_scope import normalize_packet_route_role
 from .packet_text_fields import clean_optional_text
 from .timestamp_parse import parse_utc_value as _parse_utc
@@ -28,8 +29,10 @@ def filter_inbox_packets(
     if not isinstance(packets, list):
         return []
     filtered = []
-    packet_iter = live_pending_packets(packets) if status == "pending" else (
-        packet for packet in packets if isinstance(packet, dict)
+    packet_iter = (
+        _inbox_pending_packets(packets, target=target)
+        if status == "pending"
+        else (packet for packet in packets if isinstance(packet, dict))
     )
     for packet in packet_iter:
         if target and packet.get("to_agent") != target:
@@ -42,10 +45,28 @@ def filter_inbox_packets(
                 target_role=target_role,
                 target_session_id=target_session_id,
             ):
+                if not target or not _should_surface_route_mismatch(
+                    packet,
+                    target_role=target_role,
+                ):
+                    continue
+                filtered.append(
+                    _with_inbox_routing_status(
+                        packet,
+                        target_role=target_role,
+                        target_session_id=target_session_id,
+                    )
+                )
                 continue
         if status and not _packet_matches_inbox_status(packet, status):
             continue
-        filtered.append(packet)
+        filtered.append(
+            _with_inbox_routing_status(
+                packet,
+                target_role=target_role,
+                target_session_id=target_session_id,
+            )
+        )
     if limit is not None and limit >= 0:
         return filtered[:limit]
     return filtered
@@ -117,6 +138,93 @@ def packet_by_id(
         if isinstance(packet, dict) and packet.get("packet_id") == packet_id:
             return packet
     return None
+
+
+def _inbox_pending_packets(
+    packets: object,
+    *,
+    target: str | None,
+) -> tuple[dict[str, object], ...]:
+    packet_rows = tuple(packet for packet in packets if isinstance(packet, dict))
+    live_rows = tuple(
+        packet for packet in live_pending_packets(packet_rows)
+        if isinstance(packet, dict)
+    )
+    live_ids = {
+        str(packet.get("packet_id") or "").strip()
+        for packet in live_rows
+    }
+    if not target:
+        return live_rows
+    routed_rows = tuple(
+        packet
+        for packet in packet_rows
+        if str(packet.get("packet_id") or "").strip() not in live_ids
+        and _route_scoped_actor_packet_still_requires_read(packet, target=target)
+    )
+    return (*live_rows, *routed_rows)
+
+
+def _route_scoped_actor_packet_still_requires_read(
+    packet: dict[str, object],
+    *,
+    target: str,
+) -> bool:
+    if clean_optional_text(packet.get("to_agent")) != clean_optional_text(target):
+        return False
+    if packet.get("status") != "pending":
+        return False
+    if is_expired_unresolved(packet):
+        return False
+    if not (packet.get("target_role") or packet.get("target_session_id")):
+        return False
+    digest = packet_body_digest(packet)
+    if not digest:
+        return True
+    return not packet_body_observed_by(
+        packet,
+        actor=clean_optional_text(target) or "",
+        body_digest=digest,
+    )
+
+
+def _with_inbox_routing_status(
+    packet: dict[str, object],
+    *,
+    target_role: str | None,
+    target_session_id: str | None,
+) -> dict[str, object]:
+    scope_role = normalize_packet_route_role(target_role)
+    scope_session = clean_optional_text(target_session_id) or ""
+    packet_role = normalize_packet_route_role(packet.get("target_role"))
+    packet_session = clean_optional_text(packet.get("target_session_id")) or ""
+    if scope_role and packet_role and packet_role != scope_role:
+        annotated = dict(packet)
+        annotated["inbox_routing_status"] = "wrong_role_for_actor"
+        annotated["inbox_routing_expected_role"] = scope_role
+        annotated["inbox_routing_packet_role"] = packet_role
+        return annotated
+    if scope_session and packet_session and packet_session != scope_session:
+        annotated = dict(packet)
+        annotated["inbox_routing_status"] = "wrong_session_for_actor"
+        annotated["inbox_routing_expected_session_id"] = scope_session
+        annotated["inbox_routing_packet_session_id"] = packet_session
+        return annotated
+    if packet_role or packet_session:
+        annotated = dict(packet)
+        annotated["inbox_routing_status"] = "route_scoped_to_actor"
+        return annotated
+    return packet
+
+
+def _should_surface_route_mismatch(
+    packet: dict[str, object],
+    *,
+    target_role: str | None,
+) -> bool:
+    scope_role = normalize_packet_route_role(target_role)
+    packet_role = normalize_packet_route_role(packet.get("target_role"))
+    return bool(scope_role and packet_role and packet_role != scope_role)
 
 
 def _packet_matches_inbox_status(packet: dict[str, object], status: str) -> bool:

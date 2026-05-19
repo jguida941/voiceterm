@@ -45,6 +45,14 @@ Review-channel packet posts deliberately remain no-wake communication events:
 their packet-attention receipt records `PacketArrivalDerivedStateInvalidation`
 for the existing event-backed projections and controller consumers, while
 provider launch/replacement stays owned by scheduler/runtime controllers.
+For typed collaboration repair work, keep actor route and packet route
+separate: `review-channel show` must carry `--actor`, `--actor-role`, and
+`--session-id` for the reader while preserving packet `--target-role` /
+`--target-session-id` as route metadata. `task_produced`, `task_progress`, and
+artifact evidence posts require exact `ControlDecisionObeyedGuard` allowed
+actions (`review-channel.post_task_produced`,
+`review-channel.post_task_progress`, or `review-channel.post_evidence`); do not
+authorize them through a broad post/finding action.
 During GuardIR extraction, `bridge.md` is intentionally rendered as a
 deprecated projection-only stub. Use typed state, contracts, receipts, repo
 policy, source code, and guards for authority; bridge stale/empty state is

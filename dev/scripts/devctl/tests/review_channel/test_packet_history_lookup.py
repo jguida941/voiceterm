@@ -403,6 +403,69 @@ def test_show_body_observation_runs_control_decision_gate(tmp_path) -> None:
     assert report["control_decision_obedience"]["ok"] is True
 
 
+def test_show_observation_uses_actor_route_not_packet_target_route(tmp_path) -> None:
+    review_channel_path, artifact_paths = _seed_packet_event_state(tmp_path)
+    _write_latest_control_decision(
+        tmp_path,
+        packet_id="rev_pkt_100",
+        body_open_required=True,
+        actor_id="codex",
+        actor_role="reviewer",
+        session_id="codex-review-session",
+    )
+    args = _show_args(
+        action="show",
+        actor="codex",
+        actor_role="reviewer",
+        session_id="codex-review-session",
+        target_role="implementer",
+    )
+
+    report, exit_code = _run_event_action(
+        args=args,
+        repo_root=tmp_path,
+        paths={
+            "review_channel_path": review_channel_path,
+            "artifact_paths": artifact_paths,
+        },
+    )
+
+    assert exit_code == 0
+    event = report["event"]
+    assert event["event_type"] == PACKET_BODY_OBSERVATION_EVENT_TYPE
+    assert event["body_observed_by"] == "codex"
+    assert event["body_observed_role"] == "reviewer"
+    assert event["body_observed_session_id"] == "codex-review-session"
+    assert report["control_decision_obedience"]["ok"] is True
+
+
+def test_show_blocks_before_body_disclosure_without_control_decision(tmp_path) -> None:
+    review_channel_path, artifact_paths = _seed_packet_event_state(tmp_path)
+    before = _event_count(artifact_paths)
+    args = _show_args(
+        action="show",
+        actor="codex",
+        target_role="reviewer",
+        target_session_id="session-a",
+    )
+
+    report, exit_code = _run_event_action(
+        args=args,
+        repo_root=tmp_path,
+        paths={
+            "review_channel_path": review_channel_path,
+            "artifact_paths": artifact_paths,
+        },
+    )
+
+    assert exit_code == 1
+    assert "control_decision_obedience_failed" in report["errors"]
+    assert report["packet"] is None
+    assert report["packets"] == []
+    assert "Codex must open this body before continuing." not in json.dumps(report)
+    assert _event_count(artifact_paths) == before
+
+
 def test_show_proxy_records_executor_subject_binding(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("CODEX_THREAD_ID", "codex-session")
     review_channel_path, artifact_paths = _seed_packet_event_state(tmp_path)
@@ -667,6 +730,111 @@ def test_allowed_action_request_post_appends_attempted_action_receipt(tmp_path) 
         "devctl_commit:"
     )
     assert _event_count(artifact_paths) == before + 3
+
+
+def test_allowed_task_progress_post_appends_attempted_action_receipt(tmp_path) -> None:
+    review_channel_path, artifact_paths = _seed_packet_event_state(tmp_path)
+    _write_latest_control_decision(
+        tmp_path,
+        packet_id="rev_pkt_100",
+        allowed_actions=["review-channel.post_task_progress"],
+    )
+    before = _event_count(artifact_paths)
+    args = _post_args(
+        kind="task_progress",
+        summary="Phase 0.6.A progress",
+        body="Reducer repair is in progress.",
+    )
+
+    report, exit_code = _run_event_action(
+        args=args,
+        repo_root=tmp_path,
+        paths={
+            "review_channel_path": review_channel_path,
+            "artifact_paths": artifact_paths,
+        },
+    )
+
+    assert exit_code == 0
+    assert report["event"]["event_type"] == "packet_posted"
+    assert report["packet"]["kind"] == "task_progress"
+    assert report["control_decision_obedience"]["ok"] is True
+    attempted = report["control_decision_obedience"]["attempted_action_receipt"]
+    assert attempted["argv"][attempted["argv"].index("--kind") + 1] == "task_progress"
+    assert _event_count(artifact_paths) == before + 2
+
+
+def test_allowed_task_produced_post_appends_attempted_action_receipt(tmp_path) -> None:
+    review_channel_path, artifact_paths = _seed_packet_event_state(tmp_path)
+    _write_latest_control_decision(
+        tmp_path,
+        packet_id="rev_pkt_100",
+        allowed_actions=["review-channel.post_task_produced"],
+    )
+    before = _event_count(artifact_paths)
+    args = _post_args(
+        kind="task_produced",
+        summary="Phase 0.6.A task output",
+        body="Reviewable implementation evidence is available.",
+        commit_sha="abc1234",
+        evidence_ref=["command_output:test-python:task-produced"],
+        target_kind="code",
+        target_ref="dev/scripts/devctl/runtime/control_decision_obedience.py",
+    )
+
+    report, exit_code = _run_event_action(
+        args=args,
+        repo_root=tmp_path,
+        paths={
+            "review_channel_path": review_channel_path,
+            "artifact_paths": artifact_paths,
+        },
+    )
+
+    assert exit_code == 0
+    assert report["event"]["event_type"] == "packet_posted"
+    assert report["packet"]["kind"] == "task_produced"
+    assert report["control_decision_obedience"]["ok"] is True
+    attempted = report["control_decision_obedience"]["attempted_action_receipt"]
+    assert attempted["argv"][attempted["argv"].index("--kind") + 1] == "task_produced"
+    assert _event_count(artifact_paths) == before + 2
+
+
+def test_artifact_task_produced_requires_post_evidence_allowed_action(tmp_path) -> None:
+    review_channel_path, artifact_paths = _seed_packet_event_state(tmp_path)
+    _write_latest_control_decision(
+        tmp_path,
+        packet_id="rev_pkt_100",
+        allowed_actions=["review-channel.post_evidence"],
+    )
+    before = _event_count(artifact_paths)
+    args = _post_args(
+        kind="task_produced",
+        summary="Phase 0.6.A evidence",
+        body="Focused command-output receipt is available.",
+        commit_sha="abc1234",
+        evidence_ref=["command_output:test-python:post-evidence"],
+        target_kind="artifact",
+        target_ref="command_output:test-python:post-evidence",
+    )
+
+    report, exit_code = _run_event_action(
+        args=args,
+        repo_root=tmp_path,
+        paths={
+            "review_channel_path": review_channel_path,
+            "artifact_paths": artifact_paths,
+        },
+    )
+
+    assert exit_code == 0
+    assert report["event"]["event_type"] == "packet_posted"
+    assert report["packet"]["kind"] == "task_produced"
+    assert report["packet"]["target_kind"] == "artifact"
+    assert report["control_decision_obedience"]["ok"] is True
+    attempted = report["control_decision_obedience"]["attempted_action_receipt"]
+    assert attempted["argv"][attempted["argv"].index("--target-kind") + 1] == "artifact"
+    assert _event_count(artifact_paths) == before + 2
 
 
 def test_post_action_request_without_allowed_action_blocks_before_event_append(
@@ -1030,6 +1198,7 @@ def test_absorb_blocks_plan_affecting_rows_without_plan_evidence(tmp_path) -> No
 def _show_args(**overrides: object) -> SimpleNamespace:
     args = {
         "action": "show",
+        "actor_role": "",
         "await_ack_seconds": 0,
         "expires_in_minutes": 30,
         "follow": False,
@@ -1069,6 +1238,7 @@ def _post_args(**overrides: object) -> SimpleNamespace:
         "context_pack_adapter_profile": "canonical",
         "context_pack_ref": [],
         "controller_run_id": None,
+        "commit_sha": None,
         "correlation_id": "",
         "causation_id": "",
         "evidence_artifact_path": [],
@@ -1090,6 +1260,7 @@ def _post_args(**overrides: object) -> SimpleNamespace:
         "policy_hint": "review_only",
         "requested_action": "review_only",
         "requested_session_visibility": None,
+        "run_record_id": [],
         "run_id": "",
         "session_id": "session-a",
         "staged_snapshot_hash": None,

@@ -16,6 +16,7 @@ from dev.scripts.devctl.commands.development import (
     design_preflight as design_preflight_module,
     orchestration_agent_supervise as orchestration_agent_supervise_module,
     orchestration_system_picture as orchestration_system_picture_module,
+    packet_attention as packet_attention_module,
 )
 from dev.scripts.devctl.commands.development import packet_debt as development_packet_debt
 from dev.scripts.devctl.commands.development import plan_intake
@@ -4671,6 +4672,41 @@ def test_packet_attention_includes_latest_finding_as_actionable() -> None:
     )
 
 
+def test_packet_attention_show_command_keeps_actor_and_packet_routes() -> None:
+    review_state = {
+        "agent_work_board": {
+            "rows": [
+                {
+                    "actor_id": "codex",
+                    "role": "reviewer",
+                    "session_id": "codex-review-session",
+                    "status": "idle",
+                    "idle_seconds": 1,
+                }
+            ]
+        },
+        "packets": [
+            {
+                "packet_id": "rev_pkt_9999",
+                "to_agent": "codex",
+                "kind": "finding",
+                "status": "pending",
+                "target_role": "implementer",
+                "expires_at_utc": "2999-01-01T00:00:00Z",
+            }
+        ],
+    }
+
+    attention = packet_attention_from_review_state(review_state, rows=())
+
+    assert attention.required_command == (
+        "python3 dev/scripts/devctl.py review-channel --action show "
+        "--packet-id rev_pkt_9999 --actor codex --actor-role reviewer "
+        "--session-id codex-review-session --target-role implementer "
+        "--terminal none --format md"
+    )
+
+
 def test_packet_attention_requires_body_open_for_peer_progress_packet() -> None:
     review_state = {
         "packets": [
@@ -4739,10 +4775,94 @@ def test_packet_attention_requires_semantic_ingestion_after_body_observed() -> N
     assert attention.summary == (
         "Packet attention requires semantic ingestion for rev_pkt_3662."
     )
-    assert attention.required_command == (
+    assert attention.required_command.startswith(
         "python3 dev/scripts/devctl.py review-channel --action ingest "
         "--packet-id rev_pkt_3662 --actor codex --terminal none --format md"
     )
+    assert "--semantic-action-item" in attention.required_command
+
+
+def test_packet_attention_followup_lifecycle_order(monkeypatch) -> None:
+    review_state = {
+        "packets": [
+            {
+                "packet_id": "rev_pkt_3662",
+                "from_agent": "claude",
+                "to_agent": "codex",
+                "kind": "finding",
+                "status": "pending",
+                "lifecycle_current_state": "pending",
+                "latest_event_id": "rev_evt_3662",
+                "body": "Lifecycle order test.",
+                "expires_at_utc": "2999-01-01T00:00:00Z",
+            }
+        ]
+    }
+
+    def _attention(**overrides: object) -> SimpleNamespace:
+        values = {
+            "body_open_required": False,
+            "body_open_packet_id": "",
+            "body_open_command": "",
+            "semantic_ingestion_required": False,
+            "semantic_ingestion_packet_id": "",
+            "semantic_ingestion_command": "",
+            "absorption_required": False,
+            "absorption_packet_id": "",
+            "absorption_command": "",
+        }
+        values.update(overrides)
+        return SimpleNamespace(**values)
+
+    def _render(fake_attention: SimpleNamespace) -> DevelopmentPacketAttention:
+        monkeypatch.setattr(
+            packet_attention_module,
+            "packet_attention_for_agent",
+            lambda *_args, **_kwargs: fake_attention,
+        )
+        return packet_attention_from_review_state(review_state, rows=())
+
+    attention = _render(
+        _attention(
+            body_open_required=True,
+            body_open_packet_id="rev_pkt_3662",
+            body_open_command="SHOW",
+            semantic_ingestion_required=True,
+            semantic_ingestion_packet_id="rev_pkt_3662",
+            semantic_ingestion_command="INGEST",
+            absorption_required=True,
+            absorption_packet_id="rev_pkt_3662",
+            absorption_command="ABSORB",
+        )
+    )
+
+    assert attention.wake_reason == "packet_body_open_required"
+    assert attention.required_command == "SHOW"
+
+    attention = _render(
+        _attention(
+            semantic_ingestion_required=True,
+            semantic_ingestion_packet_id="rev_pkt_3662",
+            semantic_ingestion_command="INGEST",
+            absorption_required=True,
+            absorption_packet_id="rev_pkt_3662",
+            absorption_command="ABSORB",
+        )
+    )
+
+    assert attention.wake_reason == "packet_semantic_ingestion_required"
+    assert attention.required_command == "INGEST"
+
+    attention = _render(
+        _attention(
+            absorption_required=True,
+            absorption_packet_id="rev_pkt_3662",
+            absorption_command="ABSORB",
+        )
+    )
+
+    assert attention.wake_reason == "packet_absorption_required"
+    assert attention.required_command == "ABSORB"
 
 
 def test_packet_attention_ignores_delivery_for_dead_target_route() -> None:

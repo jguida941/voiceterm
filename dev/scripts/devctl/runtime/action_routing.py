@@ -33,6 +33,9 @@ _COORDINATION_POST_ACTIONS = (
     "review-channel.post_action_request",
     "review-channel.post_continuation_anchor",
     "review-channel.post_stop_anchor",
+    "review-channel.post_task_produced",
+    "review-channel.post_task_progress",
+    "review-channel.post_evidence",
 )
 _IMPLEMENTATION_ACTIONS = ("implementation.edit", "vcs.stage", "vcs.commit")
 _MUTATING_ACTIONS = (

@@ -87,6 +87,15 @@ Current ingestion status:
   guard now has a planned `DurableSchemaPolicy` over the review-channel event
   log so its report-only task-start evidence contract remains tied to explicit
   migration and rollback policy.
+- 2026-05-19 Phase 0.6.A live-controller routing repair keeps review/dogfood
+  evidence provider-neutral. `review-channel inbox` now surfaces actor-addressed
+  packets even when the packet target role is different, marking them as route
+  mismatches instead of hiding them. `review-channel show` is a governed read
+  that blocks before body disclosure without a matching control decision, and a
+  successful read records the actor's actual role/session. `task_produced`,
+  `task_progress`, and artifact-evidence posts require exact
+  `AgentLoopDecision.allowed_actions` entries rather than a generic
+  `post_finding` authority.
 - 2026-05-12 bypass-launch blocker repair: blanket trusted/headless launch
   elevation now has a typed lifecycle boundary. `BypassRequest` evaluates into
   `BypassEvaluation`, produces a scoped `BypassReceipt`, and remains usable only

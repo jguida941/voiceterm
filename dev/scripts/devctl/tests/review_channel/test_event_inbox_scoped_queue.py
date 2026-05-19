@@ -12,6 +12,7 @@ from dev.scripts.devctl.commands.review_channel.event_handler import (
 )
 from dev.scripts.devctl.review_channel.event_reducer_inbox import filter_inbox_packets
 from dev.scripts.devctl.review_channel.event_store import ReviewChannelArtifactPaths
+from dev.scripts.devctl.review_channel.packet_body_observation import packet_body_digest
 from dev.scripts.devctl.review_channel.projection_bundle import (
     ReviewChannelProjectionPaths,
 )
@@ -192,6 +193,100 @@ def test_targeted_inbox_hides_agent_sync_ids_without_live_packet_rows() -> None:
     assert exit_code == 0
     assert report["queue"]["pending_total"] == 0
     assert "agent_sync_pending_total" not in report["queue"]
+
+
+def test_targeted_inbox_surfaces_route_scoped_plan_packet_until_read() -> None:
+    review_state = {
+        "packets": [
+            {
+                "packet_id": "rev_pkt_plan_bound",
+                "to_agent": "codex",
+                "from_agent": "operator",
+                "kind": "finding",
+                "status": "pending",
+                "target_role": "implementer",
+                "body": "Route-scoped inventory needs actor visibility.",
+                "durable_binding": {
+                    "status": "inserted",
+                    "binding_target_kind": "plan_row",
+                },
+            }
+        ]
+    }
+
+    packets = filter_inbox_packets(
+        review_state,
+        target="codex",
+        status="pending",
+    )
+
+    assert [packet["packet_id"] for packet in packets] == ["rev_pkt_plan_bound"]
+    assert packets[0]["inbox_routing_status"] == "route_scoped_to_actor"
+
+
+def test_targeted_role_inbox_marks_wrong_role_packet_instead_of_hiding() -> None:
+    review_state = {
+        "packets": [
+            {
+                "packet_id": "rev_pkt_wrong_role",
+                "to_agent": "codex",
+                "from_agent": "operator",
+                "kind": "finding",
+                "status": "pending",
+                "target_role": "implementer",
+                "body": "This is addressed to codex but a different role.",
+                "durable_binding": {
+                    "status": "inserted",
+                    "binding_target_kind": "plan_row",
+                },
+            }
+        ]
+    }
+
+    packets = filter_inbox_packets(
+        review_state,
+        target="codex",
+        target_role="reviewer",
+        status="pending",
+    )
+
+    assert [packet["packet_id"] for packet in packets] == ["rev_pkt_wrong_role"]
+    assert packets[0]["inbox_routing_status"] == "wrong_role_for_actor"
+    assert packets[0]["inbox_routing_expected_role"] == "reviewer"
+    assert packets[0]["inbox_routing_packet_role"] == "implementer"
+
+
+def test_targeted_inbox_drops_route_scoped_packet_after_actor_reads_body() -> None:
+    packet = {
+        "packet_id": "rev_pkt_wrong_role",
+        "to_agent": "codex",
+        "from_agent": "operator",
+        "kind": "finding",
+        "status": "pending",
+        "target_role": "implementer",
+        "body": "Codex reviewer opened this routing mismatch.",
+        "durable_binding": {
+            "status": "inserted",
+            "binding_target_kind": "plan_row",
+        },
+    }
+    packet["body_observation_events"] = [
+        {
+            "body_observed_by": "codex",
+            "body_observed_role": "reviewer",
+            "body_observed_session_id": "codex-review-session",
+            "body_digest": packet_body_digest(packet),
+        }
+    ]
+    review_state = {"packets": [packet]}
+
+    packets = filter_inbox_packets(
+        review_state,
+        target="codex",
+        status="pending",
+    )
+
+    assert packets == []
 
 
 def test_inbox_filter_honors_session_scope_when_present() -> None:

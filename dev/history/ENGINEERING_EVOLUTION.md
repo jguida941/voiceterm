@@ -4,7 +4,7 @@
 
 **Status:** Draft v4 (historical design and process record)
 **Audience:** users and developers
-**Last Updated:** 2026-05-15
+**Last Updated:** 2026-05-19
 
 ## At a Glance
 
@@ -36,6 +36,31 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [Quick Read (2 min)](#quick-read-2-min)
 - [User Path (5 min)](#user-path-5-min)
 - [Developer Path (15 min)](#developer-path-15-min)
+
+### 2026-05-19 - Typed collaboration reads and posts become route-exact
+
+The GuardIR extraction checkpoint exposed a live-controller gap: parser and
+alias parity could pass while the governed `review-channel` path still hid
+actor-addressed packets, disclosed packet bodies before failing the guard, or
+mapped new Phase 0.6.A packet kinds through the wrong allowed action.
+
+Change: actor inbox visibility now reports route mismatches instead of dropping
+packets addressed to the actor, `review-channel show` blocks before body
+disclosure unless the current control decision authorizes the read, and body
+observation receipts record the reader's actor role/session rather than the
+packet target route. `task_produced`, `task_progress`, and artifact evidence
+posts now require exact allowed actions in `ControlDecisionObeyedGuard`, and
+`/develop next` preserves both actor route and packet route in generated show
+commands.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/action_routing.py`
+- `dev/scripts/devctl/runtime/control_decision_obedience.py`
+- `dev/scripts/devctl/review_channel/event_reducer_inbox.py`
+- `dev/scripts/devctl/commands/review_channel/event_handler.py`
+- `dev/scripts/devctl/commands/development/packet_attention.py`
+- `dev/scripts/devctl/commands/development/packet_attention_commands.py`
 
 ### 2026-05-15 - Agent-loop edit-only plan override exits wait loop
 
