@@ -23,9 +23,11 @@ from dev.scripts.devctl.commands.review_channel.status_bridge_sync import (
     sync_bridge_from_typed_projection_if_needed,
 )
 from dev.scripts.devctl.review_channel.bridge_projection import (
+    DEPRECATED_BRIDGE_STUB_TEXT,
     bridge_hygiene_errors,
     bridge_projection_state_to_dict,
     build_bridge_projection_state,
+    is_deprecated_bridge_projection_stub,
     render_bridge_projection,
 )
 from dev.scripts.devctl.review_channel.bridge_projection_metadata import (
@@ -371,6 +373,62 @@ def test_render_bridge_projection_returns_deprecated_projection_stub() -> None:
     assert "projection_stale" in rendered
     assert "Codex is the reviewer" not in rendered
     assert "live reviewer/coder authority" not in rendered
+
+
+def test_deprecated_bridge_projection_stub_is_detected() -> None:
+    assert is_deprecated_bridge_projection_stub(DEPRECATED_BRIDGE_STUB_TEXT)
+    assert not is_deprecated_bridge_projection_stub(_bridge_text())
+
+
+def test_refresh_status_snapshot_treats_deprecated_bridge_as_projection_stale(
+    tmp_path: Path,
+) -> None:
+    from dev.scripts.devctl.review_channel.state import refresh_status_snapshot
+
+    review_channel_path = tmp_path / "dev/active/review_channel.md"
+    review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+    review_channel_path.write_text(_review_channel_text(), encoding="utf-8")
+    bridge_path = tmp_path / "bridge.md"
+    bridge_path.write_text(DEPRECATED_BRIDGE_STUB_TEXT, encoding="utf-8")
+    status_dir = tmp_path / "dev/reports/review_channel/latest"
+
+    with patch(
+        "dev.scripts.devctl.review_channel.state.build_bridge_push_enforcement_state",
+        return_value={
+            "checkpoint_required": False,
+            "safe_to_continue_editing": True,
+        },
+    ):
+        status_snapshot = refresh_status_snapshot(
+            repo_root=tmp_path,
+            bridge_path=bridge_path,
+            review_channel_path=review_channel_path,
+            output_root=status_dir,
+            execution_mode="markdown-bridge",
+            warnings=[],
+            errors=[],
+        )
+
+    assert status_snapshot.bridge_liveness["deprecated_projection_stub"] is True
+    assert status_snapshot.bridge_liveness["projection_stale"] is True
+    assert status_snapshot.bridge_liveness["bridge_authority"] == "projection_only"
+    assert not any("Last Reviewed Scope" in error for error in status_snapshot.errors)
+    assert not any(
+        "Current Instruction For Implementer" in error
+        for error in status_snapshot.errors
+    )
+    assert not any(
+        "Live bridge sections drift" in warning
+        for warning in status_snapshot.warnings
+    )
+    assert not any(
+        "Bridge review content is stale" in warning
+        for warning in status_snapshot.warnings
+    )
+    assert any(
+        "deprecated projection stub" in warning
+        for warning in status_snapshot.warnings
+    )
 
 
 def test_render_bridge_projection_recovers_blank_poll_metadata_from_typed_bridge_state() -> (
@@ -1050,6 +1108,41 @@ def test_status_bridge_sync_reprojects_bridge_even_with_pending_packets(
     assert rewritten != original
     assert "Historical ack that should be dropped." not in rewritten
     assert "## Coverage" not in rewritten
+
+
+def test_status_bridge_sync_skips_deprecated_projection_stub(tmp_path: Path) -> None:
+    root = tmp_path
+    bridge_path = root / "bridge.md"
+    bridge_path.write_text(DEPRECATED_BRIDGE_STUB_TEXT, encoding="utf-8")
+    status_dir = root / "dev/reports/review_channel/latest"
+    status_dir.mkdir(parents=True, exist_ok=True)
+    review_state_path = _projection_review_state_path(status_dir)
+    review_state_path.parent.mkdir(parents=True, exist_ok=True)
+    review_state_path.write_text(
+        json.dumps(_typed_review_state(_bridge_text()), indent=2),
+        encoding="utf-8",
+    )
+
+    drifted = bridge_current_session_drifted(
+        [
+            "Live bridge sections drift from persisted typed `current_session` authority."
+        ],
+        bridge_path=bridge_path,
+        review_state_path=review_state_path,
+        bridge_liveness={"reviewer_freshness": "stale"},
+    )
+    synced, warning = sync_bridge_from_typed_projection_if_needed(
+        repo_root=root,
+        bridge_path=bridge_path,
+        snapshot=SimpleNamespace(
+            projection_paths=SimpleNamespace(review_state_path=str(review_state_path))
+        ),
+    )
+
+    assert drifted is False
+    assert synced is False
+    assert warning == ""
+    assert bridge_path.read_text(encoding="utf-8") == DEPRECATED_BRIDGE_STUB_TEXT
 
 
 def test_status_bridge_sync_does_not_reverse_fresh_bridge_checkpoint(

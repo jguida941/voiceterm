@@ -47,6 +47,10 @@ _CHECK_SCRIPT_ENTRIES = (
     ("non_trivial_output_proof", "check_non_trivial_output_proof.py"),
     ("role_review_completed", "check_role_review_completed.py"),
     ("guard_enforcement_inventory", "check_guard_enforcement_inventory.py"),
+    (
+        "guardir_extraction_plan_artifacts",
+        "check_guardir_extraction_plan_artifacts.py",
+    ),
     ("ground_truth_probe_gate", "check_ground_truth_probe_gate.py"),
     ("launcher_authority_ordering", "check_launcher_authority_ordering.py"),
     ("governed_transitions", "check_governed_transitions.py"),
@@ -84,6 +88,14 @@ _CHECK_SCRIPT_ENTRIES = (
     ("coderabbit_gate", "check_coderabbit_gate.py"),
     ("coderabbit_ralph_gate", "check_coderabbit_ralph_gate.py"),
     ("provider_list_parity_graph", "check_provider_list_parity_graph.py"),
+    (
+        "no_new_hardcoded_provider_authority",
+        "check_no_new_hardcoded_provider_authority.py",
+    ),
+    (
+        "no_new_topology_count_coupling",
+        "check_no_new_topology_count_coupling.py",
+    ),
     ("ide_provider_isolation", "check_ide_provider_isolation.py"),
     (
         "instruction_surface_sync",

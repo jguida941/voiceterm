@@ -8,7 +8,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from ...review_channel.bridge_file import rewrite_bridge_markdown
-from ...review_channel.bridge_projection import render_bridge_projection
+from ...review_channel.bridge_projection import (
+    is_deprecated_bridge_projection_stub,
+    render_bridge_projection,
+)
 from ...review_channel.current_session_projection import (
     current_session_authority_drift_warning,
 )
@@ -47,7 +50,10 @@ def bridge_current_session_drifted(
             )
             if not isinstance(prior_review_state, dict):
                 return warning_reported_drift
-        snapshot = extract_bridge_snapshot(bridge_path.read_text(encoding="utf-8"))
+        bridge_text = bridge_path.read_text(encoding="utf-8")
+        if is_deprecated_bridge_projection_stub(bridge_text):
+            return False
+        snapshot = extract_bridge_snapshot(bridge_text)
     except (OSError, ValueError, json.JSONDecodeError):
         return warning_reported_drift
     if reviewer_mode_projection_drifted(
@@ -110,6 +116,8 @@ def sync_bridge_from_typed_projection_if_needed(
             if not isinstance(review_state_payload, dict):
                 raise ValueError("Typed review-state projection must be a JSON object.")
         current_bridge_text = bridge_path.read_text(encoding="utf-8")
+        if is_deprecated_bridge_projection_stub(current_bridge_text):
+            return (False, "")
         if reviewer_owned_bridge_state_is_newer(
             bridge_text=current_bridge_text,
             review_state_payload=review_state_payload,

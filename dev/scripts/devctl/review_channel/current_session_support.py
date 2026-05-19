@@ -139,6 +139,8 @@ def current_session_authority_drift_warning(
     bridge_liveness: Mapping[str, object] | None = None,
 ) -> str:
     """Warn when the compatibility bridge drifts from typed current-session state."""
+    if bridge_liveness and bridge_liveness.get("deprecated_projection_stub"):
+        return ""
     prior_session = prior_typed_current_session(prior_review_state)
     if prior_session is None:
         return ""

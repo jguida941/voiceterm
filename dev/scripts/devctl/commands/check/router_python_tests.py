@@ -215,6 +215,36 @@ _DEVCTL_TEST_TARGETS: tuple[tuple[str, tuple[str, ...]], ...] = (
         ),
     ),
     (
+        "dev/scripts/checks/check_guardir_extraction_plan_artifacts.py",
+        (
+            "dev/scripts/devctl/tests/checks/test_check_topology_hardcode_guards.py",
+        ),
+    ),
+    (
+        "dev/scripts/checks/guardir_extraction_plan_artifacts/",
+        (
+            "dev/scripts/devctl/tests/checks/test_check_topology_hardcode_guards.py",
+        ),
+    ),
+    (
+        "dev/scripts/checks/check_no_new_hardcoded_provider_authority.py",
+        (
+            "dev/scripts/devctl/tests/checks/test_check_topology_hardcode_guards.py",
+        ),
+    ),
+    (
+        "dev/scripts/checks/check_no_new_topology_count_coupling.py",
+        (
+            "dev/scripts/devctl/tests/checks/test_check_topology_hardcode_guards.py",
+        ),
+    ),
+    (
+        "dev/scripts/checks/topology_hardcode/",
+        (
+            "dev/scripts/devctl/tests/checks/test_check_topology_hardcode_guards.py",
+        ),
+    ),
+    (
         "dev/scripts/devctl/cli_parser/python_tests.py",
         (
             "dev/scripts/devctl/tests/commands/test_python_tests.py",

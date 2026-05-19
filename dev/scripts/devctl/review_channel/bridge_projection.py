@@ -55,6 +55,15 @@ authority kill-switch are blocking before Phase 1 proof-integrity.
 """
 
 
+def is_deprecated_bridge_projection_stub(text: str) -> bool:
+    """Return true when bridge text is the projection-only deprecation stub."""
+    return (
+        "bridge.md - Deprecated Projection Stub" in text
+        and "This file is not authority." in text
+        and "projection_stale" in text
+    )
+
+
 def _protocol_body(*, reviewer_name: str, implementer_name: str) -> str:
     return f"""1. {implementer_name} should poll this file periodically while coding.
 2. {reviewer_name} rewrites reviewer-owned sections after each real review pass instead

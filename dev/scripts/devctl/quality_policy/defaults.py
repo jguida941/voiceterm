@@ -115,6 +115,24 @@ DEFAULT_AI_GUARD_SPECS = (
         supports_commit_range=False,
     ),
     QualityStepSpec(
+        "guardir-extraction-plan-artifacts-guard",
+        "guardir_extraction_plan_artifacts",
+        languages=("python",),
+        supports_commit_range=False,
+    ),
+    QualityStepSpec(
+        "no-new-hardcoded-provider-authority-guard",
+        "no_new_hardcoded_provider_authority",
+        languages=("python",),
+        supports_commit_range=False,
+    ),
+    QualityStepSpec(
+        "no-new-topology-count-coupling-guard",
+        "no_new_topology_count_coupling",
+        languages=("python",),
+        supports_commit_range=False,
+    ),
+    QualityStepSpec(
         "rust-lint-debt-guard",
         "rust_lint_debt",
         extra_args=("--report-dead-code", "--dead-code-report-limit", "120"),

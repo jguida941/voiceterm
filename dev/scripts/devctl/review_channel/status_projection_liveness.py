@@ -36,6 +36,11 @@ from .status_projection_runtime_presence import sync_local_reviewer_activity_hoo
 
 def bridge_liveness_warnings(bridge_liveness: dict[str, object]) -> list[str]:
     warnings: list[str] = []
+    if bridge_liveness.get("deprecated_projection_stub"):
+        return [
+            "`bridge.md` is a deprecated projection stub; treat it as "
+            "`projection_stale`, not backend authority."
+        ]
     codex_poll_state = str(bridge_liveness.get("codex_poll_state") or "unknown")
     reviewer_freshness = str(bridge_liveness.get("reviewer_freshness") or "")
     overall_state = str(bridge_liveness.get("overall_state") or "unknown")

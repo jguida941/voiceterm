@@ -1,0 +1,14 @@
+{
+  "contract_id": "CognitiveRoleFleetConfig",
+  "schema_version": 1,
+  "phase": "0.6.C",
+  "runtime_loaded": false,
+  "authority": "typed_config_scaffold",
+  "roles": {},
+  "providers": {},
+  "assignments": [],
+  "notes": [
+    "Phase 0.6.C scaffold only; runtime loading is deferred to Phase 6.",
+    "Provider labels are implementation details and must not be role authority."
+  ]
+}

@@ -12,6 +12,7 @@ from . import state_status_inputs as _state_status_inputs_mod
 from .attach_auth_policy import build_attach_auth_policy
 from .bridge_validation import validate_live_bridge_contract
 from .bridge_validation_acceptance import review_acceptance_projection
+from .bridge_projection import is_deprecated_bridge_projection_stub
 from .collaboration_provider import reviewer_provider_from_review_state
 from .core import project_id_for_repo
 from .daemon_reducer import build_lifecycle_runtime_state
@@ -110,7 +111,12 @@ def refresh_status_snapshot(
         bridge_snapshot
     )
     bridge_liveness["bridge_verdict_accepted"] = bridge_verdict_accepted
-    merged_errors.extend(validate_live_bridge_contract(bridge_snapshot))
+    if is_deprecated_bridge_projection_stub(bridge_text):
+        bridge_liveness["deprecated_projection_stub"] = True
+        bridge_liveness["projection_stale"] = True
+        bridge_liveness["bridge_authority"] = "projection_only"
+    else:
+        merged_errors.extend(validate_live_bridge_contract(bridge_snapshot))
     publisher_state, reviewer_supervisor_state = _load_lifecycle_states(output_root)
     prior_review_state = _load_prior_review_state(
         repo_root=repo_root,
