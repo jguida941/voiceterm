@@ -16616,3 +16616,21 @@ Evidence:
 - `dev/scripts/devctl/tests/vcs/test_push.py`
 - `command_output:test-python:b4310d157bef5207`
 - `command_output:test-python:e157fa6f4f3e85fa`
+
+### 2026-05-19 - Packet-binding backfill keeps new role-flip findings in typed plan state
+
+The SLICE-Z proof run exposed a new task-started packet binding immediately
+after the larger backfill commit: the feature-proof receipt finding
+`rev_pkt_4523` existed as a review-channel packet but still needed a durable
+`PKT-BIND-*` plan row before the packet completeness guard could stay green
+across continuation.
+
+The binding was recorded in the active plan and plan index without changing
+legacy gap policy. This keeps the new code-smell packet visible to typed plan
+intake while preserving the existing grace/legacy split for older packets.
+
+Evidence:
+
+- `dev/active/MASTER_PLAN.md`
+- `dev/state/plan_index.jsonl`
+- `dev/scripts/checks/check_packet_pkt_bind_completeness.py`
