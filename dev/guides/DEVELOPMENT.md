@@ -750,6 +750,11 @@ Three quality layers matter in practice:
   `task_produced` packets expire after 30 days, `decision` after 14 days, and
   `question`/`finding` after 7 days. Use the packet-kind TTL resolver and its
   focused tests when changing packet lifecycle behavior.
+- Optional numeric fields that cross typed runtime boundaries should use the
+  shared `coerce_optional_int()` helper from
+  `dev/scripts/devctl/runtime/value_coercion.py`. Do not add local
+  `int-or-none` copies for review-channel packet fields, progress events, or
+  other contract parsers.
 - Contract registry identity is the composite `(contract_id, schema_version)`.
   The registry builder collapses same-owner artifact/runtime re-emissions, and
   `check_contract_registry_composite_key_uniqueness.py` keeps divergent owner

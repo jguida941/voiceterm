@@ -15168,3 +15168,17 @@ Evidence:
 - `dev/scripts/devctl/tests/review_channel/test_packet_transport_expiry.py`
 - `command_output:test-python:78f13da323ee7c87`
 - `command_output:test-python:0cd51be125ac4430`
+
+## 2026-05-19 - Shared optional integer coercion for runtime contracts
+
+The routed SLICE-Z proof found that continuation-anchor release metadata and
+stage-progress events had grown matching local optional-integer parsers. The
+parser now lives in the shared runtime coercion module so packet release counts
+and progress child PIDs normalize the same way without cloning helper bodies.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/value_coercion.py`
+- `dev/scripts/devctl/runtime/stage_progress.py`
+- `dev/scripts/devctl/review_channel/packet_anchor_release.py`
+- `dev/scripts/checks/check_function_duplication.py`

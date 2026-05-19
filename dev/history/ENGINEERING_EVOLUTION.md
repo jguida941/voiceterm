@@ -16675,3 +16675,23 @@ Evidence:
 - `dev/scripts/checks/multi_agent_sync/runtime_truth_agent_loop_communication.py`
 - `dev/scripts/devctl/tests/checks/test_check_multi_agent_sync.py`
 - `dev/active/MASTER_PLAN.md`
+
+### 2026-05-19 - Optional integer coercion is shared across runtime contracts
+
+After the shape repair, the routed proof advanced to
+`check_function_duplication.py`, which found that continuation-anchor release
+metadata had introduced a local `_int_or_none` helper identical to the
+stage-progress optional PID parser. Optional integer coercion now lives in the
+shared `value_coercion` runtime module, and both packet release metadata and
+stage-progress event parsing consume it.
+
+This keeps the slice-counted continuation-anchor contract and long-running
+stage-progress artifacts on one scalar-normalization path without preserving
+duplicated helper bodies.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/value_coercion.py`
+- `dev/scripts/devctl/runtime/stage_progress.py`
+- `dev/scripts/devctl/review_channel/packet_anchor_release.py`
+- `dev/scripts/checks/check_function_duplication.py`

@@ -442,6 +442,11 @@ Compatibility note:
   choices, and `check_multi_agent_sync.py` now blocks planned `AGENT-*` rows
   from leaking back into runtime truth when a typed `review_state` snapshot
   exists.
+- Keep runtime scalar parsing shared when it feeds typed contracts. Optional
+  integer fields such as continuation-anchor release counts and stage-progress
+  child PIDs use `dev/scripts/devctl/runtime/value_coercion.py` rather than
+  local one-off parsers, so guard fixes do not create duplicate parsing
+  behavior.
 - Bridge rendering portability: `heartbeat.py` worktree-hash exclusion,
   `bridge_projection_state.py` display timezone, `bridge_projection.py`
   swarm-mode plan path, `reviewer_state_support.py` metadata lines, and

@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from ..runtime.session_termination_anchor_release import (
     SLICE_COUNTED_RELEASE_MODES as VALID_ANCHOR_RELEASE_MODES,
 )
+from ..runtime.value_coercion import coerce_optional_int
 from .packet_text_fields import clean_optional_text as _clean_optional_text
 
 
@@ -26,7 +27,7 @@ class PacketAnchorReleaseFields:
     ) -> "PacketAnchorReleaseFields":
         return cls(
             release_mode=_clean_optional_text(release_mode) or "",
-            release_commit_count=_int_or_none(release_commit_count),
+            release_commit_count=coerce_optional_int(release_commit_count),
         )
 
     def to_event_fields(self) -> dict[str, object]:
@@ -57,13 +58,4 @@ def validate_anchor_release_fields(request: object) -> None:
             "--release-commit-count must be greater than zero when --release-mode "
             "is set."
         )
-
-
-def _int_or_none(value: object) -> int | None:
-    if value in (None, ""):
-        return None
-    try:
-        return int(value)
-    except (TypeError, ValueError):
-        return None
 

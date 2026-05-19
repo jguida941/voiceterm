@@ -35,6 +35,16 @@ def coerce_int(value: object) -> int:
         return 0
 
 
+def coerce_optional_int(value: object) -> int | None:
+    text = coerce_string(value)
+    if not text:
+        return None
+    try:
+        return int(text)
+    except ValueError:
+        return None
+
+
 def coerce_bool(value: object) -> bool:
     if isinstance(value, bool):
         return value

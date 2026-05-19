@@ -384,6 +384,10 @@
   top-level lane. The agent loop may continue after a completed handoff only
   when the typed policy and pending anchor still match the actor/session, and
   anchor packet kinds remain non-actionable inbox records.
+  2026-05-19 follow-up: slice-counted continuation-anchor release counts and
+  stage-progress child PIDs now share the runtime `coerce_optional_int()` parser
+  instead of carrying duplicate local `int-or-none` helpers, preserving the
+  typed release contract while keeping duplication guards green.
 - 2026-05-06 universal GovernanceLifecycle typed intake (MP-377):
   `rev_pkt_3114` was ingested as a narrowed typed correction, not a new
   top-level plan row. `MP377-GUARDIR-V21-A5` remains the packet/action-request
@@ -9078,3 +9082,4 @@ auditable while new post-mandate commits must resolve.
 - [ ] `PKT-BIND-REV-PKT-4524` Packet finding: ReviewerRound 2026-05-19T18:33Z: 5 typed-enforcement gaps surfaced; propose consolidated SLICE-GUARD-COVERAGE-LEDGER-INGESTION-V1 to make 'every-round gap-hunt' typed not ad-hoc (source `rev_pkt_4524`; target `plan:MP-377`; posted `2026-05-19T18:40:43.144229Z`; binding `plan_row`).
 - [ ] `PKT-BIND-REV-PKT-4525` Packet finding: ReviewerRound 18:33Z ADDENDUM: gap #6 (develop-next ActiveRoleAssignment-blind) extends rev_pkt_4523; same parent slice (source `rev_pkt_4525`; target `dev/scripts/devctl/commands/development/report_assembly.py + next_slice.py + agent_loop_decision_builder.py + ActiveRoleAssignment (NOT_YET_CREATED)`; posted `2026-05-19T18:47:10.022792Z`; binding `plan_row`).
 - [ ] `PKT-BIND-REV-PKT-4526` Packet finding: ReviewerRound 18:33Z ADDENDUM 2: gaps #7-9 (plan-freshness-family missing + parallel _active_roles tuple + stale branch refs) extend rev_pkt_4523 (source `rev_pkt_4526`; target `dev/scripts/checks/check_plan_row_source_refs.py:NOT_YET_CREATED + work_intake_coordination.py:190 + check_active_plan_sync.py`; posted `2026-05-19T18:48:48.756654Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4528` Packet finding: ReviewerRound ROUND-2 18:57Z: 8 more gaps (10-17) + live-wire dogfood of SLICE-Z rev_pkt_4527; meta-pattern receipts-nowhere named by operator (source `rev_pkt_4528`; target `rev_pkt_4523-slice-extension + role_topology + packet_attention_vs_continuation_anchor_precedence + inbox_poll_lifecycle (NOT_YET_CREATED) + slice_advance_dogfood_receipt_guard (NOT_YET_CREATED)`; posted `2026-05-19T18:59:21.316921Z`; binding `plan_row`).

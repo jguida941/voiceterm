@@ -13,6 +13,7 @@ from typing import Any
 from uuid import uuid4
 
 from ..config import REPO_ROOT
+from .value_coercion import coerce_optional_int
 
 DEFAULT_PROGRESS_ROOT_REL = "dev/reports/progress"
 PROGRESS_ROOT_ENV = "DEVCTL_PROGRESS_ROOT"
@@ -56,7 +57,7 @@ class StageProgressEvent:
             detail=str(payload.get("detail") or ""),
             elapsed_seconds=float(payload.get("elapsed_seconds") or 0.0),
             pid=int(payload.get("pid") or 0),
-            child_pid=_optional_int(payload.get("child_pid")),
+            child_pid=coerce_optional_int(payload.get("child_pid")),
             command=tuple(str(part) for part in command),
         )
 
@@ -191,15 +192,6 @@ def _parse_json_object(text: str) -> dict[str, Any] | None:
     except json.JSONDecodeError:
         return None
     return payload if isinstance(payload, dict) else None
-
-
-def _optional_int(value: object) -> int | None:
-    if value in (None, ""):
-        return None
-    try:
-        return int(value)
-    except (TypeError, ValueError):
-        return None
 
 
 __all__ = [
