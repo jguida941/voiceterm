@@ -361,6 +361,9 @@ jobs:
       - name: Run orchestrator SLA watchdog
         run: python3 dev/scripts/devctl.py orchestrate-watch --stale-minutes 120 --format md
 
+      - name: Run publication scope integrity guard
+        run: python3 dev/scripts/checks/check_publication_scope_integrity.py
+
       - name: Run AGENTS contract guard
         run: python3 dev/scripts/checks/check_agents_contract.py
 

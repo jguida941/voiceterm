@@ -16261,3 +16261,21 @@ Evidence:
 - `dev/scripts/devctl/runtime/development_packet_pressure.py`
 - `dev/scripts/devctl/tests/commands/test_development_command.py`
 - `dev/scripts/devctl/tests/runtime/test_development_packet_pressure.py`
+
+### 2026-05-18 - Bridge and boot cards become projection-only during GuardIR extraction
+
+Phase 0A front-loads the prompt-hazard kill-switch before deeper extraction:
+`bridge.md` now renders as a deprecated projection-only stub, bridge guards
+reject authority language and provider role assignment, and generated boot
+cards use provider-neutral example actor/role values. This keeps bridge and
+boot-card surfaces from acting as backend authority while VoiceTerm is being
+quarantined into adopter/client scope.
+
+Evidence:
+
+- `bridge.md`
+- `dev/scripts/devctl/review_channel/bridge_projection.py`
+- `dev/scripts/checks/check_bridge_projection_only.py`
+- `dev/scripts/checks/review_channel_bridge/report.py`
+- `dev/scripts/devctl/governance/instruction_boot_card.py`
+- `dev/scripts/devctl/tests/review_channel/test_bridge_render.py`

@@ -1,4 +1,4 @@
-# Plan — GuardIR Extraction (Proof-Integrity → Plan/Packet Accountability → Multi-Repo POC → Identity Strip → VoiceTerm Quarantine)
+# Plan — GuardIR Extraction (Core Shrink → VoiceTerm Quarantine → Bridge Kill-Switch → Topology Guards → Proof-Integrity → Plan/Packet Accountability → Multi-Repo POC)
 
 ## Context
 
@@ -6,18 +6,26 @@ On 2026-05-18 the devctl progress logger emitted `commit.complete sha=6cd8953a68
 
 Today's codex session was stopped via `kill -INT 5268`. The 69-path uncommitted governance patch + 3 untracked files + 2 dangling commits are preserved in `~/.cache/guardir-preserve/2026-05-18T14-22-00Z/` (SHA256-manifested) and pushed to `https://github.com/jguida941/guardir.git` as branch `preserve/guardir-extraction-unreviewed-2026-05-18` (verified by `git ls-remote` SHA match: `d92dc2ff6bce9830450b3f530dac3797fff8b7ce`). Origin (`jguida941/voiceterm.git`) is untouched at `835060c2`.
 
-Operator strategic decision: VoiceTerm becomes an adopter/example shell; the portable governance engine moves to GuardIR. The false-proof bug is upstream of everything — if it stays, post-extraction "green" will lie just like post-commit "green" lied today. Therefore strict sequence: fix proof integrity FIRST, then plan/packet accountability, then prove POC on multiple repos, then identity strip, then shell strip, then dashboard, then role substrate.
+Operator strategic decision: VoiceTerm becomes an adopter/example shell; the portable governance engine moves to GuardIR. The false-proof bug remains mandatory P0 work — if it stays, post-extraction "green" will lie just like post-commit "green" lied today. **Operator correction 2026-05-18 ~23:45 EDT**: proof-integrity implemented inside the wrong identity shell can preserve the wrong thing, so VoiceTerm product-shell quarantine and the bridge authority kill-switch move before Phase 1 proof-integrity. Strict sequence now: freeze sprawl → GuardIR core shrink / VoiceTerm quarantine → bridge authority kill-switch → provider/topology no-new-hardcodes guard → repo identity/path safety → git proof integrity → plan/packet accountability → multi-repo RED baseline/POC → identity/shell strip → dashboard/role substrate.
+
+**Bridge prompt-hazard correction 2026-05-18 ~23:45 EDT**: a projection file is also executable prompt context for agents. A bad projection cannot be allowed to claim authority. `bridge.md` must self-identify as deprecated projection-only; stale/empty bridge state is `projection_stale`, never `missing_backend_authority`, never launch/edit/proof authority, and never a canonical actor-role assignment source.
 
 **Operator's deeper priority surfaced 2026-05-18 ~11:10 EDT**: the thesis-level proof is "this engine works on many different types of repos, not hard-coded to VoiceTerm". Multi-repo POC is THE success proof, not a side effect. It must come early in the sequence (Phase 3), not be left until the end.
 
 ## Role Split (load-bearing — do not collapse)
 
-- **Codex** = **implementer**. Writes the code for every phase. Owns red-then-green test cycles. Owns commit/push on `extraction/*` branches. **MAY delegate dogfood/verification/architect-review/cached-hammock-audit tasks to claude via typed `review-channel post` packets** (kind=`task_started` or `action_request`, target_role=`dashboard` or `reviewer`).
-- **Claude** = **architect + tester + TDD + reviewer + verification runner + cached-hammock plan worker**. Reviews codex's design for typed-state-lies recurrence and fake-proof drift. Works the preserved cached-hammock plan at `dev/audits/plan_intake/2026-05-18-cached-hammock-role-audit.md` as parallel substrate. Runs verification (`devctl test-python`, `pytest -x`, `check-router`, direct `git rev-parse / git ls-remote / git show / git cat-file`) after each codex slice. Responds to codex's typed task packets with typed `finding` packets carrying dogfood evidence + receipt refs. May spawn multiple Explore/Plan agents in parallel for verification work. Surfaces issues before they become commits. Does NOT take the implementation lane.
+- **Default current-session split**: Codex is the default implementer and Claude is the default architect/tester/reviewer lane for this extraction session. This is a workflow assignment, not durable provider authority.
+- **Provider-independent invariant**: any agent/provider can occupy any typed role when typed startup authority or operator direction assigns it. A mutation is green only when a typed `ReviewWorkRequirement` / `DogfoodRequirement` is satisfied by valid evidence, not because a named provider sent another named provider a packet.
+- **Valid review/dogfood satisfaction routes** include same-agent separate reviewer/check phase, other-agent review, operator review receipt, CI/check-router receipt, future external reviewer, or any typed receipt proving the review/dogfood path ran. Codex→Claude typed delegation is one allowed route, not the contract.
+- **Codex default lane**: implements code for each phase, owns red-then-green test cycles, and owns commit/push on `extraction/*` branches when publication authority allows it.
+- **Claude default lane**: architect + tester + TDD + reviewer + verification runner + cached-hammock plan worker. Reviews design for typed-state-lies recurrence and fake-proof drift, works the preserved cached-hammock plan at `dev/audits/plan_intake/2026-05-18-cached-hammock-role-audit.md` as parallel substrate, runs verification (`devctl test-python`, `pytest -x`, `check-router`, direct `git rev-parse / git ls-remote / git show / git cat-file`) after each shipped slice, and posts typed findings/reviews with evidence refs. Does not take the implementation lane unless typed authority or the operator explicitly reassigns roles.
 
-**Bidirectional collaboration via typed system** (operator directive 2026-05-18 ~15:10 EDT — "you guys need to both start working together and you need to let Kodak know it's allowed to do out tasks to you"):
-- Codex implements feature X → posts typed packet to claude (kind=`task_started` with target_ref=feature commit/test path) → claude dogfoods + verifies → claude posts typed `finding` packet back with dogfood receipt
-- Every feature codex ships MUST be proved by claude's dogfood + receipt (no chat-prose acceptance, no events.jsonl narration as proof)
+**Typed collaboration / dogfood proof** (operator directive 2026-05-18 ~15:10 EDT, corrected 2026-05-18 ~23:45 EDT):
+- Default multi-agent route: Codex implements feature X → posts typed packet to reviewer lane (kind=`task_started` or `action_request`, target_ref=feature commit/test path) → reviewer dogfoods + verifies → reviewer posts typed `finding` / `review_accepted` / `review_failed` packet back with dogfood receipt.
+- Single-agent route MUST also work: the same actor may implement, enter a separate typed reviewer/check phase, run dogfood/check-router/receipt-producing verification, and satisfy the same `ReviewWorkRequirement` without a Codex→Claude handoff.
+- Every mutation MUST be proved by typed dogfood/review evidence (no chat-prose acceptance, no events.jsonl narration as proof). The evidence route is provider-independent.
+
+**Typed collaboration routing defect found 2026-05-18 ~20:10 EDT**: Claude posted Phase 0A evidence as `rev_pkt_4429` (`to_agent=codex`, `target_role=implementer`), but `review-channel inbox --target codex --actor codex` reported zero pending packets because the current Codex lane was reviewer-scoped. That is another provider/role coupling failure. A packet addressed to a provider but scoped to an incompatible role must be visible as a `routing_mismatch` / `wrong_role_for_actor` item, not silently disappear from the actor's inbox. Also, `review-channel --action show --packet-id rev_pkt_4429 --actor codex --actor-role reviewer` displayed the body but returned `control_decision_obedience_failed`; read-only packet body observation must be modeled as read evidence or an exact allowed action, not a blocked mutation after content disclosure. A follow-up `task_progress` response from Codex to Claude with `--control-decision-input` explicitly allowing `review-channel.post_task_progress` also returned `control_decision_obedience_failed`, proving the live post path still has a controller/reducer mismatch beyond parser parity. Land this as part of Phase 0.6.A live-controller/reducer integrity before claiming dogfood green.
 - Receipts land in typed state (`dev/state/git_mutation_proof_receipts.jsonl` after Phase 1; closure-proof receipts in `dev/state/plan_row_closure_receipts.jsonl`)
 - If claude finds the feature broken on dogfood, claude posts `task_blocked` or `review_failed` packet back to codex with evidence_refs — system catches it before commit lands as "green"
 
@@ -117,6 +125,48 @@ It is NOT in any preservation snapshot, NOT in GuardIR, NOT in VoiceTerm. This i
 ---
 
 ## Revised phase sequence (per ChatGPT amendments + audit findings)
+
+### Phase 0A — GuardIR Core Shrink / VoiceTerm Product Quarantine (BLOCKING before Phase 1)
+
+**Operator amendment 2026-05-18 ~23:45 EDT**: do not implement more governance machinery inside the wrong identity shell. VoiceTerm is the first-party adopter/client, not the portable engine. Before Phase 1 proof-integrity, physically reduce GuardIR core so checks, reducers, contracts, and proofs do not execute inside the VoiceTerm product shell.
+
+**Rules**:
+1. No new plans, memory files, strategy docs, or broad architecture addenda.
+2. No full topology redesign; no dashboard work; no full bridge retirement rewrite beyond authority kill-switch/stub.
+3. No attempt to preserve VoiceTerm product runtime behavior inside GuardIR core.
+4. Patch only GuardIR-core failures. Do not patch adopter-only VoiceTerm failures.
+5. Treat generated surfaces (`bridge.md`, boot cards, dashboards, slash wrappers) as projections/adapters only.
+
+**File classification contract**:
+- **GuardIR core**: `devctl`, checks, typed contracts, guards, probes, repo-pack logic, plan/packet reducers, receipts, tests proving portable behavior.
+- **VoiceTerm adopter**: Rust terminal overlay, Whisper/mic/PTY/HUD/ratatui code, VoiceTerm-specific app docs, operator console if product-shell-specific, VoiceTerm-specific plan rows.
+- **Historical evidence**: preserved audits, old plan intake, fixtures proving old failures.
+- **Generated projection**: `bridge.md`, boot cards, rendered markdown, dashboards, slash adapters.
+- **Unknown**: inventory first; do not normalize into core until typed classification exists.
+
+**Implementation order**:
+1. Freeze sprawl and preserve current WIP before destructive moves.
+2. Inventory VoiceTerm-specific paths and literals.
+3. Inventory `bridge.md` readers/writers.
+4. Inventory hardcoded provider-role assumptions.
+5. Move or quarantine obvious VoiceTerm product-shell files out of GuardIR core.
+6. Replace `bridge.md` with a deprecated projection-only stub.
+7. Run `devctl`, `check-router`, `docs-check`, and focused tests.
+8. Classify failures by coupling class: core, adopter, historical, generated projection, unknown.
+9. Patch only GuardIR-core failures.
+10. Produce typed shrink evidence with moved/stubbed/deleted paths and remaining blockers.
+11. Fix typed collaboration visibility so cross-agent evidence cannot be hidden by provider/role mismatch. Misrouted packets must surface as typed routing defects and read-only packet show must not half-succeed with `control_decision_obedience_failed`.
+
+**Green criteria**:
+- `devctl` still starts.
+- `check-router` still runs or reports bounded GuardIR-core failures.
+- no runtime authority depends on `bridge.md`.
+- no publication identity points at `jguida941/voiceterm.git`.
+- VoiceTerm product code is not required for GuardIR core checks.
+- remaining VoiceTerm references are adopter-pack, historical evidence, generated projection, or explicitly inventoried blockers.
+- same-agent and multi-agent review/dogfood can satisfy the same provider-independent typed requirement with receipt evidence.
+
+This phase is not full bridge retirement and not full N-agent role-substrate refactor. It is the front-loaded physical shrink / projection kill-switch needed so later proof-integrity work does not preserve the wrong substrate.
 
 ### Phase 0 — Freeze / Preserve / Verify (no implementation edits)
 
@@ -368,12 +418,15 @@ Plus `/bypass` slash currently routes through legacy `agent-loop --operator-over
 
 Cached-hammock P188 verbatim (line 3474): *"If the Bridge Md didn't exist, the entire system would work the same. It's a projection that somehow still has logic on it."* The operator's directive is right; Phase 0.6.B stops further damage without attempting full migration in one slice.
 
+**Prompt-hazard correction (operator 2026-05-18 ~23:45 EDT)**: `bridge.md` is both data and instruction context for agents. The defect is not merely stale bridge content; the defect is that `bridge.md` can still be interpreted as authority. The file itself must say it is deprecated projection-only, must not assign Codex/Claude or any provider to canonical roles, and must never be used as backend authority, proof, launch permission, edit permission, or plan closure.
+
 **Phase 0.6.B narrow scope (codex implements; claude verifies)**:
 1. **Inventory**: emit typed `BridgeReaderInventory` at `dev/state/bridge_reader_inventory.jsonl` — one row per file that reads `bridge.md`. Expected ~170 rows per audit. Inventory only — NO migration in this phase.
 2. **Guard — no new bridge authority consumers**: extend `dev/scripts/checks/check_bridge_projection_only.py` to detect NEW additions to the bridge-reader set (delta against inventory), failing CI if a commit adds a new bridge-as-authority consumer. Scope-widen only the delta-detection; do NOT migrate existing 170 readers.
 3. **Guard — direct write blocking**: any code path writing `bridge.md` outside `render-surfaces` regeneration must fail. Reuse existing render-surfaces machinery; do NOT build new renderer.
 4. **projection_stale classification**: stale/empty `bridge.md` returns a typed `projection_stale` marker, NOT `missing_backend_authority` (current behavior). Add `dev/scripts/devctl/runtime/bridge_projection_stale.py` (minimal) or extend existing bridge status helper.
 5. **No proof consumption**: extend `check_no_projection_proof_misuse.py` (Phase 1 work) to specifically reject `bridge.md` as a git-mutation-proof source.
+6. **Prompt-hazard stub**: replace live authority language in `bridge.md` with a deprecated projection-only stub. If an agent reads only `bridge.md`, it must see that typed state/contracts/receipts/repo policy/source/guards win and that runtime dependence on bridge authority is a bug.
 
 **Out of scope for Phase 0.6.B** (deferred to Phase 2):
 - Building `peer_communication_state.py` + renderer
@@ -417,6 +470,7 @@ Phase 0.6.C prevents bleeding (no new hardcoded provider literals, no new count-
 - ✅ Direct writes to `bridge.md` outside `render-surfaces` fail
 - ✅ Stale/empty `bridge.md` returns `projection_stale`, not `missing_backend_authority`
 - ✅ `bridge.md` cannot be consumed as git-mutation-proof source
+- ✅ `bridge.md` contains no provider-role assignment such as "Codex is the reviewer" / "Claude is the coder" and no "live coordination authority" language
 - ⏳ Full `peer_communication_state.md` unified projection + 170-reader migration → **Phase 2**
 
 **0.6.C topology-hardcode guard** (NOT refactor):

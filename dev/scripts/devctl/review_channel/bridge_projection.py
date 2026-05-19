@@ -24,6 +24,37 @@ from .collaboration_provider import collaboration_provider
 
 bridge_hygiene_errors = _bridge_hygiene_errors
 
+DEPRECATED_BRIDGE_STUB_TEXT = """# bridge.md - Deprecated Projection Stub
+
+This file is not authority.
+
+`bridge.md` is a generated compatibility projection and prompt hazard. It may be
+stale, contradictory, incomplete, or intentionally stubbed during GuardIR
+extraction.
+
+Durable authority lives in typed state, contracts, receipts, repo policy, source
+code, and guards. Agents must not use this file to decide:
+
+- actor or provider roles
+- reviewer/coder assignment
+- launch permission
+- mutation or edit permission
+- proof, commit, push, or publication status
+- plan closure or task completion
+
+If this file conflicts with typed state, typed state wins.
+
+If runtime logic depends on this file for backend authority, that is a bug.
+
+If this file is stale or empty, report `projection_stale`; do not report
+`missing_backend_authority`, and do not block implementation solely from this
+projection.
+
+Current extraction rule: VoiceTerm product-shell quarantine and the bridge
+authority kill-switch are blocking before Phase 1 proof-integrity.
+"""
+
+
 def _protocol_body(*, reviewer_name: str, implementer_name: str) -> str:
     return f"""1. {implementer_name} should poll this file periodically while coding.
 2. {reviewer_name} rewrites reviewer-owned sections after each real review pass instead
@@ -77,61 +108,9 @@ def render_bridge_projection(
     review_state,
     last_worktree_hash: str,
 ) -> tuple[str, BridgeRenderResult]:
-    """Rebuild the compatibility bridge from typed review-channel state."""
+    """Rebuild `bridge.md` as a deprecated projection-only stub."""
     projection_state = bridge_projection_state_from_review_state(review_state)
-    collaboration = review_state.get("collaboration")
-    reviewer_provider = collaboration_provider(
-        collaboration,
-        role_id="review_agent",
-        default=default_provider_for_role(TandemRole.REVIEWER),
-    )
-    implementer_provider = collaboration_provider(
-        collaboration,
-        role_id="coding_agent",
-        default=default_provider_for_role(TandemRole.IMPLEMENTER),
-    )
-    reviewer_name = reviewer_provider.title()
-    implementer_name = implementer_provider.title()
-    metadata = bridge_projection_metadata_lines(
-        projection_state,
-        last_worktree_hash=last_worktree_hash,
-    )
-    rendered = "\n".join(
-        [
-            "# Review Bridge",
-            "",
-            (
-                "Live shared review channel for "
-                f"{reviewer_name} <-> {implementer_name} coordination during active work."
-            ),
-            "",
-            "## Start-Of-Conversation Rules",
-            "",
-            _render_start_rules_body(
-                reviewer_provider=reviewer_provider,
-                implementer_provider=implementer_provider,
-                reviewer_mode=projection_state.metadata.get(
-                    "reviewer_mode",
-                    "active_dual_agent",
-                )
-            ),
-            "",
-            *metadata,
-            "",
-            "## Protocol",
-            "",
-            _protocol_body(
-                reviewer_name=reviewer_name,
-                implementer_name=implementer_name,
-            ),
-            "",
-            "## Swarm Mode",
-            "",
-            _swarm_mode_body(),
-            "",
-            *_render_section_pairs(projection_state.sections),
-        ]
-    ).rstrip() + "\n"
+    rendered = DEPRECATED_BRIDGE_STUB_TEXT
     result = BridgeRenderResult(
         lines_before=projection_state.lines_before,
         lines_after=len(rendered.splitlines()),

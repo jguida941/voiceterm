@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import ast
 import json
+import re
 import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -33,9 +34,34 @@ BRIDGE_POLL_FILES = (
     "dev/scripts/devctl/commands/review_channel/_bridge_poll.py",
 )
 
+BRIDGE_PROJECTION_FILES = ("bridge.md",)
+
 BRIDGE_METADATA_FIELD = "bridge_metadata_reviewer_mode"
 ACK_COMPATIBILITY_LITERALS = ("Claude Ack", "Implementer Ack")
 ACK_FILTER_MARKERS = ("_ACK_ONLY_ERROR_PREFIXES", "ACK_REVISION_REQUIREMENT_PREFIX")
+
+BRIDGE_AUTHORITY_TEXT_PATTERNS = (
+    (
+        "bridge_live_coordination_authority_forbidden",
+        r"\blive\b[^\n]{0,80}\bcoordination authority\b",
+        "`bridge.md` must not claim live coordination authority.",
+    ),
+    (
+        "bridge_provider_role_assignment_forbidden",
+        r"\b[A-Za-z0-9_-]+\s+is the reviewer\.\s+[A-Za-z0-9_-]+\s+is the coder\.",
+        "`bridge.md` must not assign provider names to canonical roles.",
+    ),
+    (
+        "bridge_reviewer_coder_authority_forbidden",
+        r"\blive\b[^\n]{0,80}\breviewer/coder authority\b",
+        "`bridge.md` must not claim reviewer/coder authority.",
+    ),
+    (
+        "bridge_backend_authority_language_forbidden",
+        r"\bUse this file as\b[^\n]{0,80}\bauthority\b",
+        "`bridge.md` must not instruct agents to use the projection as authority.",
+    ),
+)
 
 
 @dataclass(frozen=True)
@@ -77,6 +103,22 @@ def _excerpt_for_line(text: str, line: int) -> str:
 def _text_violations(path: Path, root: Path, text: str) -> list[Violation]:
     rel_path = _relative(path, root)
     violations: list[Violation] = []
+
+    if rel_path == "bridge.md":
+        for rule, pattern, detail in BRIDGE_AUTHORITY_TEXT_PATTERNS:
+            match = re.search(pattern, text, flags=re.IGNORECASE | re.MULTILINE)
+            if match is None:
+                continue
+            line = _line_for_offset(text, match.start())
+            violations.append(
+                Violation(
+                    rule=rule,
+                    path=rel_path,
+                    line=line,
+                    detail=detail,
+                    excerpt=_excerpt_for_line(text, line),
+                )
+            )
 
     if BRIDGE_METADATA_FIELD in text:
         offset = text.index(BRIDGE_METADATA_FIELD)
@@ -220,6 +262,11 @@ def _build_report(root: Path | None = None) -> dict[str, object]:
         text = path.read_text(encoding="utf-8")
         violations.extend(_text_violations(path, repo_root, text))
         violations.extend(_bridge_poll_call_violations(path, repo_root, text))
+
+    for path in _existing_files(repo_root, BRIDGE_PROJECTION_FILES):
+        checked_paths.append(_relative(path, repo_root))
+        text = path.read_text(encoding="utf-8")
+        violations.extend(_text_violations(path, repo_root, text))
 
     ok = not violations
     return {

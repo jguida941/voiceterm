@@ -152,17 +152,17 @@ class RenderSurfacesPolicyTests(unittest.TestCase):
             self.assertIn(required_snippet, rendered_text)
         self.assertIn(
             (
-                "python3 dev/scripts/devctl.py session --role implementer "
+                "python3 dev/scripts/devctl.py session --role observer "
                 "--include-review-status always --format json"
             ),
             rendered_text,
         )
         self.assertIn(
-            "python3 dev/scripts/devctl.py startup-context --role implementer --format json",
+            "python3 dev/scripts/devctl.py startup-context --role observer --format json",
             rendered_text,
         )
         self.assertIn(
-            "python3 dev/scripts/devctl.py session-resume --role implementer --format bootstrap",
+            "python3 dev/scripts/devctl.py session-resume --role observer --format bootstrap",
             rendered_text,
         )
         self.assertIn(
@@ -223,6 +223,8 @@ class RenderSurfacesPolicyTests(unittest.TestCase):
         self.assertIn("python3 dev/scripts/devctl.py develop --help", rendered_text)
         self.assertNotIn("--role <role>", rendered_text)
         self.assertNotIn("--actor <actor>", rendered_text)
+        self.assertNotIn("--actor codex", rendered_text)
+        self.assertNotIn("--actor claude", rendered_text)
         for forbidden in agents_surface.forbidden_contains:
             self.assertNotIn(forbidden, rendered_text)
         self.assertIn(

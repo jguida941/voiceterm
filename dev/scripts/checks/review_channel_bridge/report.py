@@ -38,6 +38,7 @@ canonical_bridge_heading = _bridge_heading_aliases.canonical_bridge_heading
 
 BRIDGE_PATH = REPO_ROOT / "bridge.md"
 REVIEW_CHANNEL_PATH = REPO_ROOT / "dev/active/review_channel.md"
+DEPRECATED_BRIDGE_STUB_MARKER = "bridge.md - Deprecated Projection Stub"
 
 REQUIRED_BRIDGE_H2 = [
     "Start-Of-Conversation Rules",
@@ -141,6 +142,14 @@ def _marker_variants(marker: str) -> tuple[str, ...]:
             if canonical in value:
                 variants.add(value.replace(canonical, alias))
     return tuple(variants)
+
+
+def _is_deprecated_bridge_stub(text: str) -> bool:
+    return (
+        DEPRECATED_BRIDGE_STUB_MARKER in text
+        and "This file is not authority." in text
+        and "projection_stale" in text
+    )
 
 
 def _bridge_role_names(text: str) -> tuple[str, str]:
@@ -272,6 +281,24 @@ def _build_path_report(
     untracked = require_tracked and not _is_tracked_by_git(path)
 
     text = path.read_text(encoding="utf-8")
+    if path == BRIDGE_PATH and _is_deprecated_bridge_stub(text):
+        return {
+            "path": relative_path,
+            "ok": not untracked,
+            "active": True,
+            "deprecated_projection_stub": True,
+            "projection_stale": True,
+            "missing_h2": [],
+            "missing_markers": [],
+            **(
+                {
+                    "untracked": True,
+                    "error": f"Bridge-active file is untracked by git: {relative_path}",
+                }
+                if untracked
+                else {}
+            ),
+        }
     headings = _extract_h2(text)
     missing_h2 = [heading for heading in required_h2 if heading not in headings] if required_h2 is not None else []
     if path == BRIDGE_PATH:
@@ -316,7 +343,11 @@ def build_report() -> dict:
         optional=not review_bridge_active,
         require_tracked=review_bridge_active,
     )
-    if review_bridge_active and bridge.get("ok", False):
+    if (
+        review_bridge_active
+        and bridge.get("ok", False)
+        and not bridge.get("deprecated_projection_stub")
+    ):
         bridge_text = BRIDGE_PATH.read_text(encoding="utf-8")
         role_packet_progress_current = (
             _typed_bridge_state.role_neutral_packet_progress_current(
@@ -371,6 +402,10 @@ def render_md(report: dict) -> str:
         lines.append(f"- {key}_ok: {section.get('ok', False)}")
         if key == "bridge":
             lines.append(f"- {key}_active: {section.get('active', False)}")
+            if section.get("deprecated_projection_stub"):
+                lines.append(f"- {key}_deprecated_projection_stub: True")
+            if section.get("projection_stale"):
+                lines.append(f"- {key}_projection_stale: True")
         if section.get("untracked"):
             lines.append(f"- {key}_untracked: True")
         error = section.get("error")

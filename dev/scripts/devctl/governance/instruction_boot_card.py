@@ -52,6 +52,8 @@ FORBIDDEN_BOOT_ROLE_PLACEHOLDERS = (
     "--role <role>",
     "--role coding-agent",
     "--role codex",
+    "--actor codex",
+    "--actor claude",
 )
 REQUIRED_BOOT_ROLE_GUIDANCE = (
     "Valid `--role` choices for `session`, `startup-context`, and `session-resume`",
@@ -106,7 +108,7 @@ def build_instruction_boot_card(
         "",
         f"- `{card.output_path}` is a generated boot card, not durable policy authority.",
         "- Durable process authority lives in typed state, active owner docs, repo-pack policy, contracts, receipts, and guards.",
-        "- VoiceTerm is this repo's first-party adopter/client of the portable governance platform.",
+        "- This repo may include adopter/client packs; VoiceTerm is an adopter/client, not portable governance authority.",
         "- Resolve repo behavior through `ProjectGovernance`, repo-pack policy, and typed runtime contracts.",
         "",
         "## Role and Help Discovery",
@@ -226,12 +228,13 @@ def build_instruction_boot_card(
 
 
 def _surface_role(*, surface_id: str, output_path: str) -> tuple[str, str]:
-    text = f"{surface_id} {output_path}".lower()
-    if "claude" in text:
-        return "implementer", "claude"
-    if "codex" in text or "agents_boot_card" in text or "agents.md" in text:
-        return "reviewer", "codex"
-    return "reviewer", "codex"
+    """Return provider-neutral example values for generated boot cards.
+
+    The projection path is not authority. `AGENTS.md` and `CLAUDE.md` must not
+    imply that a provider owns a role; typed startup/session authority decides.
+    """
+    _ = (surface_id, output_path)
+    return "observer", "agent"
 
 
 def _role_choices_text() -> str:

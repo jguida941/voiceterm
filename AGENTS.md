@@ -6,13 +6,13 @@
 
 - `AGENTS.md` is a generated boot card, not durable policy authority.
 - Durable process authority lives in typed state, active owner docs, repo-pack policy, contracts, receipts, and guards.
-- VoiceTerm is this repo's first-party adopter/client of the portable governance platform.
+- This repo may include adopter/client packs; VoiceTerm is an adopter/client, not portable governance authority.
 - Resolve repo behavior through `ProjectGovernance`, repo-pack policy, and typed runtime contracts.
 
 ## Role and Help Discovery
 
 - Valid `--role` choices for `session`, `startup-context`, and `session-resume`: `reviewer`, `implementer`, `dashboard`, or `observer`.
-- This surface's examples use `--role reviewer` and `--actor codex`; switch only when typed startup authority, operator direction, or session assignment says to.
+- This surface's examples use `--role observer` and `--actor agent`; switch only when typed startup authority, operator direction, or session assignment says to.
 - Discover command shape before guessing: `python3 dev/scripts/devctl.py --help`.
 - Inspect session bootstrap help: `python3 dev/scripts/devctl.py session --help`.
 - Inspect packet posting help: `python3 dev/scripts/devctl.py review-channel --action post --help`.
@@ -22,23 +22,23 @@
 
 ## Run in order
 
-1. `python3 dev/scripts/devctl.py session --role reviewer --include-review-status always --format json`
+1. `python3 dev/scripts/devctl.py session --role observer --include-review-status always --format json`
    Use `SessionOrientationPacket.final` as the first typed answer before replying or selecting work.
    This runs `startup-context`, `session-resume`, review-channel status, and `context-graph --mode bootstrap` in order.
    Stop if `final.safe_to_continue=false`, startup authority fails, or `final.next_command` requires checkpoint or repair.
-2. `python3 dev/scripts/devctl.py develop next --actor codex --format md`
+2. `python3 dev/scripts/devctl.py develop next --actor agent --format md`
    If it returns `continuation_required`, run its `next_step_command`.
    Packet audits advance through that typed next step instead of rerunning the same reducer.
    Archived packet-history rows are audit evidence, not live packet-attention blockers.
    Selection comes from typed plan/lifecycle authority; packet ids are intake/provenance only unless unresolved intake blocks authority.
-3. Before any final response or `TASK_COMPLETE`, run `python3 dev/scripts/devctl.py develop next --actor codex --enforce-final-response-gate --format json`.
+3. Before any final response or `TASK_COMPLETE`, run `python3 dev/scripts/devctl.py develop next --actor agent --enforce-final-response-gate --format json`.
    This is the `enforce-final-response-gate` stop guard; treat a denial as typed continuation work, not permission to summarize and exit.
    If the gate reports `final_response_allowed=false`, `continuation_state=must_continue`, or a `next_required_command`, do not emit final completion prose.
    Run the typed next command, read the targeted inbox/body, and continue until the gate allows final response or a scoped `stop_anchor` stops the goal.
    A live `continuation_anchor` is the repo-native `/goal`: Codex keeps working inside the same session instead of stopping.
 4. Diagnostic fallback commands, only when `devctl session` is unavailable or names a child command:
-   `python3 dev/scripts/devctl.py startup-context --role reviewer --format json`
-   `python3 dev/scripts/devctl.py session-resume --role reviewer --format bootstrap`
+   `python3 dev/scripts/devctl.py startup-context --role observer --format json`
+   `python3 dev/scripts/devctl.py session-resume --role observer --format bootstrap`
    `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json`
    `python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md`
 
@@ -48,7 +48,7 @@
 - `AgentDispatchPacket` may recommend bounded next work, but it does not grant mutation authority by itself.
 - `TypedAction -> ActionResult -> RunRecord -> ValidationReceipt` is the proof chain for mutations.
 - A typed `AgentLoopOperatorOverride` can allow scoped edit-only repair when the operator explicitly approves it; it never authorizes staging, commit, push, or raw bypass.
-- If the final gate emits a scoped edit-only override, continue through `/develop next --actor codex --operator-override --override-scope edit-only --slice-id <id>` so the override survives reducer refresh and compaction; do not replace it with raw `agent-loop` bypass.
+- If the final gate emits a scoped edit-only override, continue through `/develop next --actor agent --operator-override --override-scope edit-only --slice-id <id>` so the override survives reducer refresh and compaction; do not replace it with raw `agent-loop` bypass.
 - Trusted/no-prompt provider launch authority must come from an active edit-only `BypassLifecycle` receipt (`BypassRequest -> BypassEvaluation -> BypassReceipt -> BypassExpiry`) that composes with `GovernedExceptionLifecycle`; raw `--approval-mode trusted` or bridge prose is not authority.
 - Direct Codex bootstrap `codex --dangerously-bypass-approvals-and-sandbox review --uncommitted` is review-only recovery over uncommitted state when launcher authority ordering is broken; it is not staging, commit, push, release, or proof-of-correctness authority.
 - Session continuation after `TASK_COMPLETE` must come from `SessionTerminationPolicy`, `TaskCompleteDecision`, and actor/role/session-scoped `continuation_anchor` / `stop_anchor` packets, not packet body prose.

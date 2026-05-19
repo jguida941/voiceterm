@@ -45,6 +45,10 @@ Review-channel packet posts deliberately remain no-wake communication events:
 their packet-attention receipt records `PacketArrivalDerivedStateInvalidation`
 for the existing event-backed projections and controller consumers, while
 provider launch/replacement stays owned by scheduler/runtime controllers.
+During GuardIR extraction, `bridge.md` is intentionally rendered as a
+deprecated projection-only stub. Use typed state, contracts, receipts, repo
+policy, source code, and guards for authority; bridge stale/empty state is
+`projection_stale` and must not block backend work by itself.
 For MCP-as-adapter rules and extension policy, see
 `dev/guides/MCP_DEVCTL_ALIGNMENT.md`.
 For portable-governance exports, benchmark planning, and multi-repo adoption,

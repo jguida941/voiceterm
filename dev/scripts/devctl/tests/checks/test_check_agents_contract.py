@@ -83,7 +83,7 @@ class CheckAgentsContractTests(TestCase):
         )
 
     def test_build_report_flags_role_placeholder(self) -> None:
-        text = self._valid_agents_text().replace("--role reviewer", "--role <role>", 1)
+        text = self._valid_agents_text().replace("--role observer", "--role <role>", 1)
         agents_path = self._with_temp_agents(text)
         with patch.object(self.script, "AGENTS_PATH", agents_path):
             report = self.script._build_report()

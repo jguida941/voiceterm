@@ -74,6 +74,11 @@ Use docs like this:
   typed state, default requested worker fanout is zero unless explicitly
   requested, and `bridge.md` remains a compatibility projection until native
   `CollaborationSession` worker topology lands.
+- During GuardIR extraction, `bridge.md` is a deprecated projection-only stub.
+  It must not decide actor/provider roles, launch permission, mutation
+  permission, proof status, commit/push status, or plan closure. Stale or empty
+  bridge content is `projection_stale` only; typed state, contracts, receipts,
+  repo policy, source code, and guards remain the authority chain.
 - Agent-supervision recovery stays typed and explicit. Use `devctl
   agent-supervise --format json` to inspect host/process liveness. Add
   `--execute` only when the report contains `SpawnDeadAgentAction`; the command

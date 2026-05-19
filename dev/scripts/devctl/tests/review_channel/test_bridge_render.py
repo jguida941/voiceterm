@@ -54,6 +54,37 @@ from dev.scripts.devctl.review_channel.reviewer_state_normalize import (
     instruction_revision,
 )
 
+LEGACY_LIVE_BRIDGE_RENDER_TESTS = {
+    "test_render_bridge_projection_drops_transcript_noise_and_extra_sections",
+    "test_render_bridge_projection_recovers_blank_poll_metadata_from_typed_bridge_state",
+    "test_render_bridge_projection_prefers_newer_typed_poll_over_stale_bridge",
+    "test_render_bridge_projection_replaces_automation_only_poll_status_with_typed_fallback",
+    "test_render_bridge_projection_projects_bound_action_request_packets",
+    "test_render_bridge_projection_falls_back_when_fixed_sections_missing",
+    "test_render_bridge_projection_overrides_stale_compat_sections_with_typed_authority",
+    "test_render_bridge_projection_preserves_nested_instruction_bullets",
+    "test_render_bridge_projection_clears_stale_claude_status_when_typed_status_missing",
+    "test_render_bridge_projection_clears_stale_instruction_when_typed_instruction_missing",
+    "test_render_bridge_projection_clears_revision_for_missing_instruction_placeholder",
+    "test_render_bridge_projection_uses_checkpoint_instruction_when_attention_requires_checkpoint",
+    "test_render_bridge_projection_tracks_swapped_reviewer_and_implementer",
+    "test_render_bridge_projection_drops_duplicate_packet_heading_and_stays_idempotent",
+    "test_render_bridge_projection_rejects_embedded_markdown_headings_in_typed_sections",
+    "test_render_bridge_projection_includes_full_reviewer_startup_contract",
+    "test_status_bridge_sync_clears_stale_instruction_when_typed_projection_is_blank",
+    "test_status_bridge_sync_does_not_demote_active_bridge_mode_from_effective_state",
+    "test_status_bridge_sync_preserves_declared_tools_only_with_effective_live_mode",
+}
+
+
+@pytest.fixture(autouse=True)
+def _skip_retired_live_bridge_render_contracts(request):
+    if request.node.name in LEGACY_LIVE_BRIDGE_RENDER_TESTS:
+        pytest.skip(
+            "legacy live bridge renderer retired; bridge.md now renders a "
+            "deprecated projection-only stub"
+        )
+
 
 def _projection_review_state_path(status_dir: Path) -> Path:
     if status_dir.name == "latest" and status_dir.parent.name != "projections":
@@ -326,6 +357,20 @@ def test_render_bridge_projection_drops_transcript_noise_and_extra_sections() ->
     assert "## Operator Direction" in rendered
     assert "### ROLE ENFORCEMENT (read first, every session)" in rendered
     assert bridge_hygiene_errors(rendered) == []
+
+
+def test_render_bridge_projection_returns_deprecated_projection_stub() -> None:
+    rendered, result = render_bridge_projection(
+        review_state=_typed_review_state(_bridge_text()),
+        last_worktree_hash="b" * 64,
+    )
+
+    assert result.lines_after > 0
+    assert "bridge.md - Deprecated Projection Stub" in rendered
+    assert "This file is not authority." in rendered
+    assert "projection_stale" in rendered
+    assert "Codex is the reviewer" not in rendered
+    assert "live reviewer/coder authority" not in rendered
 
 
 def test_render_bridge_projection_recovers_blank_poll_metadata_from_typed_bridge_state() -> (

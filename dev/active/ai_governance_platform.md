@@ -109,6 +109,13 @@ Current ingestion status:
   where active `BypassReceipt`, operator-source packets, and scoped
   `AgentLoopOperatorOverride` authority must be evaluated before bridge,
   inbox, or stale control-decision projections.
+- 2026-05-18 GuardIR extraction Phase 0A amendment: before more governance
+  machinery lands, VoiceTerm product-shell coupling and bridge authority must
+  be quarantined from GuardIR core. `bridge.md` is rendered as a deprecated
+  projection-only stub, generated boot cards use provider-neutral examples,
+  and provider names such as Codex/Claude are not durable role authority.
+  Review/dogfood proof remains typed evidence over a requirement, not a
+  provider-to-provider handoff.
 - 2026-05-14 agent-supervise execution bridge: MP-377 closes the report-only
   gap in `AgentSuperviseReport` without creating a second watchdog or launcher.
   `agent-supervise` remains read-only by default, and `--execute` runs the

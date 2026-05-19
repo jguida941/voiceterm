@@ -74,6 +74,29 @@ def bad(bridge):
         self.assertFalse(report["ok"])
         self.assertIn("bridge_metadata_reviewer_mode_forbidden", self._rules(report))
 
+    def test_flags_bridge_projection_authority_and_provider_role_text(self) -> None:
+        root = self._repo()
+        self._write(
+            root,
+            "bridge.md",
+            """
+# Review Bridge
+
+Use this file as the live Codex<->Claude coordination authority.
+Codex is the reviewer. Claude is the coder.
+When `Reviewer mode` is `active_dual_agent`, this file is the live reviewer/coder authority.
+""",
+        )
+
+        report = self._report_for(root)
+
+        self.assertFalse(report["ok"])
+        rules = self._rules(report)
+        self.assertIn("bridge_live_coordination_authority_forbidden", rules)
+        self.assertIn("bridge_provider_role_assignment_forbidden", rules)
+        self.assertIn("bridge_reviewer_coder_authority_forbidden", rules)
+        self.assertIn("bridge_backend_authority_language_forbidden", rules)
+
     def test_flags_bridge_validation_without_typed_current_session(self) -> None:
         root = self._repo()
         self._write(
