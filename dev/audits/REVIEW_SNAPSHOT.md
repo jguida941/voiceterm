@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `extraction/guardir-core-p0-proof-integrity`
-- HEAD: `38057f5c6c4d` — Refresh external review snapshot for 15425337
-- Tree hash: `9db0570a70d5`
-- Generation stamp: `snap-077c32622e77`
-- Generated at (UTC): 2026-05-19T04:28:08Z
-- Push decision: `await_checkpoint` — staged_index_budget_exceeded
+- HEAD: `7a272579fcee` — Phase 0.6A: propagate validation scope through release checks
+- Tree hash: `9f994c5b694b`
+- Generation stamp: `snap-069f0aae6fa8`
+- Generated at (UTC): 2026-05-19T04:31:54Z
+- Push decision: `run_devctl_push` — push_preconditions_satisfied
 - Reviewer mode: `tools_only` (interaction: `local_terminal`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 123 files, +19095/-2124
+- Delta since last snapshot: 24 commits, 133 files, +19255/-2135
 - Governance findings: 27 open / 0 fixed / 27 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -28,23 +28,23 @@ production client (VoiceTerm...
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `extraction/guardir-core-p0-proof-integrity`
-- HEAD SHA: `38057f5c6c4d74735f981a70ef35c96cba228078`
+- HEAD SHA: `7a272579fceecd466e3fc3888acf3774572ca163`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-05-19T00:03:05-04:00
+- HEAD timestamp (UTC): 2026-05-19T00:31:33-04:00
 
 ## 2. Governance state
 
 ### Push decision
-- action: `await_checkpoint`
-- reason: staged_index_budget_exceeded
-- push_eligible_now: False
-- worktree_clean: False
-- staged_path_count: 17
+- action: `run_devctl_push`
+- reason: push_preconditions_satisfied
+- push_eligible_now: True
+- worktree_clean: True
+- staged_path_count: 0
 - unstaged_path_count: 0
-- next_step_command: `n/a`
+- next_step_command: `python3 dev/scripts/devctl.py push --execute`
 - latest_push_report_state: `blocked` (validation_failed)
 - publication_backlog: queued
-- publication_guidance: Local branch still has unpublished work waiting for governed push once the current slice is checkpoint-clean.
+- publication_guidance: Local branch still has unpublished work waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
 
 ### Reviewer runtime
 - reviewer_mode: `tools_only`
@@ -60,48 +60,48 @@ production client (VoiceTerm...
 - active plan: **AI Governance Platform Plan**
 - plan path: `dev/active/ai_governance_platform.md`
 - active MP scope: `MP-377`
-- advisory: `checkpoint_before_continue` — staged_index_budget_exceeded
-- checkpoint_required: **yes**
+- advisory: `no_push_needed` — clean_worktree
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `38057f5c6c4d`
+Range: last 24 commits ending at `7a272579fcee`
 
 - commits: 24
-- files changed: 123
-- insertions: +19095
-- deletions: -2124
-- bundle classes touched: tooling, docs
-- authority surfaces touched: 9 file(s)
+- files changed: 133
+- insertions: +19255
+- deletions: -2135
+- bundle classes touched: docs, tooling, runtime
+- risk add-ons triggered: Threading / lifecycle / memory, Performance / latency
+- authority surfaces touched: 10 file(s)
 
 ### Commits
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `38057f5c` | Refresh external review snapshot for 15425337 | 1 | +60/-61 | tooling |  |
-| 2 | `15425337` | Phase 0.6A: carry push preflight refs into publication scope | 13 | +200/-61 | tooling |  |
-| 3 | `cf75f3f4` | Refresh external review snapshot for 9716470b | 1 | +69/-76 | tooling |  |
-| 4 | `9716470b` | Phase 0.6A: bind governed push to publication authorization | 19 | +815/-419 | tooling |  |
-| 5 | `fcb709ef` | Refresh external review snapshot for 36a930f7 | 1 | +55/-57 | tooling |  |
-| 6 | `36a930f7` | Phase 0.6A: fix typed collaboration routing and controller… | 21 | +1391/-447 | tooling |  |
-| 7 | `ddaf58f5` | Refresh external review snapshot for f2f152dd | 1 | +67/-64 | tooling |  |
-| 8 | `f2f152dd` | Phase 0A: bridge and boot-card projection kill-switch | 18 | +328/-224 | tooling |  |
-| 9 | `b161e95b` | Phase 0.6.C: AGENTS.md vs CLAUDE.md projection-parity viola… | 2 | +2/-2 | tooling |  |
-| 10 | `286b8703` | Phase 0.6.A: add alias-authority-parity guardrail | 2 | +2/-1 | tooling |  |
-| 11 | `87f1248e` | Narrow Phase 0.6 to entrypoint, bridge containment, and top… | 2 | +69/-68 | tooling |  |
-| 12 | `815901f4` | Refresh external review snapshot for b16d00a4 | 2 | +72/-74 | docs |  |
-| 13 | `b16d00a4` | Phase 0.4-Bootstrap IMPLEMENTATION: launcher + post authori… | 21 | +900/-13 | tooling |  |
-| 14 | `b85ed85a` | Phase 0.6 amendment: Entry-Point Hardening + Bridge Retirem… | 2 | +96/-1 | tooling |  |
-| 15 | `f453f8c1` | Refresh external review snapshot for f6ef179c | 2 | +56/-53 | docs |  |
-| 16 | `f6ef179c` | Phase 0.4-Bootstrap amendment: Bootstrap/Launcher/Topology… | 2 | +55/-1 | tooling |  |
-| 17 | `5bf86443` | Refresh external review snapshot for 4b51058a | 1 | +42/-42 | tooling |  |
-| 18 | `4b51058a` | Refresh external review snapshot for 50039a1b | 2 | +49/-43 | tooling |  |
-| 19 | `50039a1b` | Phase 0.4: Sync canonical GuardIR extraction plan | 1 | +386/-65 | tooling |  |
-| 20 | `bf21b66a` | Refresh external review snapshot for ccf6b4f5 | 2 | +49/-48 | docs |  |
-| 21 | `ccf6b4f5` | Phase 0.1: Preserve cached-hammock + may17 + approved extra… | 4 | +6246/-0 | tooling |  |
-| 22 | `d92dc2ff` | Refresh external review snapshot for 92ef4032 | 2 | +73/-65 | docs |  |
-| 23 | `92ef4032` | UNREVIEWED PRESERVATION SNAPSHOT — voiceterm governance pat… | 69 | +7933/-165 | tooling |  |
-| 24 | `835060c2` | Refresh external review snapshot for 47944776 | 2 | +80/-74 | docs |  |
+| 1 | `7a272579` | Phase 0.6A: propagate validation scope through release chec… | 18 | +240/-85 | tooling | Threading / lifecycle / memory, Performance / latency |
+| 2 | `38057f5c` | Refresh external review snapshot for 15425337 | 1 | +60/-61 | tooling |  |
+| 3 | `15425337` | Phase 0.6A: carry push preflight refs into publication scope | 13 | +200/-61 | tooling |  |
+| 4 | `cf75f3f4` | Refresh external review snapshot for 9716470b | 1 | +69/-76 | tooling |  |
+| 5 | `9716470b` | Phase 0.6A: bind governed push to publication authorization | 19 | +815/-419 | tooling |  |
+| 6 | `fcb709ef` | Refresh external review snapshot for 36a930f7 | 1 | +55/-57 | tooling |  |
+| 7 | `36a930f7` | Phase 0.6A: fix typed collaboration routing and controller… | 21 | +1391/-447 | tooling |  |
+| 8 | `ddaf58f5` | Refresh external review snapshot for f2f152dd | 1 | +67/-64 | tooling |  |
+| 9 | `f2f152dd` | Phase 0A: bridge and boot-card projection kill-switch | 18 | +328/-224 | tooling |  |
+| 10 | `b161e95b` | Phase 0.6.C: AGENTS.md vs CLAUDE.md projection-parity viola… | 2 | +2/-2 | tooling |  |
+| 11 | `286b8703` | Phase 0.6.A: add alias-authority-parity guardrail | 2 | +2/-1 | tooling |  |
+| 12 | `87f1248e` | Narrow Phase 0.6 to entrypoint, bridge containment, and top… | 2 | +69/-68 | tooling |  |
+| 13 | `815901f4` | Refresh external review snapshot for b16d00a4 | 2 | +72/-74 | docs |  |
+| 14 | `b16d00a4` | Phase 0.4-Bootstrap IMPLEMENTATION: launcher + post authori… | 21 | +900/-13 | tooling |  |
+| 15 | `b85ed85a` | Phase 0.6 amendment: Entry-Point Hardening + Bridge Retirem… | 2 | +96/-1 | tooling |  |
+| 16 | `f453f8c1` | Refresh external review snapshot for f6ef179c | 2 | +56/-53 | docs |  |
+| 17 | `f6ef179c` | Phase 0.4-Bootstrap amendment: Bootstrap/Launcher/Topology… | 2 | +55/-1 | tooling |  |
+| 18 | `5bf86443` | Refresh external review snapshot for 4b51058a | 1 | +42/-42 | tooling |  |
+| 19 | `4b51058a` | Refresh external review snapshot for 50039a1b | 2 | +49/-43 | tooling |  |
+| 20 | `50039a1b` | Phase 0.4: Sync canonical GuardIR extraction plan | 1 | +386/-65 | tooling |  |
+| 21 | `bf21b66a` | Refresh external review snapshot for ccf6b4f5 | 2 | +49/-48 | docs |  |
+| 22 | `ccf6b4f5` | Phase 0.1: Preserve cached-hammock + may17 + approved extra… | 4 | +6246/-0 | tooling |  |
+| 23 | `d92dc2ff` | Refresh external review snapshot for 92ef4032 | 2 | +73/-65 | docs |  |
+| 24 | `92ef4032` | UNREVIEWED PRESERVATION SNAPSHOT — voiceterm governance pat… | 69 | +7933/-165 | tooling |  |
 
 ### Files
 
@@ -109,20 +109,20 @@ Range: last 24 commits ending at `38057f5c6c4d`
 |---|---|---|
 | `.github/workflows/release_preflight.yml` | tooling | +1/-0 |
 | `.github/workflows/tooling_control_plane.yml` | tooling | +3/-0 |
-| `AGENTS.md` | docs | +10/-8 |
-| `bridge.md` | docs | +45/-167 |
-| `dev/active/MASTER_PLAN.md` | tooling | +25/-0 |
-| `dev/active/ai_governance_platform.md` | tooling | +39/-1 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +826/-808 |
+| `AGENTS.md` | docs | +11/-8 |
+| `bridge.md` | docs | +40/-162 |
+| `dev/active/MASTER_PLAN.md` | tooling | +33/-0 |
+| `dev/active/ai_governance_platform.md` | tooling | +49/-2 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +826/-812 |
 | `dev/audits/plan_intake/2026-05-18-cached-hammock-role-audit.md` | tooling | +4314/-0 |
 | `dev/audits/plan_intake/2026-05-18-guardir-extraction-plan.md` | tooling | +1224/-140 |
 | `dev/audits/plan_intake/2026-05-18-may17-plan.md` | tooling | +1373/-0 |
 | `dev/audits/plan_intake/sha256-manifest.txt` | tooling | +9/-6 |
 | `dev/config/devctl_repo_policy.json` | tooling | +1/-0 |
-| `dev/guides/DEVELOPMENT.md` | docs | +26/-0 |
+| `dev/guides/DEVELOPMENT.md` | docs | +36/-0 |
 | `dev/guides/SYSTEM_MAP.md` | docs | +5/-5 |
-| `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +82/-1 |
-| `dev/scripts/README.md` | tooling | +37/-0 |
+| `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +109/-1 |
+| `dev/scripts/README.md` | tooling | +46/-0 |
 | `dev/scripts/checks/check_bridge_projection_only.py` | tooling | +47/-0 |
 | `dev/scripts/checks/check_launcher_authority_ordering.py` | tooling | +12/-0 |
 | `dev/scripts/checks/check_publication_scope_integrity_for_push.py` | tooling | +14/-0 |
@@ -131,6 +131,10 @@ Range: last 24 commits ending at `38057f5c6c4d`
 | `dev/scripts/checks/publication_scope_integrity_for_push/__init__.py` | tooling | +1/-0 |
 | `dev/scripts/checks/publication_scope_integrity_for_push/command.py` | tooling | +81/-0 |
 | `dev/scripts/checks/review_channel_bridge/report.py` | tooling | +36/-1 |
+| `dev/scripts/devctl/cli_parser/builders_checks.py` | tooling | +13/-0 |
+| `dev/scripts/devctl/commands/check/phases.py` | tooling | +1/-0 |
+| `dev/scripts/devctl/commands/check/router_range.py` | tooling | +1/-0 |
+| `dev/scripts/devctl/commands/check/support.py` | tooling | +11/-0 |
 | `dev/scripts/devctl/commands/development/continuation.py` | tooling | +3/-0 |
 | `dev/scripts/devctl/commands/development/packet_attention.py` | tooling | +84/-10 |
 | `dev/scripts/devctl/commands/development/packet_attention_commands.py` | tooling | +49/-5 |
@@ -143,11 +147,7 @@ Range: last 24 commits ending at `38057f5c6c4d`
 | `dev/scripts/devctl/commands/review_channel/event_handler.py` | tooling | +515/-171 |
 | `dev/scripts/devctl/commands/review_channel_command/constants.py` | tooling | +3/-0 |
 | `dev/scripts/devctl/commands/review_channel_command/helpers.py` | tooling | +2/-0 |
-| `dev/scripts/devctl/commands/review_channel_command/models.py` | tooling | +5/-0 |
-| `dev/scripts/devctl/commands/vcs/push.py` | tooling | +24/-265 |
-| `dev/scripts/devctl/commands/vcs/push_attempted_command.py` | tooling | +29/-0 |
-| `dev/scripts/devctl/commands/vcs/push_authorization_control.py` | tooling | +102/-0 |
-| _83 more files trimmed_ | | |
+| _93 more files trimmed_ | | |
 
 ## 4. Quality signals
 
@@ -196,6 +196,9 @@ Recent findings:
 
 ### Targeted hints
 
+- **risk**: Threading / lifecycle / memory — Delta touches a risk-sensitive surface; verify the routed bundle
+- **risk**: Performance / latency — Delta touches a risk-sensitive surface; verify the routed bundle
+- **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/tests/commands/check/test_check_router.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/review_channel/bridge_projection.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/commands/review_channel/bridge_action_prepare.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/commands/review_channel/bridge_handler.py`) — Review contract-level invariants for this file
@@ -216,6 +219,8 @@ Recent findings:
 
 ### Suggested verification commands
 
+- `cd rust && cargo test --bin voiceterm`
+- `cd rust && cargo clippy --all-targets -- -D warnings`
 - `python3 dev/scripts/devctl.py check --profile ci`
 - `python3 dev/scripts/devctl.py probe-report --format md`
 - `python3 dev/scripts/devctl.py docs-check --strict-tooling`
@@ -226,6 +231,8 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`7a272579`** — Phase 0.6A: propagate validation scope through release checks
+  - evolution: The GuardIR extraction checkpoint exposed a live-controller gap: parser and alias parity could pass while the governed `review-channel` path still hid actor-addressed packets, disclosed packet bodies before failing the …
 - **`38057f5c`** — Refresh external review snapshot for 15425337
   - evolution: The GuardIR extraction checkpoint exposed a live-controller gap: parser and alias parity could pass while the governed `review-channel` path still hid actor-addressed packets, disclosed packet bodies before failing the …
 - **`15425337`** — Phase 0.6A: carry push preflight refs into publication scope
@@ -264,7 +271,6 @@ Recent findings:
   - Operator-issued 2026-05-18T~14:30Z UTC. This is an emergency preservation
   - snapshot, NOT a release commit. It captures the 69-path uncommitted
   - governance patch + 3 untracked files from working tree of
-- **`835060c2`** — Refresh external review snapshot for 47944776
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -283,10 +289,9 @@ Recent findings:
 - open governance findings: 27
 
 ### Startup advisories
-- checkpoint_before_continue: staged_index_budget_exceeded
+- no_push_needed: clean_worktree
 
 ### Stale warnings
-- Keep editing the current slice.
 - Move straight to the governed push path.
 
 ### Open gap rows
@@ -308,4 +313,4 @@ repo_path=/Users/jguida941/testing_upgrade/codex-voice
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-077c32622e77` binds this file to HEAD `38057f5c6c4d`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-069f0aae6fa8` binds this file to HEAD `7a272579fcee`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
