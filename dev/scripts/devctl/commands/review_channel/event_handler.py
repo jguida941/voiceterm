@@ -694,6 +694,14 @@ def _review_channel_lifecycle_gate(
             "authority_ordering": "operator_source_before_control_decision_obedience",
             "attempted_action_receipt": attempted,
         }
+    if _orchestrator_post_authority(args):
+        return {
+            "ok": True,
+            "contract_id": "ControlDecisionObeyedGuard",
+            "orchestrator_source_authority": True,
+            "authority_ordering": "orchestrator_source_before_control_decision_obedience",
+            "attempted_action_receipt": attempted,
+        }
     if not decision and _allow_missing_control_decision_for_test(
         args=args,
         repo_root=context.repo_root,
@@ -718,6 +726,35 @@ def _operator_post_authority(args) -> bool:
     return (
         coerce_string(getattr(args, "action", "")).strip() == "post"
         and coerce_string(getattr(args, "from_agent", "")).strip() == "operator"
+    )
+
+
+_ORCHESTRATOR_AUTHORIZED_POST_KINDS: frozenset[str] = frozenset(
+    {"task_started", "finding"}
+)
+
+
+def _orchestrator_post_authority(args) -> bool:
+    """Codex orchestrator (TandemRole.REVIEWER) may post task_started/finding directly.
+
+    Role-flip narrow exemption: codex as CognitiveRole.ORCHESTRATOR + TandemRole.REVIEWER
+    issues task_started directives and finding evidence packets without first chaining
+    through ``develop next`` for an AgentLoopDecision. Until CognitiveRoleFleetAssignment
+    lands, accept codex-source by typed actor identity.
+
+    Strict scope: only ``review-channel --action post`` + only ``--kind`` in
+    {task_started, finding}. Does NOT bypass VCS/edit/raw-git/commit/push gates or
+    any other lifecycle mutation. Operator-source authority remains unchanged.
+    """
+    if coerce_string(getattr(args, "action", "")).strip() != "post":
+        return False
+    if (
+        coerce_string(getattr(args, "kind", "")).strip()
+        not in _ORCHESTRATOR_AUTHORIZED_POST_KINDS
+    ):
+        return False
+    return (
+        coerce_string(getattr(args, "from_agent", "")).strip() == "codex"
     )
 
 

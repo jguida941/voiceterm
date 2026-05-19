@@ -353,3 +353,112 @@ def test_operator_authored_post_reaches_post_path_before_obedience_gate(
     assert gate["authority_ordering"] == (
         "operator_source_before_control_decision_obedience"
     )
+
+
+def _orchestrator_post_args(*, kind: str, from_agent: str = "codex") -> SimpleNamespace:
+    return SimpleNamespace(
+        action="post",
+        kind=kind,
+        from_agent=from_agent,
+        to_agent="claude",
+        role="reviewer",
+        actor_role="reviewer",
+        session_id="codex-session",
+        control_decision_payload={
+            "contract_id": "AgentLoopDecision",
+            "source_snapshot_id": "snapshot-orchestrator",
+            "actor_id": "codex",
+            "actor_role": "reviewer",
+            "session_id": "codex-session",
+            "decision": "wait",
+            "may_mutate": False,
+            "can_run_next_command": False,
+        },
+    )
+
+
+def test_orchestrator_codex_task_started_reaches_post_path_before_obedience_gate(
+    tmp_path: Path,
+) -> None:
+    """Codex orchestrator (TandemRole.REVIEWER) may post task_started without AgentLoopDecision (role-flip rev_pkt_4488)."""
+    args = _orchestrator_post_args(kind="task_started")
+    context = EventActionContext(
+        args=args,
+        repo_root=tmp_path,
+        review_channel_path=tmp_path / "dev/active/review_channel.md",
+        artifact_paths=None,
+        build_event_report_fn=None,
+    )
+
+    gate = _review_channel_lifecycle_gate(args=args, context=context)
+
+    assert gate["ok"] is True
+    assert gate["orchestrator_source_authority"] is True
+    assert gate["authority_ordering"] == (
+        "orchestrator_source_before_control_decision_obedience"
+    )
+
+
+def test_orchestrator_codex_finding_reaches_post_path_before_obedience_gate(
+    tmp_path: Path,
+) -> None:
+    """Codex orchestrator may post finding (evidence) without AgentLoopDecision."""
+    args = _orchestrator_post_args(kind="finding")
+    context = EventActionContext(
+        args=args,
+        repo_root=tmp_path,
+        review_channel_path=tmp_path / "dev/active/review_channel.md",
+        artifact_paths=None,
+        build_event_report_fn=None,
+    )
+
+    gate = _review_channel_lifecycle_gate(args=args, context=context)
+
+    assert gate["ok"] is True
+    assert gate["orchestrator_source_authority"] is True
+
+
+def test_non_orchestrator_claude_task_started_falls_through_to_obedience_gate(
+    tmp_path: Path,
+) -> None:
+    """Non-orchestrator (claude) task_started without decision is NOT exempted - gate proceeds normally."""
+    args = _orchestrator_post_args(kind="task_started", from_agent="claude")
+    context = EventActionContext(
+        args=args,
+        repo_root=tmp_path,
+        review_channel_path=tmp_path / "dev/active/review_channel.md",
+        artifact_paths=None,
+        build_event_report_fn=None,
+    )
+
+    gate = _review_channel_lifecycle_gate(args=args, context=context)
+
+    # Falls through to ControlDecisionObeyedGuard - no orchestrator bypass
+    assert "orchestrator_source_authority" not in gate or (
+        gate.get("orchestrator_source_authority") is not True
+    )
+
+
+def test_orchestrator_authority_strict_scope_rejects_non_post_kinds(
+    tmp_path: Path,
+) -> None:
+    """Codex/reviewer cannot use orchestrator authority for kinds outside {task_started, finding}.
+
+    Anti-sprawl per rev_pkt_4488 directive: do NOT weaken VCS/edit gates.
+    Strict scope is review-channel POST + only task_started/finding kinds.
+    """
+    args = _orchestrator_post_args(kind="task_produced")  # not in orchestrator-authorized kinds
+    context = EventActionContext(
+        args=args,
+        repo_root=tmp_path,
+        review_channel_path=tmp_path / "dev/active/review_channel.md",
+        artifact_paths=None,
+        build_event_report_fn=None,
+    )
+
+    gate = _review_channel_lifecycle_gate(args=args, context=context)
+
+    # task_produced from codex is outside orchestrator scope - gate proceeds
+    assert "orchestrator_source_authority" not in gate or (
+        gate.get("orchestrator_source_authority") is not True
+    )
