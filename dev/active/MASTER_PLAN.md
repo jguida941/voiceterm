@@ -6456,6 +6456,11 @@ become the main product surface.
   so bridge/status/current-session compatibility projections remain
   display-only and cannot regain backend authority through an unenforced
   script entry.
+  Latest guard-enforcement follow-up (2026-05-19): launcher authority ordering
+  is now a shared workflow/bundle guard, governed-push publication-scope
+  adapter enforcement is represented as an internal pipeline lane, and
+  no-subject contextual guards remain explicit exemptions until their typed
+  input/baseline contracts are ready for default release gating.
   Latest proof-surface follow-up (2026-04-04): `system-picture` now has a
   live repo-owned command path and the tracked proof ledger is a generated
   writeback from that snapshot, not a second execution tracker.

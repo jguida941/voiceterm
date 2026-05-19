@@ -16376,6 +16376,15 @@ direct guard entry to `check_publication_scope_integrity_for_push.py` whenever
 the router has a commit range, preserving the same base/head refs through the
 whole publication preflight.
 
+That same dogfood pass exposed that release-hygiene documentation alone was
+not enough: `check_guard_enforcement_inventory.py` requires real enforcement
+lanes or explicit exemptions for every registered check. Launcher authority
+ordering now runs from `bundle.tooling`, `bundle.release`,
+`tooling_control_plane.yml`, and `release_preflight.yml`; the push-specific
+publication-scope adapter is counted as an internal governed-push preflight
+lane; and no-subject contextual guards document why they are not default
+release commands until supplied with typed input or remediated baselines.
+
 Evidence:
 
 - `dev/scripts/README.md`

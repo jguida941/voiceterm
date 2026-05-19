@@ -183,6 +183,7 @@ jobs:
           python3 dev/scripts/checks/check_release_version_parity.py
           python3 dev/scripts/checks/check_repo_url_parity.py
           python3 dev/scripts/checks/check_publication_scope_integrity.py
+          python3 dev/scripts/checks/check_launcher_authority_ordering.py
           python3 dev/scripts/checks/check_guard_enforcement_inventory.py
           python3 dev/scripts/checks/check_ground_truth_probe_gate.py
           python3 dev/scripts/checks/check_governed_transitions.py

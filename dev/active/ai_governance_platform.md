@@ -4672,6 +4672,13 @@ Phase metadata: phase_id=MP377-P0; owner_doc=`dev/active/ai_governance_platform.
       entries to the same push adapter, so nested release validation cannot
       reintroduce a ref-less upstream lookup after governed push selected the
       authorized publication range.
+      2026-05-19 Phase 0.6.A dogfood follow-up D: guard-enforcement inventory
+      now distinguishes shared hard guards, internal governed-push lanes, and
+      no-subject contextual guards. `check_launcher_authority_ordering.py`
+      graduated into the shared bundle/workflow lane; the push publication
+      adapter is represented as internally enforced; contextual control-output
+      and packet-absorption guards remain explicit until typed inputs/baselines
+      are ready for default release gating.
 - [ ] `MP377-P0-T08` Extend `PlatformFindingIngest` for finding durability without distraction: every review-channel finding and ad-hoc capture must mirror into `FindingBacklog` / `governance-review` with severity, plan anchor, evidence ref, lifecycle outcome, stale-pending visibility, dashboard counts, startup `quality_signals.open_findings_summary`, and findings-priority ordering. This extends the existing finding spine only.
       owner_doc: `dev/active/ai_governance_platform.md`
       status: `in_progress`

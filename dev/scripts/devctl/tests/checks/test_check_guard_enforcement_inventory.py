@@ -13,7 +13,7 @@ except ModuleNotFoundError:
 
 SCRIPT = load_repo_module(
     "check_guard_enforcement_inventory",
-    "dev/scripts/checks/check_guard_enforcement_inventory.py",
+    "dev/scripts/checks/guard_enforcement_inventory/command.py",
 )
 
 
@@ -47,6 +47,7 @@ class CheckGuardEnforcementInventoryTests(unittest.TestCase):
             PROBE_SCRIPT_RELATIVE_PATHS=probe_paths or {},
             BUNDLE_REGISTRY=bundles,
             ENFORCEMENT_EXEMPTIONS=exemptions or {},
+            INTERNAL_PIPELINE_SCRIPT_REFS={},
             INDIRECT_DEVCTL_COMMAND_SCRIPT_IDS=indirect or {"docs-check": frozenset({"markdown_metadata_header"})},
         )
 
@@ -141,6 +142,36 @@ class CheckGuardEnforcementInventoryTests(unittest.TestCase):
         report = SCRIPT.build_report(repo_root=self.root)
 
         self.assertTrue(report["ok"], report["violations"])
+
+    def test_internal_pipeline_refs_count_as_enforcement(self) -> None:
+        self._write_workflow(
+            "tooling_control_plane.yml",
+            "steps:\n  - run: python3 dev/scripts/checks/check_guard_enforcement_inventory.py\n",
+        )
+        self._override_contract(
+            check_paths={
+                "guard_enforcement_inventory": "dev/scripts/checks/check_guard_enforcement_inventory.py",
+                "publication_scope_integrity_for_push": "dev/scripts/checks/check_publication_scope_integrity_for_push.py",
+            },
+            bundles={"bundle.tooling": ("python3 dev/scripts/checks/check_guard_enforcement_inventory.py",)},
+        )
+        override_module_attrs(
+            self,
+            SCRIPT,
+            INTERNAL_PIPELINE_SCRIPT_REFS={
+                "publication_scope_integrity_for_push": ("devctl.push.preflight",)
+            },
+        )
+
+        report = SCRIPT.build_report(repo_root=self.root)
+
+        self.assertTrue(report["ok"], report["violations"])
+        entry = next(
+            item
+            for item in report["scripts"]
+            if item["script_id"] == "publication_scope_integrity_for_push"
+        )
+        self.assertEqual(entry["internal_pipeline_refs"], ["devctl.push.preflight"])
 
     def test_probe_scripts_count_as_enforced_when_probe_report_lane_exists(self) -> None:
         self._write_workflow(

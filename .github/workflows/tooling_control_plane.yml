@@ -364,6 +364,9 @@ jobs:
       - name: Run publication scope integrity guard
         run: python3 dev/scripts/checks/check_publication_scope_integrity.py
 
+      - name: Run launcher authority ordering guard
+        run: python3 dev/scripts/checks/check_launcher_authority_ordering.py
+
       - name: Run AGENTS contract guard
         run: python3 dev/scripts/checks/check_agents_contract.py
 
