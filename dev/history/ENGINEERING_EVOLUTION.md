@@ -260,6 +260,30 @@ Evidence:
 - `dev/config/devctl_repo_policy.json`
 - `dev/scripts/checks/check_plan_index_commit_continuity.py`
 - `dev/scripts/checks/packet_pkt_bind_completeness/core.py`
+
+### 2026-05-19 - Packet lifecycle commands bind stable control decisions
+
+Phase 0.6D exposed that `/develop next` could emit the right packet lifecycle
+command and still fail on replay because the command was implicitly tied to the
+mutable latest review-state decision. The live case was an absorption command
+for `rev_pkt_4425`; after latest state advanced to `rev_pkt_4472`, the command
+failed against a different packet/action.
+
+The reducer now writes packet-specific ignored `AgentLoopDecision` artifacts for
+body-open, semantic-ingestion, and absorption commands under
+`dev/reports/review_channel/control_decisions/`, then includes
+`--control-decision-input` in the emitted command. The command is therefore
+bound to the selected packet/action instead of whichever packet becomes latest
+before the operator or agent executes it.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/control_decision_artifacts.py`
+- `dev/scripts/devctl/commands/development/packet_attention.py`
+- `dev/scripts/devctl/tests/runtime/test_control_decision_artifacts.py`
+- `dev/scripts/devctl/tests/commands/test_development_command.py`
+- `packet_absorption:rev_pkt_4425:af10f8615b8964c4`
+- `command_output:test-python:69aac104c469feb7`
 - `dev/scripts/devctl/platform/runtime_state_contract_rows_review_core.py`
 
 ### 2026-05-14 - Automation opportunity packets stay advisory and evidence-bound

@@ -98,6 +98,12 @@ Use docs like this:
   authorize the exact post action such as `review-channel.post_task_progress`,
   while `--target-role` remains packet-route metadata rather than actor
   authority.
+- `/develop next` packet lifecycle commands must bind to the decision for the
+  selected packet/action, not the generic latest route decision. Body-open,
+  semantic-ingestion, and absorption commands write ignored
+  `dev/reports/review_channel/control_decisions/<event>/...json` artifacts and
+  include `--control-decision-input` so a newer packet cannot make an emitted
+  command fail against a different controller state.
 - GuardIR extraction containment guards must be live in both the bundle
   registry and CI workflows. The plan-artifact guard plus the provider-hardcode
   and topology-count guards run in tooling and release lanes so a typed plan row

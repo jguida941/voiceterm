@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from collections.abc import Mapping
 from pathlib import Path
 
@@ -48,6 +49,7 @@ def packet_attention_from_review_state(
     agent: str = "codex",
     terminal_receipt_by_packet: Mapping[str, str] | None = None,
     durable_row_id_by_packet: Mapping[str, str] | None = None,
+    repo_root: Path | None = None,
 ) -> DevelopmentPacketAttention:
     """Return packet-driven wake state for a development controller actor."""
     terminal_receipts = terminal_receipt_by_packet or {}
@@ -152,6 +154,15 @@ def packet_attention_from_review_state(
             packet=attention_packet,
             route=body_followup.route,
         )
+    required_command = _bind_packet_lifecycle_decision(
+        required_command,
+        repo_root=repo_root,
+        review_state=review_state,
+        agent=agent,
+        route=body_followup.route,
+        reason=wake_reason,
+        packet_id=latest_packet_id,
+    )
     return DevelopmentPacketAttention(
         attention_required=attention_required,
         agent=agent,
@@ -221,6 +232,175 @@ def _active_plan_row_bound(rows: tuple[PlanRow, ...], row_id: str) -> bool:
 
 def _packet_text(packet: Mapping[str, object], field: str) -> str:
     return str(packet.get(field) or "").strip()
+
+
+def _bind_packet_lifecycle_decision(
+    command: str,
+    *,
+    repo_root: Path | None,
+    review_state: Mapping[str, object],
+    agent: str,
+    route: object,
+    reason: str,
+    packet_id: str,
+) -> str:
+    if repo_root is None or not command or not packet_id:
+        return command
+    if "review-channel --action " not in command:
+        return command
+    lifecycle = _packet_lifecycle_action(reason)
+    if not lifecycle:
+        return command
+    actor_role = str(getattr(route, "actor_role", "") or "").strip()
+    session_id = str(getattr(route, "session_id", "") or "").strip()
+    if not (actor_role and session_id):
+        return command
+    source_event_id = _review_state_source_latest_event_id(review_state)
+    if not source_event_id:
+        return command
+    relpath = (
+        Path("dev/reports/review_channel/control_decisions")
+        / _slug(source_event_id)
+        / (
+            f"{_slug(agent)}-{_slug(actor_role)}-{_slug(session_id)}-"
+            f"{_slug(packet_id)}-{lifecycle}.json"
+        )
+    )
+    payload = _packet_lifecycle_decision_payload(
+        actor=agent,
+        role=actor_role,
+        session_id=session_id,
+        packet_id=packet_id,
+        lifecycle=lifecycle,
+        command=command,
+        source_event_id=source_event_id,
+    )
+    _write_json_atomic(repo_root / relpath, payload)
+    return _replace_control_decision_input(command, relpath.as_posix())
+
+
+def _packet_lifecycle_action(reason: str) -> str:
+    normalized = str(reason or "").strip()
+    if normalized == "packet_body_open_required":
+        return "body-open"
+    if normalized == "packet_semantic_ingestion_required":
+        return "ingest"
+    if normalized == "packet_absorption_required":
+        return "absorb"
+    return ""
+
+
+def _packet_lifecycle_decision_payload(
+    *,
+    actor: str,
+    role: str,
+    session_id: str,
+    packet_id: str,
+    lifecycle: str,
+    command: str,
+    source_event_id: str,
+) -> dict[str, object]:
+    payload: dict[str, object] = {
+        "contract_id": "AgentLoopDecision",
+        "schema_version": 1,
+        "actor_id": actor,
+        "actor_role": role,
+        "session_id": session_id,
+        "decision": "run_next_command",
+        "may_mutate": False,
+        "can_run_next_command": False,
+        "attention_packet_id": packet_id,
+        "active_packet_id": packet_id,
+        "next_command": command,
+        "source_latest_event_id": source_event_id,
+    }
+    if lifecycle == "body-open":
+        payload.update(
+            {
+                "required_action": "open_packet_body",
+                "reason_code": "packet_body_open_required",
+                "body_open_required": True,
+                "body_open_packet_id": packet_id,
+                "unopened_body_packet_ids": [packet_id],
+            }
+        )
+    elif lifecycle == "ingest":
+        payload.update(
+            {
+                "required_action": "ingest_packet_semantics",
+                "reason_code": "packet_semantic_ingestion_required",
+                "semantic_ingestion_required": True,
+                "semantic_ingestion_packet_id": packet_id,
+            }
+        )
+    else:
+        payload.update(
+            {
+                "required_action": "absorb_packet",
+                "reason_code": "packet_absorption_required",
+                "absorption_required": True,
+                "absorption_packet_id": packet_id,
+            }
+        )
+    return payload
+
+
+def _replace_control_decision_input(command: str, relpath: str) -> str:
+    marker = " --control-decision-input "
+    if marker in command:
+        prefix, rest = command.split(marker, 1)
+        if " " in rest:
+            _old, suffix = rest.split(" ", 1)
+            return f"{prefix}{marker}{relpath} {suffix}"
+        return f"{prefix}{marker}{relpath}"
+    terminal_marker = " --terminal none"
+    if terminal_marker in command:
+        return command.replace(
+            terminal_marker,
+            f"{marker}{relpath}{terminal_marker}",
+            1,
+        )
+    return f"{command}{marker}{relpath}"
+
+
+def _review_state_source_latest_event_id(review_state: Mapping[str, object]) -> str:
+    for path in (
+        ("agent_runtime_clock", "source_latest_event_id"),
+        ("agent_sync", "source_latest_event_id"),
+        ("reviewer_runtime", "agent_runtime_clock", "source_latest_event_id"),
+        ("reviewer_runtime", "source_latest_event_id"),
+        ("source_latest_event_id",),
+    ):
+        current: object = review_state
+        for key in path:
+            if not isinstance(current, Mapping):
+                current = {}
+                break
+            current = current.get(key)
+        text = str(current or "").strip()
+        if text:
+            return text
+    return ""
+
+
+def _slug(value: str) -> str:
+    return "".join(ch if ch.isalnum() or ch in "_.-" else "-" for ch in value).strip("-")
+
+
+def _write_json_atomic(path: Path, payload: Mapping[str, object]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = path.with_name(f"{path.name}.tmp.{os.getpid()}")
+    try:
+        tmp_path.write_text(
+            json.dumps(dict(payload), indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        os.replace(tmp_path, path)
+    finally:
+        try:
+            tmp_path.unlink(missing_ok=True)
+        except OSError:
+            pass
 
 
 def _packet_specific_attention_without_packet(

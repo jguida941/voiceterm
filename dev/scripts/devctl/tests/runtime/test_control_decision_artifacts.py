@@ -3,8 +3,10 @@ from argparse import Namespace
 from pathlib import Path
 
 from dev.scripts.devctl.runtime.control_decision_artifacts import (
+    control_decision_input_for_route,
     control_decision_payload_from_mapping,
     load_control_decision_payload,
+    write_control_decision_artifacts,
 )
 
 
@@ -41,6 +43,92 @@ def test_control_decision_payload_selects_matching_actor_role_session() -> None:
 
     assert decision["session_id"] == "current"
     assert decision["may_mutate"] is False
+
+
+def test_control_decision_input_for_route_returns_stable_artifact_path() -> None:
+    payload = {
+        "contract_id": "ReviewState",
+        "agent_loop_decisions": [
+            {
+                "contract_id": "AgentLoopDecision",
+                "actor_id": "codex",
+                "actor_role": "reviewer",
+                "session_id": "current",
+                "source_latest_event_id": "rev_evt_2",
+            }
+        ],
+    }
+
+    path = control_decision_input_for_route(
+        payload,
+        actor="codex",
+        role="reviewer",
+        session_id="current",
+    )
+
+    assert path == (
+        "dev/reports/review_channel/control_decisions/"
+        "rev_evt_2/codex-reviewer-current.json"
+    )
+
+
+def test_written_control_decision_artifact_survives_latest_state_change(
+    tmp_path: Path,
+) -> None:
+    payload = {
+        "contract_id": "ReviewState",
+        "agent_loop_decisions": [
+            {
+                "contract_id": "AgentLoopDecision",
+                "actor_id": "codex",
+                "actor_role": "reviewer",
+                "session_id": "current",
+                "decision": "wait",
+                "may_mutate": False,
+                "can_run_next_command": False,
+                "absorption_required": True,
+                "absorption_packet_id": "rev_pkt_old",
+                "attention_packet_id": "rev_pkt_old",
+                "source_latest_event_id": "rev_evt_1",
+            }
+        ],
+    }
+    written = write_control_decision_artifacts(payload, repo_root=tmp_path)
+    latest = tmp_path / "dev/reports/review_channel/state/latest.json"
+    latest.parent.mkdir(parents=True, exist_ok=True)
+    latest.write_text(
+        json.dumps(
+            {
+                "contract_id": "ReviewState",
+                "agent_runtime_clock": {"source_latest_event_id": "rev_evt_2"},
+                "agent_loop_decisions": [
+                    {
+                        "contract_id": "AgentLoopDecision",
+                        "actor_id": "codex",
+                        "actor_role": "reviewer",
+                        "session_id": "current",
+                        "body_open_required": True,
+                        "body_open_packet_id": "rev_pkt_new",
+                        "source_latest_event_id": "rev_evt_2",
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    decision = load_control_decision_payload(
+        Namespace(
+            actor="codex",
+            role="reviewer",
+            session_id="current",
+            control_decision_input=str(written[0]),
+        ),
+        repo_root=tmp_path,
+    )
+
+    assert decision["source_latest_event_id"] == "rev_evt_1"
+    assert decision["absorption_packet_id"] == "rev_pkt_old"
 
 
 def test_load_control_decision_payload_reads_review_state_latest(tmp_path: Path) -> None:

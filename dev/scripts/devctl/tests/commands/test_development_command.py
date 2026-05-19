@@ -4714,6 +4714,57 @@ def test_packet_attention_show_command_keeps_actor_and_packet_routes() -> None:
     )
 
 
+def test_packet_attention_show_command_binds_stable_control_decision() -> None:
+    review_state = {
+        "agent_work_board": {
+            "rows": [
+                {
+                    "actor_id": "codex",
+                    "role": "reviewer",
+                    "session_id": "codex-review-session",
+                    "status": "idle",
+                    "idle_seconds": 1,
+                }
+            ]
+        },
+        "agent_loop_decisions": [
+            {
+                "contract_id": "AgentLoopDecision",
+                "actor_id": "codex",
+                "actor_role": "reviewer",
+                "session_id": "codex-review-session",
+                "body_open_required": True,
+                "body_open_packet_id": "rev_pkt_9999",
+                "attention_packet_id": "rev_pkt_9999",
+                "source_latest_event_id": "rev_evt_9999",
+            }
+        ],
+        "packets": [
+            {
+                "packet_id": "rev_pkt_9999",
+                "to_agent": "codex",
+                "kind": "finding",
+                "status": "pending",
+                "target_role": "implementer",
+                "body": "Read me under a bound decision.",
+                "expires_at_utc": "2999-01-01T00:00:00Z",
+            }
+        ],
+    }
+
+    attention = packet_attention_from_review_state(review_state, rows=())
+
+    assert attention.required_command == (
+        "python3 dev/scripts/devctl.py review-channel --action show "
+        "--packet-id rev_pkt_9999 --actor codex --actor-role reviewer "
+        "--session-id codex-review-session --target-role implementer "
+        "--control-decision-input "
+        "dev/reports/review_channel/control_decisions/"
+        "rev_evt_9999/codex-reviewer-codex-review-session.json "
+        "--terminal none --format md"
+    )
+
+
 def test_packet_attention_role_mismatch_body_observation_advances_to_ingest() -> None:
     packet = {
         "packet_id": "rev_pkt_4429",
@@ -4747,6 +4798,18 @@ def test_packet_attention_role_mismatch_body_observation_advances_to_ingest() ->
                 }
             ]
         },
+        "agent_loop_decisions": [
+            {
+                "contract_id": "AgentLoopDecision",
+                "actor_id": "codex",
+                "actor_role": "reviewer",
+                "session_id": "codex-review-session",
+                "semantic_ingestion_required": True,
+                "semantic_ingestion_packet_id": "rev_pkt_4429",
+                "attention_packet_id": "rev_pkt_4429",
+                "source_latest_event_id": "rev_evt_83466",
+            }
+        ],
         "packets": [packet],
     }
 
@@ -4759,6 +4822,12 @@ def test_packet_attention_role_mismatch_body_observation_advances_to_ingest() ->
     assert "--packet-id rev_pkt_4429" in attention.required_command
     assert "--target-role reviewer" in attention.required_command
     assert "--target-session-id codex-review-session" in attention.required_command
+    assert (
+        "--control-decision-input "
+        "dev/reports/review_channel/control_decisions/"
+        "rev_evt_83466/codex-reviewer-codex-review-session.json"
+        in attention.required_command
+    )
     assert "--semantic-action-item" in attention.required_command
     assert "--action show" not in attention.required_command
 
@@ -4810,6 +4879,18 @@ def test_packet_attention_role_mismatch_semantic_ingestion_advances_to_absorb() 
                 }
             ]
         },
+        "agent_loop_decisions": [
+            {
+                "contract_id": "AgentLoopDecision",
+                "actor_id": "codex",
+                "actor_role": "reviewer",
+                "session_id": "codex-review-session",
+                "absorption_required": True,
+                "absorption_packet_id": "rev_pkt_4429",
+                "attention_packet_id": "rev_pkt_4429",
+                "source_latest_event_id": "rev_evt_83466",
+            }
+        ],
         "packets": [packet],
     }
 
@@ -4822,6 +4903,93 @@ def test_packet_attention_role_mismatch_semantic_ingestion_advances_to_absorb() 
     assert "--packet-id rev_pkt_4429" in attention.required_command
     assert "--target-role reviewer" in attention.required_command
     assert "--target-session-id codex-review-session" in attention.required_command
+    assert (
+        "--control-decision-input "
+        "dev/reports/review_channel/control_decisions/"
+        "rev_evt_83466/codex-reviewer-codex-review-session.json"
+        in attention.required_command
+    )
+
+
+def test_packet_attention_absorb_command_binds_packet_specific_decision(
+    tmp_path: Path,
+) -> None:
+    packet = {
+        "packet_id": "rev_pkt_4429",
+        "from_agent": "operator",
+        "to_agent": "codex",
+        "kind": "finding",
+        "status": "pending",
+        "lifecycle_current_state": "pending",
+        "latest_event_id": "rev_evt_83466",
+        "body": "Inventory finding that codex reviewer ingested.",
+        "expires_at_utc": "2999-01-01T00:00:00Z",
+    }
+    digest = packet_body_digest(packet)
+    packet["body_observation_events"] = [
+        {
+            "body_observed_by": "codex",
+            "body_observed_role": "reviewer",
+            "body_observed_session_id": "codex-review-session",
+            "body_digest": digest,
+        }
+    ]
+    packet["packet_semantic_ingestion_receipt"] = (
+        build_packet_semantic_ingestion_receipt(
+            packet_id="rev_pkt_4429",
+            body_sha256=digest,
+            ingested_by_actor="codex",
+            ingested_by_role="reviewer",
+            ingested_by_session_id="codex-review-session",
+            ingested_at_utc="2026-05-19T10:00:00Z",
+            action_item_rows=semantic_action_item_rows_for_packet(packet),
+            resulting_decision="semantic_ingestion_recorded",
+            decision_rationale="test receipt",
+        ).to_dict()
+    )
+    review_state = {
+        "agent_sync": {"source_latest_event_id": "rev_evt_83466"},
+        "agent_work_board": {
+            "rows": [
+                {
+                    "actor_id": "codex",
+                    "role": "reviewer",
+                    "session_id": "codex-review-session",
+                    "status": "idle",
+                    "idle_seconds": 1,
+                }
+            ]
+        },
+        "agent_loop_decisions": [
+            {
+                "contract_id": "AgentLoopDecision",
+                "actor_id": "codex",
+                "actor_role": "reviewer",
+                "session_id": "codex-review-session",
+                "body_open_required": True,
+                "body_open_packet_id": "rev_pkt_newer",
+                "attention_packet_id": "rev_pkt_newer",
+                "source_latest_event_id": "rev_evt_83466",
+            }
+        ],
+        "packets": [packet],
+    }
+
+    attention = packet_attention_from_review_state(
+        review_state,
+        rows=(),
+        repo_root=tmp_path,
+    )
+
+    relpath = (
+        "dev/reports/review_channel/control_decisions/rev_evt_83466/"
+        "codex-reviewer-codex-review-session-rev_pkt_4429-absorb.json"
+    )
+    assert f"--control-decision-input {relpath}" in attention.required_command
+    payload = json.loads((tmp_path / relpath).read_text(encoding="utf-8"))
+    assert payload["absorption_required"] is True
+    assert payload["absorption_packet_id"] == "rev_pkt_4429"
+    assert payload.get("body_open_packet_id") != "rev_pkt_newer"
 
 
 def test_packet_attention_requires_body_open_for_peer_progress_packet() -> None:

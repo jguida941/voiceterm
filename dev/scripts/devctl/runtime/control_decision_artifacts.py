@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import os
+import re
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
@@ -15,6 +17,9 @@ DEFAULT_CONTROL_DECISION_INPUT_CANDIDATES = (
 )
 DEFAULT_STARTUP_AUTHORITY_CANDIDATES = (
     Path("dev/reports/startup/latest/receipt.json"),
+)
+CONTROL_DECISION_ARTIFACT_ROOT_REL = Path(
+    "dev/reports/review_channel/control_decisions"
 )
 
 
@@ -143,6 +148,77 @@ def control_decision_payload_from_mapping(
     return {}
 
 
+def control_decision_input_for_route(
+    payload: Mapping[str, object],
+    *,
+    actor: str,
+    role: str,
+    session_id: str,
+) -> str:
+    """Return the stable decision artifact path for one actor/role/session."""
+
+    if not (actor and role and session_id):
+        return ""
+    rows = payload.get("agent_loop_decisions")
+    if not isinstance(rows, Sequence) or isinstance(rows, (str, bytes)):
+        return ""
+    decision = _select_agent_loop_decision(
+        tuple(item for item in rows if isinstance(item, Mapping)),
+        actor=actor,
+        role=role,
+        session_id=session_id,
+    )
+    if not decision:
+        return ""
+    relpath = control_decision_artifact_relpath(decision)
+    return relpath.as_posix() if relpath is not None else ""
+
+
+def control_decision_artifact_relpath(
+    decision: Mapping[str, object],
+) -> Path | None:
+    """Return the repo-relative stable artifact path for a decision row."""
+
+    if not _decision_has_source(decision):
+        return None
+    source = _slug(
+        coerce_string(decision.get("source_latest_event_id")).strip()
+        or coerce_string(decision.get("source_snapshot_id")).strip()
+        or coerce_string(decision.get("receipt_id")).strip()
+    )
+    actor = _slug(coerce_string(decision.get("actor_id")).strip())
+    role = _slug(coerce_string(decision.get("actor_role")).strip())
+    session_id = _slug(coerce_string(decision.get("session_id")).strip())
+    if not (source and actor and role and session_id):
+        return None
+    return CONTROL_DECISION_ARTIFACT_ROOT_REL / source / (
+        f"{actor}-{role}-{session_id}.json"
+    )
+
+
+def write_control_decision_artifacts(
+    payload: Mapping[str, object],
+    *,
+    repo_root: Path,
+) -> tuple[Path, ...]:
+    """Write stable ignored AgentLoopDecision artifacts for emitted commands."""
+
+    rows = payload.get("agent_loop_decisions")
+    if not isinstance(rows, Sequence) or isinstance(rows, (str, bytes)):
+        return ()
+    written: list[Path] = []
+    for row in rows:
+        if not isinstance(row, Mapping):
+            continue
+        relpath = control_decision_artifact_relpath(row)
+        if relpath is None:
+            continue
+        path = repo_root / relpath
+        _atomic_write_json(path, dict(row))
+        written.append(path)
+    return tuple(written)
+
+
 def _select_agent_loop_decision(
     rows: Sequence[Mapping[str, object]],
     *,
@@ -166,6 +242,24 @@ def _select_agent_loop_decision(
     if len(candidates) == 1:
         return dict(candidates[0])
     return {}
+
+
+def _slug(value: str) -> str:
+    return re.sub(r"[^A-Za-z0-9_.-]+", "-", value.strip()).strip("-")
+
+
+def _atomic_write_json(path: Path, payload: Mapping[str, object]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    content = json.dumps(dict(payload), indent=2, sort_keys=True) + "\n"
+    tmp_path = path.with_name(f"{path.name}.tmp.{os.getpid()}")
+    try:
+        tmp_path.write_text(content, encoding="utf-8")
+        os.replace(tmp_path, path)
+    finally:
+        try:
+            tmp_path.unlink(missing_ok=True)
+        except OSError:
+            pass
 
 
 def _matches(row: Mapping[str, object], key: str, expected: str) -> bool:
@@ -334,9 +428,13 @@ def _resolve_repo_path(value: str, *, repo_root: Path) -> Path:
 
 
 __all__ = [
+    "CONTROL_DECISION_ARTIFACT_ROOT_REL",
     "DEFAULT_CONTROL_DECISION_INPUT_CANDIDATES",
+    "control_decision_artifact_relpath",
+    "control_decision_input_for_route",
     "control_decision_payload_from_mapping",
     "control_decision_payload_from_path",
     "load_latest_agent_loop_decision",
     "load_control_decision_payload",
+    "write_control_decision_artifacts",
 ]

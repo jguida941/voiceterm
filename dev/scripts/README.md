@@ -62,6 +62,13 @@ For governed remote-lane writes, `review-channel --action post` accepts
 Claude-to-Codex, same-agent, operator, or future reviewer route can prove the
 exact allowed action without relying on provider names or operator-source
 bypass.
+For `/develop next` packet lifecycle commands, bind the emitted `show`,
+semantic-ingestion, or absorption command to a packet-specific ignored
+`AgentLoopDecision` artifact under
+`dev/reports/review_channel/control_decisions/`. Do not bind those commands to
+the mutable latest review-state artifact or a generic route decision; a newer
+packet must not invalidate the command that the reducer already emitted for the
+selected packet/action.
 During GuardIR extraction, `bridge.md` is intentionally rendered as a
 deprecated projection-only stub. Use typed state, contracts, receipts, repo
 policy, source code, and guards for authority; bridge stale/empty state is

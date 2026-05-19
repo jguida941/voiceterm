@@ -15111,3 +15111,32 @@ Evidence:
 - `dev/scripts/checks/check_plan_index_commit_continuity.py`
 - `dev/scripts/checks/packet_pkt_bind_completeness/core.py`
 - `dev/scripts/devctl/platform/runtime_state_contract_rows_review_core.py`
+
+## 2026-05-19 - Phase 0.6D packet lifecycle decisions use stable artifacts
+
+Phase 0.6D reducer dogfood found that route-level controller decisions were not
+stable enough for packet lifecycle commands. The final-response gate emitted an
+absorption command for `rev_pkt_4425`, but a later review-state refresh advanced
+the mutable latest decision to `rev_pkt_4472`; replaying the emitted command
+then failed against the wrong packet/action.
+
+`/develop next` now writes packet-specific ignored `AgentLoopDecision`
+artifacts under `dev/reports/review_channel/control_decisions/` for body-open,
+semantic-ingestion, and absorption commands, and the emitted command carries
+that file through `--control-decision-input`. Route-level decision artifacts
+remain valid for actor/role/session context, but lifecycle commands bind to the
+selected packet/action so a newer packet cannot make an already emitted command
+fail closed against unrelated controller state.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/control_decision_artifacts.py`
+- `dev/scripts/devctl/commands/development/packet_attention.py`
+- `dev/scripts/devctl/commands/development/packet_attention_body_followup.py`
+- `dev/scripts/devctl/commands/development/packet_attention_commands.py`
+- `dev/scripts/devctl/review_channel/agent_packet_attention.py`
+- `dev/scripts/devctl/review_channel/agent_packet_attention_body.py`
+- `dev/scripts/devctl/tests/runtime/test_control_decision_artifacts.py`
+- `dev/scripts/devctl/tests/commands/test_development_command.py`
+- `packet_absorption:rev_pkt_4425:af10f8615b8964c4`
+- `command_output:test-python:69aac104c469feb7`

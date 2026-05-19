@@ -9,6 +9,7 @@ from copy import deepcopy
 from pathlib import Path
 
 from ..runtime.authority_snapshot import project_authority_snapshot
+from ..runtime.control_decision_artifacts import write_control_decision_artifacts
 from .projection_bundle_compact import (
     build_compact_projection,
     projection_next_command,
@@ -80,6 +81,15 @@ def _json_artifact(payload: object) -> str:
     return json.dumps(payload, separators=(",", ":"))
 
 
+def _repo_root_for_review_channel_output(output_root: Path) -> Path | None:
+    parts = output_root.resolve().parts
+    marker = ("dev", "reports", "review_channel")
+    for index in range(len(parts) - len(marker), -1, -1):
+        if tuple(parts[index : index + len(marker)]) == marker:
+            return Path(*parts[:index])
+    return None
+
+
 def write_projection_bundle(
     *,
     output_root: Path,
@@ -98,10 +108,20 @@ def write_projection_bundle(
         full_extras=full_extras,
     )
     with projection_bundle_lock(output_root):
-        return write_prepared_projection_bundle(
+        paths = write_prepared_projection_bundle(
             output_root=output_root,
             contents=contents,
         )
+        repo_root = _repo_root_for_review_channel_output(output_root)
+        if repo_root is not None:
+            try:
+                write_control_decision_artifacts(
+                    json.loads(contents.review_state_json),
+                    repo_root=repo_root,
+                )
+            except (OSError, json.JSONDecodeError):
+                pass
+        return paths
 
 
 def prepare_projection_bundle_contents(

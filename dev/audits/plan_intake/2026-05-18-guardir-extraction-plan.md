@@ -1082,3 +1082,75 @@ All pushes go to `guardir` remote. `origin` (voiceterm) stays frozen at `835060c
 7. **PortabilityLeakInventory typing**: 22 blockers are prose-only in `ai_governance_platform.md:1150-1155`. **Recommended**: Phase 3B converts each to typed PlanRow with `MP377-GUARDIR-V21-PORTABILITY-S<n>` IDs.
 
 **Anti-sprawl rule** (operator directive — applies to ALL phases): do NOT create new plans, memory files, active docs, strategy docs, or "preservation context" markdown unless typed state explicitly requires the file. Claude memory is short-term continuity only; durable rules live in typed contracts, repo policy, receipts, guards. One planning document = this file. Source files (cached-hammock, may17, ai_governance_platform, MASTER_PLAN, INDEX, SYSTEM_MAP, AGENTS, CLAUDE.md) are referenced, not duplicated.
+
+---
+
+## Role-Flip Amendment 2026-05-19 (operator directive ~13:50 EDT)
+
+Operator amendment 2026-05-19T13:50 EDT: codex orchestrates and dolls out typed `task_started` packets to claude; claude codes, dogfoods, and spawns up to 8 parallel Explore/Plan agents per codex directives. Beta-test the system AS we build it — find automation gaps, fix them inline. Per `rev_pkt_4420` provider-neutral invariant: `TandemRole` is orthogonal to `CognitiveRole`. Role-flip is responsibility-cluster reassignment, NOT lane swap.
+
+### Phase 0.7 — Cognitive Role Fleet (NEW per role-flip amendment, accelerated from Phase 6)
+
+Land typed `CognitiveRole` enum + `CognitiveRoleFleetAssignment` contract + operator-editable `dev/config/cognitive_role_fleet.json` + `/round-orchestrator`, `/round-watcher`, `/round-research`, `/round-architecture-review`, `/round-scope-guard`, `/round-dogfood-test`, `/round-governance-receipt`, `/round-implementation` slash commands. Reference cached-hammock Priority 6 (lines 155-320 of `dev/audits/plan_intake/2026-05-18-cached-hammock-role-audit.md`) as design source.
+
+8 cognitive roles + natural owner under role-flip:
+
+| Role | Responsibility | Natural owner under flip |
+|---|---|---|
+| Orchestrator | Coordinates round, assigns work, prevents scope drift | Codex (review-side) |
+| Watcher | Monitors regressions, missing receipts, unsafe actions | Codex (review-side) |
+| Implementation / Command | Runs commands, applies patches, records results | Codex worker OR Claude worker (codex orchestrator assigns) |
+| Codex Research | Investigates codex evidence claims, shipped changes | Claude (worker dogfood) |
+| Architecture Review | Checks fit with governance lifecycle, safety boundaries | Claude (review-side) |
+| Duplicate / Scope Guard | Finds duplicates, scope-violations, dedup recommendations | Claude (review-side) |
+| Dogfood / Real-World Test | Tests shipped features in live workflow (not unit tests) | Claude (worker dogfood) |
+| Governance Receipt | Ensures every meaningful action has typed receipt | Shared per authority |
+
+### Bidirectional Role Split (extension to Role Split section above)
+
+`TandemRole` (`reviewer` / `implementer` / `operator`) is **orthogonal** to `CognitiveRole` (`orchestrator` / `watcher` / etc). Same actor can hold both axes simultaneously. Examples:
+- Codex = `TandemRole.REVIEWER` + `CognitiveRole.ORCHESTRATOR` (the review lane does orchestration, not implementation)
+- Claude = `TandemRole.IMPLEMENTER` + `CognitiveRole.{IMPLEMENTATION, DOGFOOD}` (the implementer lane does worker + dogfood)
+
+Under role-flip, the original "Claude MUST NOT mutate implementation files" boundary is **scoped to "without active codex task_started directive"**: claude MAY implement under typed codex orchestrator directive. Commit authority still requires typed proof; codex's `review_accepted` finding gates claude commits.
+
+### Bidirectional review-channel posts (Phase 0.6D authority)
+
+Commit `a4e1ef0b` "Phase 0.6D: authorize remote-lane review-channel posts" lands claude-source post authority via `--control-decision-input AgentLoopDecision.json`. Operator-source workaround no longer required once Phase 0.6D enforcement is wired into CI. Both directions require typed evidence refs (no chat-prose acceptance). See `dev/guides/DEVELOPMENT.md` lines ~2050+ for typed-state operator-approval pattern.
+
+### AgentMindSlice peer awareness (Phase 1 dogfood precondition)
+
+`AgentMindSlice` contract exists at `dev/scripts/devctl/runtime/agent_mind_slice.py` with `peer_awareness_policy` + `peer_awareness` dict fields. The dict is **currently empty-by-default** — Phase 1 dogfood must verify it populates with multi-peer state before role-flip is safe. Codex polls claude latest slice via `devctl agent-mind --agent claude --since-cursor <cursor>`. Claude polls codex via same pattern. Multi-peer real-time state polling is the orchestration substrate.
+
+### Guards that fail-closed on role-flip (3 named locks)
+
+Before role-flip is safe, these 3 guards must lock:
+
+1. **DogfoodRecord precondition on all `task_produced` regardless of `from_agent`**. Current state: `dev/scripts/devctl/review_channel/event_post_action.py:159` checks `from_agent="codex"` only. Amendment: enforce `DogfoodRecord.live_run_refs` populated on every `task_produced` packet, not just codex-source.
+2. **Orchestrator assignments via typed `CognitiveRoleFleetAssignment` NOT direct provider-name strings**. Phase 0.7 amendment requires `/round-*` slash commands or `devctl cognitive-role-fleet assign` for work routing. Mixed-mode packets (some provider-named, some role-named) confuse peer-awareness polling.
+3. **Phase 0.6D `--control-decision-input` validation enforced in CI workflows**. `.github/workflows/release_preflight.yml` + `tooling_control_plane.yml` must validate all `review-channel post` commands include valid `AgentLoopDecision` before merge. Currently `a4e1ef0b` adds infra + tests but no workflow enforcement.
+
+### System readiness assessment (Explore agent audit 2026-05-19T13:52Z)
+
+~65% of typed infrastructure exists. Critical enabler `a4e1ef0b` (Phase 0.6D) already landed. Gap: 3 guard-lock items above + `CognitiveRole` enum + `CognitiveRoleFleetAssignment` contracts (zero references currently in `dev/scripts/devctl/runtime/` or `dev/state/`).
+
+### Implementation order for role-flip safety
+
+1. Codex finishes current push-preflight close (1-2 commits max, do not balloon Phase 0.6.A scope further)
+2. Codex implements Phase 0.7 minimal: `CognitiveRole` enum + `CognitiveRoleFleetAssignment` contract + `cognitive_role_fleet.json` skeleton (NO slash commands yet)
+3. Codex implements Guard 1 (`DogfoodRecord` precondition on all `task_produced`)
+4. Codex implements Guard 3 (Phase 0.6D CI workflow enforcement in `release_preflight.yml` + `tooling_control_plane.yml`)
+5. Codex posts first `task_started` orchestrator-directive packet to claude with `CognitiveRole` assignment + scope + expected receipt — beta-test begins
+6. Claude executes directive, spawns parallel Explore/Plan agents as needed, posts back `finding` with typed receipt
+7. Iterate per cached-hammock 19-row substrate work, then Phase 0.5 identity guards, then Phase 1 `GitMutationProofReceipt`
+
+### Anchor placement decision (codex-owned per operator directive)
+
+Codex's session-bound continuation anchor (posted by claude at 2026-05-19T13:40Z, awaiting codex's accept/amend/reject) is **codex's call** per operator. Claude proposed priority order; codex's typed reply via `finding` packet (route codex→operator OR codex→claude) finalizes:
+1. Push preflight close
+2. Phase 0A Step 9 (instruction_boot_card.py L230-234 + `role_profile.py:50-53` cascade source)
+3. Cached-hammock 19-row substrate ingestion under `MP377-CACHED-HAMMOCK-ROLE-AUDIT-INGESTION-S1`
+4. Phase 0.5 identity guards
+5. Phase 1 `GitMutationProofReceipt`
+
+The role-flip amendment is **additive to existing scope** — implementation order #1-#5 above can begin under codex orchestration without first completing all 5 plan amendments. Amendments land incrementally as the system is used. Beta-test in motion.

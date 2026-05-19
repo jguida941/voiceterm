@@ -13,6 +13,7 @@ class PacketShowCommandRoute:
     session_id: str = ""
     target_role: str = ""
     target_session_id: str = ""
+    control_decision_input: str = ""
 
 
 def required_command_for_record(
@@ -39,6 +40,7 @@ def required_command_for_record(
                     session_id=route.session_id,
                     target_role=_packet_text(packet, "target_role"),
                     target_session_id=_packet_text(packet, "target_session_id"),
+                    control_decision_input=route.control_decision_input,
                 ),
             )
     if record.wake_reason != "expired_unresolved_packet":
@@ -68,6 +70,10 @@ def show_packet_command(
         command = f"{command} --target-role {route.target_role}"
     if route.target_session_id:
         command = f"{command} --target-session-id {route.target_session_id}"
+    if route.control_decision_input:
+        command = (
+            f"{command} --control-decision-input {route.control_decision_input}"
+        )
     return f"{command} --terminal none --format md"
 
 

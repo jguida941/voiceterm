@@ -45,6 +45,7 @@ def packet_attention_context(
         agent=agent,
         terminal_receipt_by_packet=terminal_receipts,
         durable_row_id_by_packet=plan_row_id_by_packet_receipt(receipts),
+        repo_root=REPO_ROOT,
     )
     return terminal_receipts, packet_attention
 

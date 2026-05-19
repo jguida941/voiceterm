@@ -10,6 +10,7 @@ from ...runtime.packet_absorption import (
     packet_absorbed,
     packet_semantically_ingested_by,
 )
+from ...runtime.control_decision_artifacts import control_decision_input_for_route
 from ...review_channel.agent_packet_attention import packet_attention_for_agent
 from ...review_channel.agent_packet_attention_body import (
     packet_absorption_command,
@@ -48,12 +49,17 @@ def packet_body_followup_for_selection(
 ) -> PacketBodyFollowup:
     """Return the strongest body lifecycle follow-up for the selected packet."""
 
-    route = active_actor_route(review_state, agent=agent)
+    route = _route_with_control_decision_input(
+        review_state,
+        agent=agent,
+        route=active_actor_route(review_state, agent=agent),
+    )
     body_attention = packet_attention_for_agent(
         review_state,
         actor=agent,
         role=route.actor_role,
         session=route.session_id,
+        control_decision_input=route.control_decision_input,
     )
     required, reason, body_packet_id, command = _body_attention_followup(
         body_attention
@@ -89,6 +95,30 @@ def active_actor_route(
             agent=agent,
             field="session_id",
         ),
+    )
+
+
+def _route_with_control_decision_input(
+    review_state: Mapping[str, object],
+    *,
+    agent: str,
+    route: PacketShowCommandRoute,
+) -> PacketShowCommandRoute:
+    control_decision_input = control_decision_input_for_route(
+        review_state,
+        actor=agent,
+        role=route.actor_role,
+        session_id=route.session_id,
+    )
+    if not control_decision_input:
+        return route
+    return PacketShowCommandRoute(
+        actor=route.actor,
+        actor_role=route.actor_role,
+        session_id=route.session_id,
+        target_role=route.target_role,
+        target_session_id=route.target_session_id,
+        control_decision_input=control_decision_input,
     )
 
 
@@ -164,6 +194,7 @@ def _selected_packet_body_followup(
                     session_id=session,
                     target_role=_packet_text(packet, "target_role"),
                     target_session_id=_packet_text(packet, "target_session_id"),
+                    control_decision_input=route.control_decision_input,
                 ),
             ),
         )
@@ -183,6 +214,7 @@ def _selected_packet_body_followup(
                 actor=actor_id,
                 role=role,
                 session=session,
+                control_decision_input=route.control_decision_input,
                 action_item_rows=semantic_action_item_rows_for_packet(packet),
             ),
         )
@@ -197,6 +229,7 @@ def _selected_packet_body_followup(
                 actor=actor_id,
                 role=role,
                 session=session,
+                control_decision_input=route.control_decision_input,
             ),
         )
 

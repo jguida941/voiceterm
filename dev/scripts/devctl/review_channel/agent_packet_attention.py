@@ -47,6 +47,7 @@ class _AttentionBuildInput:
     actor: str
     role: str
     session: str
+    control_decision_input: str
     attention_packet: Mapping[str, object]
     pending_packets: tuple[Mapping[str, object], ...]
     fallback: Mapping[str, object]
@@ -60,6 +61,7 @@ def packet_attention_for_agent(
     actor: str,
     role: str = "",
     session: str = "",
+    control_decision_input: str = "",
     fallback_attention: Mapping[str, object] | None = None,
 ) -> PacketAttentionState:
     """Return packet-attention state scoped to one requested actor."""
@@ -104,6 +106,7 @@ def packet_attention_for_agent(
             actor=actor_id,
             role=role_id,
             session=session_id,
+            control_decision_input=_text(control_decision_input),
             attention_packet=attention_packet,
             pending_packets=pending_packets,
             fallback=fallback,
@@ -249,6 +252,7 @@ def _build_attention(context: _AttentionBuildInput) -> PacketAttentionState:
             actor=context.actor,
             role=context.role,
             session=context.session,
+            control_decision_input=context.control_decision_input,
         )
         if body_open_required
         else ""
@@ -259,6 +263,7 @@ def _build_attention(context: _AttentionBuildInput) -> PacketAttentionState:
             actor=context.actor,
             role=context.role,
             session=context.session,
+            control_decision_input=context.control_decision_input,
             action_item_rows=_semantic_action_item_rows(body_open_packet),
         )
         if semantic_ingestion_required and not absorption_required
@@ -270,6 +275,7 @@ def _build_attention(context: _AttentionBuildInput) -> PacketAttentionState:
             actor=context.actor,
             role=context.role,
             session=context.session,
+            control_decision_input=context.control_decision_input,
         )
         if absorption_required
         else ""
@@ -295,6 +301,7 @@ def _build_attention(context: _AttentionBuildInput) -> PacketAttentionState:
                 actor=context.actor,
                 role=context.role,
                 session=context.session,
+                control_decision_input=context.control_decision_input,
             )
         )
     return build_packet_attention_state(
