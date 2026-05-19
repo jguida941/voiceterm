@@ -6012,7 +6012,11 @@ class PushBridgeSyncTests(unittest.TestCase):
             ),
         )
 
-        self.assertIn("check_publication_scope_integrity.py --format md &&", command)
+        self.assertIn(
+            "check_publication_scope_integrity_for_push.py --format md "
+            "--base-ref origin/feature/demo --head-ref HEAD &&",
+            command,
+        )
         self.assertIn("--since-ref origin/feature/demo", command)
 
     def test_build_preflight_shell_command_can_use_authorized_publication_scope(
@@ -6036,6 +6040,11 @@ class PushBridgeSyncTests(unittest.TestCase):
         )
 
         self.assertIn("--since-ref origin/feature/demo", command)
+        self.assertIn(
+            "check_publication_scope_integrity_for_push.py --format md "
+            "--base-ref origin/feature/demo --head-ref authorized-sha &&",
+            command,
+        )
         self.assertIn("--head-ref authorized-sha", command)
         self.assertIn("--range-scope-only", command)
         self.assertIn("--validation-scope pipeline_authorized_phase", command)

@@ -16320,14 +16320,23 @@ working branches for governed push. That preserves the extraction plan's branch
 contract without treating VoiceTerm-era `feature/*` defaults as portable
 governance authority.
 
+Dogfood follow-up: the publication-scope integrity guard now runs through a
+push-preflight adapter that resolves the same branch-aware base/head refs as
+check-router before calling the existing guard. New `extraction/*` branches
+without upstream configuration validate the authorized range instead of failing
+on `@{u}`, while dirty publication contamination still fails closed.
+
 Evidence:
 
+- `dev/scripts/checks/check_publication_scope_integrity_for_push.py`
 - `dev/scripts/devctl/commands/vcs/push.py`
 - `dev/scripts/devctl/commands/vcs/push_control_decision.py`
 - `dev/scripts/devctl/commands/vcs/push_authorization_control.py`
 - `dev/scripts/devctl/commands/vcs/push_attempted_command.py`
 - `dev/scripts/devctl/commands/vcs/push_control_decision_report.py`
 - `dev/scripts/devctl/commands/vcs/push_preflight_flow.py`
+- `dev/scripts/devctl/governance/push_routing.py`
+- `dev/scripts/devctl/governance/script_catalog_registry.py`
 - `dev/scripts/devctl/commands/sync.py`
 - `dev/scripts/devctl/runtime/control_decision_action_matching.py`
 - `dev/config/devctl_repo_policy.json`

@@ -82,15 +82,18 @@ def build_preflight_shell_command(
     check_router_command = normalize_repo_python_shell_command(
         inject_quality_policy_command(command, quality_policy_path)
     )
+    publication_scope_args = [
+        "python3",
+        "dev/scripts/checks/check_publication_scope_integrity_for_push.py",
+        "--format",
+        "md",
+        "--base-ref",
+        since_ref,
+    ]
+    if resolved_validation.head_ref:
+        publication_scope_args.extend(["--head-ref", resolved_validation.head_ref])
     publication_scope_command = normalize_repo_python_shell_command(
-        shlex.join(
-            [
-                "python3",
-                "dev/scripts/checks/check_publication_scope_integrity.py",
-                "--format",
-                "md",
-            ]
-        )
+        shlex.join(publication_scope_args)
     )
     return f"{publication_scope_command} && {check_router_command}"
 

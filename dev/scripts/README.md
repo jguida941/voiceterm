@@ -3418,6 +3418,11 @@ Governed push controller note:
   divergence, bridge-projection sync, and validation preflight routing so
   `push.py` stays a coordinator instead of accumulating preflight/controller
   concerns.
+- `dev/scripts/checks/check_publication_scope_integrity_for_push.py` is the
+  push-preflight adapter that resolves the same branch-aware base/head refs
+  used by check-router before delegating to
+  `check_publication_scope_integrity.py`; no-upstream extraction branches must
+  not fall back to `@{u}` during governed publication.
 - Keep branch allowlist updates in `dev/config/devctl_repo_policy.json` aligned
   with active extraction branches so governed push fails for real policy drift,
   not for an obsolete VoiceTerm-era branch prefix.

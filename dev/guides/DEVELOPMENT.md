@@ -2053,6 +2053,10 @@ Workflow permissions note:
    `check-router --validation-scope pipeline_authorized_phase`, which keeps
    docs-check and live projection guards planned while treating unrelated live
    worktree failures as advisory evidence for the authorized publication phase.
+   The publication-scope guard uses the same preflight-resolved base/head refs
+   as check-router through `check_publication_scope_integrity_for_push.py`, so
+   a new extraction branch with no configured upstream does not fall back to
+   `@{u}` and block before the authorized range is evaluated.
    Publication preflight is fail-fast by default:
    `repo_governance.push.preflight.fail_fast_on_blocker=true` means
    check-router is invoked without `--keep-going`, so the first blocking route
