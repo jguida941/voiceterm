@@ -64,8 +64,16 @@ VOICETERM_EXTENSION_BUNDLE = ExtensionBundle(
 )
 
 
+GUARDIR_EXTENSION_BUNDLE = ExtensionBundle(
+    repo_pack_id="guardir",
+    surfaces=VOICETERM_EXTENSION_BUNDLE.surfaces,
+    automations=VOICETERM_EXTENSION_BUNDLE.automations,
+)
+
+
 REGISTERED_EXTENSION_BUNDLES: dict[str, ExtensionBundle] = {
     VOICETERM_EXTENSION_BUNDLE.repo_pack_id: VOICETERM_EXTENSION_BUNDLE,
+    GUARDIR_EXTENSION_BUNDLE.repo_pack_id: GUARDIR_EXTENSION_BUNDLE,
 }
 
 

@@ -19,7 +19,7 @@ REPO_ROOT = Path("/Users/jguida941/testing_upgrade/codex-voice")
 def test_resolve_extension_bundle_from_repo_policy() -> None:
     bundle = resolve_extension_bundle(repo_root=REPO_ROOT)
 
-    assert bundle.repo_pack_id == "voiceterm"
+    assert bundle.repo_pack_id == "guardir"
     assert bundle.surface_ids() == [
         "codex_hooks",
         "claude_settings",
@@ -37,8 +37,8 @@ def test_projection_reports_surface_presence_and_missing_targets() -> None:
     report = build_extension_bundle_projection(repo_root=REPO_ROOT)
 
     assert report["ok"] is True
-    assert report["repo_pack_id"] == "voiceterm"
-    assert report["policy_pack_id"] == "voiceterm"
+    assert report["repo_pack_id"] == "guardir"
+    assert report["policy_pack_id"] == "guardir"
     assert report["surface_count"] == 4
     assert report["automation_count"] == 3
 
@@ -74,7 +74,7 @@ def test_markdown_renderer_includes_surface_and_automation_summary() -> None:
     rendered = render_extension_bundle_projection_markdown(report)
 
     assert "# devctl extension-bundle" in rendered
-    assert "- repo_pack_id: voiceterm" in rendered
+    assert "- repo_pack_id: guardir" in rendered
     assert "codex_hooks: state=missing" in rendered
     assert ".claude/settings.local.json" in rendered
     assert "full_ci: modes=local, github_workflow, codex_automation" in rendered
