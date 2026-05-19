@@ -53,14 +53,24 @@ posts now require exact allowed actions in `ControlDecisionObeyedGuard`, and
 `/develop next` preserves both actor route and packet route in generated show
 commands.
 
+Follow-up: the live CLI now exposes `review-channel --control-decision-input`
+so remote-lane packet writes can supply the same typed `AgentLoopDecision` that
+the guard already enforced internally. The GuardIR extraction plan-artifact,
+provider-hardcode, and topology-count guards are also wired into tooling and
+release workflows to keep bundle/workflow parity from silently dropping the
+Phase 0.6.C containment checks.
+
 Evidence:
 
 - `dev/scripts/devctl/runtime/action_routing.py`
 - `dev/scripts/devctl/runtime/control_decision_obedience.py`
 - `dev/scripts/devctl/review_channel/event_reducer_inbox.py`
 - `dev/scripts/devctl/commands/review_channel/event_handler.py`
+- `dev/scripts/devctl/review_channel/parser_query_arguments.py`
 - `dev/scripts/devctl/commands/development/packet_attention.py`
 - `dev/scripts/devctl/commands/development/packet_attention_commands.py`
+- `.github/workflows/tooling_control_plane.yml`
+- `.github/workflows/release_preflight.yml`
 
 ### 2026-05-15 - Agent-loop edit-only plan override exits wait loop
 

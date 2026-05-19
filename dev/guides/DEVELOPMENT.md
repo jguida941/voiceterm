@@ -91,6 +91,18 @@ Use docs like this:
   body-open -> semantic-ingestion -> absorption before generic packet pressure;
   a packet already observed by that actor role/session must not loop back to
   another `show`.
+- Governed remote-lane packet writes use the same provider-neutral controller
+  contract. When a `review-channel --action post` command is run from one actor
+  to another, pass `--control-decision-input <AgentLoopDecision.json>` when the
+  live decision is not already the scoped latest artifact; the decision must
+  authorize the exact post action such as `review-channel.post_task_progress`,
+  while `--target-role` remains packet-route metadata rather than actor
+  authority.
+- GuardIR extraction containment guards must be live in both the bundle
+  registry and CI workflows. The plan-artifact guard plus the provider-hardcode
+  and topology-count guards run in tooling and release lanes so a typed plan row
+  cannot claim Phase 0.6.C closure while the inventory/config/guard artifacts or
+  workflow coverage are missing.
 - Agent-supervision recovery stays typed and explicit. Use `devctl
   agent-supervise --format json` to inspect host/process liveness. Add
   `--execute` only when the report contains `SpawnDeadAgentAction`; the command

@@ -182,6 +182,7 @@ jobs:
           python3 dev/scripts/checks/check_agents_contract.py
           python3 dev/scripts/checks/check_release_version_parity.py
           python3 dev/scripts/checks/check_repo_url_parity.py
+          python3 dev/scripts/checks/check_guardir_extraction_plan_artifacts.py
           python3 dev/scripts/checks/check_publication_scope_integrity.py
           python3 dev/scripts/checks/check_launcher_authority_ordering.py
           python3 dev/scripts/checks/check_guard_enforcement_inventory.py
@@ -204,6 +205,8 @@ jobs:
           python3 dev/scripts/checks/check_runtime_state_ignore_posture.py
           python3 dev/scripts/checks/check_substrate_is_repo_portable.py
           python3 dev/scripts/checks/check_substrate_commits_have_applied_plan_row.py
+          python3 dev/scripts/checks/check_no_new_hardcoded_provider_authority.py
+          python3 dev/scripts/checks/check_no_new_topology_count_coupling.py
           python3 dev/scripts/checks/check_architecture_surface_sync.py --since-ref "${{ steps.ai_guard_range.outputs.since }}" --head-ref "${{ steps.ai_guard_range.outputs.head }}"
           python3 dev/scripts/checks/check_review_snapshot_freshness.py
           python3 dev/scripts/checks/check_instruction_surface_sync.py

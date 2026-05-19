@@ -57,10 +57,21 @@ selects a route-mismatched inbox packet, it must advance the reader's lifecycle
 from body observation to semantic ingestion to absorption before falling back to
 generic finding attention; it must not reissue `show` after the matching actor
 role/session body observation exists.
+For governed remote-lane writes, `review-channel --action post` accepts
+`--control-decision-input <AgentLoopDecision.json>` so a Codex-to-Claude,
+Claude-to-Codex, same-agent, operator, or future reviewer route can prove the
+exact allowed action without relying on provider names or operator-source
+bypass.
 During GuardIR extraction, `bridge.md` is intentionally rendered as a
 deprecated projection-only stub. Use typed state, contracts, receipts, repo
 policy, source code, and guards for authority; bridge stale/empty state is
 `projection_stale` and must not block backend work by itself.
+The GuardIR extraction plan-artifact guard and topology hardcode guards are
+part of both tooling and release workflow parity. Keep
+`check_guardir_extraction_plan_artifacts.py`,
+`check_no_new_hardcoded_provider_authority.py`, and
+`check_no_new_topology_count_coupling.py` wired in workflows whenever they are
+present in the bundle registry.
 For MCP-as-adapter rules and extension policy, see
 `dev/guides/MCP_DEVCTL_ALIGNMENT.md`.
 For portable-governance exports, benchmark planning, and multi-repo adoption,

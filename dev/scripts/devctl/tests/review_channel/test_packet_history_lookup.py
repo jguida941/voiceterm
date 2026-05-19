@@ -7,6 +7,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from dev.scripts.devctl import cli
 from dev.scripts.devctl.commands.review_channel_command.constants import (
     ReviewChannelAction,
 )
@@ -762,6 +763,102 @@ def test_allowed_task_progress_post_appends_attempted_action_receipt(tmp_path) -
     attempted = report["control_decision_obedience"]["attempted_action_receipt"]
     assert attempted["argv"][attempted["argv"].index("--kind") + 1] == "task_progress"
     assert _event_count(artifact_paths) == before + 2
+
+
+def test_remote_lane_task_progress_accepts_explicit_control_decision(tmp_path) -> None:
+    review_channel_path, artifact_paths = _seed_packet_event_state(tmp_path)
+    decision_path = tmp_path / "task_progress_decision.json"
+    decision_path.write_text(
+        json.dumps(
+            {
+                "contract_id": "AgentLoopDecision",
+                "actor_id": "codex",
+                "actor_role": "reviewer",
+                "session_id": "codex-review-session",
+                "decision": "wait",
+                "required_action": "wait_for_scoped_packet",
+                "may_mutate": False,
+                "can_run_next_command": False,
+                "allowed_actions": ["review-channel.post_task_progress"],
+                "source_latest_event_id": "rev_evt_1",
+            }
+        ),
+        encoding="utf-8",
+    )
+    before = _event_count(artifact_paths)
+    args = _post_args(
+        kind="task_progress",
+        summary="Remote lane progress",
+        body="Codex is sending typed progress to Claude through the remote lane.",
+        actor="codex",
+        actor_role="reviewer",
+        session_id="codex-review-session",
+        from_agent="codex",
+        to_agent="claude",
+        target_role="implementer",
+        target_session_id="claude-implementer-session",
+        control_decision_input=str(decision_path),
+    )
+
+    report, exit_code = _run_event_action(
+        args=args,
+        repo_root=tmp_path,
+        paths={
+            "review_channel_path": review_channel_path,
+            "artifact_paths": artifact_paths,
+        },
+    )
+
+    assert exit_code == 0
+    assert report["event"]["event_type"] == "packet_posted"
+    assert report["packet"]["from_agent"] == "codex"
+    assert report["packet"]["to_agent"] == "claude"
+    assert report["packet"]["kind"] == "task_progress"
+    assert report["packet"]["target_role"] == "implementer"
+    assert report["control_decision_obedience"]["ok"] is True
+    attempted = report["control_decision_obedience"]["attempted_action_receipt"]
+    assert attempted["actor"] == "codex"
+    assert attempted["role"] == "reviewer"
+    assert attempted["session_id"] == "codex-review-session"
+    assert attempted["argv"][attempted["argv"].index("--target-role") + 1] == (
+        "implementer"
+    )
+    assert _event_count(artifact_paths) == before + 2
+
+
+def test_review_channel_parser_accepts_control_decision_input_for_remote_lane() -> None:
+    args = cli.build_parser().parse_args(
+        [
+            "review-channel",
+            "--action",
+            "post",
+            "--from-agent",
+            "codex",
+            "--to-agent",
+            "claude",
+            "--kind",
+            "task_progress",
+            "--summary",
+            "Remote lane progress",
+            "--body",
+            "body",
+            "--actor",
+            "codex",
+            "--actor-role",
+            "reviewer",
+            "--session-id",
+            "codex-review-session",
+            "--target-role",
+            "implementer",
+            "--control-decision-input",
+            "decision.json",
+        ]
+    )
+
+    assert args.control_decision_input == "decision.json"
+    assert args.actor == "codex"
+    assert args.actor_role == "reviewer"
+    assert args.target_role == "implementer"
 
 
 def test_allowed_task_produced_post_appends_attempted_action_receipt(tmp_path) -> None:

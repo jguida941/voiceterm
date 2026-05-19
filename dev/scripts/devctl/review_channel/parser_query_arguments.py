@@ -40,6 +40,14 @@ def _packet_lookup_arguments(arg_builder: Callable[..., Any]) -> list[Any]:
             ),
         ),
         arg_builder(
+            "--control-decision-input",
+            default="",
+            help=(
+                "AgentLoopDecision/control decision JSON path enforced before "
+                "state-changing review-channel actions."
+            ),
+        ),
+        arg_builder(
             "--executor-actor",
             help=(
                 "Optional local executor actor when a typed lifecycle command "

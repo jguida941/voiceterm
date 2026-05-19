@@ -376,6 +376,9 @@ jobs:
       - name: Run repo URL parity guard
         run: python3 dev/scripts/checks/check_repo_url_parity.py
 
+      - name: Run GuardIR extraction plan artifact guard
+        run: python3 dev/scripts/checks/check_guardir_extraction_plan_artifacts.py
+
       - name: Run devctl cold-boot import smoke guard
         run: python3 dev/scripts/checks/check_devctl_cold_boot.py --format md
 
@@ -647,6 +650,12 @@ jobs:
 
       - name: Run provider list parity graph guard
         run: python3 dev/scripts/checks/check_provider_list_parity_graph.py
+
+      - name: Run hardcoded provider authority guard
+        run: python3 dev/scripts/checks/check_no_new_hardcoded_provider_authority.py
+
+      - name: Run topology count-coupling guard
+        run: python3 dev/scripts/checks/check_no_new_topology_count_coupling.py
 
       - name: Run pytest runtime policy guard
         run: python3 dev/scripts/checks/check_pytest_runtime_policy.py
