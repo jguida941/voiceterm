@@ -117,6 +117,13 @@ Current ingestion status:
   control-decision, packet-absorption, launcher-authority, publication-scope,
   and substrate-plan-row guards are listed in `dev/scripts/README.md` before
   governed push is allowed to publish.
+- 2026-05-19 governance-closure CI coverage repair wires those contextual
+  guards into `tooling_control_plane.yml` without converting smoke coverage
+  into live proof. Command-output, control-decision, and packet-absorption
+  guards run with explicit `--stdin --allow-empty` smoke payloads, while
+  publication-scope integrity runs through the push adapter with the workflow
+  base/head range. Live acceptance still requires typed subject input,
+  receipts, or the governed push adapter.
 - 2026-05-12 bypass-launch blocker repair: blanket trusted/headless launch
   elevation now has a typed lifecycle boundary. `BypassRequest` evaluates into
   `BypassEvaluation`, produces a scoped `BypassReceipt`, and remains usable only

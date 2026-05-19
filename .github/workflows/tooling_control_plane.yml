@@ -530,6 +530,38 @@ jobs:
       - name: Run tandem-consistency guard
         run: python3 dev/scripts/checks/check_tandem_consistency.py
 
+      - name: Run command-output consumption guard smoke
+        run: |
+          set -euo pipefail
+          printf '{}\n' | python3 dev/scripts/checks/check_command_output_consumed.py \
+            --stdin --allow-empty --format md
+
+      - name: Run control-decision consistency guard smoke
+        run: |
+          set -euo pipefail
+          printf '{}\n' | python3 dev/scripts/checks/check_control_decision_consistency.py \
+            --stdin --allow-empty --format md
+
+      - name: Run control-decision obedience guard smoke
+        run: |
+          set -euo pipefail
+          printf '{}\n' | python3 dev/scripts/checks/check_control_decision_obeyed.py \
+            --stdin --allow-empty --format md
+
+      - name: Run packet-absorption required guard smoke
+        run: |
+          set -euo pipefail
+          printf '{}\n' | python3 dev/scripts/checks/check_packet_absorption_required.py \
+            --stdin --allow-empty --format md
+
+      - name: Run push publication-scope integrity guard
+        run: |
+          set -euo pipefail
+          python3 dev/scripts/checks/check_publication_scope_integrity_for_push.py \
+            --base-ref "${{ steps.range.outputs.since }}" \
+            --head-ref "${{ steps.range.outputs.head }}" \
+            --format md
+
       - name: Run governance-closure guard
         run: python3 dev/scripts/checks/check_governance_closure.py
 

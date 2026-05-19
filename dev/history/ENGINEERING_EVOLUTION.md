@@ -16415,3 +16415,30 @@ Evidence:
 - `dev/scripts/devctl/tests/commands/check/test_check.py`
 - `dev/scripts/devctl/tests/commands/check/test_check_router.py`
 - `rust/src/bin/voiceterm/event_loop/tests/dev_panel_overlay/refresh_poll.rs`
+
+### 2026-05-19 - Governance closure covers subject-driven guards explicitly
+
+The next governed-push preflight passed the publication-scope and proof guards
+but failed `check_governance_closure.py`: five registered guard entrypoints
+were present in the script catalog yet absent from CI workflow text. Four of
+those guards are intentionally subject-driven (`command_output_consumed`,
+`control_decision_consistency`, `control_decision_obeyed`, and
+`packet_absorption_required`), so running them as no-subject live checks would
+turn historic packet debt or missing controller payloads into false CI
+blockers.
+
+`tooling_control_plane.yml` now gives those contextual guards explicit
+`--stdin --allow-empty` smoke coverage, while `check_publication_scope_integrity_for_push.py`
+runs with the workflow-resolved base/head refs. This keeps governance closure
+honest about CI coverage without weakening the live proof rule: real acceptance
+still needs typed input, receipts, or the governed push adapter.
+
+Evidence:
+
+- `.github/workflows/tooling_control_plane.yml`
+- `dev/scripts/checks/check_governance_closure.py`
+- `dev/scripts/checks/check_command_output_consumed.py`
+- `dev/scripts/checks/check_control_decision_consistency.py`
+- `dev/scripts/checks/check_control_decision_obeyed.py`
+- `dev/scripts/checks/check_packet_absorption_required.py`
+- `dev/scripts/checks/check_publication_scope_integrity_for_push.py`

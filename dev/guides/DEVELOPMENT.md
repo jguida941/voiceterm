@@ -705,6 +705,11 @@ Three quality layers matter in practice:
   workflow, release, or guard changes must also keep this guide,
   `dev/scripts/README.md`, and `dev/history/ENGINEERING_EVOLUTION.md` current
   before rerunning `python3 dev/scripts/devctl.py push --execute`.
+- `check_governance_closure.py` requires registered default guards to have CI
+  coverage. Guards that need a typed subject, such as command-output,
+  control-decision, and packet-absorption guards, should use explicit
+  `--stdin --allow-empty` smoke coverage in CI; live acceptance still requires
+  typed input, receipts, or the governed push adapter.
 - Feature-proof truth is guarded separately from proof existence. Run
   `check_feature_has_proof_receipt.py` to prove commits have FPR artifacts, and
   `check_non_trivial_output_proof.py` to reject `proven_passed` receipts whose
@@ -1657,8 +1662,9 @@ Three quality layers matter in practice:
   so the resolved inventory and AI/dev instruction surfaces stay aligned. When
   the change promotes a new shared guard, also rerun
   `check_guard_enforcement_inventory.py` and
-  `check_bundle_workflow_parity.py` so typed policy, bundle authority, and CI
-  workflow lanes converge before governed push.
+  `check_bundle_workflow_parity.py` so typed policy, bundle authority, CI
+  workflow lanes, and governance-closure CI coverage converge before governed
+  push.
 - Plan-row continuity is guarded by
   `check_plan_index_commit_continuity.py`: new governed `PlanRow` entries such
   as MP-378 closures, task-start bindings, and guard charters need a `commit:`

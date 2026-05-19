@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `extraction/guardir-core-p0-proof-integrity`
-- HEAD: `6a9b5c68064f` — Stop claiming real-life proof without pytest nodes
-- Tree hash: `718d69dbb371`
-- Generation stamp: `snap-fc09b5c80985`
-- Generated at (UTC): 2026-05-19T05:49:36Z
-- Push decision: `run_devctl_push` — push_preconditions_satisfied
+- HEAD: `27a086e365b2` — Refresh external review snapshot for 6a9b5c68
+- Tree hash: `83a42fdfbac0`
+- Generation stamp: `snap-a918e02723ac`
+- Generated at (UTC): 2026-05-19T06:08:42Z
+- Push decision: `await_checkpoint` — staged_index_present
 - Reviewer mode: `tools_only` (interaction: `local_terminal`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 25 commits, 80 files, +5450/-2489
+- Delta since last snapshot: 25 commits, 80 files, +5413/-2544
 - Governance findings: 27 open / 0 fixed / 27 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -28,23 +28,23 @@ production client (VoiceTerm...
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `extraction/guardir-core-p0-proof-integrity`
-- HEAD SHA: `6a9b5c68064f9594b982aaa1f7f6098608f184c6`
+- HEAD SHA: `27a086e365b2642b2187d3461dce6b883013500f`
 - HEAD author: Justin Guida
 - HEAD timestamp (UTC): 2026-05-19T01:49:15-04:00
 
 ## 2. Governance state
 
 ### Push decision
-- action: `run_devctl_push`
-- reason: push_preconditions_satisfied
-- push_eligible_now: True
-- worktree_clean: True
-- staged_path_count: 0
+- action: `await_checkpoint`
+- reason: staged_index_present
+- push_eligible_now: False
+- worktree_clean: False
+- staged_path_count: 9
 - unstaged_path_count: 0
-- next_step_command: `python3 dev/scripts/devctl.py push --execute`
+- next_step_command: `n/a`
 - latest_push_report_state: `blocked` (validation_failed)
 - publication_backlog: queued
-- publication_guidance: Local branch still has unpublished work waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
+- publication_guidance: Local branch still has unpublished work waiting for governed push once the current slice is checkpoint-clean.
 
 ### Reviewer runtime
 - reviewer_mode: `tools_only`
@@ -60,17 +60,17 @@ production client (VoiceTerm...
 - active plan: **AI Governance Platform Plan**
 - plan path: `dev/active/ai_governance_platform.md`
 - active MP scope: `MP-377`
-- advisory: `no_push_needed` — clean_worktree
+- advisory: `checkpoint_allowed` — worktree_dirty_within_budget
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 25 commits ending at `6a9b5c68064f`
+Range: last 25 commits ending at `27a086e365b2`
 
 - commits: 25
 - files changed: 80
-- insertions: +5450
-- deletions: -2489
-- bundle classes touched: docs, tooling, runtime
+- insertions: +5413
+- deletions: -2544
+- bundle classes touched: tooling, docs, runtime
 - risk add-ons triggered: Threading / lifecycle / memory, Performance / latency
 - authority surfaces touched: 6 file(s)
 
@@ -78,31 +78,31 @@ Range: last 25 commits ending at `6a9b5c68064f`
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `6a9b5c68` | Stop claiming real-life proof without pytest nodes | 12 | +123/-61 | tooling |  |
-| 2 | `3fbbc5fe` | Refresh external review snapshot for 58db3f97 | 1 | +52/-49 | tooling |  |
-| 3 | `58db3f97` | Record ground-truth receipt for release preflight | 2 | +48/-46 | tooling |  |
-| 4 | `10ad9a2c` | Refresh external review snapshot for 8afa3efa | 1 | +65/-71 | tooling |  |
-| 5 | `8afa3efa` | Classify guard enforcement lanes for release preflight | 15 | +407/-303 | tooling |  |
-| 6 | `801df43e` | Refresh external review snapshot for 1efa1407 | 1 | +63/-65 | tooling |  |
-| 7 | `1efa1407` | Route publication-scope release checks through push refs | 10 | +109/-51 | tooling |  |
-| 8 | `4d80a6f9` | Refresh external review snapshot for a68c6b47 | 1 | +64/-79 | tooling |  |
-| 9 | `a68c6b47` | Document release hygiene guard inventory | 8 | +84/-47 | tooling |  |
-| 10 | `12600f3f` | Refresh external review snapshot for 7a272579 | 1 | +69/-64 | tooling |  |
-| 11 | `7a272579` | Phase 0.6A: propagate validation scope through release chec… | 18 | +240/-85 | tooling | Threading / lifecycle / memory, Performance / latency |
-| 12 | `38057f5c` | Refresh external review snapshot for 15425337 | 1 | +60/-61 | tooling |  |
-| 13 | `15425337` | Phase 0.6A: carry push preflight refs into publication scope | 13 | +200/-61 | tooling |  |
-| 14 | `cf75f3f4` | Refresh external review snapshot for 9716470b | 1 | +69/-76 | tooling |  |
-| 15 | `9716470b` | Phase 0.6A: bind governed push to publication authorization | 19 | +815/-419 | tooling |  |
-| 16 | `fcb709ef` | Refresh external review snapshot for 36a930f7 | 1 | +55/-57 | tooling |  |
-| 17 | `36a930f7` | Phase 0.6A: fix typed collaboration routing and controller… | 21 | +1391/-447 | tooling |  |
-| 18 | `ddaf58f5` | Refresh external review snapshot for f2f152dd | 1 | +67/-64 | tooling |  |
-| 19 | `f2f152dd` | Phase 0A: bridge and boot-card projection kill-switch | 18 | +328/-224 | tooling |  |
-| 20 | `b161e95b` | Phase 0.6.C: AGENTS.md vs CLAUDE.md projection-parity viola… | 2 | +2/-2 | tooling |  |
-| 21 | `286b8703` | Phase 0.6.A: add alias-authority-parity guardrail | 2 | +2/-1 | tooling |  |
-| 22 | `87f1248e` | Narrow Phase 0.6 to entrypoint, bridge containment, and top… | 2 | +69/-68 | tooling |  |
-| 23 | `815901f4` | Refresh external review snapshot for b16d00a4 | 2 | +72/-74 | docs |  |
-| 24 | `b16d00a4` | Phase 0.4-Bootstrap IMPLEMENTATION: launcher + post authori… | 21 | +900/-13 | tooling |  |
-| 25 | `b85ed85a` | Phase 0.6 amendment: Entry-Point Hardening + Bridge Retirem… | 2 | +96/-1 | tooling |  |
+| 1 | `27a086e3` | Refresh external review snapshot for 6a9b5c68 | 1 | +59/-56 | tooling |  |
+| 2 | `6a9b5c68` | Stop claiming real-life proof without pytest nodes | 12 | +123/-61 | tooling |  |
+| 3 | `3fbbc5fe` | Refresh external review snapshot for 58db3f97 | 1 | +52/-49 | tooling |  |
+| 4 | `58db3f97` | Record ground-truth receipt for release preflight | 2 | +48/-46 | tooling |  |
+| 5 | `10ad9a2c` | Refresh external review snapshot for 8afa3efa | 1 | +65/-71 | tooling |  |
+| 6 | `8afa3efa` | Classify guard enforcement lanes for release preflight | 15 | +407/-303 | tooling |  |
+| 7 | `801df43e` | Refresh external review snapshot for 1efa1407 | 1 | +63/-65 | tooling |  |
+| 8 | `1efa1407` | Route publication-scope release checks through push refs | 10 | +109/-51 | tooling |  |
+| 9 | `4d80a6f9` | Refresh external review snapshot for a68c6b47 | 1 | +64/-79 | tooling |  |
+| 10 | `a68c6b47` | Document release hygiene guard inventory | 8 | +84/-47 | tooling |  |
+| 11 | `12600f3f` | Refresh external review snapshot for 7a272579 | 1 | +69/-64 | tooling |  |
+| 12 | `7a272579` | Phase 0.6A: propagate validation scope through release chec… | 18 | +240/-85 | tooling | Threading / lifecycle / memory, Performance / latency |
+| 13 | `38057f5c` | Refresh external review snapshot for 15425337 | 1 | +60/-61 | tooling |  |
+| 14 | `15425337` | Phase 0.6A: carry push preflight refs into publication scope | 13 | +200/-61 | tooling |  |
+| 15 | `cf75f3f4` | Refresh external review snapshot for 9716470b | 1 | +69/-76 | tooling |  |
+| 16 | `9716470b` | Phase 0.6A: bind governed push to publication authorization | 19 | +815/-419 | tooling |  |
+| 17 | `fcb709ef` | Refresh external review snapshot for 36a930f7 | 1 | +55/-57 | tooling |  |
+| 18 | `36a930f7` | Phase 0.6A: fix typed collaboration routing and controller… | 21 | +1391/-447 | tooling |  |
+| 19 | `ddaf58f5` | Refresh external review snapshot for f2f152dd | 1 | +67/-64 | tooling |  |
+| 20 | `f2f152dd` | Phase 0A: bridge and boot-card projection kill-switch | 18 | +328/-224 | tooling |  |
+| 21 | `b161e95b` | Phase 0.6.C: AGENTS.md vs CLAUDE.md projection-parity viola… | 2 | +2/-2 | tooling |  |
+| 22 | `286b8703` | Phase 0.6.A: add alias-authority-parity guardrail | 2 | +2/-1 | tooling |  |
+| 23 | `87f1248e` | Narrow Phase 0.6 to entrypoint, bridge containment, and top… | 2 | +69/-68 | tooling |  |
+| 24 | `815901f4` | Refresh external review snapshot for b16d00a4 | 2 | +72/-74 | docs |  |
+| 25 | `b16d00a4` | Phase 0.4-Bootstrap IMPLEMENTATION: launcher + post authori… | 21 | +900/-13 | tooling |  |
 
 ### Files
 
@@ -114,9 +114,9 @@ Range: last 25 commits ending at `6a9b5c68064f`
 | `bridge.md` | docs | +29/-151 |
 | `dev/active/MASTER_PLAN.md` | tooling | +45/-2 |
 | `dev/active/ai_governance_platform.md` | tooling | +71/-3 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1130/-1136 |
-| `dev/audits/plan_intake/2026-05-18-guardir-extraction-plan.md` | tooling | +226/-75 |
-| `dev/audits/plan_intake/sha256-manifest.txt` | tooling | +5/-5 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1189/-1192 |
+| `dev/audits/plan_intake/2026-05-18-guardir-extraction-plan.md` | tooling | +131/-75 |
+| `dev/audits/plan_intake/sha256-manifest.txt` | tooling | +4/-4 |
 | `dev/config/devctl_repo_policy.json` | tooling | +1/-0 |
 | `dev/guides/DEVELOPMENT.md` | docs | +50/-2 |
 | `dev/guides/SYSTEM_MAP.md` | docs | +6/-6 |
@@ -221,6 +221,8 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`27a086e3`** — Refresh external review snapshot for 6a9b5c68
+  - evolution: The GuardIR extraction checkpoint exposed a live-controller gap: parser and alias parity could pass while the governed `review-channel` path still hid actor-addressed packets, disclosed packet bodies before failing the …
 - **`6a9b5c68`** — Stop claiming real-life proof without pytest nodes
   - evolution: The GuardIR extraction checkpoint exposed a live-controller gap: parser and alias parity could pass while the governed `review-channel` path still hid actor-addressed packets, disclosed packet bodies before failing the …
 - **`3fbbc5fe`** — Refresh external review snapshot for 58db3f97
@@ -262,8 +264,6 @@ Recent findings:
 - **`815901f4`** — Refresh external review snapshot for b16d00a4
 - **`b16d00a4`** — Phase 0.4-Bootstrap IMPLEMENTATION: launcher + post authority-ordering fix
   - Operator-issued 2026-05-18T~17:30 EDT. This commit lands the Phase 0.4-Bootstrap implementation files codex shipped during exec session (PID 61481, session 019e3cc2-c993-75c1-851a-24866d133b5d). Prior commit b85ed85a was the Phase 0.6 PLAN AMENDMENT only — this commit makes the Phase 0.4 IMPLEMENTATION durable on GuardIR extraction branch.
-- **`b85ed85a`** — Phase 0.6 amendment: Entry-Point Hardening + Bridge Retirement + Role-Based Topology
-  - Operator amendment 2026-05-18T~17:00 EDT. Threads three architectural root-cause concerns already specified in cached-hammock plan into canonical extraction plan as Phase 0.6 (lands BEFORE Phase 1 P0 proof-integrity).
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -282,7 +282,7 @@ Recent findings:
 - open governance findings: 27
 
 ### Startup advisories
-- no_push_needed: clean_worktree
+- checkpoint_allowed: worktree_dirty_within_budget
 
 ### Stale warnings
 - Move straight to the governed push path.
@@ -306,4 +306,4 @@ repo_path=/Users/jguida941/testing_upgrade/codex-voice
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-fc09b5c80985` binds this file to HEAD `6a9b5c68064f`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-a918e02723ac` binds this file to HEAD `27a086e365b2`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
