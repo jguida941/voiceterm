@@ -29,6 +29,9 @@ _bridge_heading_aliases = importlib.import_module(
 _typed_bridge_state = importlib.import_module(
     "dev.scripts.checks.review_channel_bridge.typed_state"
 )
+_projection_stub = importlib.import_module(
+    "dev.scripts.checks.review_channel_bridge.projection_stub"
+)
 
 DEFAULT_CODEX_POLL_STALE_AFTER_SECONDS = _review_channel_handoff.DEFAULT_CODEX_POLL_STALE_AFTER_SECONDS
 extract_bridge_snapshot = _review_channel_handoff.extract_bridge_snapshot
@@ -38,7 +41,6 @@ canonical_bridge_heading = _bridge_heading_aliases.canonical_bridge_heading
 
 BRIDGE_PATH = REPO_ROOT / "bridge.md"
 REVIEW_CHANNEL_PATH = REPO_ROOT / "dev/active/review_channel.md"
-DEPRECATED_BRIDGE_STUB_MARKER = "bridge.md - Deprecated Projection Stub"
 
 REQUIRED_BRIDGE_H2 = [
     "Start-Of-Conversation Rules",
@@ -142,14 +144,6 @@ def _marker_variants(marker: str) -> tuple[str, ...]:
             if canonical in value:
                 variants.add(value.replace(canonical, alias))
     return tuple(variants)
-
-
-def _is_deprecated_bridge_stub(text: str) -> bool:
-    return (
-        DEPRECATED_BRIDGE_STUB_MARKER in text
-        and "This file is not authority." in text
-        and "projection_stale" in text
-    )
 
 
 def _bridge_role_names(text: str) -> tuple[str, str]:
@@ -281,24 +275,11 @@ def _build_path_report(
     untracked = require_tracked and not _is_tracked_by_git(path)
 
     text = path.read_text(encoding="utf-8")
-    if path == BRIDGE_PATH and _is_deprecated_bridge_stub(text):
-        return {
-            "path": relative_path,
-            "ok": not untracked,
-            "active": True,
-            "deprecated_projection_stub": True,
-            "projection_stale": True,
-            "missing_h2": [],
-            "missing_markers": [],
-            **(
-                {
-                    "untracked": True,
-                    "error": f"Bridge-active file is untracked by git: {relative_path}",
-                }
-                if untracked
-                else {}
-            ),
-        }
+    if path == BRIDGE_PATH and _projection_stub.is_deprecated_bridge_stub(text):
+        return _projection_stub.deprecated_bridge_stub_report(
+            relative_path=relative_path,
+            untracked=untracked,
+        )
     headings = _extract_h2(text)
     missing_h2 = [heading for heading in required_h2 if heading not in headings] if required_h2 is not None else []
     if path == BRIDGE_PATH:
