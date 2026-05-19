@@ -16,6 +16,7 @@ from dev.scripts.devctl.review_channel.agent_loop_decision_queue_targets import 
 )
 
 from .runtime_truth_agent_loop_communication import (
+    _active_lifecycle_focus_matches_candidates,
     _active_focus_is_communication_only,
     _packet_is_communication_only,
 )
@@ -110,6 +111,11 @@ def _packet_inbox_mismatch_errors(
                 active_rows,
                 active_packets,
                 packet_index,
+            )
+            and not _active_lifecycle_focus_matches_candidates(
+                active_rows,
+                active_packets,
+                pending_ids,
             )
             and not _body_open_subqueue_matches(
                 active_rows,

@@ -7,6 +7,31 @@ from collections.abc import Mapping
 from dev.scripts.devctl.runtime.value_coercion import coerce_text
 
 
+_PACKET_LIFECYCLE_ACTIONS = frozenset(
+    (
+        "absorb_packet",
+        "ingest_packet_semantics",
+    )
+)
+
+
+def _active_lifecycle_focus_matches_candidates(
+    active_rows: tuple[Mapping[str, str], ...],
+    active_packets: frozenset[str],
+    candidate_packet_ids: tuple[str, ...],
+) -> bool:
+    if not candidate_packet_ids:
+        return False
+    candidates = frozenset(candidate_packet_ids)
+    for row in active_rows:
+        packet_id = row.get("packet_id", "")
+        if packet_id not in active_packets or packet_id not in candidates:
+            continue
+        if row.get("required_action") in _PACKET_LIFECYCLE_ACTIONS:
+            return True
+    return False
+
+
 def _active_focus_is_communication_only(
     active_rows: tuple[Mapping[str, str], ...],
     active_packets: frozenset[str],

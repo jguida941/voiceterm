@@ -15182,3 +15182,28 @@ Evidence:
 - `dev/scripts/devctl/runtime/stage_progress.py`
 - `dev/scripts/devctl/review_channel/packet_anchor_release.py`
 - `dev/scripts/checks/check_function_duplication.py`
+
+## 2026-05-19 - Packet lifecycle focus stays ahead of inbox projection drift
+
+The routed SLICE-Z proof then hit live `check_multi_agent_sync.py` state where
+the packet inbox projected a newer top instruction while typed agent-loop state
+was still ingesting an older packet that remained in the actionable list. The
+multi-agent runtime-truth guard now permits that stricter lifecycle focus only
+when the active `ingest_packet_semantics` / `absorb_packet` packet is still
+listed in `pending_actionable_packet_ids`; if it falls out of the candidate
+list, the inbox mismatch still fails.
+
+The same pass consumed `rev_pkt_4529`: `startup_context.py` re-exports the
+legacy private interaction-mode helper name, and the legacy operator-mode test
+now supplies active `RemoteControlAttachmentState` proof before expecting
+`remote_control` promotion.
+
+Evidence:
+
+- `dev/scripts/checks/multi_agent_sync/runtime_truth_agent_loop_instruction.py`
+- `dev/scripts/checks/multi_agent_sync/runtime_truth_agent_loop_communication.py`
+- `dev/scripts/devctl/runtime/startup_context.py`
+- `dev/scripts/devctl/tests/checks/test_check_multi_agent_sync.py`
+- `dev/scripts/devctl/tests/runtime/test_operator_mode_fail_closed.py`
+- `command_output:test-python:7b9e46abc0cd72a3`
+- `command_output:test-python:6305e6e1d4244370`

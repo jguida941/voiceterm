@@ -13,7 +13,11 @@ if TYPE_CHECKING:
     from .review_state_models import ReviewState
 
 from .authority_snapshot import AuthoritySnapshot, project_authority_snapshot
-from .authority_snapshot_actions import AuthorityModeInputs, authority_mode_projection
+from .authority_snapshot_actions import (
+    AuthorityModeInputs,
+    authority_mode_projection,
+    interaction_mode_from_reviewer_mode as _interaction_mode_from_reviewer_mode,
+)
 from .control_topology import derive_startup_control_truth
 from .governance_scan import scan_repo_governance_safely
 from .key_surfaces import startup_key_surfaces

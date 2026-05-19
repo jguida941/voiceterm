@@ -779,7 +779,11 @@ Three quality layers matter in practice:
   require synthetic agent-loop decisions. Its agent-loop instruction helpers
   treat scoped communication-only `open_packet_body` focus as stricter body
   ingestion proof, not as permission for older queue/inbox projections to
-  regain mutation authority.
+  regain mutation authority. Packet-inbox drift checks also allow typed
+  `ingest_packet_semantics` / `absorb_packet` lifecycle focus to supersede the
+  inbox top item only while the active packet still appears in
+  `pending_actionable_packet_ids`; stale lifecycle focus remains a guard
+  failure.
 - Keep one workflow, not a dev-vs-agent fork:
   - `active_dual_agent` is the fully enforced Codex/Claude loop. Use
     `python3 dev/scripts/devctl.py tandem-validate --format md` after code edits.

@@ -16695,3 +16695,42 @@ Evidence:
 - `dev/scripts/devctl/runtime/stage_progress.py`
 - `dev/scripts/devctl/review_channel/packet_anchor_release.py`
 - `dev/scripts/checks/check_function_duplication.py`
+
+### 2026-05-19 - Multi-agent sync recognizes pending lifecycle packet focus
+
+The SLICE-Z routed proof then exposed a live-state-sensitive
+`check_multi_agent_sync.py` failure: Claude's typed `AgentLoopDecision` was
+still ingesting an older packet while the packet inbox projected a newer top
+instruction. The older packet was still present in
+`pending_actionable_packet_ids`, so this was a stricter lifecycle subqueue, not
+stale authority.
+
+The runtime-truth helper now allows `ingest_packet_semantics` and
+`absorb_packet` active focus to supersede the inbox top item only when that
+active packet remains in the pending actionable list. A paired regression keeps
+stale lifecycle focus failing when the active packet has fallen out of the
+candidate list.
+
+Evidence:
+
+- `dev/scripts/checks/multi_agent_sync/runtime_truth_agent_loop_instruction.py`
+- `dev/scripts/checks/multi_agent_sync/runtime_truth_agent_loop_communication.py`
+- `dev/scripts/devctl/tests/checks/test_check_multi_agent_sync.py`
+- `command_output:test-python:9bdd0be025ae5f6f`
+
+### 2026-05-19 - Startup interaction-mode compatibility test follows attachment proof
+
+The same live review packet (`rev_pkt_4529`) found that
+`test_operator_mode_fail_closed.py` still imported the old private
+startup-context helper name after interaction-mode resolution moved into
+`authority_snapshot_actions.py`. `startup_context.py` now re-exports the
+private compatibility alias to keep legacy imports collecting, while the
+legacy remote-control assertions were updated to supply an active
+`RemoteControlAttachmentState` so they preserve the current fail-closed rule:
+`governance_mode=remote_control` alone does not prove operator location.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/startup_context.py`
+- `dev/scripts/devctl/tests/runtime/test_operator_mode_fail_closed.py`
+- `command_output:test-python:58087152439b4736`

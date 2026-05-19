@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import unittest
 from dataclasses import replace
+from datetime import datetime, timezone
 
 from dev.scripts.devctl.runtime.operator_context import (
     OperatorInteractionMode,
@@ -30,6 +31,9 @@ from dev.scripts.devctl.runtime.startup_context import (
     ReviewerGateState,
     _interaction_mode_from_reviewer_mode,
 )
+from dev.scripts.devctl.runtime.remote_control_attachment_models import (
+    RemoteControlAttachmentState,
+)
 from dev.scripts.devctl.runtime.control_plane_read_model import (
     _default_read_model,
     control_plane_read_model_from_mapping,
@@ -44,6 +48,18 @@ from dev.scripts.devctl.commands.review_channel.bridge_launch_headless import (
     HeadlessLaunchStatus,
     spawn_one_headless_session as _spawn_one_headless_session,
 )
+
+
+def _active_remote_control_attachment() -> RemoteControlAttachmentState:
+    observed_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return RemoteControlAttachmentState(
+        provider="claude",
+        session_name="VoiceTerm Remote Control",
+        remote_session_id="session_test",
+        status="attached",
+        attached_at_utc=observed_at,
+        last_seen_utc=observed_at,
+    )
 
 
 # -------------------------------------------------------
@@ -249,7 +265,9 @@ class TestStartupContextFailClosed(unittest.TestCase):
 
     def test_governance_remote_control_takes_precedence(self) -> None:
         result = _interaction_mode_from_reviewer_mode(
-            "single_agent", governance_mode="remote_control",
+            "single_agent",
+            governance_mode="remote_control",
+            remote_control_attachment=_active_remote_control_attachment(),
         )
         self.assertEqual(result, "remote_control")
 
@@ -339,7 +357,9 @@ class TestFullChainPreservesRemoteControl(unittest.TestCase):
 
     def test_remote_control_flows_through_startup(self) -> None:
         result = _interaction_mode_from_reviewer_mode(
-            "active_dual_agent", governance_mode="remote_control",
+            "active_dual_agent",
+            governance_mode="remote_control",
+            remote_control_attachment=_active_remote_control_attachment(),
         )
         self.assertEqual(result, "remote_control")
 

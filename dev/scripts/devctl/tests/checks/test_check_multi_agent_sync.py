@@ -515,6 +515,69 @@ class CheckMultiAgentSyncTests(unittest.TestCase):
 
         assert errors == []
 
+    def test_pending_lifecycle_focus_can_supersede_inbox_top_packet(self) -> None:
+        payload = {
+            "packet_inbox": {
+                "agents": [
+                    {
+                        "agent": "claude",
+                        "target_role": "implementer",
+                        "target_session_id": "session-a",
+                        "current_instruction_packet_id": "rev_pkt_new",
+                        "pending_actionable_packet_ids": [
+                            "rev_pkt_new",
+                            "rev_pkt_old",
+                        ],
+                    }
+                ]
+            }
+        }
+        decisions = [
+            {
+                "actor_id": "claude",
+                "actor_role": "implementer",
+                "session_id": "session-a",
+                "active_packet_id": "rev_pkt_old",
+                "attention_packet_id": "rev_pkt_old",
+                "required_action": "ingest_packet_semantics",
+            }
+        ]
+
+        errors = instruction_authority_mismatch_errors(payload, decisions)
+
+        assert errors == []
+
+    def test_stale_lifecycle_focus_still_disagrees_with_inbox_top_packet(self) -> None:
+        payload = {
+            "packet_inbox": {
+                "agents": [
+                    {
+                        "agent": "claude",
+                        "target_role": "implementer",
+                        "target_session_id": "session-a",
+                        "current_instruction_packet_id": "rev_pkt_new",
+                        "pending_actionable_packet_ids": [
+                            "rev_pkt_new",
+                        ],
+                    }
+                ]
+            }
+        }
+        decisions = [
+            {
+                "actor_id": "claude",
+                "actor_role": "implementer",
+                "session_id": "session-a",
+                "active_packet_id": "rev_pkt_old",
+                "attention_packet_id": "rev_pkt_old",
+                "required_action": "ingest_packet_semantics",
+            }
+        ]
+
+        errors = instruction_authority_mismatch_errors(payload, decisions)
+
+        assert any("Packet inbox current instruction disagrees" in err for err in errors)
+
     def test_body_open_subqueue_accepts_frozen_legacy_event_for_same_actor(self) -> None:
         payload = {
             "packet_inbox": {
