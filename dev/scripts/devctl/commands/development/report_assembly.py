@@ -7,7 +7,9 @@ from typing import Any
 
 from ...config import REPO_ROOT
 from ...runtime.development_team import build_default_development_topology
+from ...runtime.finding_backlog import load_finding_backlog
 from ...runtime.master_plan_contract import DEFAULT_MASTER_PLAN_STORE_REL
+from ...triage.findings_priority_models import RankedFinding
 from . import report as development_report
 from .actions import resolve_action
 from .actor_resolution import resolve_actor
@@ -42,6 +44,63 @@ from .report_context import (
 )
 from .runtime_snapshot import runtime_snapshot_from_review_state
 from .snapshots import discovery_snapshot, learning_snapshot
+
+
+_SEVERITY_RANK_MAP: dict[str, int] = {
+    "critical": 0,
+    "high": 1,
+    "medium": 2,
+    "low": 3,
+}
+
+
+def _ranked_findings_for_develop_next() -> tuple[RankedFinding, ...]:
+    """SLICE-Y wire: load FindingBacklog + project minimal RankedFinding tuple.
+
+    Per codex rev_pkt_4495/rev_pkt_4511 (Role-flip cycle 2 SLICE-Y): feed
+    select_next_slice with critical/high open findings derived from the canonical
+    FindingBacklog source so SLICE-X preemption fires end-to-end via
+    ``develop next --actor agent``.
+
+    Composes with SLICE-X helper; does NOT create a parallel bug queue.
+    Graph fan-out ranking remains planning_ir scope; this wire surfaces minimal
+    severity-ordered RankedFinding rows sufficient for preemption decisions.
+
+    Stale/missing source handling: returns empty tuple. Typed-blocker fail-loud
+    is the next refinement (see residual gap note in SLICE-Y receipt).
+    """
+    try:
+        backlog = load_finding_backlog(
+            repo_root=REPO_ROOT, governance=None, max_rows=5_000
+        )
+    except (FileNotFoundError, OSError, ValueError):
+        return ()
+    sorted_findings = sorted(
+        backlog.open_findings,
+        key=lambda finding: _SEVERITY_RANK_MAP.get(finding.severity, 99),
+    )
+    ranked: list[RankedFinding] = []
+    for index, finding in enumerate(sorted_findings, start=1):
+        primary_file = finding.file_path or ""
+        check_label = finding.check_id or finding.rule_id or ""
+        ranked.append(
+            RankedFinding(
+                rank=index,
+                qid=finding.finding_id,
+                heading=check_label,
+                severity=finding.severity,
+                severity_rank=_SEVERITY_RANK_MAP.get(finding.severity, 99),
+                status="confirmed_issue",
+                summary=f"{check_label} at {primary_file}" if primary_file else check_label,
+                resolution_state="open",
+                primary_file=primary_file,
+                file_refs=(primary_file,) if primary_file else (),
+                matched_file_refs=(),
+                max_fan_out=0,
+                fan_out_by_file=(),
+            )
+        )
+    return tuple(ranked)
 
 
 @dataclass(frozen=True, slots=True)
@@ -272,6 +331,7 @@ def _build_core(args: Any) -> _ReportCore:
         rows,
         packet_attention=packet_attention,
         orchestration=orchestration,
+        ranked_findings=_ranked_findings_for_develop_next(),
     )
     peer_minds = peer_mind_snapshots(REPO_ROOT, review_state, actor=actor)
     warnings = (*warnings, *peer_mind_alias_warnings(peer_minds))
