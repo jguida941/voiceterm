@@ -54,27 +54,54 @@ _SEVERITY_RANK_MAP: dict[str, int] = {
 }
 
 
-def _ranked_findings_for_develop_next() -> tuple[RankedFinding, ...]:
+def _finding_source_stale_blocker(reason_detail: str) -> "DevelopmentNextSlice":
+    """Typed fail-loud blocker when FindingBacklog source is unavailable or stale.
+
+    Per codex rev_pkt_4513 (review_failed SLICE-Y 148f4c4e): soft-fall to plan rows
+    silently recreates the original silent-fallback bug. When the canonical finding
+    source cannot be loaded, develop next must surface an attention_required slice
+    naming the failure mode instead of silently selecting ordinary plan rows.
+    """
+    from .models import DevelopmentNextSlice
+
+    return DevelopmentNextSlice(
+        slice_id="finding-source-stale-blocker",
+        source="FindingBacklog.load",
+        title="FindingBacklog unavailable; bug-priority preemption cannot evaluate",
+        target_ref=reason_detail,
+        status="attention_required",
+        reason=(
+            "FindingBacklog source unavailable or stale: "
+            f"{reason_detail}. develop next refuses silent fallback to ordinary "
+            "plan rows; restore finding_reviews source or post an explicit typed "
+            "bypass before selecting a plan slice."
+        ),
+    )
+
+
+def _ranked_findings_for_develop_next() -> tuple[
+    tuple[RankedFinding, ...], "DevelopmentNextSlice | None"
+]:
     """SLICE-Y wire: load FindingBacklog + project minimal RankedFinding tuple.
 
-    Per codex rev_pkt_4495/rev_pkt_4511 (Role-flip cycle 2 SLICE-Y): feed
-    select_next_slice with critical/high open findings derived from the canonical
-    FindingBacklog source so SLICE-X preemption fires end-to-end via
-    ``develop next --actor agent``.
+    Per codex rev_pkt_4495/rev_pkt_4511 + repair rev_pkt_4513 (Role-flip cycle 2):
+    feed select_next_slice with critical/high open findings derived from the
+    canonical FindingBacklog source. On stale/missing source, fail-loud with a
+    typed DevelopmentNextSlice blocker (no silent fallback to plan rows).
+
+    Returns (ranked_findings, stale_blocker). Caller inspects stale_blocker; if
+    not None, that slice preempts select_next_slice entirely.
 
     Composes with SLICE-X helper; does NOT create a parallel bug queue.
-    Graph fan-out ranking remains planning_ir scope; this wire surfaces minimal
-    severity-ordered RankedFinding rows sufficient for preemption decisions.
-
-    Stale/missing source handling: returns empty tuple. Typed-blocker fail-loud
-    is the next refinement (see residual gap note in SLICE-Y receipt).
     """
     try:
         backlog = load_finding_backlog(
             repo_root=REPO_ROOT, governance=None, max_rows=5_000
         )
-    except (FileNotFoundError, OSError, ValueError):
-        return ()
+    except (FileNotFoundError, OSError, ValueError) as exc:
+        return (), _finding_source_stale_blocker(
+            f"{type(exc).__name__}: {exc}"[:200]
+        )
     sorted_findings = sorted(
         backlog.open_findings,
         key=lambda finding: _SEVERITY_RANK_MAP.get(finding.severity, 99),
@@ -100,7 +127,7 @@ def _ranked_findings_for_develop_next() -> tuple[RankedFinding, ...]:
                 fan_out_by_file=(),
             )
         )
-    return tuple(ranked)
+    return tuple(ranked), None
 
 
 @dataclass(frozen=True, slots=True)
@@ -327,12 +354,16 @@ def _build_core(args: Any) -> _ReportCore:
         operator_override_scope=str(getattr(args, "override_scope", "edit-only") or ""),
         operator_override_by=str(getattr(args, "override_by", "operator") or ""),
     )
-    next_slice = select_next_slice(
-        rows,
-        packet_attention=packet_attention,
-        orchestration=orchestration,
-        ranked_findings=_ranked_findings_for_develop_next(),
-    )
+    ranked_findings, finding_source_blocker = _ranked_findings_for_develop_next()
+    if finding_source_blocker is not None:
+        next_slice = finding_source_blocker
+    else:
+        next_slice = select_next_slice(
+            rows,
+            packet_attention=packet_attention,
+            orchestration=orchestration,
+            ranked_findings=ranked_findings,
+        )
     peer_minds = peer_mind_snapshots(REPO_ROOT, review_state, actor=actor)
     warnings = (*warnings, *peer_mind_alias_warnings(peer_minds))
     pressure_result = development_report.packet_pressure_report(
