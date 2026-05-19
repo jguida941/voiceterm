@@ -651,3 +651,108 @@ def test_plan_scoped_stop_anchor_only_overrides_matching_plan() -> None:
 
     assert decision.terminate is False
     assert decision.reason == "continuation_anchor_active"
+
+
+# ---------------------------------------------------------------------------
+# SLICE-Z (rev_pkt_4517 bug #9): slice-counted continuation_anchor auto-release
+# ---------------------------------------------------------------------------
+
+
+def _commit_evidence_packet(
+    *,
+    posted_at: str,
+    sha: str,
+    packet_id: str = "rev_pkt_commit",
+) -> dict[str, object]:
+    """Synthetic packet carrying typed commit evidence in target_revision."""
+    return {
+        "packet_id": packet_id,
+        "kind": "finding",
+        "status": "pending",
+        "to_agent": "codex",
+        "posted_at": posted_at,
+        "target_revision": sha,
+        "evidence_ref": f"commit:{sha}:claude-slice-evidence",
+    }
+
+
+def test_slice_counted_anchor_blocks_task_complete_with_zero_commits() -> None:
+    """SLICE-Z: continuation_anchor release_mode=commit_count + 0 commits since posted_at -> typed pending blocker."""
+    anchor = _anchor(
+        packet_id="rev_pkt_slice_z",
+        posted_at="2026-05-19T16:50:00+00:00",
+        release_mode="commit_count",
+        release_commit_count=2,
+    )
+
+    decision = task_complete_decision(
+        session_id="session-1",
+        packets=(anchor,),
+        policy=SessionTerminationPolicy(),
+        actor="codex",
+    )
+
+    assert decision.terminate is False
+    assert decision.reason == "continuation_anchor_slice_counted_pending"
+
+
+def test_slice_counted_anchor_blocks_task_complete_below_threshold() -> None:
+    """SLICE-Z: 1 of 2 commits typed-after-anchor still blocks task_complete."""
+    anchor = _anchor(
+        packet_id="rev_pkt_slice_z",
+        posted_at="2026-05-19T16:50:00+00:00",
+        release_mode="commit_count",
+        release_commit_count=2,
+    )
+    commit_a = _commit_evidence_packet(
+        posted_at="2026-05-19T17:00:00+00:00",
+        sha="abc1234",
+        packet_id="rev_pkt_commit_a",
+    )
+
+    decision = task_complete_decision(
+        session_id="session-1",
+        packets=(anchor, commit_a),
+        policy=SessionTerminationPolicy(),
+        actor="codex",
+    )
+
+    assert decision.terminate is False
+    assert decision.reason == "continuation_anchor_slice_counted_pending"
+
+
+def test_slice_counted_anchor_fails_closed_when_release_metadata_invalid() -> None:
+    """SLICE-Z: missing/invalid release_commit_count fails closed (continue, not terminate)."""
+    anchor = _anchor(
+        packet_id="rev_pkt_slice_z_invalid",
+        posted_at="2026-05-19T16:50:00+00:00",
+        release_mode="commit_count",
+    )
+
+    decision = task_complete_decision(
+        session_id="session-1",
+        packets=(anchor,),
+        policy=SessionTerminationPolicy(),
+        actor="codex",
+    )
+
+    assert decision.terminate is False
+    assert decision.reason == "continuation_anchor_slice_counted_invalid"
+
+
+def test_slice_counted_anchor_passthrough_when_release_mode_absent() -> None:
+    """SLICE-Z: anchor without release_mode is unaffected (preserves cycle 1 regression test)."""
+    anchor = _anchor(
+        packet_id="rev_pkt_legacy",
+        posted_at="2026-05-19T16:50:00+00:00",
+    )
+
+    decision = task_complete_decision(
+        session_id="session-1",
+        packets=(anchor,),
+        policy=SessionTerminationPolicy(),
+        actor="codex",
+    )
+
+    assert decision.terminate is False
+    assert decision.reason == "continuation_anchor_active"

@@ -33,6 +33,15 @@ TASK_COMPLETE_DECISION_CONTRACT_ID = "TaskCompleteDecision"
 TASK_COMPLETE_DECISION_SCHEMA_VERSION = 1
 CONTINUATION_ANCHOR_MISSING_ERROR = "continuation_anchor_missing"
 CONTINUATION_ANCHOR_BODY_UNOBSERVED_ERROR = "continuation_anchor_body_unobserved"
+CONTINUATION_ANCHOR_SLICE_COUNTED_PENDING_ERROR = (
+    "continuation_anchor_slice_counted_pending"
+)
+CONTINUATION_ANCHOR_SLICE_COUNTED_INVALID_ERROR = (
+    "continuation_anchor_slice_counted_invalid"
+)
+_SLICE_COUNTED_RELEASE_MODES: frozenset[str] = frozenset(
+    {"commit_count", "slice_counted"}
+)
 STOP_ANCHOR_BODY_UNOBSERVED_ERROR = "stop_anchor_body_unobserved"
 PENDING_REVIEW_PACKET_ERROR = "pending_review_packet"
 PENDING_REVIEW_PACKET_BODY_UNOBSERVED_ERROR = "pending_review_packet_body_unobserved"
@@ -244,6 +253,13 @@ def task_complete_decision(
     )
     if pending_decision is not None:
         return pending_decision
+    slice_counted_decision = _slice_counted_continuation_anchor_decision(
+        rows=rows,
+        policy=policy,
+        base_context=base_context,
+    )
+    if slice_counted_decision is not None:
+        return slice_counted_decision
     anchor_decision = _continuation_anchor_task_decision(
         rows=rows,
         policy=policy,
@@ -442,6 +458,102 @@ def _pending_review_task_decision(
         ),
         error_kind=PENDING_REVIEW_PACKET_ERROR,
     )
+
+
+def _looks_like_commit_sha(value: str) -> bool:
+    """Return True when value resembles a git commit SHA (7-40 hex chars)."""
+    if not value or not (7 <= len(value) <= 40):
+        return False
+    return all(character in "0123456789abcdef" for character in value.lower())
+
+
+def _count_distinct_typed_commits_after(
+    rows: tuple[Mapping[str, object], ...],
+    since_utc: str,
+) -> int:
+    """Count distinct typed commit SHAs in packets posted after ``since_utc``.
+
+    Per codex rev_pkt_4517 SLICE-Z directive: 'Count typed commit evidence from
+    packet evidence_refs/source_identity/commit anchors, not markdown prose.'
+    Scans target_revision + evidence_ref fields for commit-SHA-shaped tokens
+    on packets whose posted_at strictly exceeds the anchor's posted_at.
+    """
+    if not since_utc:
+        return 0
+    seen_shas: set[str] = set()
+    for row in rows:
+        posted_at = _text(row.get("posted_at"))
+        if not posted_at or posted_at <= since_utc:
+            continue
+        target_revision = _text(row.get("target_revision")).lower()
+        if _looks_like_commit_sha(target_revision):
+            seen_shas.add(target_revision)
+        evidence_ref = _text(row.get("evidence_ref"))
+        if evidence_ref:
+            for token in evidence_ref.replace("/", " ").replace(":", " ").split():
+                normalized = token.lower()
+                if _looks_like_commit_sha(normalized):
+                    seen_shas.add(normalized)
+    return len(seen_shas)
+
+
+def _slice_counted_continuation_anchor_decision(
+    *,
+    rows: tuple[Mapping[str, object], ...],
+    policy: SessionTerminationPolicy,
+    base_context: CorrelationContext,
+) -> TaskCompleteDecision | None:
+    """SLICE-Z bug #9 fix: keep session alive when slice-counted anchor pending.
+
+    Per codex rev_pkt_4517: continuation_anchor packets can opt into
+    ``release_mode=commit_count`` (or ``slice_counted``) with a
+    ``release_commit_count=N`` threshold. The session must continue while
+    distinct typed commit evidence since the anchor's posted_at remains below
+    ``N``, and only release once N is reached.
+
+    Scope: scans ALL continuation_anchor packets in rows (not just policy-
+    bound), independent of the legacy single-anchor path. Composes with the
+    existing decision cascade; does NOT replace it. Fail-closed: invalid
+    release metadata = continue (do not auto-terminate).
+    """
+    for row in rows:
+        if _text(row.get("kind")) != "continuation_anchor":
+            continue
+        if not packet_is_active_anchor(row):
+            continue
+        release_mode = _text(row.get("release_mode"))
+        if release_mode not in _SLICE_COUNTED_RELEASE_MODES:
+            continue
+        raw_count = row.get("release_commit_count", 0)
+        try:
+            required_count = int(raw_count)
+        except (TypeError, ValueError):
+            required_count = 0
+        anchor_id = _text(row.get("packet_id"))
+        posted_at = _text(row.get("posted_at"))
+        if required_count <= 0 or not posted_at:
+            return _task_decision(
+                base_context=base_context,
+                policy_mode=policy.mode,
+                seed_kind="continuation_anchor",
+                seed_ref=anchor_id,
+                terminate=False,
+                reason=CONTINUATION_ANCHOR_SLICE_COUNTED_INVALID_ERROR,
+                error_kind=CONTINUATION_ANCHOR_SLICE_COUNTED_INVALID_ERROR,
+            )
+        observed_count = _count_distinct_typed_commits_after(rows, posted_at)
+        if observed_count >= required_count:
+            continue
+        return _task_decision(
+            base_context=base_context,
+            policy_mode=policy.mode,
+            seed_kind="continuation_anchor",
+            seed_ref=anchor_id,
+            terminate=False,
+            reason=CONTINUATION_ANCHOR_SLICE_COUNTED_PENDING_ERROR,
+            error_kind=CONTINUATION_ANCHOR_SLICE_COUNTED_PENDING_ERROR,
+        )
+    return None
 
 
 def _continuation_anchor_task_decision(
