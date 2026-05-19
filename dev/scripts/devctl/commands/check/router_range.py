@@ -34,6 +34,7 @@ ROUTER_RANGE_AWARE_SCRIPT_FRAGMENTS = _range_aware_script_fragments()
 
 ROUTER_VALIDATION_SCOPE_AWARE_SCRIPT_FRAGMENTS = frozenset(
     {
+        "dev/scripts/devctl.py check",
         "dev/scripts/devctl.py docs-check",
         "dev/scripts/checks/check_system_picture_freshness.py",
         "dev/scripts/checks/check_review_channel_bridge.py",

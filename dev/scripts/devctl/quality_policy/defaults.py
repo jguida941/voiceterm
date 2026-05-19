@@ -16,6 +16,7 @@ class QualityStepSpec:
     extra_args: tuple[str, ...] = ()
     languages: tuple[str, ...] = ()
     supports_commit_range: bool = True
+    supports_validation_scope: bool = False
 
 
 DEFAULT_AI_GUARD_SPECS = (
@@ -195,6 +196,7 @@ DEFAULT_AI_GUARD_SPECS = (
         "startup_authority_contract",
         languages=("python",),
         supports_commit_range=False,
+        supports_validation_scope=True,
     ),
     QualityStepSpec(
         "structural-similarity-guard",
@@ -211,6 +213,7 @@ DEFAULT_AI_GUARD_SPECS = (
         "tandem_consistency",
         extra_args=("--ci-bundle",),
         supports_commit_range=False,
+        supports_validation_scope=True,
     ),
     QualityStepSpec(
         "bridge-projection-only-guard",

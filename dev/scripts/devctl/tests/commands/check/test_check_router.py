@@ -1016,6 +1016,7 @@ class CheckRouterTests(unittest.TestCase):
         }
         extract_bundle_mock.return_value = (
             [
+                "python3 dev/scripts/devctl.py check --profile release",
                 "python3 dev/scripts/devctl.py docs-check --strict-tooling",
                 "python3 dev/scripts/checks/check_ground_truth_probe_gate.py",
                 "python3 dev/scripts/checks/check_startup_authority_contract.py",
@@ -1035,6 +1036,10 @@ class CheckRouterTests(unittest.TestCase):
         self.assertEqual(rc, 0)
         payload = json.loads(write_output_mock.call_args.args[0])
         planned = "\n".join(row["command"] for row in payload["planned_commands"])
+        self.assertIn(
+            "check --profile release --validation-scope pipeline_authorized_phase",
+            planned,
+        )
         self.assertIn("docs-check --strict-tooling", planned)
         self.assertIn("check_ground_truth_probe_gate.py", planned)
         self.assertIn(

@@ -16342,3 +16342,30 @@ Evidence:
 - `dev/config/devctl_repo_policy.json`
 - `dev/scripts/devctl/tests/vcs/test_push.py`
 - `dev/scripts/devctl/tests/vcs/test_sync.py`
+
+### 2026-05-19 - Release preflight carries validation scope through nested checks
+
+The next governed-push dogfood pass exposed a second scope leak: check-router
+ran publication preflight with `pipeline_authorized_phase`, but the nested
+`devctl check --profile release` invocation still ran live projection guards as
+plain `live_worktree` checks. `tandem-consistency` therefore converted missing
+bridge-reviewed hash freshness into a hard publication veto even though the
+governed push range was already authorized.
+
+`devctl check` now accepts `--validation-scope`, quality guard registry rows can
+declare `supports_validation_scope`, and release/profile checks forward the
+scope only to guards that support it. Check-router also appends the scope to
+nested `devctl check` commands. The bridge-stub-compatible VoiceTerm handoff
+test was updated so product-shell review artifact loading no longer requires
+`bridge.md` to carry active instruction authority.
+
+Evidence:
+
+- `dev/scripts/devctl/cli_parser/builders_checks.py`
+- `dev/scripts/devctl/commands/check/phases.py`
+- `dev/scripts/devctl/commands/check/router_range.py`
+- `dev/scripts/devctl/commands/check/support.py`
+- `dev/scripts/devctl/quality_policy/defaults.py`
+- `dev/scripts/devctl/tests/commands/check/test_check.py`
+- `dev/scripts/devctl/tests/commands/check/test_check_router.py`
+- `rust/src/bin/voiceterm/event_loop/tests/dev_panel_overlay/refresh_poll.rs`

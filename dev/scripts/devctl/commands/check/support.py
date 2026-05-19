@@ -7,6 +7,7 @@ from pathlib import Path
 
 from ...config import REPO_ROOT, get_repo_root, resolve_src_dir
 from ...quality_policy import (
+    AI_GUARD_REGISTRY,
     DEFAULT_AI_GUARD_CHECKS,
     DEFAULT_REVIEW_PROBE_CHECKS,
     ai_guard_supports_commit_range,
@@ -58,13 +59,23 @@ def build_ai_guard_cmd(
     head_ref: str,
     adoption_scan: bool = False,
     extra_args: tuple[str, ...] = (),
+    validation_scope: str | None = None,
 ) -> list[str]:
     """Build one AI-guard command with optional commit-range refs."""
     cmd = check_script_cmd(script_id, *extra_args)
+    spec = AI_GUARD_REGISTRY.get(script_id)
     if adoption_scan and ai_guard_supports_commit_range(script_id):
         cmd.extend(["--since-ref", since_ref or "", "--head-ref", head_ref])
     elif since_ref and ai_guard_supports_commit_range(script_id):
         cmd.extend(["--since-ref", since_ref, "--head-ref", head_ref])
+    if (
+        spec is not None
+        and spec.supports_validation_scope
+        and validation_scope
+        and validation_scope != "live_worktree"
+        and "--validation-scope" not in cmd
+    ):
+        cmd.extend(["--validation-scope", validation_scope])
     return cmd
 
 

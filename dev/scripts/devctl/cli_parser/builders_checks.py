@@ -108,6 +108,7 @@ def add_check_parser(
         default="HEAD",
         help="Head ref used with --since-ref for AI-guard checks (default: HEAD).",
     )
+    _add_validation_scope_argument(check_cmd)
     _add_commit_snapshot_argument(check_cmd)
     check_cmd.add_argument(
         "--quality-policy",
@@ -164,6 +165,18 @@ def _add_commit_snapshot_argument(check_cmd: argparse.ArgumentParser) -> None:
         help=(
             "Validate a governed commit snapshot: requires --since-ref and runs "
             "only commit-range-capable guards against --head-ref."
+        ),
+    )
+
+
+def _add_validation_scope_argument(check_cmd: argparse.ArgumentParser) -> None:
+    check_cmd.add_argument(
+        "--validation-scope",
+        choices=("live_worktree", "staged_tree", "pipeline_authorized_phase"),
+        default="live_worktree",
+        help=(
+            "Typed validation context forwarded to guards that distinguish live "
+            "worktree checks from governed publication validation."
         ),
     )
 

@@ -119,7 +119,8 @@ def render_quality_policy_markdown(policy: ResolvedQualityPolicy) -> str:
         lines.append(
             f"- {spec.step_name}: script_id={spec.script_id}, "
             f"languages={languages}, extra_args={extra_args}, "
-            f"supports_commit_range={spec.supports_commit_range}"
+            f"supports_commit_range={spec.supports_commit_range}, "
+            f"supports_validation_scope={spec.supports_validation_scope}"
         )
     lines.append("")
     lines.append("## Review Probes")
@@ -130,7 +131,8 @@ def render_quality_policy_markdown(policy: ResolvedQualityPolicy) -> str:
         lines.append(
             f"- {spec.step_name}: script_id={spec.script_id}, "
             f"languages={languages}, extra_args={extra_args}, "
-            f"supports_commit_range={spec.supports_commit_range}"
+            f"supports_commit_range={spec.supports_commit_range}, "
+            f"supports_validation_scope={spec.supports_validation_scope}"
         )
     lines.append("")
     lines.append("## Guard Configs")

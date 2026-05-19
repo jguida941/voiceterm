@@ -225,6 +225,7 @@ def run_setup_phase(ctx: CheckContext) -> None:
                     head_ref=head_ref,
                     adoption_scan=ctx.scan_mode == "adoption-scan",
                     extra_args=spec.extra_args,
+                    validation_scope=getattr(ctx.args, "validation_scope", "live_worktree"),
                 ),
                 cwd=REPO_ROOT,
             )

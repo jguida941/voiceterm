@@ -3426,3 +3426,12 @@ Governed push controller note:
 - Keep branch allowlist updates in `dev/config/devctl_repo_policy.json` aligned
   with active extraction branches so governed push fails for real policy drift,
   not for an obsolete VoiceTerm-era branch prefix.
+
+Check validation-scope note:
+- `devctl check` accepts `--validation-scope` and forwards non-live scopes only
+  to guards that declare validation-scope support in the quality policy
+  registry.
+- `check-router` also appends the same scope to nested `devctl check` commands
+  during governed push preflight, so startup-authority and tandem-consistency
+  stay visible as evidence without treating live collaboration freshness as a
+  publication veto for an already authorized commit range.

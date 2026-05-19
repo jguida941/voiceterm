@@ -165,6 +165,7 @@ def _resolve_specs(
                 extra_args=tuple(override.get("extra_args") or spec.extra_args),
                 languages=spec.languages,
                 supports_commit_range=spec.supports_commit_range,
+                supports_validation_scope=spec.supports_validation_scope,
             )
         )
     return tuple(resolved)

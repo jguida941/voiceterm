@@ -44,6 +44,14 @@
   `devctl.push.execute` when it still authorizes HEAD, and the repo policy
   allowlist includes `extraction/*` so the GuardIR extraction branch can publish
   through governed push instead of raw git.
+- 2026-05-19 Phase 0.6.A release-preflight follow-up carries
+  `pipeline_authorized_phase` through nested `devctl check --profile release`
+  runs. Scope-aware live projection guards such as startup authority and tandem
+  consistency receive the same `ValidationScope` that `check-router` selected,
+  while bridge projection drift remains visible evidence instead of a
+  publication veto for an already-authorized commit range. VoiceTerm handoff
+  display tests must not require `bridge.md` to carry active instruction
+  authority; the bridge artifact is projection-only evidence.
 - 2026-05-11 slice 18 fix arc + bilateral protocol consolidation (MP-377):
   claude reviewer-role's session arc identified 7 bugs in slice 18 via two
   codex-review passes (5 findings from 17:16:09Z + 2 additional findings from

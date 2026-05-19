@@ -197,6 +197,7 @@ def build_instruction_boot_card(
         "- Run the task-class guard bundle selected by `python3 dev/scripts/devctl.py check-router --format md`.",
         "- Use `python3 dev/scripts/devctl.py test-python --suite devctl --path <test>` for focused Python proof instead of raw broad pytest; `check-router` selects measured per-target timeouts and may shard large targets with explicit node ids plus `--parallel-workers`.",
         "- Governed push preflight carries typed `ValidationScope`: standalone checks default to `live_worktree`, while authorized publication phases use `pipeline_authorized_phase` so live projection guards remain visible evidence without hard-blocking the already-authorized commit range.",
+        "- Nested `devctl check` release/profile runs must forward `--validation-scope` to scope-aware guards such as startup-authority and tandem-consistency; do not let live bridge/reviewer freshness veto an already authorized publication phase.",
         "- Governed push execution may consume the current remote commit pipeline `PushAuthorizationRecord` as controller authority for `devctl.push.execute`; raw push and stale AgentLoopDecision projections are not publication authority.",
         "- Governed push publication preflight fails fast on the first blocker by default; audit-style `--keep-going` requires explicit repo policy opt-in.",
         "- Startup/work-intake projected push commands must use the same fail-fast default and may add `--keep-going` only when repo policy explicitly requests audit mode.",

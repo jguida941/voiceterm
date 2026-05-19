@@ -1,6 +1,6 @@
 # AI Governance Platform Plan
 
-**Status**: active  |  **Last updated**: 2026-05-18 | **Owner:** Tooling/control plane/product architecture
+**Status**: active  |  **Last updated**: 2026-05-19 | **Owner:** Tooling/control plane/product architecture
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
 `MP-377`, and it is the canonical active architecture plan for the standalone
@@ -102,6 +102,15 @@ Current ingestion status:
   `PushAuthorizationRecord` instead of requiring an unrelated
   `AgentLoopDecision`, while branch policy explicitly permits `extraction/*`
   as the active GuardIR extraction lane.
+- 2026-05-19 Phase 0.6.A release-preflight repair keeps that publication
+  authority intact through nested release checks. `check-router` now forwards
+  `pipeline_authorized_phase` into `devctl check --profile release`, and the
+  quality-policy registry marks only scope-aware guards for forwarding. This
+  prevents live bridge/ReviewSnapshot projection drift from being reclassified
+  as an unauthorized live-worktree veto after the commit range has already been
+  authorized, while still preserving the guard output as evidence. VoiceTerm
+  handoff display must load the bridge artifact as projection-only evidence and
+  must not depend on `bridge.md` carrying active instruction text.
 - 2026-05-12 bypass-launch blocker repair: blanket trusted/headless launch
   elevation now has a typed lifecycle boundary. `BypassRequest` evaluates into
   `BypassEvaluation`, produces a scoped `BypassReceipt`, and remains usable only

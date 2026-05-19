@@ -3323,6 +3323,16 @@ Plan-ingestion receipts expose `derived_state_invalidated` and
 work-board, and agent-loop consumers have one reload hint tied to durable plan
 evidence.
 
+**Validation scopes in release checks:**
+
+Publication checks run in a typed validation scope. Standalone `devctl check`
+uses `live_worktree`; governed push and check-router publication preflight use
+`pipeline_authorized_phase` and must forward that scope into nested
+`devctl check` profile runs. Only guards that declare validation-scope support
+receive the flag. Live projection guards such as startup-authority and
+tandem-consistency still emit evidence, but stale reviewer or bridge freshness
+does not veto an already authorized publication range.
+
 **Test with different backends:**
 
 ```bash

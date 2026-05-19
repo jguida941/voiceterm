@@ -57,6 +57,7 @@ def make_args(profile: str) -> SimpleNamespace:
         since_ref=None,
         adoption_scan=False,
         head_ref="HEAD",
+        validation_scope="live_worktree",
         commit_snapshot=False,
         keep_going=False,
         no_parallel=False,
@@ -117,6 +118,19 @@ class CheckProfileTests(TestCase):
         parser = build_parser()
         args = parser.parse_args(["check", "--profile", "ai-guard"])
         self.assertEqual(args.profile, "ai-guard")
+
+    def test_cli_accepts_validation_scope(self) -> None:
+        parser = build_parser()
+        args = parser.parse_args(
+            [
+                "check",
+                "--profile",
+                "release",
+                "--validation-scope",
+                "pipeline_authorized_phase",
+            ]
+        )
+        self.assertEqual(args.validation_scope, "pipeline_authorized_phase")
 
     def test_cli_accepts_fast_profile(self) -> None:
         parser = build_parser()
@@ -489,6 +503,7 @@ class CheckProfileTests(TestCase):
         args.skip_clippy = True
         args.skip_tests = True
         args.skip_build = True
+        args.no_host_process_cleanup = True
 
         rc = check.run(args)
 
@@ -789,6 +804,48 @@ class CheckProfileTests(TestCase):
         rc = check.run(args)
 
         self.assertEqual(rc, 2)
+
+    @patch("dev.scripts.devctl.commands.check_steps.run_cmd")
+    @patch("dev.scripts.devctl.commands.check.build_env")
+    def test_pipeline_validation_scope_reaches_live_projection_guards(
+        self,
+        mock_build_env,
+        mock_run_cmd,
+    ) -> None:
+        mock_build_env.return_value = {}
+        calls = []
+        mock_run_cmd.side_effect = make_success_run_cmd_recorder(calls)
+        args = make_args("quick")
+        args.validation_scope = "pipeline_authorized_phase"
+        args.skip_fmt = True
+        args.skip_clippy = True
+        args.skip_tests = True
+        args.skip_build = True
+        args.no_host_process_cleanup = True
+
+        rc = check.run(args)
+
+        self.assertEqual(rc, 0)
+        startup_cmd = next(
+            call["cmd"]
+            for call in calls
+            if call["name"] == "startup-authority-contract-guard"
+        )
+        tandem_cmd = next(
+            call["cmd"]
+            for call in calls
+            if call["name"] == "tandem-consistency-guard"
+        )
+        bridge_cmd = next(
+            call["cmd"]
+            for call in calls
+            if call["name"] == "bridge-projection-only-guard"
+        )
+        self.assertIn("--validation-scope", startup_cmd)
+        self.assertIn("pipeline_authorized_phase", startup_cmd)
+        self.assertIn("--validation-scope", tandem_cmd)
+        self.assertIn("pipeline_authorized_phase", tandem_cmd)
+        self.assertNotIn("--validation-scope", bridge_cmd)
 
     @patch("dev.scripts.devctl.commands.check_steps.run_cmd")
     @patch("dev.scripts.devctl.commands.check.build_env")
