@@ -2079,6 +2079,11 @@ Workflow permissions note:
    check-router is invoked without `--keep-going`, so the first blocking route
    stops before `git push` starts. Audit-all-checks behavior must be an
    explicit repo-policy opt-in.
+   Nested publication preflight suppresses only dispatcher artifact receipt
+   ledger rows with `DEVCTL_NO_ARTIFACT_RECEIPT_WRITES=1`; do not substitute the
+   broad `DEVCTL_NO_ARTIFACT_WRITES=1` read-only mode there, because
+   review-channel event writes and packet body/semantic-ingestion receipts are
+   part of the live dogfood evidence.
    Startup/work-intake projections use the same contract: generated next-step
    commands must not append `--keep-going` unless repo policy explicitly marks
    the preflight as audit mode. A projected publish command that asks for broad

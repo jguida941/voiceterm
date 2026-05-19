@@ -16487,3 +16487,27 @@ Evidence:
 - `dev/scripts/README.md`
 - `dev/guides/DEVELOPMENT.md`
 - `dev/active/MASTER_PLAN.md`
+
+### 2026-05-19 - Push preflight suppresses artifact receipts without muting domain writes
+
+The next governed-push preflight exposed that wrapping the entire nested
+`check-router` run in `DEVCTL_NO_ARTIFACT_WRITES=1` made the dispatcher receipt
+ledger quiet, but also muted legitimate domain writes inside focused tests.
+`test_packet_history_lookup.py` then failed because `review-channel show` could
+not append the packet-body observation event that semantic-ingestion proof
+depends on.
+
+The dispatcher now has a narrower
+`DEVCTL_NO_ARTIFACT_RECEIPT_WRITES=1` switch. Governed push uses that receipt
+ledger-only suppression around publication preflight, preserving
+review-channel/domain artifact writes while keeping `dev/state/artifact_receipts.jsonl`
+from churning during nested validation.
+
+Evidence:
+
+- `dev/scripts/devctl/cli_parser/artifact_suppression.py`
+- `dev/scripts/devctl/cli_parser/entrypoint.py`
+- `dev/scripts/devctl/governance/push_routing.py`
+- `dev/scripts/devctl/tests/vcs/test_push.py`
+- `command_output:test-python:b4310d157bef5207`
+- `command_output:test-python:e157fa6f4f3e85fa`

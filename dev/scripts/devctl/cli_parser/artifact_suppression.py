@@ -13,6 +13,7 @@ from typing import Any
 # automatically for READ_ONLY_COMMANDS; can also be set externally by MCP
 # adapters or container orchestration.
 ARTIFACT_WRITES_ENV = "DEVCTL_NO_ARTIFACT_WRITES"
+ARTIFACT_RECEIPT_WRITES_ENV = "DEVCTL_NO_ARTIFACT_RECEIPT_WRITES"
 _CONTEXT_GRAPH_BOOTSTRAP_MODE = "bootstrap"
 _REVIEW_CHANNEL_READ_ONLY_ACTIONS = frozenset(
     {
@@ -32,6 +33,14 @@ _REVIEW_CHANNEL_READ_ONLY_ACTIONS = frozenset(
 def artifact_writes_suppressed() -> bool:
     """True when incidental artifact writes should be skipped."""
     return os.environ.get(ARTIFACT_WRITES_ENV, "") == "1"
+
+
+def artifact_receipt_writes_suppressed() -> bool:
+    """True when only dispatcher artifact-receipt ledger writes should be skipped."""
+    return (
+        artifact_writes_suppressed()
+        or os.environ.get(ARTIFACT_RECEIPT_WRITES_ENV, "") == "1"
+    )
 
 
 def read_only_command_suppresses_artifact_writes(
@@ -91,7 +100,9 @@ _ARTIFACT_SUPPRESSION_OVERRIDES: dict[str, Callable[[Any], bool]] = {
 
 
 __all__ = [
+    "ARTIFACT_RECEIPT_WRITES_ENV",
     "ARTIFACT_WRITES_ENV",
+    "artifact_receipt_writes_suppressed",
     "artifact_writes_suppressed",
     "read_only_command_suppresses_artifact_writes",
 ]

@@ -6018,9 +6018,10 @@ class PushBridgeSyncTests(unittest.TestCase):
             command,
         )
         self.assertIn(
-            "&& DEVCTL_NO_ARTIFACT_WRITES=1 ",
+            "&& DEVCTL_NO_ARTIFACT_RECEIPT_WRITES=1 ",
             command,
         )
+        self.assertNotIn("DEVCTL_NO_ARTIFACT_WRITES=1", command)
         self.assertIn("dev/scripts/devctl.py check-router", command)
         self.assertIn("--since-ref origin/feature/demo", command)
 
@@ -6055,7 +6056,8 @@ class PushBridgeSyncTests(unittest.TestCase):
         self.assertIn("--validation-scope pipeline_authorized_phase", command)
         self.assertIn("--parallel-workers 4", command)
         self.assertNotIn("--keep-going", command)
-        self.assertIn("DEVCTL_NO_ARTIFACT_WRITES=1", command)
+        self.assertIn("DEVCTL_NO_ARTIFACT_RECEIPT_WRITES=1", command)
+        self.assertNotIn("DEVCTL_NO_ARTIFACT_WRITES=1", command)
 
     def test_build_preflight_shell_command_can_configure_parallel_workers(
         self,

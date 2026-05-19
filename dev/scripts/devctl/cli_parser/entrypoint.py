@@ -160,7 +160,12 @@ from ..security.parser import add_security_parser
 from ..sync_parser import add_commit_parser, add_push_parser, add_sync_parser
 from ..triage.loop_parser import add_triage_loop_parser
 from ..triage.parser import add_findings_priority_parser, add_triage_parser
-from .artifact_suppression import ARTIFACT_WRITES_ENV, artifact_writes_suppressed
+from .artifact_suppression import (
+    ARTIFACT_RECEIPT_WRITES_ENV,
+    ARTIFACT_WRITES_ENV,
+    artifact_receipt_writes_suppressed,
+    artifact_writes_suppressed,
+)
 from .artifact_suppression import read_only_command_suppresses_artifact_writes
 from .agent_supervise import add_agent_supervise_parser
 from .builders import add_standard_parsers
@@ -485,7 +490,10 @@ def main() -> int:
                 argv=sys.argv[1:],
                 machine_output=machine_output_metrics,
             )
-            if machine_output_metrics is not None and not artifact_writes_suppressed():
+            if (
+                machine_output_metrics is not None
+                and not artifact_receipt_writes_suppressed()
+            ):
                 try:
                     artifact_receipt_record: ArtifactReceiptRecord = (
                         build_artifact_receipt_record(
@@ -516,8 +524,10 @@ def main() -> int:
 
 __all__ = [
     "ARTIFACT_WRITES_ENV",
+    "ARTIFACT_RECEIPT_WRITES_ENV",
     "COMMAND_HANDLERS",
     "READ_ONLY_COMMANDS",
+    "artifact_receipt_writes_suppressed",
     "artifact_writes_suppressed",
     "build_parser",
     "main",

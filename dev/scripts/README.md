@@ -1362,7 +1362,11 @@ Portability note:
   `DEVCTL_MANAGED_PROJECTION_RECEIPT_COMMIT=1` so the pre-commit hook can
   consume completed-handoff authority only after staged managed-projection
   paths are proven; staged-only next-commit intent stays out of the machine
-  receipt. Push
+  receipt. Nested push preflight uses
+  `DEVCTL_NO_ARTIFACT_RECEIPT_WRITES=1` to suppress only dispatcher artifact
+  receipt ledger rows; it must not use broad `DEVCTL_NO_ARTIFACT_WRITES=1`,
+  because review-channel and other domain artifact writes are live dogfood
+  evidence during check-router publication preflight. Push
   reporting, authorization, and pipeline-state
   sync then operate on the receipt HEAD while preserving the approved content
   commit as the parent target. `check_system_picture_freshness.py` is the

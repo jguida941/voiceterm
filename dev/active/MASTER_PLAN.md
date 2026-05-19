@@ -44,6 +44,11 @@
   `devctl.push.execute` when it still authorizes HEAD, and the repo policy
   allowlist includes `extraction/*` so the GuardIR extraction branch can publish
   through governed push instead of raw git.
+- 2026-05-19 Phase 0.6.A push-preflight artifact follow-up narrows nested
+  check-router suppression to the dispatcher receipt ledger. Governed push uses
+  `DEVCTL_NO_ARTIFACT_RECEIPT_WRITES=1` for publication preflight so
+  `dev/state/artifact_receipts.jsonl` does not churn, while review-channel
+  event writes and packet body/semantic-ingestion receipts remain enabled.
 - 2026-05-19 Phase 0.6.A release-preflight follow-up carries
   `pipeline_authorized_phase` through nested `devctl check --profile release`
   runs. Scope-aware live projection guards such as startup authority and tandem

@@ -102,6 +102,12 @@ Current ingestion status:
   `PushAuthorizationRecord` instead of requiring an unrelated
   `AgentLoopDecision`, while branch policy explicitly permits `extraction/*`
   as the active GuardIR extraction lane.
+- 2026-05-19 Phase 0.6.A push-preflight artifact repair keeps nested
+  check-router evidence live. Governed push now suppresses only dispatcher
+  artifact receipt ledger rows with `DEVCTL_NO_ARTIFACT_RECEIPT_WRITES=1`,
+  leaving review-channel/domain artifact writes enabled so packet body
+  observation and semantic-ingestion dogfood can still produce receipts during
+  publication preflight.
 - 2026-05-19 Phase 0.6.A release-preflight repair keeps that publication
   authority intact through nested release checks. `check-router` now forwards
   `pipeline_authorized_phase` into `devctl check --profile release`, and the
