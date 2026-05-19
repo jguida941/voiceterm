@@ -6465,7 +6465,10 @@ become the main product surface.
   `bundle.release`, `tooling_control_plane.yml`, and `release_preflight.yml`
   so bridge/status/current-session compatibility projections remain
   display-only and cannot regain backend authority through an unenforced
-  script entry.
+  script entry. The guarded root entrypoint is now a compatibility shim over
+  `dev/scripts/checks/bridge_projection_only/command.py`, keeping the public
+  command stable while package-layout ratchets keep implementation code out of
+  the crowded checks root.
   Latest guard-enforcement follow-up (2026-05-19): launcher authority ordering
   is now a shared workflow/bundle guard, governed-push publication-scope
   adapter enforcement is represented as an internal pipeline lane, and

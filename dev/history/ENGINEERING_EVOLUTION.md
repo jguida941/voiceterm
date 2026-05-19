@@ -16462,3 +16462,28 @@ Evidence:
 
 - `dev/scripts/checks/package_layout/command.py`
 - `dev/scripts/devctl/tests/checks/package_layout/test_check_package_layout.py`
+
+### 2026-05-19 - Bridge projection guard keeps a stable shim outside checks-root debt
+
+Governed-push preflight then found that the bridge projection-only guard had
+graduated into shared release/tooling enforcement while still carrying its full
+implementation in the already-crowded `dev/scripts/checks` root. That made the
+new bridge-authority kill-switch a package-layout blocker even though the
+guard itself was the right enforcement lane.
+
+`check_bridge_projection_only.py` now stays as a public compatibility shim with
+explicit `shim-target` metadata, while the implementation lives under the
+packaged `dev/scripts/checks/bridge_projection_only/` namespace. The focused
+test imports the packaged command directly and the root shim remains the stable
+operator/check-router entrypoint, preserving bridge projection enforcement
+without adding new root implementation debt.
+
+Evidence:
+
+- `dev/scripts/checks/check_bridge_projection_only.py`
+- `dev/scripts/checks/bridge_projection_only/command.py`
+- `dev/scripts/checks/bridge_projection_only/__init__.py`
+- `dev/scripts/devctl/tests/checks/test_check_bridge_projection_only.py`
+- `dev/scripts/README.md`
+- `dev/guides/DEVELOPMENT.md`
+- `dev/active/MASTER_PLAN.md`
