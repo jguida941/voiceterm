@@ -10106,6 +10106,13 @@ working on `MP-377`.
   block when the current diff actually touches the targeted root. That keeps
   the `dev/scripts/devctl/commands` convergence rule meaningful without
   collapsing all non-command tooling passes into repo-wide debt failures.
+- 2026-05-19 package-layout root-scope publication follow-up: governed-push
+  dogfood on the extraction branch exposed that long branch ranges could still
+  hard-fail on non-selected crowded roots even when release preflight supplied
+  `--baseline-debt-root dev/scripts/devctl/commands`. The guard now filters
+  flat-root and crowded-directory violations outside the selected root for
+  that scoped ratchet, leaving historic `dev/scripts/checks` debt visible but
+  non-blocking for the commands-root publication lane.
 - 2026-03-29 startup thesis bootstrap landed: `startup-context` now renders a
   bounded `## Why Stack` section from `dev/config/why_stack.md` before
   SOP/router detail, so fresh sessions see the product mission, proof

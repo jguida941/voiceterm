@@ -294,9 +294,19 @@ class BaselineDebtEnforcementTests(unittest.TestCase):
         _mock_validate_ref,
         *,
         changed_paths: list[Path] | None = None,
+        flat_root_violations: list[dict] | None = None,
+        crowding_violations: list[dict] | None = None,
     ):
         _mock_changed_paths.return_value = [] if changed_paths is None else changed_paths
-        mock_crowding.return_value = ([], self._CROWDED_DIRS, 0)
+        _mock_flat_root.return_value = (
+            [] if flat_root_violations is None else flat_root_violations,
+            0,
+        )
+        mock_crowding.return_value = (
+            [] if crowding_violations is None else crowding_violations,
+            self._CROWDED_DIRS,
+            0,
+        )
         mock_namespace.return_value = ([], self._CROWDED_FAMILIES, 0)
 
         parser = MagicMock()
@@ -360,6 +370,41 @@ class BaselineDebtEnforcementTests(unittest.TestCase):
         self.assertTrue(payload["ok"])
         self.assertFalse(payload["baseline_debt_enforced"])
         self.assertNotIn("enforced_crowded_directories", payload)
+
+    def test_targeted_root_filters_non_matching_root_violations(self) -> None:
+        args = SimpleNamespace(
+            since_ref=None,
+            head_ref="HEAD",
+            format="json",
+            fail_on_baseline_debt=True,
+            baseline_debt_roots=["dev/scripts/devctl/commands"],
+        )
+        rc, payload = self._run_main(
+            args,
+            changed_paths=[Path("dev/scripts/checks/check_new_guard.py")],
+            flat_root_violations=[
+                {
+                    "path": "dev/scripts/checks/check_new_guard.py",
+                    "reason": "new_flat_root_module_not_allowed",
+                    "guidance": "move into a namespace",
+                    "policy_source": "flat_root:dev/scripts/checks",
+                }
+            ],
+            crowding_violations=[
+                {
+                    "path": "dev/scripts/checks/check_new_guard.py",
+                    "reason": "new_file_in_crowded_directory",
+                    "guidance": "move into a namespace",
+                    "policy_source": "directory_crowding:dev/scripts/checks",
+                }
+            ],
+        )
+
+        self.assertEqual(rc, 0)
+        self.assertTrue(payload["ok"])
+        self.assertEqual(payload["flat_root_violations"], 0)
+        self.assertEqual(payload["crowded_directory_violations"], 0)
+        self.assertFalse(payload["baseline_debt_enforced"])
 
     def test_targeted_root_passes_when_changed_paths_touch_namespace_child(self) -> None:
         args = SimpleNamespace(

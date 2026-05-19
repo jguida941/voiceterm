@@ -270,6 +270,9 @@ one of those roots; clean-worktree and adoption-scan runs still enforce the
 selected roots globally. Repo policy can also ratchet known crowded
 roots/families from `freeze` to `strict` when a self-hosting repo needs
 touched flat-root files to stop behaving like normal healthy edits. For the
+root-scoped release ratchet, flat-root and crowded-directory violations from
+non-selected roots are rendered as visible layout debt without hard-blocking
+the selected root's publication lane. For the
 commands root specifically, the publish-safe repair shape is to move the live
 implementation into an existing topical package and leave the flat command path
 behind as a thin alias shim with `shim-target` metadata, rather than parking

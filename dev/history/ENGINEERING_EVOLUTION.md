@@ -16442,3 +16442,23 @@ Evidence:
 - `dev/scripts/checks/check_control_decision_obeyed.py`
 - `dev/scripts/checks/check_packet_absorption_required.py`
 - `dev/scripts/checks/check_publication_scope_integrity_for_push.py`
+
+### 2026-05-19 - Package-layout root-scoped ratchet stops leaking unrelated branch debt
+
+The next governed-push retry exposed a narrower release-bundle scope leak:
+`check_package_layout.py --fail-on-baseline-debt --baseline-debt-root
+dev/scripts/devctl/commands` was intended to hard-ratchet only the
+commands-root self-hosting hotspot, but long extraction-branch ranges still
+failed on `dev/scripts/checks` flat-root and crowded-directory violations.
+That made unrelated historical branch debt veto the selected publication lane.
+
+The package-layout guard now applies the selected `--baseline-debt-root` to
+flat-root, namespace, docs-sync, and crowded-directory violation groups when
+baseline-debt enforcement is root-scoped. Non-selected root debt still appears
+in the report as visible layout debt, but it no longer hard-blocks the
+commands-root release ratchet.
+
+Evidence:
+
+- `dev/scripts/checks/package_layout/command.py`
+- `dev/scripts/devctl/tests/checks/package_layout/test_check_package_layout.py`

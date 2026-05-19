@@ -3246,6 +3246,13 @@
   actually touches the targeted root. That preserves the `dev/scripts/devctl/commands`
   convergence ratchet for touched hotspot edits without making every local
   tooling pass permanently red on pre-existing baseline debt.
+- 2026-05-19 package-layout root-scope publication follow-up: governed-push
+  dogfood on the extraction branch exposed that long branch ranges could still
+  hard-fail on non-selected crowded roots even when release preflight supplied
+  `--baseline-debt-root dev/scripts/devctl/commands`. The guard now filters
+  flat-root and crowded-directory violations outside the selected root for
+  that scoped ratchet, leaving historic `dev/scripts/checks` debt visible but
+  non-blocking for the commands-root publication lane.
 - 2026-03-27 package-layout self-hosting validation follow-up: the recent
   rule-loading extraction into
   `dev/scripts/checks/package_layout/rule_resolution.py` kept the runtime

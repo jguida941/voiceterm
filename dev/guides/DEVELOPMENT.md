@@ -628,7 +628,10 @@ Three quality layers matter in practice:
   `dev/scripts/devctl/commands`. When root filters are present, dirty
   working-tree and commit-range runs only hard-fail if the current diff
   touches one of those roots; clean-worktree and adoption-scan runs still
-  enforce the selected roots globally. Repo policy may ratchet those known crowded
+  enforce the selected roots globally. Root-scoped release checks also filter
+  flat-root and crowded-directory violations from non-selected roots so old
+  branch-range debt outside the ratchet target remains visible but non-blocking.
+  Repo policy may ratchet those known crowded
   areas to `strict` so touched files must keep decomposing into owned packages
   or approved thin shims. When
   a move keeps a compatibility wrapper, the same report should emit
