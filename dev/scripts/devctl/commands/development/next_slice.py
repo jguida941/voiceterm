@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 from ...runtime.master_plan_contract import DEFAULT_MASTER_PLAN_STORE_REL, PlanRow
+from ...triage.findings_priority_models import RankedFinding
 from .models import (
     DevelopmentNextSlice,
     DevelopmentOrchestrationSnapshot,
@@ -10,12 +13,15 @@ from .models import (
 )
 from .next_slice_blockers import blocker_categories, category_row_ids
 
+_PREEMPTING_FINDING_SEVERITIES: frozenset[str] = frozenset({"critical", "high"})
+
 
 def select_next_slice(
     rows: tuple[PlanRow, ...],
     *,
     packet_attention: DevelopmentPacketAttention | None = None,
     orchestration: DevelopmentOrchestrationSnapshot | None = None,
+    ranked_findings: Sequence[RankedFinding] | None = None,
 ) -> DevelopmentNextSlice:
     """Select the next bounded development row from typed state."""
     packet_row = _packet_attention_row(rows, packet_attention)
@@ -47,6 +53,9 @@ def select_next_slice(
         )
     if packet_attention is not None and packet_attention.attention_required:
         return _packet_attention_slice(packet_attention, packet_row)
+    finding_slice = _critical_finding_preemption_slice(rows, ranked_findings)
+    if finding_slice is not None:
+        return finding_slice
     selected = _active_leaf_row(rows)
     if selected is None:
         return DevelopmentNextSlice(
@@ -239,6 +248,63 @@ def _packet_attention_slice(
             "an active slice id."
         ),
     )
+
+
+def _critical_finding_preemption_slice(
+    rows: tuple[PlanRow, ...],
+    ranked_findings: Sequence[RankedFinding] | None,
+) -> DevelopmentNextSlice | None:
+    """Preempt ordinary plan work with an open critical/high finding.
+
+    Role-flip SLICE-X (codex rev_pkt_4494/4506): unresolved critical/high
+    confirmed_issue findings outrank ordinary leaf-row selection in the
+    develop-next decision path. The finding is bound to a plan row when its
+    primary_file matches an active row's target_ref; otherwise it surfaces as a
+    communication-only bug-priority slice. Stale/missing finding-source
+    fail-loud detection is upstream of this helper (SLICE-Y scope).
+    """
+    if not ranked_findings:
+        return None
+    active_by_target: dict[str, PlanRow] = {
+        row.target_ref: row
+        for row in rows
+        if row.target_ref and row.status in {"in_progress", "queued"}
+    }
+    for finding in ranked_findings:
+        if finding.resolution_state != "open":
+            continue
+        if finding.severity not in _PREEMPTING_FINDING_SEVERITIES:
+            continue
+        linked_row = active_by_target.get(finding.primary_file)
+        if linked_row is not None:
+            return DevelopmentNextSlice(
+                slice_id=linked_row.row_id,
+                source=linked_row.source_doc_path or DEFAULT_MASTER_PLAN_STORE_REL,
+                title=linked_row.title,
+                target_ref=linked_row.target_ref,
+                status=linked_row.status,
+                reason=(
+                    f"Critical/{finding.severity} open finding {finding.qid} at "
+                    f"{finding.primary_file} preempts ordinary plan work via "
+                    "active plan-row linkage on target_ref."
+                ),
+            )
+        return DevelopmentNextSlice(
+            slice_id="bug-priority-preemption",
+            source="FindingBacklog.ranked_findings",
+            title=(
+                f"Open {finding.severity} finding {finding.qid} preempts plan work"
+            ),
+            target_ref=finding.primary_file,
+            status="attention_required",
+            reason=(
+                f"Critical/{finding.severity} open finding {finding.qid} at "
+                f"{finding.primary_file} preempts ordinary /develop selection. "
+                "No active plan-row linkage on target_ref; surfaced as "
+                "finding-priority slice for codex review."
+            ),
+        )
+    return None
 
 
 def _packet_attention_closes_orchestration_blocker(
