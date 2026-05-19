@@ -86,7 +86,11 @@ Use docs like this:
   read: it must either block before body disclosure or record a body observation
   against the actual actor role/session that opened the packet. Packet target
   role/session stay route metadata and must not replace the actor route in the
-  observation receipt.
+  observation receipt. When `/develop next` selects one of those packets, it
+  must evaluate the selected packet against the active actor route and advance
+  body-open -> semantic-ingestion -> absorption before generic packet pressure;
+  a packet already observed by that actor role/session must not loop back to
+  another `show`.
 - Agent-supervision recovery stays typed and explicit. Use `devctl
   agent-supervise --format json` to inspect host/process liveness. Add
   `--execute` only when the report contains `SpawnDeadAgentAction`; the command

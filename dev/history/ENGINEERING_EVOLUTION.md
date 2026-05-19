@@ -16324,6 +16324,28 @@ Evidence:
 - `dev/scripts/devctl/governance/instruction_boot_card.py`
 - `dev/scripts/devctl/tests/review_channel/test_bridge_render.py`
 
+### 2026-05-19 - Develop packet attention follows the actor-route lifecycle
+
+Phase 0.6.A live dogfood exposed a second controller split after governed
+`review-channel show` began recording body observations correctly: `/develop
+next` could still keep selecting the same route-mismatched packet and emit
+another `show` command because generic packet attention no longer saw the
+packet under the actor's current role. The selected inbox packet now evaluates
+body-open, semantic-ingestion, and absorption against the actual actor
+role/session before falling back to generic finding pressure, so a packet such
+as `rev_pkt_4429` advances instead of looping forever.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/development/packet_attention.py`
+- `dev/scripts/devctl/commands/development/packet_attention_body_followup.py`
+- `dev/scripts/devctl/review_channel/agent_packet_attention.py`
+- `dev/scripts/devctl/review_channel/packet_semantic_action_items.py`
+- `dev/scripts/devctl/runtime/control_decision_artifacts.py`
+- `dev/scripts/devctl/runtime/control_decision_packet_inbox.py`
+- `dev/scripts/devctl/tests/commands/test_development_command.py`
+- `dev/scripts/devctl/tests/runtime/test_control_decision_artifacts.py`
+
 ### 2026-05-19 - Governed push consumes typed publication authorization
 
 Phase 0.6.A found that the review-channel controller repair was not enough to

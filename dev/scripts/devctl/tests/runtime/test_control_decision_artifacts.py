@@ -561,6 +561,64 @@ def test_control_decision_payload_derives_single_agent_sync_pending_packet() -> 
     assert decision["pending_packet_count"] == 1
 
 
+def test_control_decision_payload_prefers_rebuilt_inbox_over_stale_agent_sync() -> None:
+    payload = {
+        "contract_id": "ReviewState",
+        "agent_runtime_clock": {"source_latest_event_id": "rev_evt_1"},
+        "packet_attention": {
+            "body_open_required": False,
+            "body_open_packet_id": "",
+            "latest_attention_packet_id": "rev_pkt_stale_global",
+            "pending_packet_count": 95,
+        },
+        "agent_sync": {
+            "source_latest_event_id": "rev_evt_1",
+            "agents": {
+                "codex": {
+                    "pending_packets_to_me": ["rev_pkt_stale_sync"],
+                }
+            },
+        },
+        "packets": [
+            {
+                "packet_id": "rev_pkt_4429",
+                "from_agent": "operator",
+                "to_agent": "codex",
+                "kind": "finding",
+                "status": "pending",
+                "summary": "Fresh inbox finding",
+                "body": "The fresh inbox packet must authorize body-open.",
+                "expires_at_utc": "2999-01-01T00:00:00Z",
+            }
+        ],
+        "agent_loop_decisions": [
+            {
+                "contract_id": "AgentLoopDecision",
+                "actor_id": "codex",
+                "actor_role": "reviewer",
+                "session_id": "current",
+                "decision": "wait",
+                "required_action": "wait_for_scoped_packet",
+                "may_mutate": False,
+                "can_run_next_command": False,
+                "source_latest_event_id": "rev_evt_1",
+            }
+        ],
+    }
+
+    decision = control_decision_payload_from_mapping(
+        payload,
+        actor="codex",
+        role="reviewer",
+        session_id="current",
+    )
+
+    assert decision["body_open_required"] is True
+    assert decision["body_open_packet_id"] == "rev_pkt_4429"
+    assert decision["attention_packet_id"] == "rev_pkt_4429"
+    assert decision["unopened_body_packet_ids"] == ["rev_pkt_4429"]
+
+
 def test_control_decision_payload_prefers_scoped_agent_sync_over_reviewer_runtime() -> None:
     payload = {
         "contract_id": "ReviewState",

@@ -14,13 +14,13 @@ from ...runtime.packet_carry_forward_sources import (
     durable_packet_ids_from_plan_rows,
 )
 from ...runtime.review_packet_inbox import packet_inbox_from_review_state
-from ...review_channel.agent_packet_attention import packet_attention_for_agent
 from .models import DevelopmentPacketAttention
+from .packet_attention_body_followup import (
+    packet_body_followup_for_selection,
+)
 from .packet_attention_support import (
     PacketAttentionSummaryInput,
     PacketExitContext,
-    _int,
-    _work_board_rows,
     durable_row_id_for_packet,
     expired_unresolved_packet_ids,
     latest_attention_packet_id,
@@ -32,7 +32,6 @@ from .packet_attention_support import (
     required_command_for_record,
     wake_reason_for_packet,
 )
-from .packet_attention_commands import PacketShowCommandRoute
 from .packet_attention_lifecycle import packet_by_id
 
 _ATTENTION_REQUIRED_STATUSES = {
@@ -96,12 +95,13 @@ def packet_attention_from_review_state(
         pending_actionable_packet_ids=pending_packet_ids,
         pending_delivery_packet_ids=delivery_packet_ids,
     )
-    body_attention = packet_attention_for_agent(review_state, actor=agent)
-    body_attention_required, body_attention_reason, body_attention_packet_id, body_attention_command = (
-        _body_attention_followup(body_attention)
+    body_followup = packet_body_followup_for_selection(
+        review_state,
+        agent=agent,
+        packet_id=latest_packet_id,
     )
-    if body_attention_required and body_attention_packet_id:
-        latest_packet_id = body_attention_packet_id
+    if body_followup.required and body_followup.packet_id:
+        latest_packet_id = body_followup.packet_id
     attention_packet = packet_by_id(review_state, latest_packet_id)
     durable_row_id = durable_row_id_for_packet(
         rows,
@@ -132,16 +132,16 @@ def packet_attention_from_review_state(
                 exit_context=exit_context,
             )
         )
-        or body_attention_required
+        or body_followup.required
     )
     if not attention_required:
         status = "none"
         wake_reason = ""
         required_command = ""
-    elif body_attention_required and body_attention_command:
+    elif body_followup.required and body_followup.command:
         status = "wake_required"
-        wake_reason = body_attention_reason
-        required_command = body_attention_command
+        wake_reason = body_followup.reason
+        required_command = body_followup.command
     else:
         required_command = required_command_for_record(
             record,
@@ -149,7 +149,7 @@ def packet_attention_from_review_state(
             latest_finding_packet_id=packet_id,
             fallback_command=required_command,
             packet=attention_packet,
-            route=_active_actor_route(review_state, agent=agent),
+            route=body_followup.route,
         )
     return DevelopmentPacketAttention(
         attention_required=attention_required,
@@ -173,11 +173,11 @@ def packet_attention_from_review_state(
         ),
         summary=(
             f"Packet attention requires semantic ingestion for {latest_packet_id}."
-            if body_attention_required
-            and body_attention_reason == "packet_semantic_ingestion_required"
+            if body_followup.required
+            and body_followup.reason == "packet_semantic_ingestion_required"
             else f"Packet attention requires absorption for {latest_packet_id}."
-            if body_attention_required
-            and body_attention_reason == "packet_absorption_required"
+            if body_followup.required
+            and body_followup.reason == "packet_absorption_required"
             else packet_attention_summary(
                 PacketAttentionSummaryInput(
                     record=record,
@@ -191,34 +191,6 @@ def packet_attention_from_review_state(
             )
         ),
     )
-
-
-def _body_attention_followup(body_attention) -> tuple[bool, str, str, str]:
-    """Return the strongest packet-body follow-up required for one actor."""
-    if bool(getattr(body_attention, "body_open_required", False)):
-        return (
-            True,
-            "packet_body_open_required",
-            str(getattr(body_attention, "body_open_packet_id", "") or "").strip(),
-            str(getattr(body_attention, "body_open_command", "") or "").strip(),
-        )
-    if bool(getattr(body_attention, "semantic_ingestion_required", False)):
-        return (
-            True,
-            "packet_semantic_ingestion_required",
-            str(
-                getattr(body_attention, "semantic_ingestion_packet_id", "") or ""
-            ).strip(),
-            str(getattr(body_attention, "semantic_ingestion_command", "") or "").strip(),
-        )
-    if bool(getattr(body_attention, "absorption_required", False)):
-        return (
-            True,
-            "packet_absorption_required",
-            str(getattr(body_attention, "absorption_packet_id", "") or "").strip(),
-            str(getattr(body_attention, "absorption_command", "") or "").strip(),
-        )
-    return False, "", "", ""
 
 
 def _authority_affecting_packet(
@@ -248,45 +220,6 @@ def _active_plan_row_bound(rows: tuple[PlanRow, ...], row_id: str) -> bool:
 
 def _packet_text(packet: Mapping[str, object], field: str) -> str:
     return str(packet.get(field) or "").strip()
-
-
-def _active_actor_route_field(
-    review_state: Mapping[str, object],
-    *,
-    agent: str,
-    field: str,
-) -> str:
-    rows = _work_board_rows(review_state)
-    candidates = [
-        row
-        for row in rows
-        if str(row.get("actor_id") or "").strip().lower()
-        == str(agent or "").strip().lower()
-    ]
-    if not candidates:
-        return ""
-    candidates.sort(key=lambda row: _int(row.get("idle_seconds")))
-    row = candidates[0]
-    if field == "role":
-        return str(row.get("role") or "").strip()
-    if field == "session_id":
-        return str(row.get("session_id") or "").strip()
-    return ""
-
-
-def _active_actor_route(
-    review_state: Mapping[str, object],
-    *,
-    agent: str,
-) -> PacketShowCommandRoute:
-    return PacketShowCommandRoute(
-        actor_role=_active_actor_route_field(review_state, agent=agent, field="role"),
-        session_id=_active_actor_route_field(
-            review_state,
-            agent=agent,
-            field="session_id",
-        ),
-    )
 
 
 def _packet_specific_attention_without_packet(

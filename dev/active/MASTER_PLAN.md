@@ -37,7 +37,10 @@
   observations record the reader's actor role/session rather than the packet
   target route. Collapsed post kinds require exact controller actions for
   `post_task_produced`, `post_task_progress`, or `post_evidence`; parser/alias
-  parity alone is not green without this live path.
+  parity alone is not green without this live path. The follow-up packet
+  attention repair keeps selected route-mismatched packets on the same actor
+  route after body observation, advancing body-open -> semantic-ingestion ->
+  absorption instead of reissuing `show` forever.
 - 2026-05-19 Phase 0.6.A governed-push follow-up keeps publication inside the
   same typed-controller contract. `devctl push --execute` consumes a current
   remote commit pipeline `PushAuthorizationRecord` as authority for

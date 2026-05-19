@@ -52,7 +52,11 @@ separate: `review-channel show` must carry `--actor`, `--actor-role`, and
 artifact evidence posts require exact `ControlDecisionObeyedGuard` allowed
 actions (`review-channel.post_task_produced`,
 `review-channel.post_task_progress`, or `review-channel.post_evidence`); do not
-authorize them through a broad post/finding action.
+authorize them through a broad post/finding action. When `/develop next`
+selects a route-mismatched inbox packet, it must advance the reader's lifecycle
+from body observation to semantic ingestion to absorption before falling back to
+generic finding attention; it must not reissue `show` after the matching actor
+role/session body observation exists.
 During GuardIR extraction, `bridge.md` is intentionally rendered as a
 deprecated projection-only stub. Use typed state, contracts, receipts, repo
 policy, source code, and guards for authority; bridge stale/empty state is

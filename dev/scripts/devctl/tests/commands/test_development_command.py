@@ -17,6 +17,7 @@ from dev.scripts.devctl.commands.development import (
     orchestration_agent_supervise as orchestration_agent_supervise_module,
     orchestration_system_picture as orchestration_system_picture_module,
     packet_attention as packet_attention_module,
+    packet_attention_body_followup as packet_attention_body_followup_module,
 )
 from dev.scripts.devctl.commands.development import packet_debt as development_packet_debt
 from dev.scripts.devctl.commands.development import plan_intake
@@ -49,6 +50,9 @@ from dev.scripts.devctl.commands.development.orchestration_inputs import (
 from dev.scripts.devctl.commands.development.packet_attention import (
     packet_attention_from_review_state,
 )
+from dev.scripts.devctl.review_channel.packet_semantic_action_items import (
+    semantic_action_item_rows_for_packet,
+)
 from dev.scripts.devctl.review_channel.packet_body_observation import packet_body_digest
 from dev.scripts.devctl.commands.development.plan_intake_decomposition import (
     decomposed_packet_rows,
@@ -75,6 +79,9 @@ from dev.scripts.devctl.runtime.development_role_adapters import (
 from dev.scripts.devctl.runtime.development_packet_pressure_models import (
     PacketAttentionIngestionDecision,
     PacketBacklogPressure,
+)
+from dev.scripts.devctl.runtime.packet_absorption import (
+    build_packet_semantic_ingestion_receipt,
 )
 from dev.scripts.devctl.runtime.runtime_truth_snapshot import RuntimeTruthSnapshot
 
@@ -4707,6 +4714,116 @@ def test_packet_attention_show_command_keeps_actor_and_packet_routes() -> None:
     )
 
 
+def test_packet_attention_role_mismatch_body_observation_advances_to_ingest() -> None:
+    packet = {
+        "packet_id": "rev_pkt_4429",
+        "from_agent": "operator",
+        "to_agent": "codex",
+        "kind": "finding",
+        "status": "pending",
+        "lifecycle_current_state": "pending",
+        "latest_event_id": "rev_evt_83466",
+        "target_role": "implementer",
+        "body": "Inventory finding that codex reviewer already opened.",
+        "expires_at_utc": "2999-01-01T00:00:00Z",
+    }
+    packet["body_observation_events"] = [
+        {
+            "body_observed_by": "codex",
+            "body_observed_role": "reviewer",
+            "body_observed_session_id": "codex-review-session",
+            "body_digest": packet_body_digest(packet),
+        }
+    ]
+    review_state = {
+        "agent_work_board": {
+            "rows": [
+                {
+                    "actor_id": "codex",
+                    "role": "reviewer",
+                    "session_id": "codex-review-session",
+                    "status": "idle",
+                    "idle_seconds": 1,
+                }
+            ]
+        },
+        "packets": [packet],
+    }
+
+    attention = packet_attention_from_review_state(review_state, rows=())
+
+    assert attention.attention_required is True
+    assert attention.latest_attention_packet_id == "rev_pkt_4429"
+    assert attention.wake_reason == "packet_semantic_ingestion_required"
+    assert "--action ingest" in attention.required_command
+    assert "--packet-id rev_pkt_4429" in attention.required_command
+    assert "--target-role reviewer" in attention.required_command
+    assert "--target-session-id codex-review-session" in attention.required_command
+    assert "--semantic-action-item" in attention.required_command
+    assert "--action show" not in attention.required_command
+
+
+def test_packet_attention_role_mismatch_semantic_ingestion_advances_to_absorb() -> None:
+    packet = {
+        "packet_id": "rev_pkt_4429",
+        "from_agent": "operator",
+        "to_agent": "codex",
+        "kind": "finding",
+        "status": "pending",
+        "lifecycle_current_state": "pending",
+        "latest_event_id": "rev_evt_83466",
+        "target_role": "implementer",
+        "body": "Inventory finding that codex reviewer ingested.",
+        "expires_at_utc": "2999-01-01T00:00:00Z",
+    }
+    digest = packet_body_digest(packet)
+    packet["body_observation_events"] = [
+        {
+            "body_observed_by": "codex",
+            "body_observed_role": "reviewer",
+            "body_observed_session_id": "codex-review-session",
+            "body_digest": digest,
+        }
+    ]
+    packet["packet_semantic_ingestion_receipt"] = (
+        build_packet_semantic_ingestion_receipt(
+            packet_id="rev_pkt_4429",
+            body_sha256=digest,
+            ingested_by_actor="codex",
+            ingested_by_role="reviewer",
+            ingested_by_session_id="codex-review-session",
+            ingested_at_utc="2026-05-19T10:00:00Z",
+            action_item_rows=semantic_action_item_rows_for_packet(packet),
+            resulting_decision="semantic_ingestion_recorded",
+            decision_rationale="test receipt",
+        ).to_dict()
+    )
+    review_state = {
+        "agent_work_board": {
+            "rows": [
+                {
+                    "actor_id": "codex",
+                    "role": "reviewer",
+                    "session_id": "codex-review-session",
+                    "status": "idle",
+                    "idle_seconds": 1,
+                }
+            ]
+        },
+        "packets": [packet],
+    }
+
+    attention = packet_attention_from_review_state(review_state, rows=())
+
+    assert attention.attention_required is True
+    assert attention.latest_attention_packet_id == "rev_pkt_4429"
+    assert attention.wake_reason == "packet_absorption_required"
+    assert "--action absorb" in attention.required_command
+    assert "--packet-id rev_pkt_4429" in attention.required_command
+    assert "--target-role reviewer" in attention.required_command
+    assert "--target-session-id codex-review-session" in attention.required_command
+
+
 def test_packet_attention_requires_body_open_for_peer_progress_packet() -> None:
     review_state = {
         "packets": [
@@ -4816,7 +4933,7 @@ def test_packet_attention_followup_lifecycle_order(monkeypatch) -> None:
 
     def _render(fake_attention: SimpleNamespace) -> DevelopmentPacketAttention:
         monkeypatch.setattr(
-            packet_attention_module,
+            packet_attention_body_followup_module,
             "packet_attention_for_agent",
             lambda *_args, **_kwargs: fake_attention,
         )

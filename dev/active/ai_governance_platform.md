@@ -95,7 +95,10 @@ Current ingestion status:
   successful read records the actor's actual role/session. `task_produced`,
   `task_progress`, and artifact-evidence posts require exact
   `AgentLoopDecision.allowed_actions` entries rather than a generic
-  `post_finding` authority.
+  `post_finding` authority. The selected-packet lifecycle is part of that
+  contract: `/develop next` must use the active actor route to move observed
+  packets through semantic ingestion and absorption, not repeat a body-open
+  command because the packet target role differs from the reader role.
 - 2026-05-19 Phase 0.6.A push-controller repair closes the publication side of
   the same live-controller bug. The governed push gate may derive its
   `devctl.push.execute` decision from the current remote commit pipeline

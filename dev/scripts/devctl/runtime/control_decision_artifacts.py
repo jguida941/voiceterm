@@ -7,11 +7,8 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
-from .packet_absorption import (
-    packet_semantically_ingested as _runtime_packet_semantically_ingested,
-)
-from .packet_absorption_resolution import absorption_resolves_packet_pressure
-from .value_coercion import coerce_bool, coerce_string
+from .control_decision_packet_inbox import merge_packet_attention
+from .value_coercion import coerce_string
 
 DEFAULT_CONTROL_DECISION_INPUT_CANDIDATES = (
     Path("dev/reports/review_channel/state/latest.json"),
@@ -113,7 +110,7 @@ def control_decision_payload_from_mapping(
 ) -> dict[str, object]:
     if isinstance(payload.get("agent_loop_decision"), dict):
         return _validated_decision(
-            _merge_packet_attention(  # type: ignore[index]
+            merge_packet_attention(  # type: ignore[index]
                 dict(payload["agent_loop_decision"]),
                 payload,
                 actor=actor,
@@ -122,7 +119,7 @@ def control_decision_payload_from_mapping(
         )
     if isinstance(payload.get("control_decision"), dict):
         return _validated_decision(
-            _merge_packet_attention(  # type: ignore[index]
+            merge_packet_attention(  # type: ignore[index]
                 dict(payload["control_decision"]),
                 payload,
                 actor=actor,
@@ -140,7 +137,7 @@ def control_decision_payload_from_mapping(
             session_id=session_id,
         )
         return _validated_decision(
-            _merge_packet_attention(decision, payload, actor=actor),
+            merge_packet_attention(decision, payload, actor=actor),
             source_payload=payload,
         )
     return {}
@@ -239,42 +236,6 @@ def _source_head_sha(payload: Mapping[str, object]) -> str:
     return ""
 
 
-def _merge_packet_attention(
-    decision: Mapping[str, object],
-    source_payload: Mapping[str, object],
-    *,
-    actor: str = "",
-) -> dict[str, object]:
-    result = dict(decision)
-    attention = _packet_attention(source_payload, actor=actor)
-    if not attention:
-        return _derive_packet_attention_from_decision(result)
-    merge_map = {
-        "body_open_required": "body_open_required",
-        "body_open_packet_id": "body_open_packet_id",
-        "attention_packet_id": "latest_attention_packet_id",
-        "active_packet_id": "active_packet_id",
-        "pending_packet_count": "pending_packet_count",
-        "unopened_body_packet_ids": "unopened_body_packet_ids",
-        "pivot_required": "pivot_required",
-        "semantic_ingestion_required": "semantic_ingestion_required",
-        "semantic_ingestion_packet_id": "semantic_ingestion_packet_id",
-        "semantic_ingestion_command": "semantic_ingestion_command",
-        "semantic_ingestion_reason": "semantic_ingestion_reason",
-        "absorption_required": "absorption_required",
-        "absorption_packet_id": "absorption_packet_id",
-        "absorption_command": "absorption_command",
-        "absorption_reason": "absorption_reason",
-    }
-    for target_key, source_key in merge_map.items():
-        if source_key not in attention:
-            continue
-        result[target_key] = attention[source_key]
-    if "attention_packet_id" not in result and "attention_packet_id" in attention:
-        result["attention_packet_id"] = attention["attention_packet_id"]
-    return _derive_packet_attention_from_decision(result)
-
-
 def _merge_latest_startup_authority(
     decision: Mapping[str, object],
     *,
@@ -354,285 +315,6 @@ def _merge_string_sequence_field(
                 merged.append(text)
     if merged:
         target[key] = merged
-
-
-def _derive_packet_attention_from_decision(
-    decision: Mapping[str, object],
-) -> dict[str, object]:
-    """Normalize packet-attention fields from an AgentLoopDecision fallback.
-
-    Some live AgentLoopDecision rows carry the controlling packet-open authority
-    in ``required_action``/``reason_code`` plus the emitted ``next_command`` but
-    omit the convenience booleans consumed by the obedience guard.  Derive only
-    the narrow packet-open fields from that same typed decision.
-    """
-
-    result = dict(decision)
-    if (
-        coerce_bool(result.get("body_open_required"))
-        or coerce_bool(result.get("semantic_ingestion_required"))
-        or coerce_bool(result.get("absorption_required"))
-    ):
-        return result
-    required_action = _norm(result.get("required_action"))
-    reason_code = _norm(result.get("reason_code") or result.get("reason"))
-    gate_failure = result.get("gate_failure")
-    gate_reason = (
-        _norm(gate_failure.get("violation_reason"))
-        if isinstance(gate_failure, Mapping)
-        else ""
-    )
-    next_command = coerce_string(result.get("next_command"))
-    if (
-        required_action == "absorb_packet"
-        or reason_code == "packet_absorption_required"
-        or gate_reason == "packet_absorption_required"
-        or "review-channel --action absorb" in next_command
-    ):
-        packet_id = _decision_packet_id(result, next_command=next_command)
-        if packet_id:
-            result["absorption_required"] = True
-            result["absorption_packet_id"] = packet_id
-            result["absorption_command"] = next_command
-            result.setdefault("attention_packet_id", packet_id)
-            result.setdefault("active_packet_id", packet_id)
-        return result
-    if (
-        required_action == "ingest_packet_semantics"
-        or reason_code == "packet_semantic_ingestion_required"
-        or gate_reason == "packet_semantic_ingestion_required"
-        or "review-channel --action ingest" in next_command
-    ):
-        packet_id = _decision_packet_id(result, next_command=next_command)
-        if packet_id:
-            result["semantic_ingestion_required"] = True
-            result["semantic_ingestion_packet_id"] = packet_id
-            result["semantic_ingestion_command"] = next_command
-            result["semantic_ingestion_reason"] = "packet_body_observed_without_semantic_ingestion"
-            result.setdefault("attention_packet_id", packet_id)
-            result.setdefault("active_packet_id", packet_id)
-        return result
-    if not (
-        required_action == "open_packet_body"
-        or reason_code == "packet_body_open_required"
-        or gate_reason == "packet_body_open_required"
-        or (
-            "review-channel --action show" in next_command
-            and "--packet-id " in next_command
-        )
-    ):
-        return result
-    packet_id = _decision_packet_id(result, next_command=next_command)
-    if not packet_id:
-        return result
-    result["body_open_required"] = True
-    result["body_open_packet_id"] = packet_id
-    result.setdefault("attention_packet_id", packet_id)
-    result.setdefault("active_packet_id", packet_id)
-    if not result.get("unopened_body_packet_ids"):
-        result["unopened_body_packet_ids"] = [packet_id]
-    return result
-
-
-def _decision_packet_id(
-    decision: Mapping[str, object],
-    *,
-    next_command: str,
-) -> str:
-    return (
-        coerce_string(decision.get("body_open_packet_id")).strip()
-        or coerce_string(decision.get("semantic_ingestion_packet_id")).strip()
-        or coerce_string(decision.get("absorption_packet_id")).strip()
-        or _packet_id_from_command(next_command)
-        or coerce_string(decision.get("attention_packet_id")).strip()
-        or coerce_string(decision.get("active_packet_id")).strip()
-        or _packet_id_from_target_ref(decision.get("target_ref"))
-    )
-
-
-def _packet_id_from_command(command: str) -> str:
-    marker = "--packet-id "
-    if marker not in command:
-        return ""
-    return command.split(marker, 1)[1].split()[0].strip("'\"")
-
-
-def _packet_id_from_target_ref(value: object) -> str:
-    target_ref = coerce_string(value).strip()
-    if target_ref.startswith("rev_pkt_"):
-        return target_ref
-    if target_ref.startswith("packet:"):
-        return target_ref.split(":", 1)[1].strip()
-    return ""
-
-
-def _norm(value: object) -> str:
-    return coerce_string(value).strip().lower().replace("-", "_").replace(" ", "_")
-
-
-def _packet_attention(
-    payload: Mapping[str, object],
-    *,
-    actor: str = "",
-) -> Mapping[str, object]:
-    agent_sync_attention = _agent_sync_packet_attention(payload, actor=actor)
-    if agent_sync_attention:
-        return agent_sync_attention
-    direct = payload.get("packet_attention")
-    if isinstance(direct, Mapping):
-        return direct
-    reviewer_runtime = payload.get("reviewer_runtime")
-    if isinstance(reviewer_runtime, Mapping):
-        nested = reviewer_runtime.get("packet_attention")
-        if isinstance(nested, Mapping):
-            return nested
-    return {}
-
-
-def _agent_sync_packet_attention(
-    payload: Mapping[str, object],
-    *,
-    actor: str = "",
-) -> dict[str, object]:
-    """Derive a scoped body-open target from AgentSync when it is unambiguous."""
-
-    if not actor:
-        return {}
-    agent_sync = payload.get("agent_sync")
-    if not isinstance(agent_sync, Mapping):
-        return {}
-    agents = agent_sync.get("agents")
-    if not isinstance(agents, Mapping):
-        return {}
-    actor_state = agents.get(actor)
-    if not isinstance(actor_state, Mapping):
-        return {}
-    pending_raw = actor_state.get("pending_packets_to_me")
-    if not isinstance(pending_raw, Sequence) or isinstance(pending_raw, (str, bytes)):
-        return {}
-    pending_packet_ids = tuple(
-        packet_id
-        for packet_id in (coerce_string(item).strip() for item in pending_raw)
-        if packet_id
-    )
-    if len(pending_packet_ids) != 1:
-        return {}
-    packet_id = pending_packet_ids[0]
-    packet = _packet_by_id(payload, packet_id)
-    base = {
-        "latest_attention_packet_id": packet_id,
-        "pending_packet_count": 1,
-        "pivot_required": True,
-    }
-    if packet and _packet_has_absorption_receipt(packet):
-        return {}
-    if packet and _packet_has_any_absorption_receipt(packet):
-        return base
-    if packet and _packet_semantically_ingested(packet):
-        return {
-            **base,
-            "absorption_required": True,
-            "absorption_packet_id": packet_id,
-            "absorption_command": (
-                "python3 dev/scripts/devctl.py review-channel --action absorb "
-                f"--packet-id {packet_id}"
-            ),
-            "absorption_reason": "packet_semantically_ingested_without_absorption",
-        }
-    if packet and _packet_body_observed(packet):
-        return {
-            **base,
-            "semantic_ingestion_required": True,
-            "semantic_ingestion_packet_id": packet_id,
-            "semantic_ingestion_command": (
-                "python3 dev/scripts/devctl.py review-channel --action ingest "
-                f"--packet-id {packet_id}"
-            ),
-            "semantic_ingestion_reason": (
-                "packet_body_observed_without_semantic_ingestion"
-            ),
-        }
-    return {
-        **base,
-        "body_open_required": True,
-        "body_open_packet_id": packet_id,
-        "unopened_body_packet_ids": [packet_id],
-    }
-
-
-def _packet_by_id(
-    payload: Mapping[str, object],
-    packet_id: str,
-) -> Mapping[str, object]:
-    packets = payload.get("packets")
-    if not isinstance(packets, Sequence) or isinstance(packets, (str, bytes)):
-        return {}
-    for packet in packets:
-        if (
-            isinstance(packet, Mapping)
-            and coerce_string(packet.get("packet_id")).strip() == packet_id
-        ):
-            return packet
-    return {}
-
-
-def _packet_body_observed(packet: Mapping[str, object]) -> bool:
-    return bool(
-        coerce_string(packet.get("body_observed_at_utc")).strip()
-        or coerce_string(packet.get("body_observed_event_id")).strip()
-        or _sequence_has_rows(packet.get("body_observation_events"))
-    )
-
-
-def _packet_semantically_ingested(packet: Mapping[str, object]) -> bool:
-    return _runtime_packet_semantically_ingested(packet)
-
-
-def _packet_has_absorption_receipt(packet: Mapping[str, object]) -> bool:
-    receipts = _packet_absorption_receipts(packet)
-    return bool(receipts) and absorption_resolves_packet_pressure(
-        packet,
-        absorption_receipts=tuple(receipts),
-    )
-
-
-def _packet_has_any_absorption_receipt(packet: Mapping[str, object]) -> bool:
-    return bool(_packet_absorption_receipts(packet))
-
-
-def _packet_absorption_receipts(packet: Mapping[str, object]) -> list[Mapping[str, object]]:
-    receipts: list[Mapping[str, object]] = []
-    for key in ("packet_absorption_receipt", "absorption_receipt"):
-        receipt = packet.get(key)
-        if _nonempty_receipt(receipt):
-            receipts.append(receipt)  # type: ignore[arg-type]
-    events = packet.get("absorption_events")
-    if isinstance(events, Sequence) and not isinstance(events, (str, bytes)):
-        for item in events:
-            if not isinstance(item, Mapping):
-                continue
-            receipt = item.get("packet_absorption_receipt")
-            if _nonempty_receipt(receipt):
-                receipts.append(receipt)  # type: ignore[arg-type]
-            elif _nonempty_receipt(item):
-                receipts.append(item)
-    return receipts
-
-
-def _nonempty_receipt(value: object) -> bool:
-    return isinstance(value, Mapping) and bool(
-        coerce_string(value.get("packet_id")).strip()
-        or coerce_string(value.get("receipt_id")).strip()
-        or coerce_string(value.get("contract_id")).strip()
-    )
-
-
-def _sequence_has_rows(value: object) -> bool:
-    return (
-        isinstance(value, Sequence)
-        and not isinstance(value, (str, bytes))
-        and bool(value)
-    )
 
 
 def _nested_string(payload: Mapping[str, object], path: Sequence[str]) -> str:
