@@ -6,6 +6,7 @@ import shlex
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, NamedTuple
 
+from ..cli_parser.artifact_suppression import ARTIFACT_WRITES_ENV
 from ..common_io import inject_quality_policy_command, normalize_repo_python_shell_command
 
 if TYPE_CHECKING:
@@ -81,6 +82,9 @@ def build_preflight_shell_command(
     command = shlex.join(args)
     check_router_command = normalize_repo_python_shell_command(
         inject_quality_policy_command(command, quality_policy_path)
+    )
+    check_router_command = (
+        f"{shlex.quote(ARTIFACT_WRITES_ENV)}=1 {check_router_command}"
     )
     publication_scope_args = [
         "python3",
