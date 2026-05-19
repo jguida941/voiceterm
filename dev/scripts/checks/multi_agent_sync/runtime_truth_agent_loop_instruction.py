@@ -44,6 +44,11 @@ def instruction_authority_mismatch_errors(
         and queue_packet
         and queue_packet not in active_packets
         and not _packet_is_communication_only(queue_packet_record)
+        and not _active_focus_is_communication_only(
+            active_rows,
+            active_packets,
+            packet_index,
+        )
         and not _body_open_subqueue_matches(
             active_rows,
             actor=queue_actor,
@@ -96,6 +101,11 @@ def _packet_inbox_mismatch_errors(
             and inbox_packet
             and inbox_packet not in active_packets
             and not _packet_is_communication_only(inbox_packet_record)
+            and not _active_focus_is_communication_only(
+                active_rows,
+                active_packets,
+                packet_index,
+            )
             and not _body_open_subqueue_matches(
                 active_rows,
                 actor=actor,
@@ -191,6 +201,22 @@ def _scope_has_executing_packet(
         if scoped and session and row.get("session") != session:
             continue
         if row.get("executing_packet_id"):
+            return True
+    return False
+
+
+def _active_focus_is_communication_only(
+    active_rows: tuple[Mapping[str, str], ...],
+    active_packets: frozenset[str],
+    packet_index: Mapping[str, Mapping[str, object]],
+) -> bool:
+    for row in active_rows:
+        packet_id = row.get("packet_id", "")
+        if packet_id not in active_packets:
+            continue
+        if row.get("required_action") != "open_packet_body":
+            continue
+        if _packet_is_communication_only(packet_index.get(packet_id)):
             return True
     return False
 

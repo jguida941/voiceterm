@@ -45,6 +45,13 @@ Review-channel packet posts deliberately remain no-wake communication events:
 their packet-attention receipt records `PacketArrivalDerivedStateInvalidation`
 for the existing event-backed projections and controller consumers, while
 provider launch/replacement stays owned by scheduler/runtime controllers.
+Continuation anchors can be bounded by typed slice commits: post
+`--kind continuation_anchor --release-mode commit_count --release-commit-count <N>`
+to keep the target session alive until `<N>` distinct typed commit SHAs appear
+on later packet `target_revision`, `evidence_refs`/`evidence_ref`,
+`commit_sha`, or `source_identity.head_sha` fields. Body text is not release
+authority; route scope, unread body checks, and invalid-metadata fail-closed
+behavior stay inside `SessionTerminationPolicy`.
 For typed collaboration repair work, keep actor route and packet route
 separate: `review-channel show` must carry `--actor`, `--actor-role`, and
 `--session-id` for the reader while preserving packet `--target-role` /
@@ -2066,6 +2073,9 @@ summary over the selected snapshot window.
 | `dev/scripts/checks/check_bootstrap.py` | Check bootstrap helper | Shared import-resolution and UTC runtime-error/timestamp helpers used by standalone guard scripts; not invoked directly by bundles. |
 | `dev/scripts/checks/check_active_plan_sync.py` | Active-plan sync gate | Verifies `dev/active/INDEX.md` registry coverage, tracker authority, mirrored-spec phase headings, cross-doc links, execution-plan metadata/marker/section parity (including `Session Resume`), the typed umbrella-plan phase/task contract for `dev/active/ai_governance_platform.md`, `MP-*` scope parity between index/spec docs and `MASTER_PLAN`, archive-vs-active doc boundaries for the reduced active owner set, and `MASTER_PLAN` Status Snapshot release metadata freshness. |
 | `dev/scripts/checks/check_architecture_surface_sync.py` | Architecture-surface sync guard | Scans newly added files and fails when active-plan docs, new check scripts, new `devctl` commands, new `app/**` surfaces, or new workflow files are not wired into the repo's owning authority docs/bundles/workflow docs. Supports `--since-ref`/`--head-ref` for branch diffs and `--paths` for targeted local verification. |
+| `dev/scripts/checks/check_guardir_extraction_plan_artifacts.py` | GuardIR extraction plan-artifact guard | Verifies GuardIR extraction plan artifacts and companion GuardIR policy checks stay documented and wired before GuardIR phase closure is claimed. |
+| `dev/scripts/checks/check_no_new_hardcoded_provider_authority.py` | Provider-authority hardcode guard | Blocks newly introduced hardcoded provider or VoiceTerm authority literals in reusable governance surfaces during GuardIR extraction. |
+| `dev/scripts/checks/check_no_new_topology_count_coupling.py` | Topology-count coupling guard | Blocks newly introduced hard-coded topology, agent-count, or provider-count coupling in reusable governance logic. |
 | `dev/scripts/checks/check_ground_truth_probe_gate.py` | Ground-truth probe gate | Blocks runtime/proof/architecture changes that introduce or extend authority surfaces without a current satisfied `GroundTruthProbeRunReceipt`; pairs with `develop design-preflight --record-ground-truth-receipt` so new design work starts from repo truth instead of sidecar assumptions. Supports `--format`. |
 | `dev/scripts/checks/check_guide_contract_sync.py` | Durable guide contract sync guard | Verifies repo-policy-owned durable guide/playbook coverage contracts (for example `dev/guides/DEVCTL_AUTOGUIDE.md`) so major control-plane surfaces cannot silently fall out of the operator docs while code keeps moving. |
 | `dev/scripts/checks/check_instruction_surface_sync.py` | Generated-surface sync guard | Verifies policy-owned instruction/starter surfaces still match the current repo-pack templates/context without writing files, so `render-surfaces --write` stays paired with a real enforcement lane in tooling/release validation. |

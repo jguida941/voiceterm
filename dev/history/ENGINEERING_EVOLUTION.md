@@ -284,6 +284,33 @@ Evidence:
 - `dev/scripts/devctl/tests/commands/test_development_command.py`
 - `packet_absorption:rev_pkt_4425:af10f8615b8964c4`
 - `command_output:test-python:69aac104c469feb7`
+
+## 2026-05-19 - Slice-counted continuation anchors release on commit evidence
+
+Role-flip dogfood exposed bug #9: a live `continuation_anchor` could keep a
+Codex session alive, but there was no typed way to release it after a bounded
+number of slice commits. The first repair only blocked below threshold and
+still fell through to `continuation_anchor_active` after the threshold was met.
+
+`continuation_anchor` packet posts now carry typed release metadata through the
+review-channel contract and CLI via `--release-mode commit_count` and
+`--release-commit-count <N>`. `SessionTerminationPolicy` evaluates that release
+inside the normal continuation-anchor route and body-observation path, counts
+distinct typed commit SHAs from later packet `target_revision`,
+`evidence_refs`/`evidence_ref`, `commit_sha`, and `source_identity.head_sha`
+fields, fails closed on invalid metadata, and releases threshold-met anchors
+instead of treating them as generic active continuation anchors.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/session_termination_anchor_release.py`
+- `dev/scripts/devctl/runtime/session_termination_policy.py`
+- `dev/scripts/devctl/review_channel/packet_anchor_release.py`
+- `dev/scripts/devctl/review_channel/packet_contract.py`
+- `dev/scripts/devctl/tests/runtime/test_session_termination_policy.py`
+- `dev/scripts/devctl/tests/review_channel/test_packet_transport_expiry.py`
+- `command_output:test-python:78f13da323ee7c87`
+- `command_output:test-python:0cd51be125ac4430`
 - `dev/scripts/devctl/platform/runtime_state_contract_rows_review_core.py`
 
 ### 2026-05-14 - Automation opportunity packets stay advisory and evidence-bound

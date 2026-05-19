@@ -824,7 +824,15 @@ Three quality layers matter in practice:
     `python3 dev/scripts/devctl.py develop next --actor <actor> --format md`.
     `continuation_anchor` and `stop_anchor` packets do not get the default
     review-packet TTL; they expire only when the post explicitly sets
-    `--expires-in-minutes`. Before any final response or TASK_COMPLETE prose,
+    `--expires-in-minutes`. A continuation anchor may opt into slice-counted
+    release with `--release-mode commit_count --release-commit-count <N>`;
+    `TaskCompleteDecision` must then continue until it sees `<N>` distinct
+    typed commit SHAs posted after the anchor, using packet `target_revision`,
+    `evidence_refs`/`evidence_ref`, `commit_sha`, or `source_identity.head_sha`
+    fields instead of packet body prose. Route scope and unread body checks
+    still run first, invalid release metadata fails closed, and a threshold-met
+    anchor must release instead of falling through to generic
+    `continuation_anchor_active`. Before any final response or TASK_COMPLETE prose,
     run `python3 dev/scripts/devctl.py develop next --actor <actor> --enforce-final-response-gate --format json`;
     if `final_response_gate.allow_final_response` is false or
     `continuation_state` is `must_continue`, run the typed next command instead

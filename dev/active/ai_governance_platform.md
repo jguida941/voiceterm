@@ -15140,3 +15140,31 @@ Evidence:
 - `dev/scripts/devctl/tests/commands/test_development_command.py`
 - `packet_absorption:rev_pkt_4425:af10f8615b8964c4`
 - `command_output:test-python:69aac104c469feb7`
+
+## 2026-05-19 - Slice-counted continuation anchors for bounded orchestration
+
+Bug #9 in the role-flip dogfood loop showed that stop/continuation anchors were
+too binary for multi-slice orchestration: Codex could be kept alive by a
+`continuation_anchor`, but there was no typed release condition tied to actual
+slice commits. A body/prose-only convention would have repeated the same
+projection-authority failure this plan is removing.
+
+Continuation anchors now support typed release metadata on the review-channel
+packet contract: `--release-mode commit_count --release-commit-count <N>`.
+The final-response/task-complete policy evaluates that metadata after normal
+route-scope and body-observation checks, counts distinct typed commit SHAs from
+later packet fields (`target_revision`, `evidence_refs`/`evidence_ref`,
+`commit_sha`, and `source_identity.head_sha`), fails closed on invalid release
+metadata, and releases threshold-met anchors instead of falling through to
+generic `continuation_anchor_active`.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/session_termination_anchor_release.py`
+- `dev/scripts/devctl/runtime/session_termination_policy.py`
+- `dev/scripts/devctl/review_channel/packet_anchor_release.py`
+- `dev/scripts/devctl/review_channel/parser_argument_groups.py`
+- `dev/scripts/devctl/tests/runtime/test_session_termination_policy.py`
+- `dev/scripts/devctl/tests/review_channel/test_packet_transport_expiry.py`
+- `command_output:test-python:78f13da323ee7c87`
+- `command_output:test-python:0cd51be125ac4430`

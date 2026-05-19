@@ -466,6 +466,55 @@ class CheckMultiAgentSyncTests(unittest.TestCase):
 
         assert any("Packet inbox current instruction disagrees" in err for err in errors)
 
+    def test_communication_only_body_open_focus_can_supersede_plan_inbox_packet(self) -> None:
+        payload = {
+            "queue": {
+                "derived_next_instruction_source": {
+                    "packet_id": "rev_pkt_plan",
+                    "to_agent": "claude",
+                    "target_role": "implementer",
+                    "target_session_id": "session-a",
+                }
+            },
+            "packet_inbox": {
+                "agents": [
+                    {
+                        "agent": "claude",
+                        "current_instruction_packet_id": "rev_pkt_plan",
+                    }
+                ]
+            },
+            "packets": [
+                {
+                    "packet_id": "rev_pkt_plan",
+                    "target_role": "implementer",
+                    "target_session_id": "session-a",
+                },
+                {
+                    "packet_id": "rev_pkt_notice",
+                    "target_role": "implementer",
+                    "target_session_id": "session-a",
+                    "packet_creation_binding": {
+                        "binding_target_kind": "communication_only",
+                    },
+                },
+            ],
+        }
+        decisions = [
+            {
+                "actor_id": "claude",
+                "actor_role": "implementer",
+                "session_id": "session-a",
+                "active_packet_id": "rev_pkt_notice",
+                "attention_packet_id": "rev_pkt_notice",
+                "required_action": "open_packet_body",
+            }
+        ]
+
+        errors = instruction_authority_mismatch_errors(payload, decisions)
+
+        assert errors == []
+
     def test_body_open_subqueue_accepts_frozen_legacy_event_for_same_actor(self) -> None:
         payload = {
             "packet_inbox": {
