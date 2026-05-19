@@ -16634,3 +16634,23 @@ Evidence:
 - `dev/active/MASTER_PLAN.md`
 - `dev/state/plan_index.jsonl`
 - `dev/scripts/checks/check_packet_pkt_bind_completeness.py`
+
+### 2026-05-19 - Task-started packet rows carry commit-continuity anchors
+
+The SLICE-Z range guard then reached `check_plan_index_commit_continuity.py`
+and correctly rejected the freshly backfilled `task_started_packet_binding`
+rows because they had typed plan-intent receipts but no `commit:` anchor in
+`anchor_refs`. The affected rows were re-ingested through `develop ingest-plan`
+with `commit:70b81e6a`, the commit that introduced the backfill.
+
+During the same continuation window, reviewer-round finding `rev_pkt_4524` was
+bound into the active plan so the new guard-ledger proposal is durable typed
+intake rather than transient review-channel prose.
+
+Evidence:
+
+- `dev/state/plan_index.jsonl`
+- `dev/state/plan_ingestion_receipts.jsonl`
+- `dev/state/plan_source_snapshots.jsonl`
+- `dev/active/MASTER_PLAN.md`
+- `dev/scripts/checks/check_plan_index_commit_continuity.py`
