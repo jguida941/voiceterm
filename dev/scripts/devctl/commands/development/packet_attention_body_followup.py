@@ -123,12 +123,12 @@ def _route_with_control_decision_input(
 
 
 def _body_attention_followup(body_attention: object) -> tuple[bool, str, str, str]:
-    if bool(getattr(body_attention, "body_open_required", False)):
+    if bool(getattr(body_attention, "absorption_required", False)):
         return (
             True,
-            "packet_body_open_required",
-            str(getattr(body_attention, "body_open_packet_id", "") or "").strip(),
-            str(getattr(body_attention, "body_open_command", "") or "").strip(),
+            "packet_absorption_required",
+            str(getattr(body_attention, "absorption_packet_id", "") or "").strip(),
+            str(getattr(body_attention, "absorption_command", "") or "").strip(),
         )
     if bool(getattr(body_attention, "semantic_ingestion_required", False)):
         return (
@@ -139,12 +139,12 @@ def _body_attention_followup(body_attention: object) -> tuple[bool, str, str, st
             ).strip(),
             str(getattr(body_attention, "semantic_ingestion_command", "") or "").strip(),
         )
-    if bool(getattr(body_attention, "absorption_required", False)):
+    if bool(getattr(body_attention, "body_open_required", False)):
         return (
             True,
-            "packet_absorption_required",
-            str(getattr(body_attention, "absorption_packet_id", "") or "").strip(),
-            str(getattr(body_attention, "absorption_command", "") or "").strip(),
+            "packet_body_open_required",
+            str(getattr(body_attention, "body_open_packet_id", "") or "").strip(),
+            str(getattr(body_attention, "body_open_command", "") or "").strip(),
         )
     return False, "", "", ""
 

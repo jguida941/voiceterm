@@ -995,6 +995,7 @@ def test_allowed_stop_anchor_post_appends_attempted_action_receipt(tmp_path) -> 
         summary="Stop at typed closure",
         body="Stop only through typed controller closure.",
         anchor_scope="session",
+        target_session_id="session-a",
         expires_in_minutes=360,
     )
 
@@ -1031,6 +1032,7 @@ def test_stop_anchor_post_without_allowed_action_blocks_before_event_append(
         summary="Stop at typed closure",
         body="Stop only through typed controller closure.",
         anchor_scope="session",
+        target_session_id="session-a",
         expires_in_minutes=360,
     )
 
@@ -1319,8 +1321,8 @@ def _show_args(**overrides: object) -> SimpleNamespace:
         "semantic_action_item": [],
         "session_id": "session-a",
         "plan_id": "MP-TEST",
-        "target_role": "",
-        "target_session_id": "",
+        "target_role": "reviewer",
+        "target_session_id": "session-a",
         "to_agent": None,
     }
     args.update(overrides)
@@ -1375,7 +1377,7 @@ def _post_args(**overrides: object) -> SimpleNamespace:
         "target_revision": None,
         "target_role": "",
         "target_session_id": "",
-        "to_agent": "codex",
+        "to_agent": "operator",
         "trace_id": None,
     }
     args.update(overrides)

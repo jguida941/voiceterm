@@ -20,6 +20,7 @@ from .agent_packet_attention_body import (
     packet_body_open_command,
     packet_semantic_ingestion_command,
 )
+from .agent_packet_attention_lifecycle import body_lifecycle_status
 from .agent_packet_attention_priority import (
     best_attention_packet,
     best_body_open_packet,
@@ -36,10 +37,6 @@ from .agent_sync_readers import (
     agent_sync_row_for_actor,
 )
 from .packet_contract import normalize_packet_route_role
-from .packet_loop_attention import (
-    packet_absorption_required,
-    packet_semantic_ingestion_required,
-)
 
 
 @dataclass(frozen=True, slots=True)
@@ -196,56 +193,22 @@ def _build_attention(context: _AttentionBuildInput) -> PacketAttentionState:
         _text(fallback.get("last_observed_event_id"))
         or _text(agent_sync.get("last_consumed_event_id_lower_bound"))
     )
-    if context.packet_rows_authoritative:
-        latest_inbox_event_id = _text(selected_packet.get("latest_event_id"))
-        latest_attention_packet_id = _text(selected_packet.get("packet_id"))
-        pending_packet_count = len(context.pending_packets)
-        fallback_attention_changed_at = ""
-        superseded_packet_id = ""
-    else:
-        latest_inbox_event_id = select_latest_event_id(
-            _text(selected_packet.get("latest_event_id")),
-            _text(fallback.get("latest_inbox_event_id")),
-        )
-        latest_attention_packet_id = _text(selected_packet.get("packet_id")) or _text(
-            fallback.get("latest_attention_packet_id")
-        )
-        pending_packet_count = len(
-            context.pending_packets
-        ) or agent_sync_pending_packet_count_from_row(agent_sync)
-        fallback_attention_changed_at = _text(
-            fallback.get("latest_attention_changed_at_utc")
-        )
-        superseded_packet_id = _text(fallback.get("superseded_packet_id"))
-    body_open_packet_id = _text(body_open_packet.get("packet_id"))
-    unopened_body_packet_ids = tuple(
-        _text(packet.get("packet_id"))
-            for packet in body_open_packet_rows
-        if _text(packet.get("packet_id"))
+    (
+        latest_inbox_event_id,
+        latest_attention_packet_id,
+        pending_packet_count,
+        fallback_attention_changed_at,
+        superseded_packet_id,
+    ) = _selected_attention_metadata(context, selected_packet)
+    lifecycle = body_lifecycle_status(
+        body_open_packet=body_open_packet,
+        body_open_packet_rows=body_open_packet_rows,
+        actor=context.actor,
+        role=context.role,
+        session=context.session,
     )
-    semantic_ingestion_required = bool(
-        body_open_packet_id
-        and packet_semantic_ingestion_required(
-            body_open_packet,
-            actor=context.actor,
-            role=context.role,
-            session=context.session,
-        )
-    )
-    absorption_required = bool(
-        body_open_packet_id
-        and packet_absorption_required(
-            body_open_packet,
-            actor=context.actor,
-            role=context.role,
-            session=context.session,
-        )
-    )
-    body_open_required = bool(
-        body_open_packet_id
-        and not semantic_ingestion_required
-        and not absorption_required
-    )
+    body_open_packet_id = lifecycle.packet_id
+    unopened_body_packet_ids = lifecycle.unopened_packet_ids
     body_open_command = (
         packet_body_open_command(
             packet_id=body_open_packet_id,
@@ -254,7 +217,7 @@ def _build_attention(context: _AttentionBuildInput) -> PacketAttentionState:
             session=context.session,
             control_decision_input=context.control_decision_input,
         )
-        if body_open_required
+        if lifecycle.body_open_required
         else ""
     )
     semantic_ingestion_command = (
@@ -266,7 +229,7 @@ def _build_attention(context: _AttentionBuildInput) -> PacketAttentionState:
             control_decision_input=context.control_decision_input,
             action_item_rows=_semantic_action_item_rows(body_open_packet),
         )
-        if semantic_ingestion_required and not absorption_required
+        if lifecycle.semantic_ingestion_required and not lifecycle.absorption_required
         else ""
     )
     absorption_command = (
@@ -277,12 +240,7 @@ def _build_attention(context: _AttentionBuildInput) -> PacketAttentionState:
             session=context.session,
             control_decision_input=context.control_decision_input,
         )
-        if absorption_required
-        else ""
-    )
-    absorption_reason = (
-        "packet_semantically_ingested_without_absorption"
-        if absorption_required
+        if lifecycle.absorption_required
         else ""
     )
     if (
@@ -317,32 +275,55 @@ def _build_attention(context: _AttentionBuildInput) -> PacketAttentionState:
         last_observed_event_id=last_observed,
         last_observed_at_utc=_text(fallback.get("last_observed_at_utc")),
         pending_packet_count=pending_packet_count,
-        unopened_body_packet_ids=(
-            ()
-            if semantic_ingestion_required or absorption_required
-            else unopened_body_packet_ids
-        ),
+        unopened_body_packet_ids=unopened_body_packet_ids,
         body_open_packet_id=body_open_packet_id,
         body_open_command=body_open_command,
         semantic_ingestion_required=(
-            semantic_ingestion_required and not absorption_required
+            lifecycle.semantic_ingestion_required and not lifecycle.absorption_required
         ),
         semantic_ingestion_packet_id=(
             body_open_packet_id
-            if semantic_ingestion_required and not absorption_required
+            if lifecycle.semantic_ingestion_required and not lifecycle.absorption_required
             else ""
         ),
         semantic_ingestion_command=semantic_ingestion_command,
         semantic_ingestion_reason=(
             "packet_body_observed_without_semantic_ingestion"
-            if semantic_ingestion_required and not absorption_required
+            if lifecycle.semantic_ingestion_required and not lifecycle.absorption_required
             else ""
         ),
-        absorption_required=absorption_required,
-        absorption_packet_id=body_open_packet_id if absorption_required else "",
+        absorption_required=lifecycle.absorption_required,
+        absorption_packet_id=body_open_packet_id if lifecycle.absorption_required else "",
         absorption_command=absorption_command,
-        absorption_reason=absorption_reason,
+        absorption_reason=lifecycle.absorption_reason,
         superseded_packet_id=superseded_packet_id,
+    )
+
+
+def _selected_attention_metadata(
+    context: _AttentionBuildInput,
+    selected_packet: Mapping[str, object],
+) -> tuple[str, str, int, str, str]:
+    fallback = context.fallback
+    if context.packet_rows_authoritative:
+        return (
+            _text(selected_packet.get("latest_event_id")),
+            _text(selected_packet.get("packet_id")),
+            len(context.pending_packets),
+            "",
+            "",
+        )
+    return (
+        select_latest_event_id(
+            _text(selected_packet.get("latest_event_id")),
+            _text(fallback.get("latest_inbox_event_id")),
+        ),
+        _text(selected_packet.get("packet_id"))
+        or _text(fallback.get("latest_attention_packet_id")),
+        len(context.pending_packets)
+        or agent_sync_pending_packet_count_from_row(context.agent_sync),
+        _text(fallback.get("latest_attention_changed_at_utc")),
+        _text(fallback.get("superseded_packet_id")),
     )
 
 

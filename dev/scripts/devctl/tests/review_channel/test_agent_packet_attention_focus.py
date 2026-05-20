@@ -135,6 +135,55 @@ def test_frozen_body_observation_tuple_suppresses_body_open_gate() -> None:
     assert attention.body_open_packet_id == ""
 
 
+def test_semantic_ingestion_keeps_other_unopened_packets_visible() -> None:
+    observed_packet = {
+        "packet_id": "rev_pkt_observed",
+        "from_agent": "claude",
+        "to_agent": "codex",
+        "kind": "finding",
+        "attention_urgency": "blocking",
+        "body": "Observed packet now needs semantic ingestion.",
+        "status": "pending",
+        "lifecycle_current_state": "pending",
+        "latest_event_id": "rev_evt_41",
+        "target_role": "reviewer",
+        "target_session_id": "s1",
+    }
+    digest = packet_body_digest(observed_packet)
+    observed_packet["body_observation_events"] = [
+        {
+            "body_observed_by": "codex",
+            "body_observed_role": "reviewer",
+            "body_observed_session_id": "s1",
+            "body_digest": digest,
+        }
+    ]
+    unopened_packet = {
+        "packet_id": "rev_pkt_unopened",
+        "from_agent": "claude",
+        "to_agent": "codex",
+        "kind": "finding",
+        "body": "This packet has not been opened yet.",
+        "status": "pending",
+        "lifecycle_current_state": "pending",
+        "latest_event_id": "rev_evt_42",
+        "target_role": "reviewer",
+        "target_session_id": "s1",
+    }
+
+    attention = packet_attention_for_agent(
+        {"packets": [observed_packet, unopened_packet]},
+        actor="codex",
+        role="reviewer",
+        session="s1",
+    )
+
+    assert attention.semantic_ingestion_required is True
+    assert attention.semantic_ingestion_packet_id == "rev_pkt_observed"
+    assert attention.body_open_required is True
+    assert attention.unopened_body_packet_ids == ("rev_pkt_unopened",)
+
+
 def test_attention_body_open_gate_ignores_observation_from_other_session() -> None:
     packet = {
         "packet_id": "rev_pkt_body",
