@@ -1,3 +1,4 @@
 ac25face77dfce820171b93b8b56735bc215082cdc07e2fa1063e2f21ef9cb1f  dev/audits/plan_intake/2026-05-18-cached-hammock-role-audit.md
 fcbfb9840616c1521c30d9d0c1cdfca754a6b63158fabdd032b1762d2770db46  dev/audits/plan_intake/2026-05-18-guardir-extraction-plan.md
 9166084ddc845658ddf7ca0d92a84e65b2d2349df1ed7f5b39f5bacd07c3e07b  dev/audits/plan_intake/2026-05-18-may17-plan.md
+d1826e11b7a968c9f5d8c4f4601ad101aaa8036feeb94c49c5486bfe45908d6c  dev/audits/plan_intake/2026-05-20-guardir-lifecycle-recovery-ci-proof-bridge-v4.md
