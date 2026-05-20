@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
 
 from dev.scripts.checks.check_commit_complete_proof import (
     evaluate_commit_complete_proof,
 )
+from dev.scripts.checks.git_support.range import git_commit_range
 from dev.scripts.checks.check_no_projection_proof_misuse import (
     evaluate_no_projection_proof_misuse,
 )
@@ -17,6 +19,26 @@ from dev.scripts.devctl.runtime.git_mutation_proof_receipt import (
     build_push_git_mutation_proof_receipt,
     git_mutation_proof_receipt_from_mapping,
 )
+
+
+def _git(repo_root: Path, *args: str) -> str:
+    result = subprocess.run(
+        ("git", *args),
+        cwd=repo_root,
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+    return result.stdout.strip()
+
+
+def _commit_file(repo_root: Path, relpath: str, text: str, message: str) -> str:
+    path = repo_root / relpath
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
+    _git(repo_root, "add", relpath)
+    _git(repo_root, "commit", "-m", message)
+    return _git(repo_root, "rev-parse", "HEAD")
 
 
 def test_commit_complete_proof_requires_verified_commit_receipt(tmp_path: Path) -> None:
@@ -48,6 +70,29 @@ def test_commit_complete_proof_requires_verified_commit_receipt(tmp_path: Path) 
 
     assert report.ok is True
     assert report.violation_count == 0
+
+
+def test_git_commit_range_falls_back_to_origin_head_without_upstream(
+    tmp_path: Path,
+) -> None:
+    _git(tmp_path, "init")
+    _git(tmp_path, "config", "user.email", "guardir@example.invalid")
+    _git(tmp_path, "config", "user.name", "GuardIR Test")
+    base_sha = _commit_file(tmp_path, "README.md", "base\n", "base")
+    _git(tmp_path, "branch", "-M", "main")
+    _git(tmp_path, "update-ref", "refs/remotes/origin/main", base_sha)
+    _git(tmp_path, "symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main")
+    _git(tmp_path, "checkout", "-b", "feature/proof")
+    feature_sha = _commit_file(tmp_path, "feature.txt", "feature\n", "feature")
+
+    commits, warnings = git_commit_range(
+        repo_root=tmp_path,
+        base_ref="@{u}",
+        head_ref="HEAD",
+    )
+
+    assert commits == (feature_sha,)
+    assert warnings == ("base_ref_fallback:@{u}->origin/main",)
 
 
 def test_git_mutation_proof_receipt_uses_nested_correlation_context() -> None:

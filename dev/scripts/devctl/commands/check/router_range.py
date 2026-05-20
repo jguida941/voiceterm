@@ -33,6 +33,14 @@ def _range_aware_script_fragments() -> frozenset[str]:
 
 ROUTER_RANGE_AWARE_SCRIPT_FRAGMENTS = _range_aware_script_fragments()
 
+ROUTER_PROOF_SUBJECT_SCRIPT_FRAGMENTS = frozenset(
+    {
+        "dev/scripts/checks/check_commit_complete_proof.py",
+        "dev/scripts/checks/check_feature_has_proof_receipt.py",
+        "dev/scripts/checks/check_no_projection_proof_misuse.py",
+    }
+)
+
 ROUTER_VALIDATION_SCOPE_AWARE_SCRIPT_FRAGMENTS = frozenset(
     {
         "dev/scripts/devctl.py check",
@@ -74,6 +82,10 @@ def append_router_range_args(
 ) -> str:
     if not since_ref or "--since-ref" in command:
         return command
+    if _is_degenerate_range(since_ref, head_ref) and any(
+        fragment in command for fragment in ROUTER_PROOF_SUBJECT_SCRIPT_FRAGMENTS
+    ):
+        return command
     if "dev/scripts/checks/check_publication_scope_integrity.py" in command:
         return _publication_scope_integrity_for_range(
             command,
@@ -89,6 +101,10 @@ def append_router_range_args(
         + " --head-ref "
         + shlex.quote(str(head_ref or "HEAD"))
     )
+
+
+def _is_degenerate_range(since_ref: str, head_ref: str) -> bool:
+    return str(since_ref or "").strip() == str(head_ref or "HEAD").strip()
 
 
 def _publication_scope_integrity_for_range(

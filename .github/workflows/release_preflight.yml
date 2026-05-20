@@ -195,8 +195,8 @@ jobs:
           python3 dev/scripts/checks/check_plan_index_commit_continuity.py
           python3 dev/scripts/checks/check_plan_gold_claims_resolve.py
           python3 dev/scripts/checks/check_plan_metric_freshness.py
-          python3 dev/scripts/checks/check_commit_complete_proof.py --since-ref HEAD --head-ref HEAD
-          python3 dev/scripts/checks/check_feature_has_proof_receipt.py
+          python3 dev/scripts/checks/check_commit_complete_proof.py
+          python3 dev/scripts/checks/check_feature_has_proof_receipt.py --require-proven-passed
           python3 dev/scripts/checks/check_push_complete_proof.py
           python3 dev/scripts/checks/check_no_projection_proof_misuse.py
           python3 dev/scripts/checks/check_non_trivial_output_proof.py

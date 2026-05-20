@@ -591,6 +591,46 @@ class CheckRouterTests(unittest.TestCase):
         )
 
     @patch("dev.scripts.devctl.commands.check.router_execution.write_output")
+    @patch("dev.scripts.devctl.commands.check_router._extract_bundle_commands")
+    @patch("dev.scripts.devctl.commands.check_router.collect_git_status")
+    def test_degenerate_head_range_does_not_empty_proof_subject_guards(
+        self,
+        collect_git_status_mock,
+        extract_bundle_mock,
+        write_output_mock,
+    ) -> None:
+        collect_git_status_mock.side_effect = [
+            {
+                "mode": "commit-range",
+                "changes": [
+                    {
+                        "status": "M",
+                        "path": "dev/scripts/devctl/commands/check/router.py",
+                    }
+                ],
+            },
+            {"mode": "working-tree", "changes": []},
+        ]
+        extract_bundle_mock.return_value = (
+            [
+                "python3 dev/scripts/checks/check_commit_complete_proof.py",
+                "python3 dev/scripts/checks/check_feature_has_proof_receipt.py --require-proven-passed",
+                "python3 dev/scripts/checks/check_code_shape.py",
+            ],
+            None,
+        )
+
+        rc = check_router.run(make_args(since_ref="HEAD", head_ref="HEAD"))
+
+        self.assertEqual(rc, 0)
+        payload = json.loads(write_output_mock.call_args.args[0])
+        commands = [row["command"] for row in payload["planned_commands"]]
+        self.assertNotIn("--since-ref HEAD --head-ref HEAD", commands[0])
+        self.assertNotIn("--since-ref HEAD --head-ref HEAD", commands[1])
+        self.assertIn("--require-proven-passed", commands[1])
+        self.assertIn("--since-ref HEAD --head-ref HEAD", commands[2])
+
+    @patch("dev.scripts.devctl.commands.check.router_execution.write_output")
     @patch("dev.scripts.devctl.commands.check.router_execution.run_cmd")
     @patch("dev.scripts.devctl.commands.check_router._extract_bundle_commands")
     @patch("dev.scripts.devctl.commands.check_router.collect_git_status")

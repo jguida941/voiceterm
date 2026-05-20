@@ -413,10 +413,10 @@ jobs:
         run: python3 dev/scripts/checks/check_plan_metric_freshness.py
 
       - name: Run commit mutation proof guard
-        run: python3 dev/scripts/checks/check_commit_complete_proof.py --since-ref HEAD --head-ref HEAD
+        run: python3 dev/scripts/checks/check_commit_complete_proof.py
 
       - name: Run feature proof receipt guard
-        run: python3 dev/scripts/checks/check_feature_has_proof_receipt.py
+        run: python3 dev/scripts/checks/check_feature_has_proof_receipt.py --require-proven-passed
 
       - name: Run push mutation proof guard
         run: python3 dev/scripts/checks/check_push_complete_proof.py

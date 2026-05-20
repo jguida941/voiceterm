@@ -58,6 +58,8 @@ class BundleRegistryContractTests(TestCase):
             "python3 dev/scripts/checks/check_repo_url_parity.py",
             "python3 dev/scripts/checks/check_guardir_extraction_plan_artifacts.py",
             "python3 dev/scripts/checks/check_control_decision_consistency.py",
+            "python3 dev/scripts/checks/check_commit_complete_proof.py",
+            "python3 dev/scripts/checks/check_feature_has_proof_receipt.py --require-proven-passed",
             "python3 dev/scripts/checks/check_release_version_parity.py",
             "python3 dev/scripts/checks/check_substrate_is_repo_portable.py",
             "python3 dev/scripts/checks/check_systemmap_covers_contract_registry.py",
@@ -70,6 +72,14 @@ class BundleRegistryContractTests(TestCase):
         self.assertTrue(required_commands.issubset(commands))
         self.assertNotIn(
             "python3 dev/scripts/devctl.py test-python --suite operator-console",
+            commands,
+        )
+        self.assertNotIn(
+            "python3 dev/scripts/checks/check_commit_complete_proof.py --since-ref HEAD --head-ref HEAD",
+            commands,
+        )
+        self.assertNotIn(
+            "python3 dev/scripts/checks/check_feature_has_proof_receipt.py",
             commands,
         )
         self.assertNotIn("python3 dev/scripts/checks/check_publication_sync.py", commands)
@@ -89,6 +99,8 @@ class BundleRegistryContractTests(TestCase):
             "python3 dev/scripts/checks/check_bundle_workflow_parity.py",
             "python3 dev/scripts/checks/check_guard_enforcement_inventory.py",
             "python3 dev/scripts/checks/check_guardir_extraction_plan_artifacts.py",
+            "python3 dev/scripts/checks/check_commit_complete_proof.py",
+            "python3 dev/scripts/checks/check_feature_has_proof_receipt.py --require-proven-passed",
             "python3 dev/scripts/checks/check_no_new_hardcoded_provider_authority.py",
             "python3 dev/scripts/checks/check_no_new_topology_count_coupling.py",
             "python3 dev/scripts/checks/check_bridge_projection_only.py",
@@ -100,6 +112,14 @@ class BundleRegistryContractTests(TestCase):
             "python3 dev/scripts/checks/check_serde_compatibility.py",
         }
         self.assertTrue(required_commands.issubset(commands))
+        self.assertNotIn(
+            "python3 dev/scripts/checks/check_commit_complete_proof.py --since-ref HEAD --head-ref HEAD",
+            commands,
+        )
+        self.assertNotIn(
+            "python3 dev/scripts/checks/check_feature_has_proof_receipt.py",
+            commands,
+        )
 
     def test_post_push_bundle_does_not_hard_block_on_publication_sync(self) -> None:
         commands = set(get_bundle_commands("bundle.post-push"))
