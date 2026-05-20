@@ -129,6 +129,14 @@ class ContractConnectivityReport:
     new_bidirectional_reference_findings: tuple[
         BidirectionalReferenceFinding, ...
     ] = ()
+    unplanned_new_orphaned_contracts: tuple[OrphanedContractFinding, ...] = ()
+    unplanned_new_duplicate_contracts: tuple[DuplicateContractFinding, ...] = ()
+    unplanned_new_stranded_consumers: tuple[StrandedContractFinding, ...] = ()
+    unplanned_new_bidirectional_reference_findings: tuple[
+        BidirectionalReferenceFinding, ...
+    ] = ()
+    planned_debt_row_ids: tuple[str, ...] = ()
+    planned_debt_count: int = 0
     baseline_orphaned_count: int = 0
     baseline_duplicate_count: int = 0
     baseline_stranded_count: int = 0
@@ -161,4 +169,18 @@ class ContractConnectivityReport:
         payload["new_bidirectional_reference_findings"] = [
             item.to_dict() for item in self.new_bidirectional_reference_findings
         ]
+        payload["unplanned_new_orphaned_contracts"] = [
+            item.to_dict() for item in self.unplanned_new_orphaned_contracts
+        ]
+        payload["unplanned_new_duplicate_contracts"] = [
+            item.to_dict() for item in self.unplanned_new_duplicate_contracts
+        ]
+        payload["unplanned_new_stranded_consumers"] = [
+            item.to_dict() for item in self.unplanned_new_stranded_consumers
+        ]
+        payload["unplanned_new_bidirectional_reference_findings"] = [
+            item.to_dict()
+            for item in self.unplanned_new_bidirectional_reference_findings
+        ]
+        payload["planned_debt_row_ids"] = list(self.planned_debt_row_ids)
         return payload

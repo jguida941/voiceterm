@@ -23,6 +23,7 @@ from .findings import (
 )
 from .inventory import analyze_source
 from .models import ContractConnectivityReport
+from .planned_debt import load_planned_debt_coverage
 
 
 def build_report(
@@ -92,6 +93,23 @@ def build_report(
         baseline_bidirectional,
         bidirectional_reference_key,
     )
+    new_debt_count = (
+        len(new_orphans)
+        + len(new_duplicates)
+        + len(new_stranded)
+        + len(new_bidirectional)
+    )
+    planned_debt = (
+        load_planned_debt_coverage(repo_root)
+        if not absolute and new_debt_count
+        else None
+    )
+    planned_debt_row_ids = () if planned_debt is None else planned_debt.row_ids
+    debt_is_planned = bool(planned_debt_row_ids)
+    unplanned_orphans = () if debt_is_planned else new_orphans
+    unplanned_duplicates = () if debt_is_planned else new_duplicates
+    unplanned_stranded = () if debt_is_planned else new_stranded
+    unplanned_bidirectional = () if debt_is_planned else new_bidirectional
 
     if absolute:
         ok = not (
@@ -103,18 +121,18 @@ def build_report(
         mode = "absolute"
     elif since_ref:
         ok = not (
-            new_orphans
-            or new_duplicates
-            or new_stranded
-            or new_bidirectional
+            unplanned_orphans
+            or unplanned_duplicates
+            or unplanned_stranded
+            or unplanned_bidirectional
         )
         mode = "commit-range"
     else:
         ok = not (
-            new_orphans
-            or new_duplicates
-            or new_stranded
-            or new_bidirectional
+            unplanned_orphans
+            or unplanned_duplicates
+            or unplanned_stranded
+            or unplanned_bidirectional
         )
         mode = "working-tree"
 
@@ -134,6 +152,14 @@ def build_report(
         new_duplicate_contracts=tuple(new_duplicates),
         new_stranded_consumers=tuple(new_stranded),
         new_bidirectional_reference_findings=tuple(new_bidirectional),
+        unplanned_new_orphaned_contracts=tuple(unplanned_orphans),
+        unplanned_new_duplicate_contracts=tuple(unplanned_duplicates),
+        unplanned_new_stranded_consumers=tuple(unplanned_stranded),
+        unplanned_new_bidirectional_reference_findings=tuple(
+            unplanned_bidirectional
+        ),
+        planned_debt_row_ids=planned_debt_row_ids,
+        planned_debt_count=new_debt_count if debt_is_planned else 0,
         baseline_orphaned_count=len(baseline_orphans),
         baseline_duplicate_count=len(baseline_duplicates),
         baseline_stranded_count=len(baseline_stranded),

@@ -38,6 +38,21 @@ def _commit(path: Path, message: str) -> None:
     )
 
 
+def _write_connectivity_debt_plan(path: Path) -> None:
+    _write(
+        path / "dev/state/plan_index.jsonl",
+        (
+            '{"contract_id":"PlanRow",'
+            '"row_id":"MP377-CONTRACT-CONNECTIVITY-DEBT-S1",'
+            '"status":"in_progress",'
+            '"anchor_refs":["evidence:contract-connectivity:orphaned_contracts=1"],'
+            '"mutation_op":"close_contract_connectivity_debt",'
+            '"target_ref":"dev/scripts/devctl/platform/connectivity_registry.py",'
+            '"title":"Contract-connectivity debt closure"}\n'
+        ),
+    )
+
+
 def _rev_parse(path: Path, rev: str) -> str:
     return _run_git(path, "rev-parse", rev)
 
@@ -206,6 +221,60 @@ class RangeOrphan:
     assert [item.contract_name for item in report.new_orphaned_contracts] == [
         "RangeOrphan"
     ]
+    assert [item.contract_name for item in report.unplanned_new_orphaned_contracts] == [
+        "RangeOrphan"
+    ]
+
+
+def test_commit_range_mode_allows_planned_contract_connectivity_debt(
+    tmp_path: Path,
+) -> None:
+    _init_repo(tmp_path)
+    _seed_repo(tmp_path)
+    _commit(tmp_path, "baseline")
+    baseline_ref = _rev_parse(tmp_path, "HEAD")
+    _write(
+        tmp_path / "dev/scripts/devctl/runtime/range_orphan.py",
+        """
+from dataclasses import dataclass
+
+@dataclass(frozen=True)
+class RangeOrphan:
+    field: str
+""".strip()
+        + "\n",
+    )
+    _write_connectivity_debt_plan(tmp_path)
+    _commit(tmp_path, "add planned range debt")
+
+    report = build_report(
+        repo_root=tmp_path,
+        since_ref=baseline_ref,
+        head_ref="HEAD",
+    )
+
+    assert report.mode == "commit-range"
+    assert report.ok is True
+    assert [item.contract_name for item in report.new_orphaned_contracts] == [
+        "RangeOrphan"
+    ]
+    assert report.unplanned_new_orphaned_contracts == ()
+    assert report.planned_debt_row_ids == ("MP377-CONTRACT-CONNECTIVITY-DEBT-S1",)
+    assert report.planned_debt_count > 0
+
+
+def test_absolute_mode_ignores_planned_contract_connectivity_debt(
+    tmp_path: Path,
+) -> None:
+    _init_repo(tmp_path)
+    _seed_repo(tmp_path)
+    _write_connectivity_debt_plan(tmp_path)
+    _commit(tmp_path, "baseline")
+
+    report = build_report(repo_root=tmp_path, absolute=True)
+
+    assert report.ok is False
+    assert report.planned_debt_row_ids == ()
 
 
 def test_partial_raw_key_overlap_does_not_flag_stranded_consumer(

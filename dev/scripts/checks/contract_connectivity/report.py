@@ -45,6 +45,28 @@ def render_md(report: ContractConnectivityReport) -> str:
         "- new_bidirectional_reference_findings: "
         f"{len(report.new_bidirectional_reference_findings)}"
     )
+    lines.append(
+        "- unplanned_new_orphaned_contracts: "
+        f"{len(report.unplanned_new_orphaned_contracts)}"
+    )
+    lines.append(
+        "- unplanned_new_duplicate_contracts: "
+        f"{len(report.unplanned_new_duplicate_contracts)}"
+    )
+    lines.append(
+        "- unplanned_new_stranded_consumers: "
+        f"{len(report.unplanned_new_stranded_consumers)}"
+    )
+    lines.append(
+        "- unplanned_new_bidirectional_reference_findings: "
+        f"{len(report.unplanned_new_bidirectional_reference_findings)}"
+    )
+    if report.planned_debt_row_ids:
+        lines.append(f"- planned_debt_count: {report.planned_debt_count}")
+        lines.append(
+            "- planned_debt_row_ids: "
+            + ", ".join(f"`{row_id}`" for row_id in report.planned_debt_row_ids)
+        )
 
     lines.extend(("", "## Layer Counts", ""))
     for row in report.layer_counts:
@@ -83,6 +105,26 @@ def render_md(report: ContractConnectivityReport) -> str:
             lines,
             title="New Bidirectional Reference Findings",
             items=report.new_bidirectional_reference_findings,
+        )
+        _append_orphans(
+            lines,
+            title="Unplanned New Orphaned Contracts",
+            items=report.unplanned_new_orphaned_contracts,
+        )
+        _append_duplicates(
+            lines,
+            title="Unplanned New Duplicate Contracts",
+            items=report.unplanned_new_duplicate_contracts,
+        )
+        _append_stranded(
+            lines,
+            title="Unplanned New Stranded Consumers",
+            items=report.unplanned_new_stranded_consumers,
+        )
+        _append_bidirectional(
+            lines,
+            title="Unplanned New Bidirectional Reference Findings",
+            items=report.unplanned_new_bidirectional_reference_findings,
         )
     return "\n".join(lines)
 
