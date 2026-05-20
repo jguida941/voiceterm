@@ -98,7 +98,7 @@ def test_push_report_marks_remote_published_post_push_pending() -> None:
                 "returncode": 0,
             },
             git_mutation_proof_receipt_path=(
-                "dev/state/git_mutation_proof_receipts.jsonl"
+                "dev/reports/git_mutation_proof_receipts.jsonl"
             ),
             git_mutation_proof_verified=True,
             post_push_steps=[
@@ -117,7 +117,7 @@ def test_push_report_marks_remote_published_post_push_pending() -> None:
     assert report["governed_push_verified"] is True
     assert report["git_mutation_proof_verified"] is True
     assert report["artifacts"]["git_mutation_proof_receipts"] == (
-        "dev/state/git_mutation_proof_receipts.jsonl"
+        "dev/reports/git_mutation_proof_receipts.jsonl"
     )
     assert report["push_diagnostic"]["summary"] == "remote_published_post_push_pending"
     assert report["push_diagnostic"]["git_push_state"] == "landed"

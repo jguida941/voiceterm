@@ -21,7 +21,7 @@ from .vcs import run_git_capture
 
 GIT_MUTATION_PROOF_RECEIPT_CONTRACT_ID = "GitMutationProofReceipt"
 GIT_MUTATION_PROOF_RECEIPT_SCHEMA_VERSION = 1
-GIT_MUTATION_PROOF_RECEIPT_STORE_REL = "dev/state/git_mutation_proof_receipts.jsonl"
+GIT_MUTATION_PROOF_RECEIPT_STORE_REL = "dev/reports/git_mutation_proof_receipts.jsonl"
 
 
 @dataclass(frozen=True, slots=True)

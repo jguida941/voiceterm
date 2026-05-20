@@ -546,6 +546,32 @@ def test_stage_surfaces_git_add_sandbox_block_as_index_write_blocked(
     )
 
 
+def test_stage_accepts_pre_staged_deletion_in_selected_scope(tmp_path: Path) -> None:
+    repo_root = _init_repo(tmp_path / "repo")
+    (repo_root / "obsolete.txt").write_text("old\n", encoding="utf-8")
+    _run_git(repo_root, "add", "obsolete.txt")
+    _run_git(repo_root, "commit", "-m", "add obsolete")
+    (repo_root / "obsolete.txt").unlink()
+    _run_git(repo_root, "add", "-A", "--", "obsolete.txt")
+    (repo_root / "tracked.txt").write_text("updated\n", encoding="utf-8")
+    executor = _executor(repo_root)
+
+    result = executor.execute(
+        build_stage_action(
+            repo_pack_id="test-pack",
+            paths=("tracked.txt", "obsolete.txt"),
+            commit_message_draft="feat: remove obsolete",
+            push_requested=True,
+            guard_profile="bundle.tooling",
+            work_intake_ref="MP-377",
+        )
+    )
+
+    assert result.ok is True
+    pipeline = executor.load_pipeline()
+    assert set(pipeline.intent.staged_paths) >= {"tracked.txt", "obsolete.txt"}
+
+
 def test_stage_auto_includes_startup_managed_projection_drift(
     tmp_path: Path,
 ) -> None:
