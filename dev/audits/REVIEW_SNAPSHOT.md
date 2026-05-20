@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `extraction/guardir-core-p0-proof-integrity`
-- HEAD: `a1f4a834352a` — Refresh external review snapshot for 6f94e606
-- Tree hash: `7c72d9553b17`
-- Generation stamp: `snap-eede747cc8d0`
-- Generated at (UTC): 2026-05-20T05:23:24Z
-- Push decision: `await_checkpoint` — staged_index_present
+- HEAD: `623a21ac6238` — Fix packet attention drain accounting
+- Tree hash: `8f2265521602`
+- Generation stamp: `snap-880cac4030cb`
+- Generated at (UTC): 2026-05-20T05:29:12Z
+- Push decision: `run_devctl_push` — push_preconditions_satisfied
 - Reviewer mode: `tools_only` (interaction: `local_terminal`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 44 files, +3014/-1398
+- Delta since last snapshot: 24 commits, 42 files, +3048/-1517
 - Governance findings: 26 open / 0 fixed / 26 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -28,23 +28,23 @@ production client (VoiceTerm...
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `extraction/guardir-core-p0-proof-integrity`
-- HEAD SHA: `a1f4a834352a57cf0075e09b6a0aff26e89493d5`
+- HEAD SHA: `623a21ac6238c1050c4c4f74690dc9213663b6f1`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-05-20T00:49:22-04:00
+- HEAD timestamp (UTC): 2026-05-20T01:28:15-04:00
 
 ## 2. Governance state
 
 ### Push decision
-- action: `await_checkpoint`
-- reason: staged_index_present
-- push_eligible_now: False
-- worktree_clean: False
-- staged_path_count: 5
+- action: `run_devctl_push`
+- reason: push_preconditions_satisfied
+- push_eligible_now: True
+- worktree_clean: True
+- staged_path_count: 0
 - unstaged_path_count: 0
-- next_step_command: `n/a`
+- next_step_command: `python3 dev/scripts/devctl.py push --execute`
 - latest_push_report_state: `blocked` (validation_failed)
 - publication_backlog: urgent
-- publication_guidance: 22 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
+- publication_guidance: 23 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
 
 ### Reviewer runtime
 - reviewer_mode: `tools_only`
@@ -60,16 +60,16 @@ production client (VoiceTerm...
 - active plan: **AI Governance Platform Plan**
 - plan path: `dev/active/ai_governance_platform.md`
 - active MP scope: `MP-377`
-- advisory: `checkpoint_before_continue` — dirty_after_local_checkpoint
+- advisory: `push_allowed` — worktree_clean_and_review_accepted
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `a1f4a834352a`
+Range: last 24 commits ending at `623a21ac6238`
 
 - commits: 24
-- files changed: 44
-- insertions: +3014
-- deletions: -1398
+- files changed: 42
+- insertions: +3048
+- deletions: -1517
 - bundle classes touched: tooling, docs
 - authority surfaces touched: 6 file(s)
 
@@ -77,59 +77,56 @@ Range: last 24 commits ending at `a1f4a834352a`
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `a1f4a834` | Refresh external review snapshot for 6f94e606 | 1 | +62/-63 | tooling |  |
-| 2 | `6f94e606` | Record contract connectivity plan closure | 5 | +51/-48 | tooling |  |
-| 3 | `200af3e3` | Refresh external review snapshot for bad81bdf | 1 | +86/-95 | tooling |  |
-| 4 | `bad81bdf` | Gate contract connectivity debt through typed plans | 9 | +277/-55 | tooling |  |
-| 5 | `d480a306` | Refresh external review snapshot for b5214fdd | 1 | +48/-49 | tooling |  |
-| 6 | `b5214fdd` | Record plan closure for proof ledger guard | 5 | +55/-52 | tooling |  |
-| 7 | `acd9bd92` | Refresh external review snapshot for c023e7bc | 1 | +51/-52 | tooling |  |
-| 8 | `c023e7bc` | Classify plan closure receipts as proof ledger | 7 | +82/-58 | tooling |  |
-| 9 | `5fb57f5a` | Refresh external review snapshot for ee079435 | 1 | +52/-52 | tooling |  |
-| 10 | `ee079435` | Scope feature proof enforcement to source commits | 3 | +171/-56 | tooling |  |
-| 11 | `1489c777` | Refresh external review snapshot for 01290117 | 1 | +48/-48 | tooling |  |
-| 12 | `01290117` | Backfill packet binding continuity receipts | 4 | +76/-62 | tooling |  |
-| 13 | `3486373d` | Refresh external review snapshot for 30211cd7 | 1 | +51/-51 | tooling |  |
-| 14 | `30211cd7` | Record ground truth probe receipt | 2 | +52/-51 | tooling |  |
-| 15 | `b8901376` | Refresh external review snapshot for 3b60f794 | 1 | +53/-53 | tooling |  |
-| 16 | `3b60f794` | Surface contract connectivity debt at startup | 9 | +533/-54 | tooling |  |
-| 17 | `465a3e15` | Refresh external review snapshot for 5835341d | 1 | +60/-62 | tooling |  |
-| 18 | `5835341d` | Keep git mutation proof store generated | 6 | +129/-52 | tooling |  |
-| 19 | `22dbba15` | Refresh external review snapshot for 38e86f1d | 1 | +55/-58 | tooling |  |
-| 20 | `38e86f1d` | Fix managed receipt commit proof coverage | 7 | +442/-121 | tooling |  |
-| 21 | `96e66452` | Refresh external review snapshot for 682174e9 | 1 | +64/-67 | tooling |  |
-| 22 | `682174e9` | Tighten portable proof guard routing | 11 | +245/-74 | tooling |  |
-| 23 | `8b6424e8` | Refresh external review snapshot for 52b445b6 | 1 | +47/-53 | tooling |  |
-| 24 | `52b445b6` | Fix control decision consistency guard routing | 10 | +224/-12 | tooling |  |
+| 1 | `623a21ac` | Fix packet attention drain accounting | 6 | +258/-131 | tooling |  |
+| 2 | `a1f4a834` | Refresh external review snapshot for 6f94e606 | 1 | +62/-63 | tooling |  |
+| 3 | `6f94e606` | Record contract connectivity plan closure | 5 | +51/-48 | tooling |  |
+| 4 | `200af3e3` | Refresh external review snapshot for bad81bdf | 1 | +86/-95 | tooling |  |
+| 5 | `bad81bdf` | Gate contract connectivity debt through typed plans | 9 | +277/-55 | tooling |  |
+| 6 | `d480a306` | Refresh external review snapshot for b5214fdd | 1 | +48/-49 | tooling |  |
+| 7 | `b5214fdd` | Record plan closure for proof ledger guard | 5 | +55/-52 | tooling |  |
+| 8 | `acd9bd92` | Refresh external review snapshot for c023e7bc | 1 | +51/-52 | tooling |  |
+| 9 | `c023e7bc` | Classify plan closure receipts as proof ledger | 7 | +82/-58 | tooling |  |
+| 10 | `5fb57f5a` | Refresh external review snapshot for ee079435 | 1 | +52/-52 | tooling |  |
+| 11 | `ee079435` | Scope feature proof enforcement to source commits | 3 | +171/-56 | tooling |  |
+| 12 | `1489c777` | Refresh external review snapshot for 01290117 | 1 | +48/-48 | tooling |  |
+| 13 | `01290117` | Backfill packet binding continuity receipts | 4 | +76/-62 | tooling |  |
+| 14 | `3486373d` | Refresh external review snapshot for 30211cd7 | 1 | +51/-51 | tooling |  |
+| 15 | `30211cd7` | Record ground truth probe receipt | 2 | +52/-51 | tooling |  |
+| 16 | `b8901376` | Refresh external review snapshot for 3b60f794 | 1 | +53/-53 | tooling |  |
+| 17 | `3b60f794` | Surface contract connectivity debt at startup | 9 | +533/-54 | tooling |  |
+| 18 | `465a3e15` | Refresh external review snapshot for 5835341d | 1 | +60/-62 | tooling |  |
+| 19 | `5835341d` | Keep git mutation proof store generated | 6 | +129/-52 | tooling |  |
+| 20 | `22dbba15` | Refresh external review snapshot for 38e86f1d | 1 | +55/-58 | tooling |  |
+| 21 | `38e86f1d` | Fix managed receipt commit proof coverage | 7 | +442/-121 | tooling |  |
+| 22 | `96e66452` | Refresh external review snapshot for 682174e9 | 1 | +64/-67 | tooling |  |
+| 23 | `682174e9` | Tighten portable proof guard routing | 11 | +245/-74 | tooling |  |
+| 24 | `8b6424e8` | Refresh external review snapshot for 52b445b6 | 1 | +47/-53 | tooling |  |
 
 ### Files
 
 | Path | Bundle | +/- |
 |---|---|---|
 | `.github/workflows/release_preflight.yml` | tooling | +2/-2 |
-| `.github/workflows/tooling_control_plane.yml` | tooling | +8/-8 |
+| `.github/workflows/tooling_control_plane.yml` | tooling | +2/-2 |
 | `dev/active/MASTER_PLAN.md` | tooling | +2/-0 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1249/-1276 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1296/-1324 |
 | `dev/guides/SYSTEM_MAP.md` | docs | +1/-1 |
 | `dev/scripts/checks/contract_connectivity/models.py` | tooling | +22/-0 |
 | `dev/scripts/checks/contract_connectivity/planned_debt.py` | tooling | +58/-0 |
 | `dev/scripts/checks/contract_connectivity/report.py` | tooling | +42/-0 |
 | `dev/scripts/checks/contract_connectivity/support.py` | tooling | +34/-8 |
-| `dev/scripts/checks/control_decision_consistency/command.py` | tooling | +17/-1 |
 | `dev/scripts/checks/feature_has_proof_receipt/command.py` | tooling | +70/-1 |
 | `dev/scripts/checks/git_support/range.py` | tooling | +62/-2 |
-| `dev/scripts/checks/guard_enforcement_inventory/command.py` | tooling | +0/-4 |
-| `dev/scripts/devctl/bundles/registry.py` | tooling | +3/-8 |
+| `dev/scripts/devctl/bundles/registry.py` | tooling | +2/-8 |
 | `dev/scripts/devctl/commands/check/router_range.py` | tooling | +16/-0 |
+| `dev/scripts/devctl/commands/development/packet_attention_body_followup.py` | tooling | +8/-8 |
 | `dev/scripts/devctl/commands/vcs/governed_executor_commit_phase.py` | tooling | +16/-51 |
 | `dev/scripts/devctl/commands/vcs/governed_executor_commit_proof.py` | tooling | +34/-20 |
 | `dev/scripts/devctl/commands/vcs/governed_executor_commit_receipts.py` | tooling | +180/-0 |
 | `dev/scripts/devctl/commands/vcs/governed_executor_stage_index.py` | tooling | +50/-0 |
 | `dev/scripts/devctl/context_graph/quality_signal_render.py` | tooling | +45/-0 |
-| `dev/scripts/devctl/quality_policy/defaults.py` | tooling | +6/-0 |
-| `dev/scripts/devctl/runtime/agent_loop_decision_builder.py` | tooling | +27/-0 |
-| `dev/scripts/devctl/runtime/agent_loop_policy_proof.py` | tooling | +8/-0 |
-| `dev/scripts/devctl/runtime/control_decision_consistency.py` | tooling | +115/-1 |
+| `dev/scripts/devctl/review_channel/agent_packet_attention.py` | tooling | +53/-72 |
+| `dev/scripts/devctl/review_channel/agent_packet_attention_lifecycle.py` | tooling | +96/-0 |
 | `dev/scripts/devctl/runtime/git_mutation_proof_receipt.py` | tooling | +29/-3 |
 | `dev/scripts/devctl/runtime/startup_signal_contract_connectivity.py` | tooling | +278/-0 |
 | `dev/scripts/devctl/runtime/startup_signals.py` | tooling | +36/-0 |
@@ -138,15 +135,18 @@ Range: last 24 commits ending at `a1f4a834352a`
 | `dev/scripts/devctl/tests/checks/test_check_git_mutation_proof.py` | tooling | +45/-0 |
 | `dev/scripts/devctl/tests/commands/check/test_check_router.py` | tooling | +40/-0 |
 | `dev/scripts/devctl/tests/context_graph/test_context_graph.py` | tooling | +20/-0 |
-| `dev/scripts/devctl/tests/governance/test_bundle_registry.py` | tooling | +21/-0 |
+| `dev/scripts/devctl/tests/governance/test_bundle_registry.py` | tooling | +20/-0 |
+| `dev/scripts/devctl/tests/review_channel/test_agent_packet_attention_focus.py` | tooling | +49/-0 |
+| `dev/scripts/devctl/tests/review_channel/test_packet_history_lookup.py` | tooling | +5/-3 |
 | `dev/scripts/devctl/tests/runtime/test_commit_receipt.py` | tooling | +131/-0 |
-| `dev/scripts/devctl/tests/runtime/test_control_decision_consistency.py` | tooling | +43/-0 |
 | `dev/scripts/devctl/tests/runtime/test_startup_signals.py` | tooling | +99/-1 |
 | `dev/scripts/devctl/tests/vcs/test_governed_executor.py` | tooling | +26/-0 |
 | `dev/scripts/devctl/tests/vcs/test_push_report.py` | tooling | +2/-2 |
 | `dev/state/git_mutation_proof_receipts.jsonl` | tooling | +2/-2 |
 | `dev/state/ground_truth_probe_receipts.jsonl` | tooling | +1/-0 |
-| _4 more files trimmed_ | | |
+| `dev/state/plan_index.jsonl` | tooling | +18/-7 |
+| `dev/state/plan_ingestion_receipts.jsonl` | tooling | +16/-0 |
+| _2 more files trimmed_ | | |
 
 ## 4. Quality signals
 
@@ -214,6 +214,7 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`623a21ac`** — Fix packet attention drain accounting
 - **`a1f4a834`** — Refresh external review snapshot for 6f94e606
 - **`6f94e606`** — Record contract connectivity plan closure
 - **`200af3e3`** — Refresh external review snapshot for bad81bdf
@@ -252,8 +253,6 @@ Recent findings:
   - evolution: The GuardIR extraction checkpoint exposed a live-controller gap: parser and alias parity could pass while the governed `review-channel` path still hid actor-addressed packets, disclosed packet bodies before failing the …
 - **`8b6424e8`** — Refresh external review snapshot for 52b445b6
   - evolution: The GuardIR extraction checkpoint exposed a live-controller gap: parser and alias parity could pass while the governed `review-channel` path still hid actor-addressed packets, disclosed packet bodies before failing the …
-- **`52b445b6`** — Fix control decision consistency guard routing
-  - evolution: The GuardIR extraction checkpoint exposed a live-controller gap: parser and alias parity could pass while the governed `review-channel` path still hid actor-addressed packets, disclosed packet bodies before failing the …
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -272,10 +271,10 @@ Recent findings:
 - open governance findings: 26
 
 ### Startup advisories
-- checkpoint_before_continue: dirty_after_local_checkpoint
+- push_allowed: worktree_clean_and_review_accepted
 
 ### Stale warnings
-- Relaunch the reviewer loop immediately.
+- Stop because nothing remains to push.
 
 ### Open gap rows
 - **governance_open** (`dev/scripts/devctl/commands/governance/install_git_hooks.py`): dogfood.command.install-git-hooks: Auto-ingested devctl finalization failure rc=1.
@@ -296,4 +295,4 @@ repo_path=/Users/jguida941/testing_upgrade/codex-voice
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-eede747cc8d0` binds this file to HEAD `a1f4a834352a`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-880cac4030cb` binds this file to HEAD `623a21ac6238`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
