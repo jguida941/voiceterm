@@ -112,7 +112,19 @@ def control_decision_violations(
             )
         )
 
-    if can_run_next_command is False and _actionable_next_command(next_command):
+    violations.extend(
+        _packet_lifecycle_command_violations(
+            decision,
+            source=source,
+            next_command=next_command,
+        )
+    )
+
+    if (
+        can_run_next_command is False
+        and _actionable_next_command(next_command)
+        and not _controller_permitted_next_command(decision, next_command)
+    ):
         violations.append(
             ControlDecisionViolation(
                 source=source,
@@ -245,6 +257,108 @@ def _actionable_next_command(value: str) -> bool:
         return False
     inert_prefixes = ("#", "echo ")
     return not normalized.startswith(inert_prefixes)
+
+
+def _controller_permitted_next_command(
+    decision: Mapping[str, object],
+    next_command: str,
+) -> bool:
+    return _status_probe_command(next_command) or _packet_lifecycle_command_matches(
+        decision,
+        next_command=next_command,
+    )
+
+
+def _status_probe_command(value: str) -> bool:
+    normalized = value.strip().lower()
+    return "devctl.py agent-loop " in normalized or normalized.endswith("devctl.py agent-loop")
+
+
+def _packet_lifecycle_command_violations(
+    decision: Mapping[str, object],
+    *,
+    source: str,
+    next_command: str,
+) -> tuple[ControlDecisionViolation, ...]:
+    expected_action, expected_packet_id = _expected_packet_lifecycle(decision)
+    if not (expected_action and expected_packet_id):
+        return ()
+    violations: list[ControlDecisionViolation] = []
+    target_kind = _normalized(decision.get("target_kind"))
+    target_ref = _text(decision.get("target_ref"))
+    if target_kind == "packet" and target_ref and target_ref != expected_packet_id:
+        violations.append(
+            ControlDecisionViolation(
+                source=source,
+                reason="packet_lifecycle_target_ref_mismatch",
+                detail=(
+                    f"target_ref={target_ref} expected_packet_id={expected_packet_id}"
+                ),
+            )
+        )
+    action = _review_channel_lifecycle_action(next_command)
+    if not action:
+        return tuple(violations)
+    packet_id = _packet_id_from_command(next_command)
+    if action != expected_action or packet_id != expected_packet_id:
+        violations.append(
+            ControlDecisionViolation(
+                source=source,
+                reason="packet_lifecycle_next_command_mismatch",
+                detail=(
+                    f"next_command_action={action or '(missing)'};"
+                    f"next_command_packet={packet_id or '(missing)'};"
+                    f"expected_action={expected_action};"
+                    f"expected_packet={expected_packet_id}"
+                ),
+            )
+        )
+    return tuple(violations)
+
+
+def _packet_lifecycle_command_matches(
+    decision: Mapping[str, object],
+    *,
+    next_command: str,
+) -> bool:
+    expected_action, expected_packet_id = _expected_packet_lifecycle(decision)
+    if not (expected_action and expected_packet_id):
+        return False
+    return (
+        _review_channel_lifecycle_action(next_command) == expected_action
+        and _packet_id_from_command(next_command) == expected_packet_id
+    )
+
+
+def _expected_packet_lifecycle(decision: Mapping[str, object]) -> tuple[str, str]:
+    if _bool(decision.get("absorption_required")):
+        return "absorb", _text(decision.get("absorption_packet_id"))
+    if _bool(decision.get("semantic_ingestion_required")):
+        return "ingest", _text(decision.get("semantic_ingestion_packet_id"))
+    if _bool(decision.get("body_open_required")):
+        return "show", _text(decision.get("body_open_packet_id"))
+    return "", ""
+
+
+def _review_channel_lifecycle_action(value: str) -> str:
+    normalized = value.strip().lower()
+    if "review-channel" not in normalized:
+        return ""
+    for action in ("show", "ingest", "absorb"):
+        if f"--action {action}" in normalized:
+            return action
+    return ""
+
+
+def _packet_id_from_command(value: str) -> str:
+    marker = "--packet-id "
+    normalized = value.strip()
+    lower = normalized.lower()
+    if marker not in lower:
+        return ""
+    start = lower.index(marker) + len(marker)
+    raw = normalized[start:].split(maxsplit=1)[0]
+    return raw.strip("'\"")
 
 
 def _blocker_is_none(value: str) -> bool:

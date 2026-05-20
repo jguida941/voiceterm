@@ -98,6 +98,12 @@ DEFAULT_AI_GUARD_SPECS = (
         languages=("python",),
     ),
     QualityStepSpec(
+        "control-decision-consistency-guard",
+        "control_decision_consistency",
+        languages=("python",),
+        supports_commit_range=False,
+    ),
+    QualityStepSpec(
         "non-trivial-output-proof-guard",
         "non_trivial_output_proof",
         supports_commit_range=False,

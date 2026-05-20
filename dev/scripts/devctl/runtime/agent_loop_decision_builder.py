@@ -35,6 +35,10 @@ def decision(
     legacy_unscoped_packet_id = _text(overrides.get("legacy_unscoped_packet_id"))
     plan_target_ref = _text(overrides.get("plan_target_ref"))
     next_command_override = _text(overrides.get("next_command_override"))
+    lifecycle_packet_id = _packet_lifecycle_packet_id(ctx, required_action)
+    if lifecycle_packet_id:
+        active_packet_id = lifecycle_packet_id
+        attention_packet_id = lifecycle_packet_id
     resolved_lifecycle = lifecycle_from_loop_state(loop_state)
     resolved_decision = decision_code or decision_from_loop_state(loop_state)
     command_ctx = _command_context_for_turn(
@@ -70,6 +74,9 @@ def decision(
         reason=reason,
         next_command_override=next_command_override,
     )
+    lifecycle_next_command = _packet_lifecycle_command(ctx, required_action)
+    if lifecycle_next_command:
+        next_command = lifecycle_next_command
     readable = readable_decision_fields(
         required_action=required_action,
         reason=reason,
@@ -327,6 +334,26 @@ def absorption_required(ctx: AgentLoopContext) -> bool:
 
 def absorption_command(ctx: AgentLoopContext) -> str:
     return _text(ctx.attention.get("absorption_command"))
+
+
+def _packet_lifecycle_packet_id(ctx: AgentLoopContext, required_action: str) -> str:
+    if required_action == "absorb_packet":
+        return _text(ctx.attention.get("absorption_packet_id"))
+    if required_action == "ingest_packet_semantics":
+        return _text(ctx.attention.get("semantic_ingestion_packet_id"))
+    if required_action == "open_packet_body":
+        return _text(ctx.attention.get("body_open_packet_id"))
+    return ""
+
+
+def _packet_lifecycle_command(ctx: AgentLoopContext, required_action: str) -> str:
+    if required_action == "absorb_packet":
+        return absorption_command(ctx)
+    if required_action == "ingest_packet_semantics":
+        return semantic_ingestion_command(ctx)
+    if required_action == "open_packet_body":
+        return body_open_command(ctx)
+    return ""
 
 
 def packet_lifecycle_action_required(ctx: AgentLoopContext) -> bool:

@@ -25,6 +25,9 @@ from dev.scripts.devctl.runtime.control_decision_consistency import (  # noqa: E
     evaluate_control_decision_consistency,
     extract_control_decisions,
 )
+from dev.scripts.devctl.review_channel.agent_loop_decision_projection import (  # noqa: E402
+    attach_agent_loop_decision_projections,
+)
 
 
 def build_report(
@@ -35,23 +38,36 @@ def build_report(
     allow_empty: bool = False,
 ) -> dict[str, object]:
     payload: object
+    source_path = input_path
     if report_override is not None:
         payload = report_override
     elif input_path is not None:
         payload = json.loads(input_path.read_text(encoding="utf-8"))
     elif stdin_text.strip():
         payload = json.loads(stdin_text)
+    elif (REPO_ROOT / "dev/reports/review_channel/state/latest.json").exists():
+        source_path = REPO_ROOT / "dev/reports/review_channel/state/latest.json"
+        payload = json.loads(source_path.read_text(encoding="utf-8"))
     else:
         payload = {}
+    payload = _fresh_control_decision_payload(payload)
     decisions = extract_control_decisions(payload)
     report = evaluate_control_decision_consistency(
         decisions,
-        source=str(input_path or "report_override"),
+        source=str(source_path or "report_override"),
         allow_empty=allow_empty,
     ).to_dict()
     report["command"] = "check_control_decision_consistency"
     report["timestamp"] = utc_timestamp()
     return report
+
+
+def _fresh_control_decision_payload(payload: object) -> object:
+    if not isinstance(payload, Mapping):
+        return payload
+    if not isinstance(payload.get("agent_work_board"), Mapping):
+        return payload
+    return attach_agent_loop_decision_projections(payload)
 
 
 def render_markdown(report: Mapping[str, object]) -> str:

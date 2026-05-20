@@ -291,6 +291,7 @@ _BUNDLE_SPECS: Final[tuple[BundleSpec, ...]] = (
         "python3 dev/scripts/devctl.py hygiene --strict-warnings --ignore-warning-source mutation_badge --ignore-warning-source publications",
         *_ORCHESTRATE_COMMANDS,
         *_SHARED_GOVERNANCE_CHECKS,
+        check_script_shell_command("control_decision_consistency"),
         *_GUARD_CHECKS,
         _HOST_PROCESS_HYGIENE_COMMAND,
         ),

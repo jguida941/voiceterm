@@ -61,10 +61,6 @@ ENFORCEMENT_EXEMPTIONS = {
         "kind": "contextual-input-guard",
         "reason": "requires command-output and consumption receipt input; no-subject release-bundle execution is invalid",
     },
-    "control_decision_consistency": {
-        "kind": "contextual-input-guard",
-        "reason": "requires AgentLoopDecision/control decision input; no-subject release-bundle execution is invalid",
-    },
     "control_decision_obeyed": {
         "kind": "contextual-input-guard",
         "reason": "requires a controller decision plus attempted action input; no-subject release-bundle execution is invalid",

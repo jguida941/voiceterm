@@ -35,6 +35,7 @@ def proof_gate_for_turn(
         ctx=ctx,
         active_packet_id=active_packet_id,
         plan_target_ref=plan_target_ref,
+        required_action=required_action,
     )
     required = required_proofs_for_intent(
         ctx.loop_intent,
@@ -70,7 +71,14 @@ def target_for_turn(
     ctx: LoopProofContext,
     active_packet_id: str,
     plan_target_ref: str,
+    required_action: str = "",
 ) -> tuple[str, str]:
+    if (
+        required_action
+        in {"open_packet_body", "ingest_packet_semantics", "absorb_packet"}
+        and active_packet_id
+    ):
+        return "packet", active_packet_id
     if ctx.requested_packet_id:
         return "packet", ctx.requested_packet_id
     if ctx.requested_plan_ref:

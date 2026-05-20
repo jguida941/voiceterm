@@ -54,6 +54,49 @@ def test_blocked_next_command_fails() -> None:
     assert report.violations[0]["reason"] == "next_command_projected_while_command_blocked"
 
 
+def test_packet_lifecycle_command_is_allowed_when_command_blocked() -> None:
+    output = {
+        "can_run_next_command": False,
+        "required_action": "ingest_packet_semantics",
+        "semantic_ingestion_required": True,
+        "semantic_ingestion_packet_id": "rev_pkt_4606",
+        "target_kind": "packet",
+        "target_ref": "rev_pkt_4606",
+        "next_command": (
+            "python3 dev/scripts/devctl.py review-channel --action ingest "
+            "--packet-id rev_pkt_4606 --actor claude"
+        ),
+        "top_blocker": "packet_semantic_ingestion_required",
+    }
+
+    report = evaluate_control_decision_consistency((output,), source="agent-loop")
+
+    assert report.ok is True
+
+
+def test_packet_lifecycle_command_mismatch_fails() -> None:
+    output = {
+        "can_run_next_command": False,
+        "required_action": "ingest_packet_semantics",
+        "semantic_ingestion_required": True,
+        "semantic_ingestion_packet_id": "rev_pkt_4606",
+        "target_kind": "packet",
+        "target_ref": "rev_pkt_4553",
+        "next_command": (
+            "python3 dev/scripts/devctl.py review-channel --action show "
+            "--packet-id rev_pkt_4553 --actor claude"
+        ),
+        "top_blocker": "packet_semantic_ingestion_required",
+    }
+
+    report = evaluate_control_decision_consistency((output,), source="agent-loop")
+
+    assert report.ok is False
+    reasons = {violation["reason"] for violation in report.violations}
+    assert "packet_lifecycle_next_command_mismatch" in reasons
+    assert "packet_lifecycle_target_ref_mismatch" in reasons
+
+
 def test_blocked_checkpoint_label_is_not_treated_as_mutation_projection() -> None:
     output = {
         "may_mutate": True,

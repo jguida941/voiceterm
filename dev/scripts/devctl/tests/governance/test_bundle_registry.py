@@ -57,6 +57,7 @@ class BundleRegistryContractTests(TestCase):
             "python3 dev/scripts/checks/check_no_new_topology_count_coupling.py",
             "python3 dev/scripts/checks/check_repo_url_parity.py",
             "python3 dev/scripts/checks/check_guardir_extraction_plan_artifacts.py",
+            "python3 dev/scripts/checks/check_control_decision_consistency.py",
             "python3 dev/scripts/checks/check_release_version_parity.py",
             "python3 dev/scripts/checks/check_substrate_is_repo_portable.py",
             "python3 dev/scripts/checks/check_systemmap_covers_contract_registry.py",
