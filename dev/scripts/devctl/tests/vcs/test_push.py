@@ -150,6 +150,15 @@ def _verified_push_mutation_proof() -> GitMutationProofReceipt:
     )
 
 
+def _verified_push_owned_commit_proof() -> SimpleNamespace:
+    return SimpleNamespace(
+        ok=True,
+        verified=True,
+        proof_store=GIT_MUTATION_PROOF_RECEIPT_STORE_REL,
+        failure_reason="",
+    )
+
+
 def _install_push_mutation_proof_patches(test_case: unittest.TestCase) -> None:
     build_patcher = patch(
         "dev.scripts.devctl.commands.vcs.push_mutation_proof."
@@ -5029,12 +5038,17 @@ class PushBridgeSyncTests(unittest.TestCase):
         run_git_capture_mock.assert_not_called()
         self.assertEqual(state.errors, [])
 
+    @patch(
+        "dev.scripts.devctl.commands.vcs.push_preflight_commit.record_push_owned_commit_proof",
+        return_value=_verified_push_owned_commit_proof(),
+    )
     @patch("dev.scripts.devctl.commands.vcs.push_preflight_commit.run_git_capture")
     @patch("dev.scripts.devctl.commands.vcs.push_preflight_commit.collect_git_status")
     def test_selected_generated_surface_commit_preserves_staged_only_paths(
         self,
         collect_git_status_mock,
         run_git_capture_mock,
+        proof_mock,
     ) -> None:
         collect_git_status_mock.return_value = {
             "changes": [
@@ -5091,14 +5105,24 @@ class PushBridgeSyncTests(unittest.TestCase):
             ],
             "1",
         )
+        proof_mock.assert_called_once_with(
+            repo_root=push_preflight_commit.REPO_ROOT,
+            commit_sha="surface-receipt",
+            artifact_paths=("dev/guides/SYSTEM_MAP.md",),
+        )
         self.assertEqual(state.errors, [])
 
+    @patch(
+        "dev.scripts.devctl.commands.vcs.push_preflight_commit.record_push_owned_commit_proof",
+        return_value=_verified_push_owned_commit_proof(),
+    )
     @patch("dev.scripts.devctl.commands.vcs.push_preflight_commit.run_git_capture")
     @patch("dev.scripts.devctl.commands.vcs.push_preflight_commit.collect_git_status")
     def test_selected_generated_surface_commit_ignores_baseline_dirty_paths(
         self,
         collect_git_status_mock,
         run_git_capture_mock,
+        proof_mock,
     ) -> None:
         collect_git_status_mock.return_value = {
             "changes": [
@@ -5135,6 +5159,11 @@ class PushBridgeSyncTests(unittest.TestCase):
 
         self.assertTrue(result["committed"])
         self.assertEqual(result["paths"], ("dev/guides/SYSTEM_MAP.md",))
+        proof_mock.assert_called_once_with(
+            repo_root=push_preflight_commit.REPO_ROOT,
+            commit_sha="surface-receipt",
+            artifact_paths=("dev/guides/SYSTEM_MAP.md",),
+        )
         self.assertEqual(state.errors, [])
 
     @patch("dev.scripts.devctl.commands.vcs.push_preflight_commit.run_git_capture")
@@ -5219,6 +5248,10 @@ class PushBridgeSyncTests(unittest.TestCase):
         "dev.scripts.devctl.commands.vcs.push_projection_receipt.current_head_is_managed_review_snapshot_receipt",
         return_value=False,
     )
+    @patch(
+        "dev.scripts.devctl.commands.vcs.push_projection_receipt.record_push_owned_commit_proof",
+        return_value=_verified_push_owned_commit_proof(),
+    )
     @patch("dev.scripts.devctl.commands.vcs.push_projection_receipt.run_git_capture")
     @patch("dev.scripts.devctl.commands.vcs.push_projection_staging.run_git_capture")
     @patch("dev.scripts.devctl.commands.vcs.push_projection_status.run_git_capture")
@@ -5232,6 +5265,7 @@ class PushBridgeSyncTests(unittest.TestCase):
         status_git_mock,
         staging_git_mock,
         receipt_git_mock,
+        proof_mock,
         _head_receipt_mock,
     ) -> None:
         status_git_mock.return_value = (0, " M bridge.md", "")
@@ -5273,10 +5307,19 @@ class PushBridgeSyncTests(unittest.TestCase):
                 "bridge.md",
             ],
         )
+        proof_mock.assert_called_once_with(
+            repo_root=push_projection_receipt.REPO_ROOT,
+            commit_sha="receipt-sha",
+            artifact_paths=("bridge.md",),
+        )
 
     @patch(
         "dev.scripts.devctl.commands.vcs.push_projection_receipt.current_head_is_managed_review_snapshot_receipt",
         return_value=False,
+    )
+    @patch(
+        "dev.scripts.devctl.commands.vcs.push_projection_receipt.record_push_owned_commit_proof",
+        return_value=_verified_push_owned_commit_proof(),
     )
     @patch("dev.scripts.devctl.commands.vcs.push_projection_receipt.run_git_capture")
     @patch("dev.scripts.devctl.commands.vcs.push_projection_staging.run_git_capture")
@@ -5291,6 +5334,7 @@ class PushBridgeSyncTests(unittest.TestCase):
         status_git_mock,
         staging_git_mock,
         receipt_git_mock,
+        proof_mock,
         _head_receipt_mock,
     ) -> None:
         status_git_mock.return_value = (0, "M dev/audits/REVIEW_SNAPSHOT.md", "")
@@ -5323,10 +5367,19 @@ class PushBridgeSyncTests(unittest.TestCase):
                 "dev/audits/REVIEW_SNAPSHOT.md before push."
             ],
         )
+        proof_mock.assert_called_once_with(
+            repo_root=push_projection_receipt.REPO_ROOT,
+            commit_sha="receipt-sha",
+            artifact_paths=("dev/audits/REVIEW_SNAPSHOT.md",),
+        )
 
     @patch(
         "dev.scripts.devctl.commands.vcs.push_projection_receipt.current_head_is_managed_review_snapshot_receipt",
         return_value=False,
+    )
+    @patch(
+        "dev.scripts.devctl.commands.vcs.push_projection_receipt.record_push_owned_commit_proof",
+        return_value=_verified_push_owned_commit_proof(),
     )
     @patch("dev.scripts.devctl.commands.vcs.push_projection_receipt.run_git_capture")
     @patch("dev.scripts.devctl.commands.vcs.push_projection_staging.run_git_capture")
@@ -5341,6 +5394,7 @@ class PushBridgeSyncTests(unittest.TestCase):
         status_git_mock,
         staging_git_mock,
         receipt_git_mock,
+        proof_mock,
         _head_receipt_mock,
     ) -> None:
         status_git_mock.return_value = (
@@ -5380,6 +5434,11 @@ class PushBridgeSyncTests(unittest.TestCase):
                 "Committed managed projection receipt receipt-sha for "
                 "bridge.md, dev/audits/REVIEW_SNAPSHOT.md before push."
             ],
+        )
+        proof_mock.assert_called_once_with(
+            repo_root=push_projection_receipt.REPO_ROOT,
+            commit_sha="receipt-sha",
+            artifact_paths=("bridge.md", "dev/audits/REVIEW_SNAPSHOT.md"),
         )
 
     @patch(
@@ -5457,6 +5516,10 @@ class PushBridgeSyncTests(unittest.TestCase):
         "dev.scripts.devctl.commands.vcs.push_projection_receipt.current_head_is_managed_review_snapshot_receipt",
         return_value=False,
     )
+    @patch(
+        "dev.scripts.devctl.commands.vcs.push_projection_receipt.record_push_owned_commit_proof",
+        return_value=_verified_push_owned_commit_proof(),
+    )
     @patch("dev.scripts.devctl.commands.vcs.push_projection_receipt.run_git_capture")
     @patch("dev.scripts.devctl.commands.vcs.push_projection_staging.run_git_capture")
     @patch("dev.scripts.devctl.commands.vcs.push_projection_status.run_git_capture")
@@ -5470,6 +5533,7 @@ class PushBridgeSyncTests(unittest.TestCase):
         status_git_mock,
         staging_git_mock,
         receipt_git_mock,
+        proof_mock,
         _head_receipt_mock,
     ) -> None:
         status_git_mock.return_value = (0, " M bridge.md\nM  next_commit.py", "")
@@ -5510,6 +5574,11 @@ class PushBridgeSyncTests(unittest.TestCase):
             [
                 "Committed managed projection receipt receipt-sha for bridge.md before push."
             ],
+        )
+        proof_mock.assert_called_once_with(
+            repo_root=push_projection_receipt.REPO_ROOT,
+            commit_sha="receipt-sha",
+            artifact_paths=("bridge.md",),
         )
 
     @patch("dev.scripts.devctl.commands.vcs.push.write_output")

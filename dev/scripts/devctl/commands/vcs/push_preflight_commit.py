@@ -9,6 +9,7 @@ from ...config import REPO_ROOT
 from ...runtime.commit_permission_hook import MANAGED_PROJECTION_RECEIPT_COMMIT_ENV
 from ...runtime.review_snapshot_refresh import GENERATED_SURFACE_RECEIPT_SUBJECT_PREFIX
 from ...runtime.vcs import run_git_capture
+from .push_owned_commit_proof import record_push_owned_commit_proof
 from .push_projection_paths import managed_projection_receipt_paths
 from .push_worktree_changes import blocking_dirty_paths
 
@@ -104,12 +105,15 @@ def auto_commit_selected_preflight_generated_changes(
             "DEVCTL_NO_REVIEW_SNAPSHOT_REFRESH": "1",
         },
     )
-    return {
-        "ok": not bool(getattr(state, "errors", ())),
-        "committed": bool(commit_result.get("committed")),
-        "commit_sha": str(commit_result.get("commit_sha", "") or ""),
-        "paths": tuple(selected),
-    }
+    result = _selected_preflight_commit_result(
+        ok=not bool(getattr(state, "errors", ())),
+        committed=bool(commit_result.get("committed")),
+        commit_sha=str(commit_result.get("commit_sha", "") or ""),
+        proof_store=str(commit_result.get("proof_store", "") or ""),
+        proof_verified=bool(commit_result.get("proof_verified")),
+    )
+    result["paths"] = tuple(selected)
+    return result
 
 
 def preflight_blocking_dirty_paths(
@@ -135,6 +139,24 @@ def preflight_blocking_dirty_paths(
 
 def _is_push_override_receipt_path(path: str) -> bool:
     return path.startswith(_PUSH_OVERRIDE_RECEIPT_PREFIX)
+
+
+def _selected_preflight_commit_result(
+    *,
+    ok: bool,
+    committed: bool,
+    commit_sha: str,
+    proof_store: str,
+    proof_verified: bool,
+) -> dict[str, object]:
+    result: dict[str, object] = {
+        "ok": ok,
+        "committed": committed,
+        "commit_sha": commit_sha,
+    }
+    result["proof_store"] = proof_store
+    result["proof_verified"] = proof_verified
+    return result
 
 
 def _commit_preflight_paths(
@@ -184,9 +206,25 @@ def _commit_preflight_paths(
         ["rev-parse", "HEAD"],
         repo_root=repo_root,
     )
+    commit_sha = commit_sha.strip() if commit_lookup_code == 0 else ""
+    proof_result = record_push_owned_commit_proof(
+        repo_root=repo_root,
+        commit_sha=commit_sha,
+        artifact_paths=tuple(dirty),
+    )
+    if not proof_result.ok:
+        state.errors.append(
+            _auto_commit_failure_message(
+                dirty=dirty,
+                step="git mutation proof",
+                error=proof_result.failure_reason,
+            )
+        )
     return {
         "committed": True,
-        "commit_sha": commit_sha.strip() if commit_lookup_code == 0 else "",
+        "commit_sha": commit_sha,
+        "proof_store": proof_result.proof_store,
+        "proof_verified": proof_result.verified,
         "paths": tuple(dirty),
     }
 

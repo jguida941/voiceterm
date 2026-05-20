@@ -6,6 +6,7 @@ from pathlib import Path
 
 from ...config import REPO_ROOT
 from ...runtime.vcs import run_git_capture
+from .push_owned_commit_proof import record_push_owned_commit_proof
 from .push_projection_paths import managed_projection_receipt_paths
 from .push_projection_staging import stage_managed_projection_paths
 from .push_projection_status import dirty_managed_projection_paths
@@ -128,17 +129,55 @@ def _commit_staged_projection_receipt(
             "error": commit_lookup_error,
             "paths": staged_paths,
         }
-    return {
-        "ok": True,
-        "reason": "projection_receipt_committed",
-        "committed": True,
-        "commit_sha": commit_sha,
-        "paths": staged_paths,
-    }
+    proof_result = record_push_owned_commit_proof(
+        repo_root=repo_root,
+        commit_sha=commit_sha,
+        artifact_paths=staged_paths,
+    )
+    if not proof_result.ok:
+        result = _projection_receipt_commit_result(
+            ok=False,
+            reason="projection_receipt_commit_proof_failed",
+            committed=True,
+            commit_sha=commit_sha,
+            paths=staged_paths,
+        )
+        result["error"] = proof_result.failure_reason
+        result["proof_store"] = proof_result.proof_store
+        result["proof_verified"] = proof_result.verified
+        return result
+    result = _projection_receipt_commit_result(
+        ok=True,
+        reason="projection_receipt_committed",
+        committed=True,
+        commit_sha=commit_sha,
+        paths=staged_paths,
+    )
+    result["proof_store"] = proof_result.proof_store
+    result["proof_verified"] = proof_result.verified
+    return result
 
 
 def _managed_receipt_paths(policy, *, repo_root: Path) -> tuple[str, ...]:
     return managed_projection_receipt_paths(policy, repo_root=repo_root)
+
+
+def _projection_receipt_commit_result(
+    *,
+    ok: bool,
+    reason: str,
+    committed: bool,
+    commit_sha: str,
+    paths: tuple[str, ...],
+) -> dict[str, object]:
+    result: dict[str, object] = {
+        "ok": ok,
+        "reason": reason,
+        "committed": committed,
+    }
+    result["commit_sha"] = commit_sha
+    result["paths"] = paths
+    return result
 
 
 __all__ = [
