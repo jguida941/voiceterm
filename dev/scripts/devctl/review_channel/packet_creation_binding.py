@@ -19,6 +19,7 @@ from .packet_creation_binding_contracts import (
 )
 from .packet_creation_binding_plan import bind_packet_to_plan_row
 from .state import project_id_for_repo
+from ..runtime.collaboration_packet_kinds import TASK_STARTED_PACKET_KIND
 from ..time_utils import utc_timestamp
 
 _PLAN_ROW_BINDING_KINDS = frozenset(
@@ -26,6 +27,7 @@ _PLAN_ROW_BINDING_KINDS = frozenset(
         "finding",
         "plan_gap_review",
         "plan_patch_review",
+        TASK_STARTED_PACKET_KIND,
     }
 )
 _LIFECYCLE_BINDING_KINDS = frozenset(

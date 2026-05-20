@@ -12,6 +12,7 @@ from ..runtime.anchor_scope import (
     VALID_ANCHOR_SCOPES,
 )
 from ..runtime.collaboration_packet_kinds import (
+    TASK_STARTED_PACKET_KIND,
     TASK_PRODUCED_PACKET_KIND,
     TASK_PROGRESS_PACKET_KIND,
 )
@@ -45,6 +46,7 @@ RUNTIME_TARGET_PACKET_KINDS = {"commit_approval"}
 NON_AUTHORITATIVE_TARGET_PACKET_KINDS = {
     "finding",
     "automation_opportunity",
+    TASK_STARTED_PACKET_KIND,
     TASK_PRODUCED_PACKET_KIND,
     TASK_PROGRESS_PACKET_KIND,
 }

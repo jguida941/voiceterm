@@ -7,6 +7,9 @@ from typing import Any
 
 from .contracts import CrossLinkSpec
 
+CONNECTIVITY_REGISTRY_SCHEMA_VERSION = 1
+CONNECTIVITY_REGISTRY_CONTRACT_ID = "ConnectivityRegistrySnapshot"
+
 
 @dataclass(frozen=True, slots=True)
 class ConnectivityFieldRow:
@@ -102,6 +105,8 @@ class ConnectivityRegistrySummary:
 
 
 __all__ = [
+    "CONNECTIVITY_REGISTRY_CONTRACT_ID",
+    "CONNECTIVITY_REGISTRY_SCHEMA_VERSION",
     "ConnectivityContractRow",
     "ConnectivityFieldRow",
     "ConnectivityRegistrySummary",

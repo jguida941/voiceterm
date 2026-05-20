@@ -100,6 +100,10 @@ def test_platform_blueprint_contract_ids_are_unique() -> None:
     assert "CommitReceipt" in artifact_ids
     assert "FeatureProofReceipt" in artifact_ids
     assert "GoalProgressReceipt" in artifact_ids
+    assert "ConnectivityRegistrySnapshot" in artifact_ids
+    assert "CoordinationTopologySnapshot" in artifact_ids
+    assert "ExtensionBundle" in artifact_ids
+    assert "PlanningIRSnapshot" in artifact_ids
 
 
 def test_platform_blueprint_contract_shapes_cover_lifecycle_and_authority() -> None:

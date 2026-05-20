@@ -95,6 +95,8 @@ class PushRunState:
     push_authorization_mode: str = ""
     push_authorization_head_commit: str = ""
     remote_head_after: str = ""
+    git_mutation_proof_receipt_path: str = ""
+    git_mutation_proof_verified: bool = False
     pre_validation_managed_projection_sync: dict[str, Any] = field(default_factory=dict)
     pre_validation_recovery_loop_repair: dict[str, Any] = field(default_factory=dict)
     pre_validation_recovery_loop_repair_required: bool = False

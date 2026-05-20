@@ -117,6 +117,45 @@ def test_system_notice_with_plan_words_does_not_bind_to_plan_row(
     assert not (tmp_path / "dev/state/plan_index.jsonl").exists()
 
 
+def test_task_started_with_code_target_binds_to_plan_row_at_creation(
+    tmp_path: Path,
+) -> None:
+    _master_plan(tmp_path)
+    artifact_paths = resolve_artifact_paths(repo_root=tmp_path)
+
+    binding = bind_packet_at_creation(
+        repo_root=tmp_path,
+        artifact_paths=artifact_paths,
+        packet_event={
+            "event_type": "packet_posted",
+            "event_id": "rev_evt_0001",
+            "packet_id": "rev_pkt_5001",
+            "kind": "task_started",
+            "plan_id": "MP-355",
+            "target_kind": "code",
+            "target_ref": "dev/scripts/devctl/platform/connectivity_registry.py",
+            "target_revision": "HEAD",
+            "summary": "Start bounded implementation",
+            "body": "Repair the targeted runtime slice.",
+        },
+    )
+    rows = [
+        json.loads(line)
+        for line in (tmp_path / "dev/state/plan_index.jsonl").read_text(
+            encoding="utf-8"
+        ).splitlines()
+        if line.strip()
+    ]
+
+    assert binding["status"] == "inserted"
+    assert binding["binding_target_kind"] == "plan_row"
+    assert binding["binding_target"] == "PKT-BIND-REV-PKT-5001"
+    assert rows[0]["mutation_op"] == "task_started_packet_binding"
+    assert rows[0]["target_ref"] == (
+        "dev/scripts/devctl/platform/connectivity_registry.py"
+    )
+
+
 def test_post_packet_records_communication_only_classification(
     tmp_path: Path,
 ) -> None:
@@ -256,7 +295,10 @@ def test_bound_stale_packet_expires_without_carry_forward_debt(
     packet = review_state["packets"][0]
 
     assert review_state["queue"]["stale_packet_count"] == 0
-    assert packet["status"] == "pending"
-    assert packet["lifecycle_current_state"] == "pending"
-    assert packet["disposition"]["sink"] == "queued"
+    assert packet["status"] == "archived"
+    assert packet["lifecycle_current_state"] == "archived"
+    assert packet["disposition"]["sink"] == "archived"
+    assert packet["disposition"]["archive_classification"] == (
+        "expired_after_durable_binding"
+    )
     assert packet_carry_forward_debts([packet]) == ()

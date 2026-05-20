@@ -66,6 +66,10 @@ from dev.scripts.devctl.runtime.remote_commit_pipeline_models import (
 from dev.scripts.devctl.runtime.push_authorization import (
     PublicationAuthorizationDecision,
 )
+from dev.scripts.devctl.runtime.git_mutation_proof_receipt import (
+    GIT_MUTATION_PROOF_RECEIPT_STORE_REL,
+    GitMutationProofReceipt,
+)
 from dev.scripts.devctl.runtime.remote_commit_pipeline_state import (
     PUSH_FAILURE_CLASSIFICATION_DESTRUCTIVE,
     PUSH_FAILURE_CLASSIFICATION_NON_DESTRUCTIVE,
@@ -130,6 +134,37 @@ def make_policy(**overrides) -> PushPolicy:
         checkpoint=values["checkpoint"],
         publication=values["publication"],
     )
+
+
+def _verified_push_mutation_proof() -> GitMutationProofReceipt:
+    return GitMutationProofReceipt(
+        receipt_id="git_mutation_proof:push:origin:feature-demo:abc123",
+        mutation_kind="push",
+        expected_sha="abc123",
+        observed_local_sha="abc123",
+        observed_remote_sha="abc123",
+        remote_name="origin",
+        branch_name="feature/demo",
+        verified=True,
+        status="verified",
+    )
+
+
+def _install_push_mutation_proof_patches(test_case: unittest.TestCase) -> None:
+    build_patcher = patch(
+        "dev.scripts.devctl.commands.vcs.push_mutation_proof."
+        "build_push_git_mutation_proof_receipt",
+        return_value=_verified_push_mutation_proof(),
+    )
+    test_case.push_mutation_proof_mock = build_patcher.start()
+    test_case.addCleanup(build_patcher.stop)
+    append_patcher = patch(
+        "dev.scripts.devctl.commands.vcs.push_mutation_proof."
+        "append_git_mutation_proof_receipt",
+        return_value=GIT_MUTATION_PROOF_RECEIPT_STORE_REL,
+    )
+    test_case.append_push_mutation_proof_mock = append_patcher.start()
+    test_case.addCleanup(append_patcher.stop)
 
 
 def _bridge_text_for_push_heartbeat(
@@ -751,6 +786,7 @@ class PushCommandTests(unittest.TestCase):
         )
         self.push_flow_remote_head_mock = self._push_flow_remote_head_patcher.start()
         self.addCleanup(self._push_flow_remote_head_patcher.stop)
+        _install_push_mutation_proof_patches(self)
 
     @patch("dev.scripts.devctl.commands.vcs.push_executor_routing.emit_output")
     @patch(
@@ -2225,7 +2261,10 @@ class PushCommandTests(unittest.TestCase):
         )
         self.assertEqual(
             payload["action_result"]["artifact_paths"],
-            ["dev/reports/push/latest_push_report.json"],
+            [
+                "dev/reports/push/latest_push_report.json",
+                GIT_MUTATION_PROOF_RECEIPT_STORE_REL,
+            ],
         )
         self.assertEqual(
             payload["push_stages"],
@@ -2434,6 +2473,7 @@ class PushBridgeSyncTests(unittest.TestCase):
         )
         self.push_flow_remote_head_mock = self._push_flow_remote_head_patcher.start()
         self.addCleanup(self._push_flow_remote_head_patcher.stop)
+        _install_push_mutation_proof_patches(self)
 
     def _runtime_missing_recovery_record(self) -> dict[str, object]:
         return {
@@ -5545,7 +5585,10 @@ class PushBridgeSyncTests(unittest.TestCase):
         self.assertTrue(payload["action_result"]["partial_progress"])
         self.assertEqual(
             payload["action_result"]["artifact_paths"],
-            ["dev/reports/push/latest_push_report.json"],
+            [
+                "dev/reports/push/latest_push_report.json",
+                GIT_MUTATION_PROOF_RECEIPT_STORE_REL,
+            ],
         )
         self.assertEqual(
             payload["push_stages"],
@@ -5641,7 +5684,10 @@ class PushBridgeSyncTests(unittest.TestCase):
         self.assertTrue(payload["action_result"]["partial_progress"])
         self.assertEqual(
             payload["action_result"]["artifact_paths"],
-            ["dev/reports/push/latest_push_report.json"],
+            [
+                "dev/reports/push/latest_push_report.json",
+                GIT_MUTATION_PROOF_RECEIPT_STORE_REL,
+            ],
         )
         self.assertEqual(
             payload["push_stages"],

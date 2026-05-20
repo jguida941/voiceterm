@@ -72,6 +72,26 @@ def test_build_contract_registry_rows_covers_blueprint_contracts_and_artifacts()
         and row.registered_contract_id == "SystemMapSnapshot"
         for row in rows
     )
+    assert any(
+        row.entry_kind == "artifact_schema"
+        and row.registered_contract_id == "ConnectivityRegistrySnapshot"
+        for row in rows
+    )
+    assert any(
+        row.entry_kind == "artifact_schema"
+        and row.registered_contract_id == "CoordinationTopologySnapshot"
+        for row in rows
+    )
+    assert any(
+        row.entry_kind == "artifact_schema"
+        and row.registered_contract_id == "ExtensionBundle"
+        for row in rows
+    )
+    assert any(
+        row.entry_kind == "artifact_schema"
+        and row.registered_contract_id == "PlanningIRSnapshot"
+        for row in rows
+    )
 
 
 def test_contract_registry_rows_round_trip_through_jsonl(tmp_path) -> None:

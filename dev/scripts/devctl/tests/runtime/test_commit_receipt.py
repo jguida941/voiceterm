@@ -2,9 +2,11 @@ from __future__ import annotations
 # pyright: reportPrivateUsage=false
 
 import json
+import subprocess
 from dataclasses import replace
 from pathlib import Path
 from typing import cast
+from unittest.mock import patch
 
 import pytest
 
@@ -38,6 +40,13 @@ from dev.scripts.devctl.runtime.feature_proof_receipt import (
     FeatureProofReceipt,
     feature_proof_receipt_from_mapping,
     validate_non_trivial_output_proof,
+)
+from dev.scripts.devctl.runtime.git_mutation_proof_receipt import (
+    GIT_MUTATION_PROOF_RECEIPT_STORE_REL,
+    GitMutationProofReceipt,
+    append_git_mutation_proof_receipt,
+    build_commit_git_mutation_proof_receipt,
+    read_git_mutation_proof_receipts,
 )
 from dev.scripts.devctl.runtime.remote_commit_pipeline_models import (
     CommitIntentState,
@@ -96,6 +105,34 @@ def test_commit_receipt_round_trips_artifact(tmp_path: Path) -> None:
     assert parsed.audit_synthesis_ref == "validation_receipt:val-1"
     assert parsed.pre_state == VALIDATION_PASSED_STATE
     assert parsed.post_state == COMMIT_RECORDED_STATE
+
+
+def test_commit_git_mutation_proof_verifies_real_head_commit(tmp_path: Path) -> None:
+    _init_git_repo(tmp_path)
+    (tmp_path / "sample.txt").write_text("sample\n", encoding="utf-8")
+    _git(tmp_path, "add", "sample.txt")
+    _git(tmp_path, "commit", "-m", "sample")
+    head_sha = _git(tmp_path, "rev-parse", "HEAD")
+
+    receipt = build_commit_git_mutation_proof_receipt(
+        repo_root=tmp_path,
+        claim=GitMutationProofReceipt(
+            mutation_kind="commit",
+            action_id="vcs.commit.1",
+            pipeline_id="pipe-1",
+            plan_row_id="MP-TEST",
+            expected_sha=head_sha,
+            operation_returned_success=True,
+        ),
+    )
+    relpath = append_git_mutation_proof_receipt(tmp_path, receipt)
+    restored = read_git_mutation_proof_receipts(tmp_path)
+
+    assert relpath == GIT_MUTATION_PROOF_RECEIPT_STORE_REL
+    assert receipt.verified is True
+    assert receipt.object_type == "commit"
+    assert receipt.observed_local_sha == head_sha
+    assert restored[-1].receipt_id == receipt.receipt_id
 
 
 def test_feature_lifecycle_proof_covers_commit_chain(tmp_path: Path) -> None:
@@ -671,11 +708,24 @@ def test_governed_commit_success_emits_commit_receipt_artifact(tmp_path: Path) -
         result_builder=_result,
     )
 
-    result = _commit_success_result(
-        action_id="vcs.commit.1",
-        context=context,
-        completed=completed,
-    )
+    with patch(
+        "dev.scripts.devctl.commands.vcs.governed_executor_commit_proof."
+        "build_commit_git_mutation_proof_receipt",
+        return_value=GitMutationProofReceipt(
+            receipt_id="git_mutation_proof:commit:abc123",
+            mutation_kind="commit",
+            expected_sha="abc123",
+            observed_local_sha="abc123",
+            object_type="commit",
+            verified=True,
+            status="verified",
+        ),
+    ):
+        result = _commit_success_result(
+            action_id="vcs.commit.1",
+            context=context,
+            completed=completed,
+        )
 
     receipt_paths = [
         path for path in result.artifact_paths if path.startswith("dev/reports/commit_receipts/")
@@ -690,18 +740,79 @@ def test_governed_commit_success_emits_commit_receipt_artifact(tmp_path: Path) -
         for path in result.artifact_paths
         if path.startswith("dev/reports/feature_proof_receipts/")
     ]
+    git_mutation_proof_paths = [
+        path
+        for path in result.artifact_paths
+        if path == GIT_MUTATION_PROOF_RECEIPT_STORE_REL
+    ]
     commit_result = persisted[-1].commit_result
     assert commit_result is not None
     assert result.ok is True
     assert receipt_paths == ["dev/reports/commit_receipts/abc123.json"]
     assert proof_paths == ["dev/reports/feature_lifecycle_proofs/abc123.json"]
     assert feature_proof_paths == ["dev/reports/feature_proof_receipts/abc123.json"]
+    assert git_mutation_proof_paths == [GIT_MUTATION_PROOF_RECEIPT_STORE_REL]
     assert (tmp_path / receipt_paths[0]).exists()
     assert (tmp_path / proof_paths[0]).exists()
     assert (tmp_path / feature_proof_paths[0]).exists()
+    assert (tmp_path / GIT_MUTATION_PROOF_RECEIPT_STORE_REL).exists()
     assert receipt_paths[0] in commit_result.artifact_paths
     assert proof_paths[0] in commit_result.artifact_paths
     assert feature_proof_paths[0] in commit_result.artifact_paths
+
+
+def test_governed_commit_success_fails_typed_when_mutation_proof_store_fails(
+    tmp_path: Path,
+) -> None:
+    persisted: list[RemoteCommitPipelineContract] = []
+    completed = _pipeline()
+    context = CommitPipelineContext(
+        repo_root=tmp_path,
+        review_channel_path=None,
+        load_pipeline=lambda: completed,
+        persist_pipeline=lambda pipeline: [],
+        persist_pipeline_contract_only=lambda pipeline: _persist(persisted, pipeline),
+        event_packets_loader=lambda: (),
+        pipeline_artifact_relpath=(
+            "dev/reports/review_channel/projections/latest/commit_pipeline.json"
+        ),
+        result_builder=_result,
+    )
+
+    with (
+        patch(
+            "dev.scripts.devctl.commands.vcs.governed_executor_commit_proof."
+            "build_commit_git_mutation_proof_receipt",
+            return_value=GitMutationProofReceipt(
+                receipt_id="git_mutation_proof:commit:abc123",
+                mutation_kind="commit",
+                expected_sha="abc123",
+                observed_local_sha="abc123",
+                object_type="commit",
+                verified=True,
+                status="verified",
+            ),
+        ),
+        patch(
+            "dev.scripts.devctl.commands.vcs.governed_executor_commit_proof."
+            "append_git_mutation_proof_receipt",
+            side_effect=OSError("store locked"),
+        ),
+    ):
+        result = _commit_success_result(
+            action_id="vcs.commit.1",
+            context=context,
+            completed=completed,
+        )
+
+    assert result.ok is False
+    assert result.reason == "commit_proof_write_failed"
+    assert any(
+        warning.startswith("git_mutation_proof_write_failed:")
+        for warning in result.warnings
+    )
+    assert persisted[-1].state == "push_blocked"
+    assert persisted[-1].blocked_reason == "commit_proof_write_failed"
 
 
 def _pipeline() -> RemoteCommitPipelineContract:
@@ -756,6 +867,24 @@ def _write_sample_test(repo_root: Path) -> None:
     test_path = repo_root / "dev/scripts/devctl/tests/test_sample.py"
     test_path.parent.mkdir(parents=True, exist_ok=True)
     test_path.write_text("def test_real():\n    assert True\n", encoding="utf-8")
+
+
+def _init_git_repo(repo_root: Path) -> None:
+    _git(repo_root, "init")
+    _git(repo_root, "config", "user.email", "test@example.com")
+    _git(repo_root, "config", "user.name", "Test User")
+
+
+def _git(repo_root: Path, *args: str) -> str:
+    result = subprocess.run(
+        ("git", *args),
+        cwd=repo_root,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr or result.stdout
+    return result.stdout.strip()
 
 
 def _role_review_lifecycle() -> RoleReviewAssignmentLifecycle:

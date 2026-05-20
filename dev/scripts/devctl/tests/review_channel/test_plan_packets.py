@@ -38,6 +38,7 @@ from dev.scripts.devctl.review_channel.packet_attestation import (
 )
 from dev.scripts.devctl.runtime.collaboration_packet_kinds import (
     COLLABORATION_LIFECYCLE_PACKET_KINDS,
+    TASK_STARTED_PACKET_KIND,
 )
 from dev.scripts.devctl.runtime.master_plan_contract import PlanProposal
 
@@ -153,6 +154,23 @@ class ReviewChannelPlanPacketTests(unittest.TestCase):
                 validate_post_request(request, valid_agent_ids=("codex", "claude"))
 
                 self.assertFalse(plan_proposal_for_request(request).has_values())
+
+    def test_task_started_allows_scoped_non_authoritative_target(self) -> None:
+        validate_post_request(
+            PacketPostRequest(
+                from_agent="codex",
+                to_agent="claude",
+                kind=TASK_STARTED_PACKET_KIND,
+                summary="Start bounded connectivity repair",
+                body="Implement the targeted contract connectivity slice.",
+                target=PacketTargetFields.from_values(
+                    target_kind="code",
+                    target_ref="dev/scripts/devctl/platform/connectivity_registry.py",
+                    target_revision="HEAD",
+                ),
+            ),
+            valid_agent_ids=("codex", "claude"),
+        )
 
     def test_instruction_packets_allow_route_discriminators(self) -> None:
         validate_post_request(

@@ -6,11 +6,12 @@ from .contract_registry_models import (
     CONTRACT_REGISTRY_CONTRACT_ID,
     CONTRACT_REGISTRY_SCHEMA_VERSION,
 )
+from .artifact_schema_rows_platform import PLATFORM_REDUCER_ARTIFACT_SCHEMAS
 from .contracts import ArtifactSchemaSpec
 
 
-def artifact_schemas() -> tuple[ArtifactSchemaSpec, ...]:
-    """Return the durable artifact schema matrix for already-real platform families."""
+def _registry_probe_artifact_schemas() -> tuple[ArtifactSchemaSpec, ...]:
+    """Return registry and probe artifact schema rows."""
     return (
         ArtifactSchemaSpec(
             contract_id=CONTRACT_REGISTRY_CONTRACT_ID,
@@ -120,6 +121,12 @@ def artifact_schemas() -> tuple[ArtifactSchemaSpec, ...]:
             migration_path="Expand topology payloads additively and update topology renderers/tests in the same slice.",
             rollback_path="Restore prior topology constants and emitters before removing consumer support.",
         ),
+    )
+
+
+def _evidence_artifact_schemas() -> tuple[ArtifactSchemaSpec, ...]:
+    """Return runtime evidence artifact schema rows."""
+    return (
         ArtifactSchemaSpec(
             contract_id="DogfoodSelfCheckReceipt",
             owner_layer="governance_runtime",
@@ -198,6 +205,12 @@ def artifact_schemas() -> tuple[ArtifactSchemaSpec, ...]:
             migration_path="Add fields additively, update goal progress fixtures, then update develop/status readers.",
             rollback_path="Keep prior progress fields readable until continuation-anchor progress consumers are migrated.",
         ),
+    )
+
+
+def _governance_artifact_schemas() -> tuple[ArtifactSchemaSpec, ...]:
+    """Return governance and graph artifact schema rows."""
+    return (
         ArtifactSchemaSpec(
             contract_id="ProbeAllowlist",
             owner_layer="repo_packs",
@@ -250,6 +263,13 @@ def artifact_schemas() -> tuple[ArtifactSchemaSpec, ...]:
             migration_path="Keep delta fields additive and update markdown/JSON renderers plus CLI tests before schema expansion.",
             rollback_path="Restore prior delta constants and renderer/CLI shape before removing snapshot consumers.",
         ),
+    )
+
+
+def _platform_artifact_schemas() -> tuple[ArtifactSchemaSpec, ...]:
+    """Return platform reducer artifact schema rows."""
+    return (
+        *PLATFORM_REDUCER_ARTIFACT_SCHEMAS,
         ArtifactSchemaSpec(
             contract_id="SystemPicture",
             owner_layer="governance_core",
@@ -263,4 +283,14 @@ def artifact_schemas() -> tuple[ArtifactSchemaSpec, ...]:
             migration_path="Keep reducer fields additive and update the CLI, ledger renderers, and proof consumers before schema expansion.",
             rollback_path="Restore prior reducer constants and renderers before removing existing system-picture consumers.",
         ),
+    )
+
+
+def artifact_schemas() -> tuple[ArtifactSchemaSpec, ...]:
+    """Return the durable artifact schema matrix for already-real platform families."""
+    return (
+        *_registry_probe_artifact_schemas(),
+        *_evidence_artifact_schemas(),
+        *_governance_artifact_schemas(),
+        *_platform_artifact_schemas(),
     )

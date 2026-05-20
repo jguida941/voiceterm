@@ -10,6 +10,7 @@ import re
 from ..governance.draft import scan_repo_governance
 from ..runtime.master_plan_contract import IngestionProvenance, PlanRow, SDLCStage
 from ..runtime.master_plan_store import upsert_plan_row_jsonl
+from ..runtime.collaboration_packet_kinds import TASK_STARTED_PACKET_KIND
 from ..runtime.plan_ref import canonical_plan_ref
 from .event_store import DEFAULT_REVIEW_CHANNEL_PLAN_ID, ReviewChannelArtifactPaths
 from .packet_creation_binding_contracts import (
@@ -130,8 +131,15 @@ def _typed_plan_row(
             _dedupe([*_rows(packet_event.get("anchor_refs")), f"packet:{packet_id}"])
         ),
         target_ref=target_ref,
-        mutation_op=_text(packet_event.get("mutation_op"))
-        or _text(packet_event.get("requested_action")),
+        mutation_op=_mutation_op(packet_event),
+    )
+
+
+def _mutation_op(packet_event: Mapping[str, object]) -> str:
+    if _text(packet_event.get("kind")) == TASK_STARTED_PACKET_KIND:
+        return "task_started_packet_binding"
+    return _text(packet_event.get("mutation_op")) or _text(
+        packet_event.get("requested_action")
     )
 
 

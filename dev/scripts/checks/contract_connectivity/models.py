@@ -80,6 +80,32 @@ class StrandedContractFinding:
 
 
 @dataclass(frozen=True, slots=True)
+class BidirectionalReferenceFinding:
+    """A contract missing inbound consumers, outbound contract refs, or both."""
+
+    contract_name: str
+    layer: str
+    module_name: str
+    module_path: str
+    forward_reference_count: int
+    backward_importer_count: int
+    missing_directions: tuple[str, ...]
+    forward_contracts: tuple[str, ...] = ()
+    forward_contract_paths: tuple[str, ...] = ()
+    importer_modules: tuple[str, ...] = ()
+    importer_paths: tuple[str, ...] = ()
+
+    def to_dict(self) -> dict[str, Any]:
+        payload = asdict(self)
+        payload["missing_directions"] = list(self.missing_directions)
+        payload["forward_contracts"] = list(self.forward_contracts)
+        payload["forward_contract_paths"] = list(self.forward_contract_paths)
+        payload["importer_modules"] = list(self.importer_modules)
+        payload["importer_paths"] = list(self.importer_paths)
+        return payload
+
+
+@dataclass(frozen=True, slots=True)
 class ContractConnectivityReport:
     """Typed report emitted by ``check_contract_connectivity.py``."""
 
@@ -96,12 +122,17 @@ class ContractConnectivityReport:
     orphaned_contracts: tuple[OrphanedContractFinding, ...] = ()
     duplicate_contracts: tuple[DuplicateContractFinding, ...] = ()
     stranded_consumers: tuple[StrandedContractFinding, ...] = ()
+    bidirectional_reference_findings: tuple[BidirectionalReferenceFinding, ...] = ()
     new_orphaned_contracts: tuple[OrphanedContractFinding, ...] = ()
     new_duplicate_contracts: tuple[DuplicateContractFinding, ...] = ()
     new_stranded_consumers: tuple[StrandedContractFinding, ...] = ()
+    new_bidirectional_reference_findings: tuple[
+        BidirectionalReferenceFinding, ...
+    ] = ()
     baseline_orphaned_count: int = 0
     baseline_duplicate_count: int = 0
     baseline_stranded_count: int = 0
+    baseline_bidirectional_reference_count: int = 0
 
     def to_dict(self) -> dict[str, Any]:
         payload = asdict(self)
@@ -115,6 +146,9 @@ class ContractConnectivityReport:
         payload["stranded_consumers"] = [
             item.to_dict() for item in self.stranded_consumers
         ]
+        payload["bidirectional_reference_findings"] = [
+            item.to_dict() for item in self.bidirectional_reference_findings
+        ]
         payload["new_orphaned_contracts"] = [
             item.to_dict() for item in self.new_orphaned_contracts
         ]
@@ -123,5 +157,8 @@ class ContractConnectivityReport:
         ]
         payload["new_stranded_consumers"] = [
             item.to_dict() for item in self.new_stranded_consumers
+        ]
+        payload["new_bidirectional_reference_findings"] = [
+            item.to_dict() for item in self.new_bidirectional_reference_findings
         ]
         return payload

@@ -26,6 +26,7 @@ from ...runtime.vcs import run_git_capture
 from .governed_executor_actions import APPROVAL_PACKET_KIND
 from .governed_executor_authorization import build_push_authorization
 from .governed_executor_commit_failure_router import route_commit_failure_result
+from .governed_executor_commit_proof import record_commit_mutation_proof
 from .governed_executor_commit_runtime import (
     attention_revision_stale as runtime_attention_revision_stale,
     live_attention_revision as runtime_live_attention_revision,
@@ -449,18 +450,31 @@ def _commit_success_result(
     context: CommitPipelineContext,
     completed: RemoteCommitPipelineContract,
 ) -> ActionResult:
-    artifact_paths = [context.pipeline_artifact_relpath]
+    artifact_paths = (context.pipeline_artifact_relpath,)
     receipt_warnings: list[str] = []
+    proof_result = record_commit_mutation_proof(
+        action_id=action_id,
+        repo_root=context.repo_root,
+        completed=completed,
+        artifact_paths=artifact_paths,
+        persist_pipeline_contract_only=context.persist_pipeline_contract_only,
+        result_builder=context.result_builder,
+    )
+    if proof_result.failure_result is not None:
+        return proof_result.failure_result
+    artifact_paths = proof_result.artifact_paths
     try:
         receipt = build_commit_receipt(
             completed,
             artifact_paths=artifact_paths,
         )
-        artifact_paths.append(
+        artifact_paths = (
+            *artifact_paths,
             write_commit_receipt_artifact(context.repo_root, receipt)
         )
         proof = build_feature_lifecycle_proof(completed, receipt)
-        artifact_paths.append(
+        artifact_paths = (
+            *artifact_paths,
             write_feature_lifecycle_proof_artifact(context.repo_root, proof)
         )
         feature_proof_receipt = build_feature_proof_receipt(
@@ -470,14 +484,15 @@ def _commit_success_result(
             evidence_artifacts=artifact_paths,
             repo_root=context.repo_root,
         )
-        artifact_paths.append(
+        artifact_paths = (
+            *artifact_paths,
             write_feature_proof_receipt_artifact(
                 context.repo_root,
                 feature_proof_receipt,
             )
         )
     except Exception as exc:
-        # Commit is already durable; surface receipt write failure as evidence debt.
+        # broad-except: allow reason=commit already durable and receipt writers have heterogeneous IO/serialization failures fallback=warning evidence debt
         receipt_warnings.append(f"commit_receipt_write_failed:{exc}")
     commit_result = context.result_builder(
         action_id=action_id,
@@ -504,5 +519,5 @@ def _commit_success_result(
             "new commit."
         ),
         warnings=tuple(warnings),
-        artifact_paths=tuple(artifact_paths),
+        artifact_paths=artifact_paths,
     )

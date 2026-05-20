@@ -7,6 +7,10 @@ from pathlib import Path
 from dev.scripts.checks.check_bootstrap import REPO_ROOT
 from dev.scripts.checks.rust_guard_common import GuardContext
 
+from .bidirectional import (
+    bidirectional_reference_findings,
+    bidirectional_reference_key,
+)
 from .findings import (
     duplicate_contracts,
     duplicate_key,
@@ -50,6 +54,10 @@ def build_report(
         duplicate_findings=current_duplicates,
     )
     current_stranded = stranded_consumers(current)
+    current_bidirectional = bidirectional_reference_findings(
+        current,
+        duplicate_findings=current_duplicates,
+    )
 
     baseline_duplicates = () if baseline is None else duplicate_contracts(
         baseline.contracts
@@ -59,6 +67,14 @@ def build_report(
         duplicate_findings=baseline_duplicates,
     )
     baseline_stranded = () if baseline is None else stranded_consumers(baseline)
+    baseline_bidirectional = (
+        ()
+        if baseline is None
+        else bidirectional_reference_findings(
+            baseline,
+            duplicate_findings=baseline_duplicates,
+        )
+    )
 
     new_orphans = new_findings(current_orphans, baseline_orphans, orphan_key)
     new_duplicates = new_findings(
@@ -71,15 +87,35 @@ def build_report(
         baseline_stranded,
         stranded_key,
     )
+    new_bidirectional = new_findings(
+        current_bidirectional,
+        baseline_bidirectional,
+        bidirectional_reference_key,
+    )
 
     if absolute:
-        ok = not (current_orphans or current_duplicates or current_stranded)
+        ok = not (
+            current_orphans
+            or current_duplicates
+            or current_stranded
+            or current_bidirectional
+        )
         mode = "absolute"
     elif since_ref:
-        ok = not (new_orphans or new_duplicates or new_stranded)
+        ok = not (
+            new_orphans
+            or new_duplicates
+            or new_stranded
+            or new_bidirectional
+        )
         mode = "commit-range"
     else:
-        ok = not (new_orphans or new_duplicates or new_stranded)
+        ok = not (
+            new_orphans
+            or new_duplicates
+            or new_stranded
+            or new_bidirectional
+        )
         mode = "working-tree"
 
     return ContractConnectivityReport(
@@ -93,10 +129,13 @@ def build_report(
         orphaned_contracts=tuple(current_orphans),
         duplicate_contracts=tuple(current_duplicates),
         stranded_consumers=tuple(current_stranded),
+        bidirectional_reference_findings=tuple(current_bidirectional),
         new_orphaned_contracts=tuple(new_orphans),
         new_duplicate_contracts=tuple(new_duplicates),
         new_stranded_consumers=tuple(new_stranded),
+        new_bidirectional_reference_findings=tuple(new_bidirectional),
         baseline_orphaned_count=len(baseline_orphans),
         baseline_duplicate_count=len(baseline_duplicates),
         baseline_stranded_count=len(baseline_stranded),
+        baseline_bidirectional_reference_count=len(baseline_bidirectional),
     )

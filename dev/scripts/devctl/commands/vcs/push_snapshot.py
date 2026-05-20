@@ -55,7 +55,10 @@ def build_push_report_payload(
         warnings=tuple(state.warnings),
         errors=_action_result_errors(state.errors),
         findings_count=len(getattr(state, "findings", []) or []),
-        artifact_paths=(context.artifact_path,),
+        artifact_paths=_artifact_paths(
+            context.artifact_path,
+            str(getattr(state, "git_mutation_proof_receipt_path", "") or ""),
+        ),
     ).to_dict()
     return build_push_report(
         PushReportInputs(
@@ -78,6 +81,12 @@ def build_push_report_payload(
             errors=state.errors,
             findings=list(getattr(state, "findings", []) or []),
             artifact_path=context.artifact_path,
+            git_mutation_proof_receipt_path=str(
+                getattr(state, "git_mutation_proof_receipt_path", "") or ""
+            ),
+            git_mutation_proof_verified=bool(
+                getattr(state, "git_mutation_proof_verified", False)
+            ),
             current_worktree_identity=context.current_worktree_identity,
             approved_target_identity=context.approved_target_identity,
             approved_worktree_identity=context.approved_worktree_identity,
@@ -109,6 +118,8 @@ def _enforce_execution_truth(
     """Fail closed when a report claims publication without subprocess proof."""
     if outcome.reason == "branch_already_pushed":
         return outcome
+    if outcome.reason == "push_proof_write_failed":
+        return outcome
     if not bool(context.args.execute) or not outcome.stages.published_remote:
         return outcome
     state = context.state
@@ -123,6 +134,8 @@ def _enforce_execution_truth(
     push_step = getattr(state, "push_step", None)
     if isinstance(push_step, dict) and _returncode(push_step.get("returncode")) != 0:
         missing.append("push_step.returncode")
+    if not bool(getattr(state, "git_mutation_proof_verified", False)):
+        missing.append("git_mutation_proof_verified")
     remote_head_after = str(getattr(state, "remote_head_after", "") or "").strip()
     if remote_head_after and remote_head_after != context.head_commit:
         missing.append("remote_head_after")
@@ -173,6 +186,17 @@ def _returncode(value: object) -> int:
         return int(value)
     except (TypeError, ValueError):
         return 1
+
+
+def _artifact_paths(*paths: str) -> tuple[str, ...]:
+    seen: set[str] = set()
+    result: list[str] = []
+    for path in paths:
+        if not path or path in seen:
+            continue
+        seen.add(path)
+        result.append(path)
+    return tuple(result)
 
 
 def persist_published_remote_snapshot(

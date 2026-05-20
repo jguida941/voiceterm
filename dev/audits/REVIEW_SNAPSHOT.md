@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `extraction/guardir-core-p0-proof-integrity`
-- HEAD: `101aacd2585c` — Bind reviewer-round intake follow-ups
-- Tree hash: `dd566767861a`
-- Generation stamp: `snap-247471416f9b`
-- Generated at (UTC): 2026-05-19T20:24:52Z
-- Push decision: `run_devctl_push` — push_preconditions_satisfied
+- HEAD: `36b1e81024b9` — P0 contract connectivity sub-A: 4 missing authority contract registry rows + SYSTEM_MAP refresh
+- Tree hash: `a111455c33b3`
+- Generation stamp: `snap-0f9bca22a687`
+- Generated at (UTC): 2026-05-19T23:45:11Z
+- Push decision: `await_checkpoint` — staged_index_budget_exceeded
 - Reviewer mode: `tools_only` (interaction: `remote_control`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 25 commits, 46 files, +2559/-781
+- Delta since last snapshot: 25 commits, 52 files, +2719/-850
 - Governance findings: 26 open / 0 fixed / 26 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -28,23 +28,23 @@ production client (VoiceTerm...
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `extraction/guardir-core-p0-proof-integrity`
-- HEAD SHA: `101aacd2585cdf0af0f51f6811693d32bf9b1aa4`
+- HEAD SHA: `36b1e81024b9978dabcf368ccaed3fc7d85274e8`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-05-19T16:24:31-04:00
+- HEAD timestamp (UTC): 2026-05-19T17:57:56-04:00
 
 ## 2. Governance state
 
 ### Push decision
-- action: `run_devctl_push`
-- reason: push_preconditions_satisfied
-- push_eligible_now: True
-- worktree_clean: True
-- staged_path_count: 0
+- action: `await_checkpoint`
+- reason: staged_index_budget_exceeded
+- push_eligible_now: False
+- worktree_clean: False
+- staged_path_count: 57
 - unstaged_path_count: 0
-- next_step_command: `python3 dev/scripts/devctl.py push --execute`
+- next_step_command: `n/a`
 - latest_push_report_state: `blocked` (push_preflight_running)
 - publication_backlog: queued
-- publication_guidance: Local branch still has unpublished work waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
+- publication_guidance: Local branch still has unpublished work waiting for governed push once the current slice is checkpoint-clean.
 
 ### Reviewer runtime
 - reviewer_mode: `tools_only`
@@ -60,70 +60,65 @@ production client (VoiceTerm...
 - active plan: **AI Governance Platform Plan**
 - plan path: `dev/active/ai_governance_platform.md`
 - active MP scope: `MP-377`
-- advisory: `no_push_needed` — clean_worktree
+- advisory: `checkpoint_before_continue` — staged_index_budget_exceeded
+- checkpoint_required: **yes**
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 25 commits ending at `101aacd2585c`
+Range: last 25 commits ending at `36b1e81024b9`
 
 - commits: 25
-- files changed: 46
-- insertions: +2559
-- deletions: -781
-- bundle classes touched: tooling, docs
+- files changed: 52
+- insertions: +2719
+- deletions: -850
+- bundle classes touched: docs, tooling
 - authority surfaces touched: 1 file(s)
 
 ### Commits
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `101aacd2` | Bind reviewer-round intake follow-ups | 4 | +74/-47 | tooling |  |
-| 2 | `b126e825` | Refresh external review snapshot for 41217fca | 1 | +69/-66 | tooling |  |
-| 3 | `41217fca` | Allow pending lifecycle packet focus in multi-agent sync | 12 | +249/-52 | tooling |  |
-| 4 | `f869134a` | Refresh external review snapshot for 58d527c1 | 1 | +52/-52 | tooling |  |
-| 5 | `58d527c1` | Share optional integer coercion across runtime contracts | 9 | +64/-20 | tooling |  |
-| 6 | `4f5974fe` | Refresh external review snapshot for b348c95d | 1 | +55/-55 | tooling |  |
-| 7 | `b348c95d` | Split multi-agent communication-only focus helper | 8 | +71/-31 | tooling |  |
-| 8 | `fd5ca17e` | Refresh external review snapshot for b2639c99 | 1 | +57/-60 | tooling |  |
-| 9 | `b2639c99` | Anchor task-started packet bindings to backfill commit | 5 | +49/-18 | tooling |  |
-| 10 | `cc739fa3` | Refresh external review snapshot for eb5ed905 | 1 | +42/-42 | tooling |  |
-| 11 | `eb5ed905` | Bind feature-proof receipt finding packet | 3 | +20/-0 | tooling |  |
-| 12 | `60b0f15a` | Refresh external review snapshot for 70b81e6a | 1 | +50/-49 | tooling |  |
-| 13 | `70b81e6a` | Backfill task-started packet bindings | 5 | +51/-0 | tooling |  |
-| 14 | `db755032` | Refresh external review snapshot for 43f7b254 | 1 | +51/-50 | tooling |  |
-| 15 | `43f7b254` | Record SLICE-Z ground truth probe receipt | 1 | +1/-0 | tooling |  |
-| 16 | `a1b40b4c` | Refresh external review snapshot for 4593576d | 1 | +105/-78 | tooling |  |
-| 17 | `4593576d` | SLICE-Z follow-up: align sync guard and docs | 9 | +152/-2 | tooling |  |
-| 18 | `bb80f85a` | SLICE-Z repair: slice-counted continuation_anchor full life… | 17 | +587/-124 | tooling |  |
-| 19 | `84d43c50` | SLICE-Z: slice-counted continuation_anchor auto-release for… | 2 | +217/-0 | tooling |  |
-| 20 | `83721f94` | SLICE-Y repair: typed fail-loud blocker for FindingBacklog… | 2 | +85/-25 | tooling |  |
-| 21 | `148f4c4e` | SLICE-Y: wire FindingBacklog -> select_next_slice in report… | 2 | +107/-0 | tooling |  |
-| 22 | `0ea70c7d` | SLICE-X: bug-priority preemption helper in select_next_slice | 2 | +187/-0 | tooling |  |
-| 23 | `0530d797` | SLICE-A repair: register GUARDIR_EXTENSION_BUNDLE alias | 2 | +12/-4 | tooling |  |
-| 24 | `83b35f57` | SLICE-A: regenerate boot cards as GuardIR (repo_pack_id=gua… | 5 | +6/-6 | tooling |  |
-| 25 | `644fa92f` | Add orchestrator post authority for role-flip task_started/… | 2 | +146/-0 | tooling |  |
+| 1 | `36b1e810` | P0 contract connectivity sub-A: 4 missing authority contrac… | 14 | +260/-26 | tooling |  |
+| 2 | `94b95813` | Refresh external review snapshot for 101aacd2 | 1 | +52/-49 | tooling |  |
+| 3 | `101aacd2` | Bind reviewer-round intake follow-ups | 4 | +74/-47 | tooling |  |
+| 4 | `b126e825` | Refresh external review snapshot for 41217fca | 1 | +69/-66 | tooling |  |
+| 5 | `41217fca` | Allow pending lifecycle packet focus in multi-agent sync | 12 | +249/-52 | tooling |  |
+| 6 | `f869134a` | Refresh external review snapshot for 58d527c1 | 1 | +52/-52 | tooling |  |
+| 7 | `58d527c1` | Share optional integer coercion across runtime contracts | 9 | +64/-20 | tooling |  |
+| 8 | `4f5974fe` | Refresh external review snapshot for b348c95d | 1 | +55/-55 | tooling |  |
+| 9 | `b348c95d` | Split multi-agent communication-only focus helper | 8 | +71/-31 | tooling |  |
+| 10 | `fd5ca17e` | Refresh external review snapshot for b2639c99 | 1 | +57/-60 | tooling |  |
+| 11 | `b2639c99` | Anchor task-started packet bindings to backfill commit | 5 | +49/-18 | tooling |  |
+| 12 | `cc739fa3` | Refresh external review snapshot for eb5ed905 | 1 | +42/-42 | tooling |  |
+| 13 | `eb5ed905` | Bind feature-proof receipt finding packet | 3 | +20/-0 | tooling |  |
+| 14 | `60b0f15a` | Refresh external review snapshot for 70b81e6a | 1 | +50/-49 | tooling |  |
+| 15 | `70b81e6a` | Backfill task-started packet bindings | 5 | +51/-0 | tooling |  |
+| 16 | `db755032` | Refresh external review snapshot for 43f7b254 | 1 | +51/-50 | tooling |  |
+| 17 | `43f7b254` | Record SLICE-Z ground truth probe receipt | 1 | +1/-0 | tooling |  |
+| 18 | `a1b40b4c` | Refresh external review snapshot for 4593576d | 1 | +105/-78 | tooling |  |
+| 19 | `4593576d` | SLICE-Z follow-up: align sync guard and docs | 9 | +152/-2 | tooling |  |
+| 20 | `bb80f85a` | SLICE-Z repair: slice-counted continuation_anchor full life… | 17 | +587/-124 | tooling |  |
+| 21 | `84d43c50` | SLICE-Z: slice-counted continuation_anchor auto-release for… | 2 | +217/-0 | tooling |  |
+| 22 | `83721f94` | SLICE-Y repair: typed fail-loud blocker for FindingBacklog… | 2 | +85/-25 | tooling |  |
+| 23 | `148f4c4e` | SLICE-Y: wire FindingBacklog -> select_next_slice in report… | 2 | +107/-0 | tooling |  |
+| 24 | `0ea70c7d` | SLICE-X: bug-priority preemption helper in select_next_slice | 2 | +187/-0 | tooling |  |
+| 25 | `0530d797` | SLICE-A repair: register GUARDIR_EXTENSION_BUNDLE alias | 2 | +12/-4 | tooling |  |
 
 ### Files
 
 | Path | Bundle | +/- |
 |---|---|---|
-| `AGENTS.md` | docs | +1/-1 |
 | `dev/active/MASTER_PLAN.md` | tooling | +53/-0 |
 | `dev/active/ai_governance_platform.md` | tooling | +67/-0 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +575/-546 |
-| `dev/config/devctl_repo_policy.json` | tooling | +2/-2 |
-| `dev/config/templates/portable_governance_post_commit_hook.stub.sh` | tooling | +1/-1 |
-| `dev/config/templates/portable_governance_pre_commit_hook.stub.sh` | tooling | +1/-1 |
-| `dev/config/templates/portable_governance_pre_push_hook.stub.sh` | tooling | +1/-1 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +627/-595 |
 | `dev/guides/DEVELOPMENT.md` | docs | +23/-3 |
-| `dev/guides/SYSTEM_MAP.md` | docs | +2/-2 |
+| `dev/guides/SYSTEM_MAP.md` | docs | +27/-26 |
 | `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +186/-0 |
 | `dev/scripts/README.md` | tooling | +17/-2 |
 | `dev/scripts/checks/multi_agent_sync/runtime_truth_agent_loop_communication.py` | tooling | +60/-0 |
 | `dev/scripts/checks/multi_agent_sync/runtime_truth_agent_loop_instruction.py` | tooling | +37/-28 |
 | `dev/scripts/devctl/commands/development/next_slice.py` | tooling | +66/-0 |
 | `dev/scripts/devctl/commands/development/report_assembly.py` | tooling | +110/-19 |
-| `dev/scripts/devctl/commands/review_channel/event_handler.py` | tooling | +37/-0 |
 | `dev/scripts/devctl/commands/review_channel/event_post_action.py` | tooling | +5/-0 |
 | `dev/scripts/devctl/platform/extension_bundle_defaults.py` | tooling | +8/-0 |
 | `dev/scripts/devctl/review_channel/event_models.py` | tooling | +2/-0 |
@@ -142,12 +137,18 @@ Range: last 25 commits ending at `101aacd2585c`
 | `dev/scripts/devctl/tests/commands/development/test_next_slice_priority.py` | tooling | +121/-0 |
 | `dev/scripts/devctl/tests/commands/development/test_report_assembly_finding_wire.py` | tooling | +82/-6 |
 | `dev/scripts/devctl/tests/platform/test_extension_bundle_projection.py` | tooling | +4/-4 |
-| `dev/scripts/devctl/tests/review_channel/test_launcher_authority_ordering.py` | tooling | +109/-0 |
 | `dev/scripts/devctl/tests/review_channel/test_packet_transport_expiry.py` | tooling | +29/-0 |
 | `dev/scripts/devctl/tests/runtime/test_operator_mode_fail_closed.py` | tooling | +22/-2 |
 | `dev/scripts/devctl/tests/runtime/test_session_termination_policy.py` | tooling | +254/-2 |
 | `dev/state/artifact_receipts.jsonl` | tooling | +7/-0 |
-| _6 more files trimmed_ | | |
+| `dev/state/contract_registry.jsonl` | tooling | +7/-2 |
+| `dev/state/ground_truth_probe_receipts.jsonl` | tooling | +1/-0 |
+| `dev/state/plan_index.jsonl` | tooling | +60/-9 |
+| `dev/state/plan_ingestion_receipts.jsonl` | tooling | +18/-0 |
+| `dev/state/plan_source_snapshots.jsonl` | tooling | +18/-9 |
+| `dev/templates/slash/claude/SKILL.md` | docs | +1/-1 |
+| `dev/templates/slash/codex/voice.md` | docs | +1/-1 |
+| _12 more files trimmed_ | | |
 
 ## 4. Quality signals
 
@@ -212,6 +213,13 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`36b1e810`** — P0 contract connectivity sub-A: 4 missing authority contract registry rows + SYSTEM_MAP refresh
+  - Per codex rev_pkt_4548 task_started (P0 contract connectivity truth source repair).
+  - Sub-task A of multi-slice fix - register 4 authority contracts that were missing from
+  - dev/state/contract_registry.jsonl despite being declared authority contracts:
+  - evolution: The GuardIR extraction checkpoint exposed a live-controller gap: parser and alias parity could pass while the governed `review-channel` path still hid actor-addressed packets, disclosed packet bodies before failing the …
+- **`94b95813`** — Refresh external review snapshot for 101aacd2
+  - evolution: The GuardIR extraction checkpoint exposed a live-controller gap: parser and alias parity could pass while the governed `review-channel` path still hid actor-addressed packets, disclosed packet bodies before failing the …
 - **`101aacd2`** — Bind reviewer-round intake follow-ups
   - evolution: The GuardIR extraction checkpoint exposed a live-controller gap: parser and alias parity could pass while the governed `review-channel` path still hid actor-addressed packets, disclosed packet bodies before failing the …
 - **`b126e825`** — Refresh external review snapshot for 41217fca
@@ -279,16 +287,6 @@ Recent findings:
   - repo_pack_metadata.pack_id voiceterm->guardir but extension_bundle_defaults.py
   - still registered only VOICETERM_EXTENSION_BUNDLE under repo_pack_id=voiceterm,
   - evolution: The GuardIR extraction checkpoint exposed a live-controller gap: parser and alias parity could pass while the governed `review-channel` path still hid actor-addressed packets, disclosed packet bodies before failing the …
-- **`83b35f57`** — SLICE-A: regenerate boot cards as GuardIR (repo_pack_id=guardir)
-  - Per codex orchestrator directive rev_pkt_4493 (Role-flip cycle 2 SLICE-A):
-  - make AGENTS.md/CLAUDE.md resolve repo_pack_id=guardir / GuardIR identity
-  - instead of voiceterm/VoiceTerm authority leakage.
-  - evolution: The GuardIR extraction checkpoint exposed a live-controller gap: parser and alias parity could pass while the governed `review-channel` path still hid actor-addressed packets, disclosed packet bodies before failing the …
-- **`644fa92f`** — Add orchestrator post authority for role-flip task_started/finding
-  - Per codex directive rev_pkt_4488 (Role-flip task 1): exempt codex-source
-  - review-channel posts of kind task_started/finding from ControlDecisionObeyedGuard
-  - when no AgentLoopDecision present. Narrow scope: review-channel POST only +
-  - evolution: The GuardIR extraction checkpoint exposed a live-controller gap: parser and alias parity could pass while the governed `review-channel` path still hid actor-addressed packets, disclosed packet bodies before failing the …
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -307,9 +305,10 @@ Recent findings:
 - open governance findings: 26
 
 ### Startup advisories
-- no_push_needed: clean_worktree
+- checkpoint_before_continue: staged_index_budget_exceeded
 
 ### Stale warnings
+- Keep editing the current slice.
 - Move straight to the governed push path.
 
 ### Open gap rows
@@ -331,4 +330,4 @@ repo_path=/Users/jguida941/testing_upgrade/codex-voice
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-247471416f9b` binds this file to HEAD `101aacd2585c`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-0f9bca22a687` binds this file to HEAD `36b1e81024b9`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.

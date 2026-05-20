@@ -354,3 +354,90 @@ class ReviewState:
     assert layer_counts["operator_console"] == 1
     assert report.contracts_scanned == 1
     assert report.orphaned_contracts[0].layer == "operator_console"
+
+
+def test_bidirectional_reference_findings_classify_missing_edges(
+    tmp_path: Path,
+) -> None:
+    _init_repo(tmp_path)
+    _write(
+        tmp_path / "dev/scripts/devctl/runtime/isolated_contract.py",
+        """
+from dataclasses import dataclass
+
+@dataclass(frozen=True)
+class IsolatedContract:
+    value: str
+""".strip()
+        + "\n",
+    )
+    _write(
+        tmp_path / "dev/scripts/devctl/runtime/leaf_contract.py",
+        """
+from dataclasses import dataclass
+
+@dataclass(frozen=True)
+class LeafContract:
+    value: str
+""".strip()
+        + "\n",
+    )
+    _write(
+        tmp_path / "dev/scripts/devctl/governance/use_leaf_contract.py",
+        """
+from ..runtime.leaf_contract import LeafContract
+
+def build() -> LeafContract:
+    return LeafContract(value="ok")
+""".strip()
+        + "\n",
+    )
+    _write(
+        tmp_path / "dev/scripts/devctl/runtime/dependency_contract.py",
+        """
+from dataclasses import dataclass
+
+@dataclass(frozen=True)
+class DependencyContract:
+    value: str
+""".strip()
+        + "\n",
+    )
+    _write(
+        tmp_path / "dev/scripts/devctl/runtime/forward_only_contract.py",
+        """
+from dataclasses import dataclass
+
+from .dependency_contract import DependencyContract
+
+@dataclass(frozen=True)
+class ForwardOnlyContract:
+    value: str
+
+def dependency() -> DependencyContract:
+    return DependencyContract(value="ok")
+""".strip()
+        + "\n",
+    )
+    _commit(tmp_path, "baseline")
+
+    report = build_report(repo_root=tmp_path, absolute=True)
+
+    findings = {
+        item.contract_name: item
+        for item in report.bidirectional_reference_findings
+    }
+    assert findings["IsolatedContract"].missing_directions == (
+        "forward",
+        "backward",
+    )
+    assert findings["LeafContract"].missing_directions == ("forward",)
+    assert findings["LeafContract"].backward_importer_count == 1
+    assert findings["LeafContract"].importer_paths == (
+        "dev/scripts/devctl/governance/use_leaf_contract.py",
+    )
+    assert findings["ForwardOnlyContract"].missing_directions == ("backward",)
+    assert findings["ForwardOnlyContract"].forward_reference_count == 1
+    assert findings["ForwardOnlyContract"].forward_contracts == (
+        "DependencyContract",
+    )

@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from collections.abc import Mapping
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -23,13 +24,16 @@ class GuardMandate:
     enforced_row_prefixes: tuple[str, ...] = ()
     policy_path: str = ""
     warnings: tuple[str, ...] = ()
+    settings: Mapping[str, object] = field(default_factory=dict)
 
     def active(self) -> bool:
         """Return whether this mandate can enforce timestamp/packet windows."""
         return bool(self.mandate_packet_id or self.observed_at_utc)
 
     def to_dict(self) -> dict[str, object]:
-        return asdict(self)
+        payload = asdict(self)
+        payload["settings"] = dict(self.settings)
+        return payload
 
 
 @dataclass(frozen=True, slots=True)
@@ -76,6 +80,7 @@ def resolve_guard_mandate(
         ),
         policy_path=_display_path(resolved_policy_path, repo_root=repo_root),
         warnings=warnings,
+        settings=dict(raw_mandate),
     )
 
 

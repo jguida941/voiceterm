@@ -218,6 +218,11 @@
         "mandate_packet_id": "rev_pkt_4017",
         "observed_at_utc": "2026-05-14T15:37:25Z"
       },
+      "check_no_projection_proof_misuse": {
+        "mandate_packet_id": "rev_pkt_4583",
+        "observed_at_utc": "2026-05-19T22:13:42Z",
+        "legacy_progress_baseline_line": 84449
+      },
       "check_plan_index_commit_continuity": {
         "mandate_packet_id": "rev_pkt_4017",
         "observed_at_utc": "2026-05-14T15:37:25Z",

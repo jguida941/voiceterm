@@ -34,17 +34,34 @@ def render_md(report: ContractConnectivityReport) -> str:
     lines.append(f"- orphaned_contracts: {len(report.orphaned_contracts)}")
     lines.append(f"- duplicate_contracts: {len(report.duplicate_contracts)}")
     lines.append(f"- stranded_consumers: {len(report.stranded_consumers)}")
+    lines.append(
+        "- bidirectional_reference_findings: "
+        f"{len(report.bidirectional_reference_findings)}"
+    )
     lines.append(f"- new_orphaned_contracts: {len(report.new_orphaned_contracts)}")
     lines.append(f"- new_duplicate_contracts: {len(report.new_duplicate_contracts)}")
     lines.append(f"- new_stranded_consumers: {len(report.new_stranded_consumers)}")
+    lines.append(
+        "- new_bidirectional_reference_findings: "
+        f"{len(report.new_bidirectional_reference_findings)}"
+    )
 
     lines.extend(("", "## Layer Counts", ""))
     for row in report.layer_counts:
         lines.append(f"- {row.layer}: {row.contract_count}")
 
     _append_orphans(lines, title="Orphaned Contracts", items=report.orphaned_contracts)
-    _append_duplicates(lines, title="Duplicate Contracts", items=report.duplicate_contracts)
+    _append_duplicates(
+        lines,
+        title="Duplicate Contracts",
+        items=report.duplicate_contracts,
+    )
     _append_stranded(lines, title="Stranded Consumers", items=report.stranded_consumers)
+    _append_bidirectional(
+        lines,
+        title="Bidirectional Reference Findings",
+        items=report.bidirectional_reference_findings,
+    )
 
     if report.mode != "absolute":
         _append_orphans(
@@ -61,6 +78,11 @@ def render_md(report: ContractConnectivityReport) -> str:
             lines,
             title="New Stranded Consumers",
             items=report.new_stranded_consumers,
+        )
+        _append_bidirectional(
+            lines,
+            title="New Bidirectional Reference Findings",
+            items=report.new_bidirectional_reference_findings,
         )
     return "\n".join(lines)
 
@@ -100,3 +122,21 @@ def _append_stranded(lines: list[str], *, title: str, items) -> None:
             f"- `{item.consumer_path}` rebuilds `{item.contract_name}` "
             f"({item.overlap_ratio:.2f}; raw keys: {', '.join(item.shared_raw_keys)})"
         )
+
+
+def _append_bidirectional(lines: list[str], *, title: str, items) -> None:
+    if not items:
+        return
+    lines.extend(("", f"## {title}", ""))
+    for item in items:
+        detail = (
+            f"- `{item.contract_name}` in `{item.module_path}` "
+            f"(missing: {', '.join(item.missing_directions)}; "
+            f"forward_refs: {item.forward_reference_count}; "
+            f"external_importers: {item.backward_importer_count})"
+        )
+        if item.forward_contracts:
+            detail += f"; forward contracts: {', '.join(item.forward_contracts)}"
+        if item.importer_paths:
+            detail += f"; external importers: {', '.join(item.importer_paths)}"
+        lines.append(detail)

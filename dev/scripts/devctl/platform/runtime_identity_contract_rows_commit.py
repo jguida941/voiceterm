@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from ..runtime.git_operation_receipts import BranchOperationReceipt, TagReceipt
 from .contracts import ContractField, ContractSpec
+from .runtime_identity_contract_rows_git_mutation import GIT_MUTATION_PROOF_CONTRACTS
 from .runtime_identity_contract_rows_role_review import ROLE_REVIEW_CONTRACTS
 
 _BRANCH_OPERATION_RECEIPT_RUNTIME_MODEL = (
@@ -88,6 +89,7 @@ COMMIT_RECEIPT_CONTRACTS: tuple[ContractSpec, ...] = (
         runtime_model="dev.scripts.devctl.runtime.commit_receipt:CommitReceipt",
         startup_surface_tokens=("receipt_id", "commit_sha", "reviewer_ack_packet_id"),
     ),
+    *GIT_MUTATION_PROOF_CONTRACTS,
     ContractSpec(
         contract_id="BranchOperationReceipt",
         owner_layer="governance_runtime",

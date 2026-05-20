@@ -9,6 +9,9 @@ from unittest.mock import patch
 
 from dev.scripts.devctl.commands.vcs import push
 from dev.scripts.devctl.governance.push_policy import PushBypassPolicy
+from dev.scripts.devctl.runtime.git_mutation_proof_receipt import (
+    GIT_MUTATION_PROOF_RECEIPT_STORE_REL,
+)
 from dev.scripts.devctl.tests.vcs.push_regression_helpers import (
     authorization_for_current_repo,
     create_repo_with_ahead_commit,
@@ -35,11 +38,11 @@ class PushRemoteTruthTests(unittest.TestCase):
             )
             with (
                 patch(
-                    "dev.scripts.devctl.commands.vcs.push.build_preflight_shell_command",
+                    "dev.scripts.devctl.commands.vcs.push_preflight_flow.build_preflight_shell_command",
                     return_value="git status --short",
                 ),
                 patch(
-                    "dev.scripts.devctl.commands.vcs.push.refresh_managed_projections_before_preflight",
+                    "dev.scripts.devctl.commands.vcs.push_preflight_flow.refresh_managed_projections_before_preflight",
                 ),
             ):
                 rc, report = push.run_push_action(
@@ -61,6 +64,16 @@ class PushRemoteTruthTests(unittest.TestCase):
             )
             self.assertEqual(rc, 0)
             self.assertEqual(report["status"], "published_remote")
+            self.assertTrue(report["governed_push_verified"])
+            self.assertTrue(report["git_mutation_proof_verified"])
+            self.assertEqual(
+                report["artifacts"]["git_mutation_proof_receipts"],
+                GIT_MUTATION_PROOF_RECEIPT_STORE_REL,
+            )
+            self.assertIn(
+                GIT_MUTATION_PROOF_RECEIPT_STORE_REL,
+                report["action_result"]["artifact_paths"],
+            )
             self.assertNotEqual(before, after)
             self.assertEqual(after, run_git(repo_root, "rev-parse", "HEAD"))
 
@@ -77,11 +90,11 @@ class PushRemoteTruthTests(unittest.TestCase):
             )
             with (
                 patch(
-                    "dev.scripts.devctl.commands.vcs.push.build_preflight_shell_command",
+                    "dev.scripts.devctl.commands.vcs.push_preflight_flow.build_preflight_shell_command",
                     return_value="git status --short",
                 ),
                 patch(
-                    "dev.scripts.devctl.commands.vcs.push.refresh_managed_projections_before_preflight",
+                    "dev.scripts.devctl.commands.vcs.push_preflight_flow.refresh_managed_projections_before_preflight",
                 ),
             ):
                 rc, report = push.run_push_action(
@@ -108,6 +121,12 @@ class PushRemoteTruthTests(unittest.TestCase):
             self.assertEqual(report["status"], "post_push_green")
             self.assertTrue(report["published_remote"])
             self.assertTrue(report["post_push_green"])
+            self.assertTrue(report["governed_push_verified"])
+            self.assertTrue(report["git_mutation_proof_verified"])
+            self.assertEqual(
+                report["artifacts"]["git_mutation_proof_receipts"],
+                GIT_MUTATION_PROOF_RECEIPT_STORE_REL,
+            )
             self.assertEqual(report["errors"], [])
             self.assertEqual(report["findings"], [])
 
@@ -136,11 +155,11 @@ class PushRemoteTruthTests(unittest.TestCase):
 
             with (
                 patch(
-                    "dev.scripts.devctl.commands.vcs.push.build_preflight_shell_command",
+                    "dev.scripts.devctl.commands.vcs.push_preflight_flow.build_preflight_shell_command",
                     return_value="git status --short",
                 ),
                 patch(
-                    "dev.scripts.devctl.commands.vcs.push.refresh_managed_projections_before_preflight",
+                    "dev.scripts.devctl.commands.vcs.push_preflight_flow.refresh_managed_projections_before_preflight",
                 ),
             ):
                 rc, report = push.run_push_action(
@@ -164,6 +183,12 @@ class PushRemoteTruthTests(unittest.TestCase):
             self.assertEqual(rc, 1)
             self.assertEqual(report["status"], "blocked")
             self.assertEqual(report["reason"], "remote_ref_not_updated")
+            self.assertFalse(report["governed_push_verified"])
+            self.assertFalse(report["git_mutation_proof_verified"])
+            self.assertEqual(
+                report["artifacts"]["git_mutation_proof_receipts"],
+                GIT_MUTATION_PROOF_RECEIPT_STORE_REL,
+            )
             self.assertEqual(report["findings"][0]["type"], "SilentPushFailure")
 
 

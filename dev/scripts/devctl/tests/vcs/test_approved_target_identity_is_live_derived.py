@@ -31,11 +31,11 @@ class PushApprovedTargetIdentityTests(unittest.TestCase):
 
             with (
                 patch(
-                    "dev.scripts.devctl.commands.vcs.push.build_preflight_shell_command",
+                    "dev.scripts.devctl.commands.vcs.push_preflight_flow.build_preflight_shell_command",
                     return_value="git status --short",
                 ),
                 patch(
-                    "dev.scripts.devctl.commands.vcs.push.refresh_managed_projections_before_preflight",
+                    "dev.scripts.devctl.commands.vcs.push_preflight_flow.refresh_managed_projections_before_preflight",
                 ),
             ):
                 rc, report = push.run_push_action(
@@ -107,11 +107,11 @@ class PushApprovedTargetIdentityTests(unittest.TestCase):
 
             with (
                 patch(
-                    "dev.scripts.devctl.commands.vcs.push.build_preflight_shell_command",
+                    "dev.scripts.devctl.commands.vcs.push_preflight_flow.build_preflight_shell_command",
                     return_value="git status --short",
                 ),
                 patch(
-                    "dev.scripts.devctl.commands.vcs.push.refresh_managed_projections_before_preflight",
+                    "dev.scripts.devctl.commands.vcs.push_preflight_flow.refresh_managed_projections_before_preflight",
                 ),
             ):
                 rc, report = push.run_push_action(

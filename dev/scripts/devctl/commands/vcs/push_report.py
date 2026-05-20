@@ -13,6 +13,10 @@ from .governed_executor_push_result import (
 )
 from .push_diagnostics import build_push_diagnostic
 from .push_findings import PushFindingPayload
+from .push_report_artifacts import (
+    append_push_report_artifact_lines,
+    build_push_report_artifacts,
+)
 from .push_report_violations import _extract_preflight_violations
 
 
@@ -57,6 +61,8 @@ class PushReportInputs:
     errors: list[str]
     findings: list[PushFindingPayload] | None = None
     artifact_path: str = ""
+    git_mutation_proof_receipt_path: str = ""
+    git_mutation_proof_verified: bool = False
     current_worktree_identity: str = ""
     approved_target_identity: str = ""
     approved_worktree_identity: str = ""
@@ -134,11 +140,15 @@ def build_push_report(inputs: PushReportInputs) -> dict[str, Any]:
         report["push_authorization_id"] = inputs.push_authorization_id
     if inputs.push_authorization_mode:
         report["push_authorization_mode"] = inputs.push_authorization_mode
-    if inputs.artifact_path:
-        report["artifacts"] = {
-            "push_report_json": inputs.artifact_path,
-            "latest_json": inputs.artifact_path,
-        }
+    artifacts = build_push_report_artifacts(
+        push_report_path=inputs.artifact_path,
+        git_mutation_proof_receipt_path=inputs.git_mutation_proof_receipt_path,
+    )
+    if artifacts:
+        report["artifacts"] = artifacts
+    report["git_mutation_proof_verified"] = bool(
+        inputs.git_mutation_proof_verified
+    )
     return report
 
 
@@ -177,10 +187,7 @@ def render_push_report(report: dict[str, Any]) -> str:
     lines.append(f"- errors: {len(errors)}")
     artifacts = report.get("artifacts") or {}
     if artifacts:
-        push_report_json = artifacts.get("push_report_json") or artifacts.get(
-            "latest_json"
-        )
-        lines.append(f"- push_report_json: {push_report_json}")
+        append_push_report_artifact_lines(lines, artifacts)
     lines.append("")
     lines.append("## Policy")
     lines.append("")
@@ -321,7 +328,10 @@ def _governed_push_verified(inputs: PushReportInputs) -> bool:
     if not isinstance(push_step, dict):
         return False
     try:
-        return int(push_step.get("returncode")) == 0
+        return (
+            int(push_step.get("returncode")) == 0
+            and inputs.git_mutation_proof_verified
+        )
     except (TypeError, ValueError):
         return False
 
