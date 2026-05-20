@@ -6,6 +6,7 @@ from pathlib import Path
 
 from .finding_backlog import load_finding_backlog
 from .governance_scan import scan_repo_governance_safely
+from .startup_signal_contract_connectivity import load_contract_connectivity_summary
 from .startup_signal_io import load_json_file
 from .startup_signal_probes import (
     load_code_shape_clusters,
@@ -29,6 +30,9 @@ def load_startup_quality_signals(repo_root: Path) -> dict[str, object]:
     probe_report = load_probe_report_summary(repo_root)
     if probe_report:
         signals["probe_report"] = probe_report
+    contract_connectivity = load_contract_connectivity_summary(repo_root)
+    if contract_connectivity:
+        signals["contract_connectivity"] = contract_connectivity
     code_shape_clusters = load_code_shape_clusters(repo_root)
     if code_shape_clusters:
         signals["code_shape_clusters"] = code_shape_clusters
@@ -65,6 +69,38 @@ def compact_startup_quality_signals(
             "files_with_hints": probe_report.get("files_with_hints"),
             "risk_hints": probe_report.get("risk_hints"),
         }
+    contract_connectivity = _dict_value(signals.get("contract_connectivity"))
+    if contract_connectivity:
+        contract_summary = {
+            "mode": contract_connectivity.get("mode"),
+            "ok": contract_connectivity.get("ok"),
+            "severity": contract_connectivity.get("severity"),
+            "cache_state": contract_connectivity.get("cache_state"),
+        }
+        contract_summary.update({
+            "cache_generated_at_utc": contract_connectivity.get(
+                "cache_generated_at_utc"
+            ),
+            "worktree_dirty": contract_connectivity.get("worktree_dirty"),
+            "contracts_scanned": contract_connectivity.get("contracts_scanned"),
+            "current_counts": contract_connectivity.get("current_counts"),
+        })
+        contract_summary.update({
+            "baseline_counts": contract_connectivity.get("baseline_counts"),
+            "new_counts": contract_connectivity.get("new_counts"),
+            "current_debt_count": contract_connectivity.get("current_debt_count"),
+            "baseline_debt_count": contract_connectivity.get("baseline_debt_count"),
+            "new_debt_count": contract_connectivity.get("new_debt_count"),
+        })
+        contract_summary.update({
+            "orphan_scope_counts": contract_connectivity.get("orphan_scope_counts"),
+            "top_layers": _rows(contract_connectivity.get("top_layers"))[:2],
+            "ai_instruction": _clip(
+                contract_connectivity.get("ai_instruction"),
+                limit=180,
+            ),
+        })
+        compact["contract_connectivity"] = contract_summary
     code_shape_clusters = _rows(signals.get("code_shape_clusters"))
     if code_shape_clusters:
         compact["code_shape_clusters"] = [

@@ -637,6 +637,24 @@ class TestBootstrapContext(unittest.TestCase):
                             {"file": "dev/scripts/devctl/context_graph/query.py", "hint_count": 10}
                         ],
                     },
+                    "contract_connectivity": {
+                        "severity": "high",
+                        "current_debt_count": 792,
+                        "new_debt_count": 0,
+                        "current_counts": {
+                            "orphaned": 223,
+                            "duplicates": 131,
+                            "stranded": 33,
+                            "bidirectional": 405,
+                        },
+                        "new_counts": {
+                            "orphaned": 0,
+                            "duplicates": 0,
+                            "stranded": 0,
+                            "bidirectional": 0,
+                        },
+                        "ai_instruction": "Prioritize contract connectivity closure.",
+                    },
                     "governance_review": {
                         "generated_at_utc": "2026-03-23T00:00:00Z",
                         "total_findings": 95,
@@ -689,6 +707,8 @@ class TestBootstrapContext(unittest.TestCase):
         self.assertIn("rev_pkt_2649", md)
         self.assertIn("## Quality Signals", md)
         self.assertIn("**probe-report**", md)
+        self.assertIn("**contract-connectivity** [high]", md)
+        self.assertIn("contract debt mix: orphaned=223, duplicates=131", md)
         self.assertIn("guidance hotspot", md)
         self.assertIn("command slice: `probe-report` 97.83%/8.879s", md)
 

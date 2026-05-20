@@ -3,14 +3,44 @@
 from __future__ import annotations
 
 import json
+import os
+import subprocess
 from pathlib import Path
 
-from dev.scripts.devctl.runtime.startup_signals import load_startup_quality_signals
+from dev.scripts.devctl.runtime.startup_signals import (
+    compact_startup_quality_signals,
+    load_startup_quality_signals,
+)
 
 
 def _write_json(path: Path, payload: dict[str, object]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload), encoding="utf-8")
+
+
+def _write(path: Path, text: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
+
+
+def _run_git(repo_root: Path, *args: str) -> None:
+    env = dict(os.environ)
+    env.update(
+        {
+            "GIT_AUTHOR_NAME": "Tests",
+            "GIT_AUTHOR_EMAIL": "tests@example.com",
+            "GIT_COMMITTER_NAME": "Tests",
+            "GIT_COMMITTER_EMAIL": "tests@example.com",
+        }
+    )
+    subprocess.run(
+        ["git", *args],
+        cwd=repo_root,
+        check=True,
+        env=env,
+        capture_output=True,
+        text=True,
+    )
 
 
 def test_load_startup_quality_signals_reads_probe_summary_from_latest_root(
@@ -52,6 +82,74 @@ def test_load_startup_quality_signals_reads_probe_summary_from_latest_root(
             "hint_count": 4,
         }
     ]
+
+
+def test_load_startup_quality_signals_includes_contract_connectivity_debt(
+    tmp_path: Path,
+) -> None:
+    _run_git(tmp_path, "init", "-q")
+    _write(tmp_path / ".gitignore", "dev/reports/**\n")
+    _write(
+        tmp_path / "dev/scripts/devctl/runtime/orphan_contract.py",
+        """
+from dataclasses import dataclass
+
+@dataclass(frozen=True)
+class OrphanContract:
+    isolated_owner: str
+    isolated_state: str
+""".strip()
+        + "\n",
+    )
+    _write(
+        tmp_path / "dev/scripts/devctl/runtime/duplicate_a.py",
+        """
+from dataclasses import dataclass
+
+@dataclass(frozen=True)
+class DuplicateA:
+    owner: str
+    state: str
+    receipt_id: str
+""".strip()
+        + "\n",
+    )
+    _write(
+        tmp_path / "dev/scripts/devctl/platform/duplicate_b.py",
+        """
+from dataclasses import dataclass
+
+@dataclass(frozen=True)
+class DuplicateB:
+    owner: str
+    state: str
+    receipt_id: str
+""".strip()
+        + "\n",
+    )
+    _run_git(tmp_path, "add", "-A")
+    _run_git(tmp_path, "commit", "-q", "-m", "baseline")
+
+    signals = load_startup_quality_signals(tmp_path)
+    contract_signal = signals["contract_connectivity"]
+
+    assert contract_signal["mode"] == "working-tree"
+    assert contract_signal["ok"] is True
+    assert contract_signal["current_counts"]["orphaned"] == 1
+    assert contract_signal["current_counts"]["duplicates"] == 1
+    assert contract_signal["baseline_counts"]["orphaned"] == 1
+    assert contract_signal["baseline_counts"]["duplicates"] == 1
+    assert contract_signal["new_debt_count"] == 0
+    assert contract_signal["severity"] == "medium"
+    assert "Prioritize contract connectivity closure" in contract_signal["ai_instruction"]
+
+    compact = compact_startup_quality_signals(signals)
+    assert compact["contract_connectivity"]["current_counts"]["orphaned"] == 1
+    assert compact["contract_connectivity"]["baseline_counts"]["duplicates"] == 1
+    assert compact["contract_connectivity"]["ai_instruction"]
+
+    cached_signals = load_startup_quality_signals(tmp_path)
+    assert cached_signals["contract_connectivity"]["cache_state"] == "fresh"
 
 
 def test_load_startup_quality_signals_includes_governance_severity_mix_and_clusters(

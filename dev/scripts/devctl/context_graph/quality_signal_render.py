@@ -15,6 +15,10 @@ def append_quality_signal_lines(
     lines.append("## Quality Signals")
     lines.append("")
     _append_probe_report_summary(lines, quality_signals.get("probe_report"))
+    _append_contract_connectivity_summary(
+        lines,
+        quality_signals.get("contract_connectivity"),
+    )
     _append_code_shape_clusters(lines, quality_signals.get("code_shape_clusters"))
     _append_split_advisor(lines, quality_signals.get("split_advisor"))
     _append_governance_review_summary(
@@ -52,6 +56,47 @@ def _append_probe_report_summary(lines: list[str], payload: Any) -> None:
         )
         if rendered:
             lines.append(f"- top hinted files: {rendered}")
+
+
+def _append_contract_connectivity_summary(lines: list[str], payload: Any) -> None:
+    if not isinstance(payload, dict):
+        return
+    current_counts = payload.get("current_counts")
+    new_counts = payload.get("new_counts")
+    if not isinstance(current_counts, dict):
+        current_counts = {}
+    if not isinstance(new_counts, dict):
+        new_counts = {}
+    lines.append(
+        "- **contract-connectivity** [{severity}]: {current_total} current debt findings, {new_total} new".format(
+            severity=payload.get("severity", "unknown"),
+            current_total=payload.get("current_debt_count", 0),
+            new_total=payload.get("new_debt_count", 0),
+        )
+    )
+    cache_state = str(payload.get("cache_state") or "").strip()
+    if cache_state and cache_state not in {"fresh", "live_scan"}:
+        lines.append(f"- contract cache: {cache_state}")
+    lines.append(
+        "- contract debt mix: orphaned={orphaned}, duplicates={duplicates}, stranded={stranded}, bidirectional={bidirectional}".format(
+            orphaned=current_counts.get("orphaned", 0),
+            duplicates=current_counts.get("duplicates", 0),
+            stranded=current_counts.get("stranded", 0),
+            bidirectional=current_counts.get("bidirectional", 0),
+        )
+    )
+    if any(new_counts.values()):
+        lines.append(
+            "- new contract debt: orphaned={orphaned}, duplicates={duplicates}, stranded={stranded}, bidirectional={bidirectional}".format(
+                orphaned=new_counts.get("orphaned", 0),
+                duplicates=new_counts.get("duplicates", 0),
+                stranded=new_counts.get("stranded", 0),
+                bidirectional=new_counts.get("bidirectional", 0),
+            )
+        )
+    instruction = str(payload.get("ai_instruction") or "").strip()
+    if instruction:
+        lines.append(f"- contract action: {instruction}")
 
 
 def _append_governance_review_summary(lines: list[str], payload: Any) -> None:
