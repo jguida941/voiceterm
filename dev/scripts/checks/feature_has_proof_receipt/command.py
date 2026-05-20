@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import subprocess
 import sys
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -30,6 +31,21 @@ except ModuleNotFoundError:  # pragma: no cover - direct script fallback
 
 COMMAND = "check_feature_has_proof_receipt"
 DEFAULT_BASE_REF = "@{u}"
+
+PROOF_LEDGER_EXACT_PATHS = frozenset(
+    {
+        "dev/audits/REVIEW_SNAPSHOT.md",
+        "dev/state/ground_truth_probe_receipts.jsonl",
+        "dev/state/plan_index.jsonl",
+        "dev/state/plan_ingestion_receipts.jsonl",
+        "dev/state/plan_source_snapshots.jsonl",
+    }
+)
+PROOF_LEDGER_PATH_PREFIXES = (
+    "dev/reports/commit_receipts/",
+    "dev/reports/feature_lifecycle_proofs/",
+    "dev/reports/feature_proof_receipts/",
+)
 
 
 @dataclass(frozen=True)
@@ -69,6 +85,7 @@ def evaluate_feature_has_proof_receipt(
     require_proven_passed: bool = False,
     require_non_empty_range: bool = False,
     require_non_trivial_output_proof: bool = False,
+    commit_paths_by_sha: dict[str, tuple[str, ...]] | None = None,
 ) -> FeatureProofReceiptGuardReport:
     warnings: list[str] = []
     if commit_shas is None:
@@ -97,6 +114,12 @@ def evaluate_feature_has_proof_receipt(
         )
 
     for commit_sha in commit_shas:
+        changed_paths = _changed_paths_for_commit(
+            repo_root,
+            commit_sha,
+            commit_paths_by_sha=commit_paths_by_sha,
+        )
+        proven_required = _commit_requires_proven_passed(changed_paths)
         relpath = feature_proof_receipt_artifact_relpath(commit_sha)
         path = repo_root / relpath
         if not path.exists():
@@ -143,7 +166,7 @@ def evaluate_feature_has_proof_receipt(
             )
         if receipt.real_life_test_status != "proven_passed":
             non_proven_count += 1
-            if require_proven_passed:
+            if require_proven_passed and proven_required:
                 violations.append(
                     FeatureProofReceiptViolation(
                         commit_sha=commit_sha,
@@ -155,6 +178,11 @@ def evaluate_feature_has_proof_receipt(
                         ),
                 )
             )
+            if require_proven_passed and not proven_required:
+                warnings.append(
+                    "proven_passed_not_required_for_proof_ledger_commit:"
+                    f"{commit_sha}"
+                )
         if require_non_trivial_output_proof:
             proof = validate_non_trivial_output_proof(
                 receipt,
@@ -185,6 +213,46 @@ def evaluate_feature_has_proof_receipt(
         violations=tuple(violation.to_dict() for violation in violations),
         warnings=tuple(warnings),
     )
+
+
+def _changed_paths_for_commit(
+    repo_root: Path,
+    commit_sha: str,
+    *,
+    commit_paths_by_sha: dict[str, tuple[str, ...]] | None,
+) -> tuple[str, ...]:
+    if commit_paths_by_sha is not None:
+        return commit_paths_by_sha.get(commit_sha, ())
+    result = subprocess.run(
+        (
+            "git",
+            "diff-tree",
+            "--no-commit-id",
+            "--name-only",
+            "-r",
+            "--root",
+            commit_sha,
+        ),
+        cwd=repo_root,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        return ()
+    return tuple(line.strip() for line in result.stdout.splitlines() if line.strip())
+
+
+def _commit_requires_proven_passed(changed_paths: tuple[str, ...]) -> bool:
+    if not changed_paths:
+        return True
+    return any(not _is_proof_ledger_path(path) for path in changed_paths)
+
+
+def _is_proof_ledger_path(path: str) -> bool:
+    if path in PROOF_LEDGER_EXACT_PATHS:
+        return True
+    return path.startswith(PROOF_LEDGER_PATH_PREFIXES)
 
 
 def _render_md(report: FeatureProofReceiptGuardReport) -> str:

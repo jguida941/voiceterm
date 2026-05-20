@@ -86,6 +86,53 @@ def test_feature_has_proof_receipt_can_require_proven_passed(tmp_path: Path) -> 
     assert report.violations[0]["reason"] == "real_life_test_not_proven_passed"
 
 
+def test_feature_has_proof_receipt_allows_non_proven_for_proof_ledger_commit(
+    tmp_path: Path,
+) -> None:
+    write_feature_proof_receipt_artifact(tmp_path, _receipt("abc123", proven=False))
+
+    report = evaluate_feature_has_proof_receipt(
+        repo_root=tmp_path,
+        commit_shas=("abc123",),
+        commit_paths_by_sha={
+            "abc123": (
+                "dev/audits/REVIEW_SNAPSHOT.md",
+                "dev/state/plan_ingestion_receipts.jsonl",
+            )
+        },
+        require_proven_passed=True,
+    )
+
+    assert report.ok is True
+    assert report.non_proven_count == 1
+    assert report.violation_count == 0
+    assert report.warnings == (
+        "proven_passed_not_required_for_proof_ledger_commit:abc123",
+    )
+
+
+def test_feature_has_proof_receipt_still_requires_proven_for_mixed_source_commit(
+    tmp_path: Path,
+) -> None:
+    write_feature_proof_receipt_artifact(tmp_path, _receipt("abc123", proven=False))
+
+    report = evaluate_feature_has_proof_receipt(
+        repo_root=tmp_path,
+        commit_shas=("abc123",),
+        commit_paths_by_sha={
+            "abc123": (
+                "dev/audits/REVIEW_SNAPSHOT.md",
+                "dev/scripts/devctl/runtime/startup_signals.py",
+            )
+        },
+        require_proven_passed=True,
+    )
+
+    assert report.ok is False
+    assert report.non_proven_count == 1
+    assert report.violations[0]["reason"] == "real_life_test_not_proven_passed"
+
+
 def test_feature_has_proof_receipt_strict_fails_on_empty_commit_range(
     tmp_path: Path,
 ) -> None:
