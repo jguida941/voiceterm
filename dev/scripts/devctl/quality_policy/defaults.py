@@ -93,6 +93,11 @@ DEFAULT_AI_GUARD_SPECS = (
         supports_commit_range=False,
     ),
     QualityStepSpec(
+        "contract-connectivity-guard",
+        "contract_connectivity",
+        languages=("python",),
+    ),
+    QualityStepSpec(
         "non-trivial-output-proof-guard",
         "non_trivial_output_proof",
         supports_commit_range=False,

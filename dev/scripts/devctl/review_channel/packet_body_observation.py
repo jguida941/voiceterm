@@ -11,6 +11,7 @@ from ..runtime.correlation_spine import (
     correlation_id_for_ref,
     run_id_for_ref,
 )
+from ..runtime.packet_observation_receipt import build_packet_observation_receipt
 from ..time_utils import utc_timestamp
 from .event_models import ReviewChannelEventBundle
 from .event_store import (
@@ -267,6 +268,39 @@ def packet_body_observation_payload_for_packet(
     return payload
 
 
+def packet_observation_receipt_payload_for_packet(
+    event: Mapping[str, object],
+    packet: Mapping[str, object],
+    *,
+    attention_cleared: bool = False,
+    drain_report_ref: str = "",
+) -> dict[str, object]:
+    """Project P233 PacketObservationReceipt from a body-observed event."""
+    payload = packet_body_observation_payload_for_packet(event, packet)
+    receipt = build_packet_observation_receipt(
+        observed_packet_id=str(payload.get("packet_id") or "").strip(),
+        observed_body_sha256=str(payload.get("body_digest") or "").strip(),
+        observer_actor_id=str(payload.get("body_observed_by") or "").strip(),
+        observer_role_id=str(payload.get("body_observed_role") or "").strip(),
+        observer_session_id=str(
+            payload.get("body_observed_session_id") or ""
+        ).strip(),
+        observed_at_utc=str(payload.get("body_observed_at_utc") or "").strip(),
+        observed_body_length=int(payload.get("body_length") or 0),
+        source_observation_event_id=str(payload.get("event_id") or "").strip(),
+        source_packet_event_id=str(
+            payload.get("source_packet_event_id") or ""
+        ).strip(),
+        source_action=str(payload.get("source_action") or "").strip(),
+        attention_cleared=attention_cleared,
+        drain_report_ref=drain_report_ref,
+        correlation_id=str(payload.get("correlation_id") or "").strip(),
+        causation_id=str(payload.get("causation_id") or "").strip(),
+        run_id=str(payload.get("run_id") or "").strip(),
+    )
+    return receipt.to_dict()
+
+
 def _existing_observation_event(
     events: list[dict[str, object]],
     *,
@@ -360,5 +394,6 @@ __all__ = [
     "packet_body_observation_payload",
     "packet_body_observation_payload_for_packet",
     "packet_body_observed_by",
+    "packet_observation_receipt_payload_for_packet",
     "record_packet_body_observation",
 ]

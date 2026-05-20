@@ -36,6 +36,7 @@ from ...review_channel.follow_stream import (
 )
 from ...review_channel.pending_packets import reconcile_review_state_packet_queue
 from ...review_channel.packet_body_observation import record_packet_body_observation
+from ...review_channel.agent_packet_attention import packet_attention_for_agent
 from ...review_channel.packet_semantic_ingestion import record_packet_semantic_ingestion
 from ...review_channel.packet_absorption import record_packet_absorption
 from ...review_channel.projection_bundle import artifact_writes_suppressed
@@ -53,6 +54,9 @@ from ...review_channel.watch_lifecycle import (
 )
 from ...review_channel.watch_paths import watch_key
 from ...time_utils import utc_timestamp
+from ...runtime.packet_attention_drain_report import (
+    build_packet_attention_drain_report,
+)
 from .event_action_support import (
     EventActionContext,
     run_inbox_like_action,
@@ -97,6 +101,7 @@ def _build_event_report(
     history: list[dict[str, object]] | None = None,
     packet_outcome_ledger: dict[str, object] | None = None,
     packet_expiry_materialization: dict[str, object] | None = None,
+    packet_attention_drain_report: dict[str, object] | None = None,
     operational_summary_view: dict[str, object] | None = None,
     operational_summary_only: bool = False,
     warnings: list[str] | None = None,
@@ -159,6 +164,7 @@ def _build_event_report(
         "history": history or [],
         "packet_outcome_ledger": packet_outcome_ledger,
         "packet_expiry_materialization": packet_expiry_materialization,
+        "packet_attention_drain_report": packet_attention_drain_report,
         "operational_summary_view": operational_summary_view,
         "operational_summary_only": operational_summary_only,
         "event": event,
@@ -323,8 +329,12 @@ def _run_loaded_bundle_action(
             limit=args.limit if args.action == "history" else 1,
         )
         body_observation_event = None
+        packet_attention_before = None
+        packet_attention_drain_report = None
         control_decision_gate = None
         actor = str(getattr(args, "actor", "") or "").strip()
+        actor_role = _action_role(args)
+        actor_session_id = _action_session_id(args)
         if (
             args.action == "show"
             and actor
@@ -344,6 +354,12 @@ def _run_loaded_bundle_action(
                     gate=gate,
                 )
             control_decision_gate = gate
+            packet_attention_before = packet_attention_for_agent(
+                bundle.review_state,
+                actor=actor,
+                role=actor_role,
+                session=actor_session_id,
+            )
             bundle, body_observation_event = record_packet_body_observation(
                 repo_root=context.repo_root,
                 review_channel_path=context.review_channel_path,
@@ -351,8 +367,8 @@ def _run_loaded_bundle_action(
                 bundle=bundle,
                 packet=packets[0],
                 actor=actor,
-                role=_action_role(args),
-                session_id=_action_session_id(args),
+                role=actor_role,
+                session_id=actor_session_id,
             )
             packets = filter_history_packets(
                 bundle.review_state,
@@ -360,6 +376,23 @@ def _run_loaded_bundle_action(
                 packet_id=getattr(args, "packet_id", None),
                 limit=1,
             )
+            if packet_attention_before is not None and packets:
+                packet_attention_after = packet_attention_for_agent(
+                    bundle.review_state,
+                    actor=actor,
+                    role=actor_role,
+                    session=actor_session_id,
+                )
+                receipts = packets[0].get("packet_observation_receipts") or ()
+                packet_attention_drain_report = build_packet_attention_drain_report(
+                    observer_actor_id=actor,
+                    observer_role_id=actor_role,
+                    observer_session_id=actor_session_id,
+                    generated_at_utc=utc_timestamp(),
+                    before_attention=packet_attention_before,
+                    after_attention=packet_attention_after,
+                    observation_receipts=receipts if isinstance(receipts, list) else (),
+                ).to_dict()
         packets, packet_outcome_ledger = attach_history_outcomes_if_requested(
             args=args,
             bundle=bundle,
@@ -381,6 +414,7 @@ def _run_loaded_bundle_action(
             packets=packets,
             history=history,
             packet_outcome_ledger=packet_outcome_ledger,
+            packet_attention_drain_report=packet_attention_drain_report,
             event=body_observation_event,
             operational_summary_view=(
                 build_operational_summary_view(

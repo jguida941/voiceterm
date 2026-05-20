@@ -69,6 +69,10 @@ def render_event_md(report: dict) -> str:
         lines,
         report.get("packet_attention") or report.get("reviewer_wake"),
     )
+    _append_packet_attention_drain_report(
+        lines,
+        report.get("packet_attention_drain_report"),
+    )
     _append_ack_freshness(lines, report.get("ack_freshness"))
     append_runtime_readiness_markdown(lines, report)
     append_cli_health_probe_markdown(lines, report.get("cli_health_probe"))
@@ -196,6 +200,36 @@ def _append_packet_attention(lines: list[str], wake: object) -> None:
     if isinstance(warnings, list) and warnings:
         for warning in warnings:
             lines.append(f"- warning: {warning}")
+
+
+def _append_packet_attention_drain_report(
+    lines: list[str],
+    report: object,
+) -> None:
+    if not isinstance(report, dict) or not report:
+        return
+    lines.append("")
+    lines.append("## Packet Attention Drain")
+    lines.append(f"- contract_id: {report.get('contract_id')}")
+    lines.append(f"- drain_report_id: {report.get('drain_report_id')}")
+    lines.append(
+        "- pending: "
+        f"{report.get('before_pending_packet_count', 0)} -> "
+        f"{report.get('after_pending_packet_count', 0)}"
+    )
+    drained = report.get("drained_packet_ids")
+    if isinstance(drained, list) and drained:
+        lines.append("- drained_packet_ids: " + ", ".join(str(row) for row in drained))
+    if report.get("remaining_required_action"):
+        lines.append(
+            "- remaining_required_action: "
+            f"{report.get('remaining_required_action')}"
+        )
+    if report.get("remaining_blocker_packet_id"):
+        lines.append(
+            "- remaining_blocker_packet_id: "
+            f"{report.get('remaining_blocker_packet_id')}"
+        )
 
 
 def _append_ack_freshness(lines: list[str], ack_freshness: object) -> None:

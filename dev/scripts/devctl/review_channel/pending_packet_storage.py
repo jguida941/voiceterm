@@ -129,10 +129,14 @@ def _apply_packet_body_observation_snapshot(
     packet: dict[str, object],
     event: Mapping[str, object],
 ) -> dict[str, object]:
-    from .packet_body_observation import packet_body_observation_payload_for_packet
+    from .packet_body_observation import (
+        packet_body_observation_payload_for_packet,
+        packet_observation_receipt_payload_for_packet,
+    )
 
     updated = dict(packet)
     payload = packet_body_observation_payload_for_packet(event, updated)
+    receipt = packet_observation_receipt_payload_for_packet(event, updated)
     event_id = str(payload.get("event_id") or "").strip()
     events = list(updated.get("body_observation_events") or [])
     if event_id and not any(
@@ -144,6 +148,17 @@ def _apply_packet_body_observation_snapshot(
     elif not event_id:
         events.append(payload)
     updated["body_observation_events"] = events
+    receipt_id = str(receipt.get("observation_receipt_id") or "").strip()
+    receipts = list(updated.get("packet_observation_receipts") or [])
+    if not any(
+        isinstance(row, Mapping)
+        and str(row.get("observation_receipt_id") or "").strip() == receipt_id
+        and receipt_id
+        for row in receipts
+    ):
+        receipts.append(receipt)
+    updated["packet_observation_receipts"] = receipts
+    updated["packet_observation_receipt"] = receipt
     observed_by = str(payload.get("body_observed_by") or "").strip()
     observed_at = str(payload.get("body_observed_at_utc") or "").strip()
     digest = str(payload.get("body_digest") or "").strip()

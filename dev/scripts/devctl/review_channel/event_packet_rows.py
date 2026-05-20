@@ -10,6 +10,7 @@ from .packet_creation_binding import PACKET_CREATION_BINDING_EVENT_TYPES
 from .packet_body_observation import (
     PACKET_BODY_OBSERVATION_EVENT_TYPES,
     packet_body_observation_payload_for_packet,
+    packet_observation_receipt_payload_for_packet,
 )
 from .packet_semantic_ingestion import (
     PACKET_SEMANTIC_INGESTION_EVENT_TYPES,
@@ -287,6 +288,7 @@ def _apply_packet_body_observation(
     event: dict[str, object],
 ) -> dict[str, object]:
     payload = packet_body_observation_payload_for_packet(event, packet)
+    receipt = packet_observation_receipt_payload_for_packet(event, packet)
     observed_by = str(payload.get("body_observed_by") or "").strip()
     observed_at = str(payload.get("body_observed_at_utc") or "").strip()
     digest = str(payload.get("body_digest") or "").strip()
@@ -296,10 +298,21 @@ def _apply_packet_body_observation(
         isinstance(row, dict)
         and str(row.get("event_id") or "").strip() == event_id
         and event_id
-        for row in events
+            for row in events
     ):
         events.append(payload)
     packet["body_observation_events"] = events
+    receipts = list(packet.get("packet_observation_receipts") or [])
+    receipt_id = str(receipt.get("observation_receipt_id") or "").strip()
+    if not any(
+        isinstance(row, dict)
+        and str(row.get("observation_receipt_id") or "").strip() == receipt_id
+        and receipt_id
+        for row in receipts
+    ):
+        receipts.append(receipt)
+    packet["packet_observation_receipts"] = receipts
+    packet["packet_observation_receipt"] = receipt
     if observed_by:
         packet["body_observed_by"] = observed_by
     observed_role = str(payload.get("body_observed_role") or "").strip()

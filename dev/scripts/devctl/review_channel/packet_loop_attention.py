@@ -78,7 +78,8 @@ def packet_body_attention_required(
     actor_id = coerce_text(actor)
     if not actor_id or coerce_text(packet.get("from_agent")) == actor_id:
         return False
-    if not packet_body_digest(packet):
+    digest = packet_body_digest(packet)
+    if not digest:
         return False
     if packet_semantic_ingestion_required(
         packet,
@@ -89,14 +90,20 @@ def packet_body_attention_required(
         return True
     if packet_body_observed_by(packet, actor=actor_id, role=role, session=session):
         return False
-    if packet_durable_ingestion_succeeded(
-        packet
-    ) and not _route_scoped_peer_review_observation_required(
-        packet,
-        role=role,
-        session=session,
-    ):
-        return False
+    if packet_durable_ingestion_succeeded(packet):
+        if not _route_scoped_peer_review_observation_required(
+            packet,
+            role=role,
+            session=session,
+        ):
+            return False
+        if _durable_peer_review_observed(
+            packet,
+            actor=actor_id,
+            role=role,
+            body_digest=digest,
+        ):
+            return False
     return True
 
 
@@ -175,6 +182,23 @@ def _route_scoped_peer_review_observation_required(
     policy_hint = coerce_text(packet.get("policy_hint"))
     return kind in {"finding", "decision", "task_progress", "task_produced"} or (
         requested_action == "review_only" and policy_hint == "review_only"
+    )
+
+
+def _durable_peer_review_observed(
+    packet: Mapping[str, object],
+    *,
+    actor: str,
+    role: str,
+    body_digest: str,
+) -> bool:
+    """Return whether durable review-only debt was observed by this actor/role."""
+    return packet_body_observed_by(
+        packet,
+        actor=actor,
+        role=role,
+        session="",
+        body_digest=body_digest,
     )
 
 

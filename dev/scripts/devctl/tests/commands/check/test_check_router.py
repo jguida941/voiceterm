@@ -555,6 +555,7 @@ class CheckRouterTests(unittest.TestCase):
                 "python3 dev/scripts/checks/check_command_source_validation.py",
                 "python3 dev/scripts/checks/check_code_shape.py",
                 "python3 dev/scripts/checks/check_parameter_count.py",
+                "python3 dev/scripts/checks/check_contract_connectivity.py",
             ],
             None,
         )
@@ -583,6 +584,10 @@ class CheckRouterTests(unittest.TestCase):
         self.assertIn(
             "--since-ref origin/feature/demo --head-ref HEAD",
             commands[4],
+        )
+        self.assertIn(
+            "--since-ref origin/feature/demo --head-ref HEAD",
+            commands[5],
         )
 
     @patch("dev.scripts.devctl.commands.check.router_execution.write_output")

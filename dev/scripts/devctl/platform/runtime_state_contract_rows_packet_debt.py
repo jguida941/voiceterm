@@ -15,17 +15,90 @@ if TYPE_CHECKING:
         PacketDebtRemediationRow,
         PacketDurableIngestionReceipt,
     )
+    from ..runtime.packet_attention_drain_report import PacketAttentionDrainReport
+    from ..runtime.packet_observation_receipt import PacketObservationReceipt
 
     _RUNTIME_MODEL_REFS: tuple[
         type[DecidedPacketDebtDetector],
+        type[PacketAttentionDrainReport],
         type[PacketBatchTriage],
         type[PacketBatchTriageRow],
         type[PacketDebtRemediationReport],
         type[PacketDebtRemediationRow],
         type[PacketDurableIngestionReceipt],
+        type[PacketObservationReceipt],
     ]
 
 PACKET_DEBT_CONTRACTS: tuple[ContractSpec, ...] = (
+    ContractSpec(
+        contract_id="PacketAttentionDrainReport",
+        owner_layer="governance_runtime",
+        purpose=(
+            "Typed report proving packet body observation changed or preserved "
+            "the actor-scoped packet-attention queue."
+        ),
+        required_fields=(
+            ContractField("drain_report_id", "str", "Stable drain report id."),
+            ContractField("observer_actor_id", "str", "Actor that opened the packet."),
+            ContractField("observer_role_id", "str", "Role used for scoped attention."),
+            ContractField(
+                "observer_session_id",
+                "str",
+                "Session used for scoped attention.",
+            ),
+            ContractField("generated_at_utc", "str", "UTC report timestamp."),
+            ContractField(
+                "before_pending_packet_count",
+                "int",
+                "Pending packet count before observation.",
+            ),
+            ContractField(
+                "before_unopened_packet_ids",
+                "tuple[str, ...]",
+                "Body-open packet ids before observation.",
+            ),
+            ContractField(
+                "after_pending_packet_count",
+                "int",
+                "Pending packet count after observation.",
+            ),
+            ContractField(
+                "after_unopened_packet_ids",
+                "tuple[str, ...]",
+                "Body-open packet ids after observation.",
+            ),
+            ContractField(
+                "drained_packet_ids",
+                "tuple[str, ...]",
+                "Packet ids removed from body-open attention.",
+            ),
+            ContractField(
+                "remaining_blocker_packet_id",
+                "str",
+                "Next packet still blocking the actor, when present.",
+            ),
+            ContractField(
+                "remaining_required_action",
+                "str",
+                "Next lifecycle action still required, when present.",
+            ),
+            ContractField(
+                "observation_receipt_refs",
+                "tuple[str, ...]",
+                "PacketObservationReceipt ids used as source evidence.",
+            ),
+            ContractField(
+                "source_receipts",
+                "tuple[PacketObservationReceipt, ...]",
+                "Structured receipt rows available to typed consumers.",
+            ),
+        ),
+        runtime_model=(
+            "dev.scripts.devctl.runtime.packet_attention_drain_report:"
+            "PacketAttentionDrainReport"
+        ),
+        startup_surface_tokens=("drained_packet_ids", "remaining_required_action"),
+    ),
     ContractSpec(
         contract_id="PacketDurableIngestionReceipt",
         owner_layer="governance_runtime",
@@ -112,6 +185,70 @@ PACKET_DEBT_CONTRACTS: tuple[ContractSpec, ...] = (
             "PacketBatchTriage"
         ),
         startup_surface_tokens=("total_cluster_count", "largest_batch_size", "rows"),
+    ),
+    ContractSpec(
+        contract_id="PacketObservationReceipt",
+        owner_layer="governance_runtime",
+        purpose=(
+            "Typed receipt proving one actor/session opened a packet body, "
+            "hashed it, and recorded the observation for attention gating."
+        ),
+        required_fields=(
+            ContractField(
+                "observation_receipt_id",
+                "str",
+                "Stable packet observation receipt id.",
+            ),
+            ContractField("observed_packet_id", "str", "Observed packet id."),
+            ContractField("observed_body_sha256", "str", "Observed packet body hash."),
+            ContractField("observer_actor_id", "str", "Actor that opened the body."),
+            ContractField("observer_role_id", "str", "Role used for observation."),
+            ContractField(
+                "observer_session_id",
+                "str",
+                "Session used for observation.",
+            ),
+            ContractField("observed_at_utc", "str", "Observation timestamp."),
+            ContractField("observed_body_length", "int", "Observed body length."),
+            ContractField(
+                "source_observation_event_id",
+                "str",
+                "Review-channel packet_body_observed event id.",
+            ),
+            ContractField(
+                "source_packet_event_id",
+                "str",
+                "Packet event id that carried the body.",
+            ),
+            ContractField("source_action", "str", "Action that opened the body."),
+            ContractField("attention_scope", "str", "Attention scope cleared."),
+            ContractField(
+                "attention_cleared",
+                "bool",
+                "Whether this receipt cleared body-open attention.",
+            ),
+            ContractField(
+                "drain_report_ref",
+                "str",
+                "PacketAttentionDrainReport id when available.",
+            ),
+            ContractField("evidence_refs", "tuple[str, ...]", "Evidence refs."),
+            ContractField(
+                "drain_report",
+                "PacketAttentionDrainReport | None",
+                "Structured drain report when embedded.",
+            ),
+            ContractField(
+                "correlation_context",
+                "CorrelationContext",
+                "Composed correlation, causation, and run spine ids.",
+            ),
+        ),
+        runtime_model=(
+            "dev.scripts.devctl.runtime.packet_observation_receipt:"
+            "PacketObservationReceipt"
+        ),
+        startup_surface_tokens=("observed_packet_id", "observer_actor_id"),
     ),
     ContractSpec(
         contract_id="PacketDebtRemediationRow",

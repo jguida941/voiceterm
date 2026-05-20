@@ -106,6 +106,7 @@ def test_show_body_observation_records_typed_packet_receipt(tmp_path) -> None:
             "summary": "Unread body",
             "body": "Codex must open this body before continuing.",
             "status": "pending",
+            "expires_at_utc": "2999-01-01T00:00:00Z",
         },
         existing_events=[],
     )
@@ -131,6 +132,10 @@ def test_show_body_observation_records_typed_packet_receipt(tmp_path) -> None:
     assert packet["body_observed_by"] == "codex"
     assert packet["body_observed_event_id"] == event["event_id"]
     assert packet["body_observation_events"][0]["contract_id"] == "PacketBodyObservation"
+    assert packet["packet_observation_receipt"]["contract_id"] == (
+        "PacketObservationReceipt"
+    )
+    assert packet["packet_observation_receipt"]["observed_packet_id"] == "rev_pkt_100"
     assert event["correlation_id"] == packet["correlation_id"]
     assert event["causation_id"].startswith("cause-")
     assert event["run_id"] == packet["run_id"]
@@ -205,6 +210,7 @@ def test_show_respects_external_artifact_write_suppression(
             "summary": "Unread body",
             "body": "Codex must open this body before continuing.",
             "status": "pending",
+            "expires_at_utc": "2999-01-01T00:00:00Z",
         },
         existing_events=[],
     )
@@ -299,6 +305,12 @@ def test_ingest_records_semantic_receipt_after_matching_show(tmp_path) -> None:
     )
     assert show_exit == 0
     assert show_report["event"]["event_type"] == PACKET_BODY_OBSERVATION_EVENT_TYPE
+    assert show_report["packet"]["packet_observation_receipt"]["contract_id"] == (
+        "PacketObservationReceipt"
+    )
+    drain_report = show_report["packet_attention_drain_report"]
+    assert drain_report["contract_id"] == "PacketAttentionDrainReport"
+    assert "rev_pkt_100" in drain_report["drained_packet_ids"]
     _write_latest_control_decision(
         tmp_path,
         packet_id="rev_pkt_100",
@@ -983,8 +995,6 @@ def test_allowed_stop_anchor_post_appends_attempted_action_receipt(tmp_path) -> 
         summary="Stop at typed closure",
         body="Stop only through typed controller closure.",
         anchor_scope="session",
-        target_role="reviewer",
-        target_session_id="session-a",
         expires_in_minutes=360,
     )
 
@@ -1021,8 +1031,6 @@ def test_stop_anchor_post_without_allowed_action_blocks_before_event_append(
         summary="Stop at typed closure",
         body="Stop only through typed controller closure.",
         anchor_scope="session",
-        target_role="reviewer",
-        target_session_id="session-a",
         expires_in_minutes=360,
     )
 
@@ -1365,8 +1373,8 @@ def _post_args(**overrides: object) -> SimpleNamespace:
         "target_kind": None,
         "target_ref": None,
         "target_revision": None,
-        "target_role": "reviewer",
-        "target_session_id": "session-a",
+        "target_role": "",
+        "target_session_id": "",
         "to_agent": "codex",
         "trace_id": None,
     }
@@ -1403,6 +1411,7 @@ def _seed_packet_event_state(
             "summary": "Unread body",
             "body": "Codex must open this body before continuing.",
             "status": "pending",
+            "expires_at_utc": "2999-01-01T00:00:00Z",
         },
         existing_events=[],
     )

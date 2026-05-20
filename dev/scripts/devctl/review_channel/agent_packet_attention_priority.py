@@ -53,6 +53,12 @@ def body_open_packets(
             role=role,
             session=session,
         )
+        or packet_semantic_ingestion_required(
+            packet,
+            actor=actor,
+            role=role,
+            session=session,
+        )
         or packet_absorption_required(
             packet,
             actor=actor,

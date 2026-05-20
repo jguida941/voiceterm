@@ -171,6 +171,86 @@ def test_attention_body_open_gate_ignores_observation_from_other_session() -> No
     assert "--target-session-id s2" in attention.body_open_command
 
 
+def test_durable_review_packet_reuses_same_role_observation_across_sessions() -> None:
+    packet = {
+        "packet_id": "rev_pkt_bound_finding",
+        "from_agent": "claude",
+        "to_agent": "codex",
+        "kind": "decision",
+        "requested_action": "review_only",
+        "policy_hint": "review_only",
+        "body": "Already opened by the same reviewer role in an older session.",
+        "status": "pending",
+        "lifecycle_current_state": "pending",
+        "latest_event_id": "rev_evt_21",
+        "packet_creation_binding": {
+            "binding_target_kind": "plan_row",
+            "binding_target": "PKT-BIND-REV-PKT-BOUND-FINDING",
+            "status": "inserted",
+        },
+    }
+    digest = packet_body_digest(packet)
+    packet["body_observation_events"] = [
+        {
+            "body_observed_by": "codex",
+            "body_observed_role": "reviewer",
+            "body_observed_session_id": "older-session",
+            "body_digest": digest,
+        }
+    ]
+
+    attention = packet_attention_for_agent(
+        {"packets": [packet]},
+        actor="codex",
+        role="reviewer",
+        session="new-session",
+    )
+
+    assert attention.pending_packet_count == 0
+    assert attention.body_open_required is False
+    assert attention.body_open_packet_id == ""
+
+
+def test_durable_review_packet_does_not_reuse_observation_from_other_role() -> None:
+    packet = {
+        "packet_id": "rev_pkt_bound_finding",
+        "from_agent": "claude",
+        "to_agent": "codex",
+        "kind": "decision",
+        "requested_action": "review_only",
+        "policy_hint": "review_only",
+        "body": "The reviewer role has not opened this packet yet.",
+        "status": "pending",
+        "lifecycle_current_state": "pending",
+        "latest_event_id": "rev_evt_22",
+        "packet_creation_binding": {
+            "binding_target_kind": "plan_row",
+            "binding_target": "PKT-BIND-REV-PKT-BOUND-FINDING",
+            "status": "inserted",
+        },
+    }
+    digest = packet_body_digest(packet)
+    packet["body_observation_events"] = [
+        {
+            "body_observed_by": "codex",
+            "body_observed_role": "implementer",
+            "body_observed_session_id": "older-session",
+            "body_digest": digest,
+        }
+    ]
+
+    attention = packet_attention_for_agent(
+        {"packets": [packet]},
+        actor="codex",
+        role="reviewer",
+        session="new-session",
+    )
+
+    assert attention.pending_packet_count == 1
+    assert attention.body_open_required is True
+    assert attention.body_open_packet_id == "rev_pkt_bound_finding"
+
+
 def test_failed_durable_ingestion_receipt_does_not_suppress_body_open_gate() -> None:
     packet = {
         "packet_id": "rev_pkt_failed_ingest",
