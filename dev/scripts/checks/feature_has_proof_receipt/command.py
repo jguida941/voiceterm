@@ -38,6 +38,7 @@ PROOF_LEDGER_EXACT_PATHS = frozenset(
         "dev/state/ground_truth_probe_receipts.jsonl",
         "dev/state/plan_index.jsonl",
         "dev/state/plan_ingestion_receipts.jsonl",
+        "dev/state/plan_row_closure_receipts.jsonl",
         "dev/state/plan_source_snapshots.jsonl",
     }
 )

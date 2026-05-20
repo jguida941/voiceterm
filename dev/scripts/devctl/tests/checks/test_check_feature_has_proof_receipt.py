@@ -98,6 +98,7 @@ def test_feature_has_proof_receipt_allows_non_proven_for_proof_ledger_commit(
             "abc123": (
                 "dev/audits/REVIEW_SNAPSHOT.md",
                 "dev/state/plan_ingestion_receipts.jsonl",
+                "dev/state/plan_row_closure_receipts.jsonl",
             )
         },
         require_proven_passed=True,
