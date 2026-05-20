@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `extraction/guardir-core-p0-proof-integrity`
-- HEAD: `c2f6777d53cf` — Fix packet attention receipt drainage
-- Tree hash: `9874d7166fb5`
-- Generation stamp: `snap-e7e21675b379`
-- Generated at (UTC): 2026-05-20T00:56:27Z
+- HEAD: `52b445b65bdc` — Fix control decision consistency guard routing
+- Tree hash: `3ed622240a13`
+- Generation stamp: `snap-beb3cdebb442`
+- Generated at (UTC): 2026-05-20T01:24:56Z
 - Push decision: `run_devctl_push` — push_preconditions_satisfied
 - Reviewer mode: `tools_only` (interaction: `local_terminal`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 25 commits, 127 files, +7118/-1999
+- Delta since last snapshot: 25 commits, 132 files, +7091/-2042
 - Governance findings: 26 open / 0 fixed / 26 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -28,9 +28,9 @@ production client (VoiceTerm...
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `extraction/guardir-core-p0-proof-integrity`
-- HEAD SHA: `c2f6777d53cfa04ebad7d1e127b92d1277440e6e`
+- HEAD SHA: `52b445b65bdc2054b2279690fb7bdc464ab8a8b7`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-05-19T20:56:06-04:00
+- HEAD timestamp (UTC): 2026-05-19T21:24:32-04:00
 
 ## 2. Governance state
 
@@ -64,54 +64,54 @@ production client (VoiceTerm...
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 25 commits ending at `c2f6777d53cf`
+Range: last 25 commits ending at `52b445b65bdc`
 
 - commits: 25
-- files changed: 127
-- insertions: +7118
-- deletions: -1999
-- bundle classes touched: docs, tooling
+- files changed: 132
+- insertions: +7091
+- deletions: -2042
+- bundle classes touched: tooling, docs
 - authority surfaces touched: 4 file(s)
 
 ### Commits
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `c2f6777d` | Fix packet attention receipt drainage | 19 | +835/-40 | tooling |  |
-| 2 | `6357774a` | Refresh external review snapshot for 42f2629e | 1 | +93/-94 | tooling |  |
-| 3 | `42f2629e` | Checkpoint proof integrity and layout repairs | 72 | +3777/-1019 | tooling |  |
-| 4 | `36b1e810` | P0 contract connectivity sub-A: 4 missing authority contrac… | 14 | +260/-26 | tooling |  |
-| 5 | `94b95813` | Refresh external review snapshot for 101aacd2 | 1 | +52/-49 | tooling |  |
-| 6 | `101aacd2` | Bind reviewer-round intake follow-ups | 4 | +74/-47 | tooling |  |
-| 7 | `b126e825` | Refresh external review snapshot for 41217fca | 1 | +69/-66 | tooling |  |
-| 8 | `41217fca` | Allow pending lifecycle packet focus in multi-agent sync | 12 | +249/-52 | tooling |  |
-| 9 | `f869134a` | Refresh external review snapshot for 58d527c1 | 1 | +52/-52 | tooling |  |
-| 10 | `58d527c1` | Share optional integer coercion across runtime contracts | 9 | +64/-20 | tooling |  |
-| 11 | `4f5974fe` | Refresh external review snapshot for b348c95d | 1 | +55/-55 | tooling |  |
-| 12 | `b348c95d` | Split multi-agent communication-only focus helper | 8 | +71/-31 | tooling |  |
-| 13 | `fd5ca17e` | Refresh external review snapshot for b2639c99 | 1 | +57/-60 | tooling |  |
-| 14 | `b2639c99` | Anchor task-started packet bindings to backfill commit | 5 | +49/-18 | tooling |  |
-| 15 | `cc739fa3` | Refresh external review snapshot for eb5ed905 | 1 | +42/-42 | tooling |  |
-| 16 | `eb5ed905` | Bind feature-proof receipt finding packet | 3 | +20/-0 | tooling |  |
-| 17 | `60b0f15a` | Refresh external review snapshot for 70b81e6a | 1 | +50/-49 | tooling |  |
-| 18 | `70b81e6a` | Backfill task-started packet bindings | 5 | +51/-0 | tooling |  |
-| 19 | `db755032` | Refresh external review snapshot for 43f7b254 | 1 | +51/-50 | tooling |  |
-| 20 | `43f7b254` | Record SLICE-Z ground truth probe receipt | 1 | +1/-0 | tooling |  |
-| 21 | `a1b40b4c` | Refresh external review snapshot for 4593576d | 1 | +105/-78 | tooling |  |
-| 22 | `4593576d` | SLICE-Z follow-up: align sync guard and docs | 9 | +152/-2 | tooling |  |
-| 23 | `bb80f85a` | SLICE-Z repair: slice-counted continuation_anchor full life… | 17 | +587/-124 | tooling |  |
-| 24 | `84d43c50` | SLICE-Z: slice-counted continuation_anchor auto-release for… | 2 | +217/-0 | tooling |  |
-| 25 | `83721f94` | SLICE-Y repair: typed fail-loud blocker for FindingBacklog… | 2 | +85/-25 | tooling |  |
+| 1 | `52b445b6` | Fix control decision consistency guard routing | 10 | +224/-12 | tooling |  |
+| 2 | `e6f95248` | Refresh external review snapshot for c2f6777d | 1 | +51/-56 | tooling |  |
+| 3 | `c2f6777d` | Fix packet attention receipt drainage | 19 | +835/-40 | tooling |  |
+| 4 | `6357774a` | Refresh external review snapshot for 42f2629e | 1 | +93/-94 | tooling |  |
+| 5 | `42f2629e` | Checkpoint proof integrity and layout repairs | 72 | +3777/-1019 | tooling |  |
+| 6 | `36b1e810` | P0 contract connectivity sub-A: 4 missing authority contrac… | 14 | +260/-26 | tooling |  |
+| 7 | `94b95813` | Refresh external review snapshot for 101aacd2 | 1 | +52/-49 | tooling |  |
+| 8 | `101aacd2` | Bind reviewer-round intake follow-ups | 4 | +74/-47 | tooling |  |
+| 9 | `b126e825` | Refresh external review snapshot for 41217fca | 1 | +69/-66 | tooling |  |
+| 10 | `41217fca` | Allow pending lifecycle packet focus in multi-agent sync | 12 | +249/-52 | tooling |  |
+| 11 | `f869134a` | Refresh external review snapshot for 58d527c1 | 1 | +52/-52 | tooling |  |
+| 12 | `58d527c1` | Share optional integer coercion across runtime contracts | 9 | +64/-20 | tooling |  |
+| 13 | `4f5974fe` | Refresh external review snapshot for b348c95d | 1 | +55/-55 | tooling |  |
+| 14 | `b348c95d` | Split multi-agent communication-only focus helper | 8 | +71/-31 | tooling |  |
+| 15 | `fd5ca17e` | Refresh external review snapshot for b2639c99 | 1 | +57/-60 | tooling |  |
+| 16 | `b2639c99` | Anchor task-started packet bindings to backfill commit | 5 | +49/-18 | tooling |  |
+| 17 | `cc739fa3` | Refresh external review snapshot for eb5ed905 | 1 | +42/-42 | tooling |  |
+| 18 | `eb5ed905` | Bind feature-proof receipt finding packet | 3 | +20/-0 | tooling |  |
+| 19 | `60b0f15a` | Refresh external review snapshot for 70b81e6a | 1 | +50/-49 | tooling |  |
+| 20 | `70b81e6a` | Backfill task-started packet bindings | 5 | +51/-0 | tooling |  |
+| 21 | `db755032` | Refresh external review snapshot for 43f7b254 | 1 | +51/-50 | tooling |  |
+| 22 | `43f7b254` | Record SLICE-Z ground truth probe receipt | 1 | +1/-0 | tooling |  |
+| 23 | `a1b40b4c` | Refresh external review snapshot for 4593576d | 1 | +105/-78 | tooling |  |
+| 24 | `4593576d` | SLICE-Z follow-up: align sync guard and docs | 9 | +152/-2 | tooling |  |
+| 25 | `bb80f85a` | SLICE-Z repair: slice-counted continuation_anchor full life… | 17 | +587/-124 | tooling |  |
 
 ### Files
 
 | Path | Bundle | +/- |
 |---|---|---|
 | `.github/workflows/release_preflight.yml` | tooling | +3/-0 |
-| `.github/workflows/tooling_control_plane.yml` | tooling | +9/-0 |
+| `.github/workflows/tooling_control_plane.yml` | tooling | +15/-6 |
 | `dev/active/MASTER_PLAN.md` | tooling | +123/-0 |
 | `dev/active/ai_governance_platform.md` | tooling | +67/-0 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +787/-757 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +838/-813 |
 | `dev/config/devctl_repo_policy.json` | tooling | +5/-0 |
 | `dev/guides/DEVELOPMENT.md` | docs | +23/-3 |
 | `dev/guides/SYSTEM_MAP.md` | docs | +73/-72 |
@@ -128,10 +128,12 @@ Range: last 25 commits ending at `c2f6777d53cf`
 | `dev/scripts/checks/contract_connectivity/models.py` | tooling | +37/-0 |
 | `dev/scripts/checks/contract_connectivity/report.py` | tooling | +41/-1 |
 | `dev/scripts/checks/contract_connectivity/support.py` | tooling | +42/-3 |
+| `dev/scripts/checks/control_decision_consistency/command.py` | tooling | +17/-1 |
 | `dev/scripts/checks/feature_has_proof_receipt/__init__.py` | tooling | +1/-0 |
 | `dev/scripts/checks/feature_has_proof_receipt/command.py` | tooling | +274/-0 |
 | `dev/scripts/checks/git_support/__init__.py` | tooling | +1/-0 |
 | `dev/scripts/checks/git_support/range.py` | tooling | +41/-0 |
+| `dev/scripts/checks/guard_enforcement_inventory/command.py` | tooling | +0/-4 |
 | `dev/scripts/checks/multi_agent_sync/runtime_truth_agent_loop_communication.py` | tooling | +60/-0 |
 | `dev/scripts/checks/multi_agent_sync/runtime_truth_agent_loop_instruction.py` | tooling | +37/-28 |
 | `dev/scripts/checks/no_projection_proof_misuse/__init__.py` | tooling | +15/-0 |
@@ -145,9 +147,7 @@ Range: last 25 commits ending at `c2f6777d53cf`
 | `dev/scripts/checks/substrate_commits_have_applied_plan_row/jsonl_rows.py` | tooling | +44/-0 |
 | `dev/scripts/checks/substrate_commits_have_applied_plan_row/matching.py` | tooling | +13/-0 |
 | `dev/scripts/checks/substrate_commits_have_applied_plan_row/path_policy.py` | tooling | +29/-0 |
-| `dev/scripts/checks/substrate_commits_have_applied_plan_row/report.py` | tooling | +60/-0 |
-| `dev/scripts/devctl/bundles/registry.py` | tooling | +9/-0 |
-| _87 more files trimmed_ | | |
+| _92 more files trimmed_ | | |
 
 ## 4. Quality signals
 
@@ -217,6 +217,10 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`52b445b6`** — Fix control decision consistency guard routing
+  - evolution: The GuardIR extraction checkpoint exposed a live-controller gap: parser and alias parity could pass while the governed `review-channel` path still hid actor-addressed packets, disclosed packet bodies before failing the …
+- **`e6f95248`** — Refresh external review snapshot for c2f6777d
+  - evolution: The GuardIR extraction checkpoint exposed a live-controller gap: parser and alias parity could pass while the governed `review-channel` path still hid actor-addressed packets, disclosed packet bodies before failing the …
 - **`c2f6777d`** — Fix packet attention receipt drainage
   - evolution: The GuardIR extraction checkpoint exposed a live-controller gap: parser and alias parity could pass while the governed `review-channel` path still hid actor-addressed packets, disclosed packet bodies before failing the …
 - **`6357774a`** — Refresh external review snapshot for 42f2629e
@@ -272,16 +276,6 @@ Recent findings:
   - my prior 84d43c50 block-side-only attempt). Role-flip cycle 2: codex orchestrator
   - posted typed verdict + 7 acceptance criteria; this commit lands codex's full
   - evolution: The GuardIR extraction checkpoint exposed a live-controller gap: parser and alias parity could pass while the governed `review-channel` path still hid actor-addressed packets, disclosed packet bodies before failing the …
-- **`84d43c50`** — SLICE-Z: slice-counted continuation_anchor auto-release for bug #9
-  - Per codex orchestrator directive rev_pkt_4517 (Role-flip cycle 2 SLICE-Z bug #9 fix):
-  - add typed extension to SessionTerminationPolicy so continuation_anchor packets can
-  - opt into release_mode=commit_count + release_commit_count=N. TaskCompleteDecision
-  - evolution: The GuardIR extraction checkpoint exposed a live-controller gap: parser and alias parity could pass while the governed `review-channel` path still hid actor-addressed packets, disclosed packet bodies before failing the …
-- **`83721f94`** — SLICE-Y repair: typed fail-loud blocker for FindingBacklog source
-  - Per codex review_failed rev_pkt_4513: SLICE-Y commit 148f4c4e left soft-fail
-  - catches that recreated original silent-fallback bug. This repair adds typed
-  - DevelopmentNextSlice blocker when FindingBacklog load fails, so develop next
-  - evolution: The GuardIR extraction checkpoint exposed a live-controller gap: parser and alias parity could pass while the governed `review-channel` path still hid actor-addressed packets, disclosed packet bodies before failing the …
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -324,4 +318,4 @@ repo_path=/Users/jguida941/testing_upgrade/codex-voice
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-e7e21675b379` binds this file to HEAD `c2f6777d53cf`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-beb3cdebb442` binds this file to HEAD `52b445b65bdc`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
