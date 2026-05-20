@@ -8,6 +8,7 @@ import shlex
 from collections.abc import Iterable
 from pathlib import Path
 
+from .feature_proof_test_class_refs import class_test_refs, is_test_class
 from .ref_collections import unique_refs
 from .value_coercion import coerce_string
 
@@ -80,8 +81,8 @@ def _pytest_node_refs_for_file(path: Path, relpath: str) -> tuple[str, ...]:
             if _is_test_function(node.name):
                 refs.append(f"{relpath}::{node.name}")
             continue
-        if isinstance(node, ast.ClassDef) and node.name.startswith("Test"):
-            refs.extend(_class_test_refs(relpath, node))
+        if isinstance(node, ast.ClassDef) and is_test_class(node):
+            refs.extend(class_test_refs(relpath, node))
     return tuple(refs)
 
 
@@ -130,15 +131,6 @@ def _normalize_pytest_node_ref(ref: str, *, repo_root: Path) -> str:
 
 def _strip_paramization(node_part: str) -> str:
     return node_part.split("[", 1)[0]
-
-
-def _class_test_refs(relpath: str, node: ast.ClassDef) -> tuple[str, ...]:
-    refs: list[str] = []
-    for child in node.body:
-        if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            if _is_test_function(child.name):
-                refs.append(f"{relpath}::{node.name}::{child.name}")
-    return tuple(refs)
 
 
 def _is_test_function(name: str) -> bool:

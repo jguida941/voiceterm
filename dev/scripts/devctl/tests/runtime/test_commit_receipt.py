@@ -668,6 +668,50 @@ def test_non_trivial_output_proof_resolves_pytest_node_ref(
     assert proof.ok is True
 
 
+def test_non_trivial_output_proof_resolves_unittest_test_case_node_ref(
+    tmp_path: Path,
+) -> None:
+    test_path = tmp_path / "dev/scripts/devctl/tests/test_sample.py"
+    test_path.parent.mkdir(parents=True)
+    test_path.write_text(
+        "import unittest\n\n"
+        "class SampleProofTests(unittest.TestCase):\n"
+        "    def test_real(self):\n"
+        "        self.assertTrue(True)\n",
+        encoding="utf-8",
+    )
+    receipt = FeatureProofReceipt(
+        feature_id="MP-TEST",
+        commit_sha="abc123",
+        implementer_actor="codex",
+        review_fleet_roles_ran=("DogfoodTest",),
+        review_fleet_actor="claude",
+        tests_run=(
+            "dev/scripts/devctl/tests/test_sample.py::"
+            "SampleProofTests::test_real",
+        ),
+        tests_passed_count=1,
+        tests_failed_count=0,
+        connectivity_guards_ran=("check_non_trivial_output_proof",),
+        connectivity_guards_passed=True,
+        dogfood_invocation_evidence_ref="dev/scripts/devctl/tests/test_sample.py",
+        real_life_test_status="proven_passed",
+        not_tested_rationale=None,
+        bypass_audit_trail_refs=(),
+        proven_at_utc="2026-05-16T04:00:00Z",
+        evidence_artifacts=("dev/scripts/devctl/tests/test_sample.py",),
+        role_review_receipt_refs=(
+            "role_review_receipt:rev_pkt_4151:DogfoodTest:claude",
+        ),
+    )
+
+    proof = validate_non_trivial_output_proof(receipt, repo_root=tmp_path)
+
+    assert proof.ref_resolves is True
+    assert proof.has_real_tests is True
+    assert proof.ok is True
+
+
 def test_non_trivial_output_proof_allows_distinct_fpr_artifact_ref(
     tmp_path: Path,
 ) -> None:
