@@ -104,16 +104,31 @@ def build_commit_git_mutation_proof_receipt(
     *,
     repo_root: Path,
     claim: GitMutationProofReceipt,
+    allow_reachable_head: bool = False,
 ) -> GitMutationProofReceipt:
     """Build a commit proof by checking the claimed commit object and HEAD."""
     expected_sha = claim.expected_sha
     observed_head = _git_stdout(repo_root, "rev-parse", "HEAD")
     object_type = _git_stdout(repo_root, "cat-file", "-t", expected_sha)
+    head_matches_expected = observed_head == expected_sha
+    expected_reachable_from_head = (
+        bool(allow_reachable_head)
+        and bool(expected_sha)
+        and bool(observed_head)
+        and object_type == "commit"
+        and _git_success(
+            repo_root,
+            "merge-base",
+            "--is-ancestor",
+            expected_sha,
+            observed_head,
+        )
+    )
     verified = (
         bool(claim.operation_returned_success)
         and bool(expected_sha)
         and object_type == "commit"
-        and observed_head == expected_sha
+        and (head_matches_expected or expected_reachable_from_head)
     )
     failure_reason = ""
     if not verified:
@@ -125,7 +140,10 @@ def build_commit_git_mutation_proof_receipt(
                 ),
                 (not expected_sha, "missing_expected_sha"),
                 (object_type != "commit", "expected_sha_not_commit_object"),
-                (observed_head != expected_sha, "head_does_not_match_expected_sha"),
+                (
+                    not head_matches_expected and not expected_reachable_from_head,
+                    "head_does_not_match_expected_sha",
+                ),
             )
         )
     return GitMutationProofReceipt(
@@ -150,6 +168,9 @@ def build_commit_git_mutation_proof_receipt(
             (
                 _ref("commit", expected_sha),
                 _ref("local_head", observed_head),
+                _ref("reachable_head", observed_head)
+                if expected_reachable_from_head
+                else "",
                 _ref("pipeline", claim.pipeline_id),
                 _ref("plan", claim.plan_row_id),
             )
@@ -269,6 +290,11 @@ def _git_stdout(repo_root: Path, *args: str) -> str:
     if code != 0:
         return ""
     return stdout.strip().splitlines()[0].strip() if stdout.strip() else ""
+
+
+def _git_success(repo_root: Path, *args: str) -> bool:
+    code, _stdout, _stderr = run_git_capture(list(args), repo_root=repo_root)
+    return code == 0
 
 
 def _first_failure(items: Iterable[tuple[bool, str]]) -> str:

@@ -135,6 +135,59 @@ def test_commit_git_mutation_proof_verifies_real_head_commit(tmp_path: Path) -> 
     assert restored[-1].receipt_id == receipt.receipt_id
 
 
+def test_commit_git_mutation_proof_accepts_reachable_receipt_head_when_allowed(
+    tmp_path: Path,
+) -> None:
+    _init_git_repo(tmp_path)
+    (tmp_path / "sample.txt").write_text("sample\n", encoding="utf-8")
+    _git(tmp_path, "add", "sample.txt")
+    _git(tmp_path, "commit", "-m", "sample")
+    content_sha = _git(tmp_path, "rev-parse", "HEAD")
+    (tmp_path / "dev/audits").mkdir(parents=True)
+    (tmp_path / "dev/audits/REVIEW_SNAPSHOT.md").write_text(
+        "# Review Snapshot\n",
+        encoding="utf-8",
+    )
+    _git(tmp_path, "add", "dev/audits/REVIEW_SNAPSHOT.md")
+    _git(
+        tmp_path,
+        "commit",
+        "-m",
+        f"Refresh external review snapshot for {content_sha[:8]}",
+    )
+    receipt_head = _git(tmp_path, "rev-parse", "HEAD")
+
+    strict_receipt = build_commit_git_mutation_proof_receipt(
+        repo_root=tmp_path,
+        claim=GitMutationProofReceipt(
+            mutation_kind="commit",
+            action_id="vcs.commit.1",
+            pipeline_id="pipe-1",
+            plan_row_id="MP-TEST",
+            expected_sha=content_sha,
+            operation_returned_success=True,
+        ),
+    )
+    reachable_receipt = build_commit_git_mutation_proof_receipt(
+        repo_root=tmp_path,
+        claim=GitMutationProofReceipt(
+            mutation_kind="commit",
+            action_id="vcs.commit.1",
+            pipeline_id="pipe-1",
+            plan_row_id="MP-TEST",
+            expected_sha=content_sha,
+            operation_returned_success=True,
+        ),
+        allow_reachable_head=True,
+    )
+
+    assert strict_receipt.verified is False
+    assert strict_receipt.failure_reason == "head_does_not_match_expected_sha"
+    assert reachable_receipt.verified is True
+    assert reachable_receipt.observed_local_sha == receipt_head
+    assert f"reachable_head:{receipt_head}" in reachable_receipt.evidence_refs
+
+
 def test_feature_lifecycle_proof_covers_commit_chain(tmp_path: Path) -> None:
     receipt = build_commit_receipt(_pipeline(), recorded_at_utc="2026-05-11T23:05:00Z")
     proof = build_feature_lifecycle_proof(_pipeline(), receipt)
@@ -759,6 +812,84 @@ def test_governed_commit_success_emits_commit_receipt_artifact(tmp_path: Path) -
     assert receipt_paths[0] in commit_result.artifact_paths
     assert proof_paths[0] in commit_result.artifact_paths
     assert feature_proof_paths[0] in commit_result.artifact_paths
+
+
+def test_governed_commit_success_emits_content_receipts_for_managed_receipt_head(
+    tmp_path: Path,
+) -> None:
+    _init_git_repo(tmp_path)
+    (tmp_path / "tracked.txt").write_text("tracked\n", encoding="utf-8")
+    _git(tmp_path, "add", "tracked.txt")
+    _git(tmp_path, "commit", "-m", "content")
+    content_sha = _git(tmp_path, "rev-parse", "HEAD")
+    (tmp_path / "dev/audits").mkdir(parents=True)
+    (tmp_path / "dev/audits/REVIEW_SNAPSHOT.md").write_text(
+        "# Review Snapshot\n",
+        encoding="utf-8",
+    )
+    _git(tmp_path, "add", "dev/audits/REVIEW_SNAPSHOT.md")
+    _git(
+        tmp_path,
+        "commit",
+        "-m",
+        f"Refresh external review snapshot for {content_sha[:8]}",
+    )
+    receipt_sha = _git(tmp_path, "rev-parse", "HEAD")
+    completed = replace(
+        _pipeline(),
+        commit_sha=receipt_sha,
+        push_authorization=replace(
+            _pipeline().push_authorization,
+            authorized_head_sha=receipt_sha,
+        ),
+    )
+    pipeline_artifact = (
+        tmp_path / "dev/reports/review_channel/projections/latest/commit_pipeline.json"
+    )
+    pipeline_artifact.parent.mkdir(parents=True)
+    pipeline_artifact.write_text("{}", encoding="utf-8")
+    persisted: list[RemoteCommitPipelineContract] = []
+    context = CommitPipelineContext(
+        repo_root=tmp_path,
+        review_channel_path=None,
+        load_pipeline=lambda: completed,
+        persist_pipeline=lambda pipeline: [],
+        persist_pipeline_contract_only=lambda pipeline: _persist(persisted, pipeline),
+        event_packets_loader=lambda: (),
+        pipeline_artifact_relpath=(
+            "dev/reports/review_channel/projections/latest/commit_pipeline.json"
+        ),
+        result_builder=_result,
+    )
+
+    result = _commit_success_result(
+        action_id="vcs.commit.1",
+        context=context,
+        completed=completed,
+    )
+
+    assert result.ok is True
+    assert f"dev/reports/commit_receipts/{content_sha}.json" in result.artifact_paths
+    assert f"dev/reports/commit_receipts/{receipt_sha}.json" in result.artifact_paths
+    assert (
+        f"dev/reports/feature_proof_receipts/{content_sha}.json"
+        in result.artifact_paths
+    )
+    assert (
+        f"dev/reports/feature_proof_receipts/{receipt_sha}.json"
+        in result.artifact_paths
+    )
+    receipts = read_git_mutation_proof_receipts(tmp_path)
+    assert any(
+        receipt.expected_sha == content_sha
+        and receipt.observed_local_sha == receipt_sha
+        and receipt.verified
+        for receipt in receipts
+    )
+    assert any(
+        receipt.expected_sha == receipt_sha and receipt.verified
+        for receipt in receipts
+    )
 
 
 def test_governed_commit_success_fails_typed_when_mutation_proof_store_fails(

@@ -29,29 +29,37 @@ class CommitMutationProofResult:
     failure_result: ActionResult | None = None
 
 
+@dataclass(frozen=True, slots=True)
+class CommitMutationProofRequest:
+    """Inputs needed to write one commit mutation proof row."""
+
+    action_id: str
+    repo_root: Path
+    completed: RemoteCommitPipelineContract
+    artifact_paths: tuple[str, ...]
+    persist_pipeline_contract_only: PipelinePersister
+    result_builder: ResultBuilder
+    allow_reachable_head: bool = False
+
+
 def record_commit_mutation_proof(
-    *,
-    action_id: str,
-    repo_root: Path,
-    completed: RemoteCommitPipelineContract,
-    artifact_paths: tuple[str, ...],
-    persist_pipeline_contract_only: PipelinePersister,
-    result_builder: ResultBuilder,
+    request: CommitMutationProofRequest,
 ) -> CommitMutationProofResult:
     """Write the required GitMutationProofReceipt for a committed pipeline."""
 
+    completed = request.completed
     commit_result = completed.commit_result
     mutation_proof = build_commit_git_mutation_proof_receipt(
-        repo_root=repo_root,
+        repo_root=request.repo_root,
         claim=GitMutationProofReceipt(
             mutation_kind="commit",
-            action_id=action_id,
+            action_id=request.action_id,
             pipeline_id=completed.pipeline_id,
             plan_row_id=_plan_row_id(completed),
             expected_sha=completed.commit_sha,
             command_returncode=0,
             operation_returned_success=True,
-            artifact_paths=artifact_paths,
+            artifact_paths=request.artifact_paths,
             correlation_context=CorrelationContext(
                 correlation_id=string_value(
                     getattr(commit_result, "correlation_id", "")
@@ -60,34 +68,40 @@ def record_commit_mutation_proof(
                 run_id=string_value(getattr(commit_result, "run_id", "")),
             ),
         ),
+        allow_reachable_head=request.allow_reachable_head,
     )
     try:
-        proof_store = append_git_mutation_proof_receipt(repo_root, mutation_proof)
+        proof_store = append_git_mutation_proof_receipt(
+            request.repo_root,
+            mutation_proof,
+        )
     # broad-except: allow reason=proof receipt store boundary must return typed failure fallback=ActionResult
     except Exception as exc:
         return CommitMutationProofResult(
-            artifact_paths=artifact_paths,
+            artifact_paths=request.artifact_paths,
             failure_result=_proof_write_failure(
-                action_id=action_id,
+                action_id=request.action_id,
                 completed=completed,
-                artifact_paths=artifact_paths,
-                persist_pipeline_contract_only=persist_pipeline_contract_only,
-                result_builder=result_builder,
+                artifact_paths=request.artifact_paths,
+                persist_pipeline_contract_only=request.persist_pipeline_contract_only,
+                result_builder=request.result_builder,
                 error=exc,
             ),
         )
 
-    next_paths = (*artifact_paths, proof_store)
+    next_paths = request.artifact_paths
+    if proof_store not in next_paths:
+        next_paths = (*next_paths, proof_store)
     if mutation_proof.verified:
         return CommitMutationProofResult(artifact_paths=next_paths)
     return CommitMutationProofResult(
         artifact_paths=next_paths,
         failure_result=_proof_verification_failure(
-            action_id=action_id,
+            action_id=request.action_id,
             completed=completed,
             artifact_paths=next_paths,
-            persist_pipeline_contract_only=persist_pipeline_contract_only,
-            result_builder=result_builder,
+            persist_pipeline_contract_only=request.persist_pipeline_contract_only,
+            result_builder=request.result_builder,
             failure_reason=mutation_proof.failure_reason,
         ),
     )
