@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `extraction/guardir-core-p0-proof-integrity`
-- HEAD: `15fd95b7d880` — Snapshot remaining GuardIR governance repair state
-- Tree hash: `a9a661cf56ec`
-- Generation stamp: `snap-6bbea6c355d4`
-- Generated at (UTC): 2026-05-21T16:12:32Z
+- HEAD: `90451b8ab0e0` — Snapshot remaining GuardIR governance repair state
+- Tree hash: `4c7dd636cc77`
+- Generation stamp: `snap-520798ec452b`
+- Generated at (UTC): 2026-05-21T16:15:51Z
 - Push decision: `run_devctl_push` — push_preconditions_satisfied
-- Reviewer mode: `tools_only` (interaction: `local_terminal`)
+- Reviewer mode: `tools_only` (interaction: `remote_control`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 124 files, +21432/-1886
+- Delta since last snapshot: 24 commits, 124 files, +21034/-1966
 - Governance findings: 26 open / 0 fixed / 26 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -28,9 +28,9 @@ production client (VoiceTerm...
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `extraction/guardir-core-p0-proof-integrity`
-- HEAD SHA: `15fd95b7d880e120c17474f3cc9c6999f323528e`
+- HEAD SHA: `90451b8ab0e0d1d31468ccfa0d3293790ebdd53f`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-05-21T12:11:33-04:00
+- HEAD timestamp (UTC): 2026-05-21T12:14:53-04:00
 
 ## 2. Governance state
 
@@ -50,7 +50,7 @@ production client (VoiceTerm...
 - reviewer_mode: `tools_only`
 - reviewer_freshness: unknown
 - reviewer_publish_clear: True
-- interaction_mode: `local_terminal`
+- interaction_mode: `remote_control`
 
 ### Remote commit pipeline
 - state: `n/a`
@@ -64,12 +64,12 @@ production client (VoiceTerm...
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `15fd95b7d880`
+Range: last 24 commits ending at `90451b8ab0e0`
 
 - commits: 24
 - files changed: 124
-- insertions: +21432
-- deletions: -1886
+- insertions: +21034
+- deletions: -1966
 - bundle classes touched: tooling, docs
 - authority surfaces touched: 4 file(s)
 
@@ -77,7 +77,7 @@ Range: last 24 commits ending at `15fd95b7d880`
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `15fd95b7` | Snapshot remaining GuardIR governance repair state | 88 | +17721/-617 | tooling |  |
+| 1 | `90451b8a` | Snapshot remaining GuardIR governance repair state | 88 | +17323/-697 | tooling |  |
 | 2 | `d1387379` | Repair current plan packet scheduler | 17 | +1287/-76 | tooling |  |
 | 3 | `fda73137` | Refresh external review snapshot for 41ad2430 | 1 | +49/-47 | tooling |  |
 | 4 | `41ad2430` | Land GuardIR v4 canonical plan markdown | 2 | +716/-0 | tooling |  |
@@ -110,7 +110,7 @@ Range: last 24 commits ending at `15fd95b7d880`
 | `dev/active/MASTER_PLAN.md` | tooling | +144/-24 |
 | `dev/active/ai_governance_platform.md` | tooling | +73/-48 |
 | `dev/active/platform_authority_loop.md` | tooling | +12/-12 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1042/-1081 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1147/-1161 |
 | `dev/audits/plan_intake/2026-05-20-guardir-lifecycle-recovery-ci-proof-bridge-v4.md` | tooling | +5124/-353 |
 | `dev/audits/plan_intake/sha256-manifest.txt` | tooling | +2/-1 |
 | `dev/guides/AI_GOVERNANCE_PLATFORM.md` | docs | +3/-2 |
@@ -199,9 +199,9 @@ Recent findings:
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/commands/vcs/governed_executor_commit_targets.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/runtime/reviewer_runtime_models.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/tests/vcs/test_governed_executor.py`) — Review contract-level invariants for this file
-- **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/commands/development/orchestration_models.py`) — Commit 15fd95b7 changed dev/scripts/devctl/commands/development/orchestration_models.py
-- **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/runtime/agent_loop_decision_models.py`) — Commit 15fd95b7 changed dev/scripts/devctl/runtime/agent_loop_decision_models.py
-- **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/runtime/reviewer_runtime_models.py`) — Commit 15fd95b7 changed dev/scripts/devctl/runtime/reviewer_runtime_models.py
+- **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/commands/development/orchestration_models.py`) — Commit 90451b8a changed dev/scripts/devctl/commands/development/orchestration_models.py
+- **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/runtime/agent_loop_decision_models.py`) — Commit 90451b8a changed dev/scripts/devctl/runtime/agent_loop_decision_models.py
+- **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/runtime/reviewer_runtime_models.py`) — Commit 90451b8a changed dev/scripts/devctl/runtime/reviewer_runtime_models.py
 - **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/review_channel/packet_contract.py`) — Commit d1387379 changed dev/scripts/devctl/review_channel/packet_contract.py
 
 ### Suggested verification commands
@@ -216,7 +216,7 @@ Recent findings:
 
 ### Per-commit rationale
 
-- **`15fd95b7`** — Snapshot remaining GuardIR governance repair state
+- **`90451b8a`** — Snapshot remaining GuardIR governance repair state
   - evolution: The cascade absorption window across MP-GUARDIR-V4-PHASE-0-6-E surfaced a quiet authority-promotion path: hand-maintained guides such as `dev/guides/SYSTEM_MAP.md`, `dev/guides/DEVELOPMENT.md`, and `dev/active/INDEX.md`…
 - **`d1387379`** — Repair current plan packet scheduler
   - evolution: The cascade absorption window across MP-GUARDIR-V4-PHASE-0-6-E surfaced a quiet authority-promotion path: hand-maintained guides such as `dev/guides/SYSTEM_MAP.md`, `dev/guides/DEVELOPMENT.md`, and `dev/active/INDEX.md`…
@@ -284,4 +284,4 @@ repo_path=/Users/jguida941/testing_upgrade/codex-voice
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-6bbea6c355d4` binds this file to HEAD `15fd95b7d880`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-520798ec452b` binds this file to HEAD `90451b8ab0e0`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
