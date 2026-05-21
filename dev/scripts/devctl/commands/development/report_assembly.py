@@ -20,6 +20,7 @@ from .attention_commands import (
 from .lifecycle import lifecycle_plan
 from .models import DevelopmentLoopReport
 from .next_slice import select_next_slice
+from ...runtime.current_plan_authority import resolve_current_plan_authority
 from .operator_command_wrappers import build_operator_command_wrappers
 from .packet_debt import packet_debt_payload
 from .peer_mind import peer_mind_snapshots
@@ -139,6 +140,7 @@ class _ReportCore:
     actor: str
     actor_source: str
     packet_attention: Any
+    current_plan_authority: Any
     blockers: tuple[str, ...]
     warnings: tuple[str, ...]
     runtime: Any
@@ -188,13 +190,21 @@ def build_report_impl(args: Any) -> DevelopmentLoopReport:
         ),
         packet_attention_command=core.packet_attention.required_command,
         next_commands=core.next_commands,
+        # v4.30 link 9 follow-up (rev_pkt_4701): plumb the resolved current
+        # actor so the consumer can refuse cross-actor commands (e.g.
+        # ``--actor claude`` surfacing while current_actor=codex).
+        current_actor=core.actor,
     )
     operator_command_wrappers = build_operator_command_wrappers(
         _operator_command_sources(
             core=core,
             final=final,
             next_step_command=next_step_command,
-        )
+        ),
+        # v4.30 link 9 follow-up (rev_pkt_4703): plumb the resolved current
+        # actor so wrappers refuse to render peer-lane commands as
+        # run-this shell envelopes without typed proxy authority.
+        current_actor=core.actor,
     )
     return DevelopmentLoopReport(
         action=core.action,
@@ -332,6 +342,14 @@ def _build_core(args: Any) -> _ReportCore:
         rows=rows,
         agent=actor,
     )
+    current_plan_authority = resolve_current_plan_authority(
+        rows,
+        pending_packets=tuple(
+            packet
+            for packet in review_state.get("packets", ())
+            if isinstance(packet, dict)
+        ),
+    )
     blockers, warnings = _action_findings(action, args)
     runtime = runtime_snapshot_from_review_state(
         review_state,
@@ -363,6 +381,7 @@ def _build_core(args: Any) -> _ReportCore:
             packet_attention=packet_attention,
             orchestration=orchestration,
             ranked_findings=ranked_findings,
+            current_plan_authority=current_plan_authority,
         )
     peer_minds = peer_mind_snapshots(REPO_ROOT, review_state, actor=actor)
     warnings = (*warnings, *peer_mind_alias_warnings(peer_minds))
@@ -386,6 +405,7 @@ def _build_core(args: Any) -> _ReportCore:
         actor=actor,
         actor_source=actor_source,
         packet_attention=packet_attention,
+        current_plan_authority=current_plan_authority,
         blockers=blockers,
         warnings=warnings,
         runtime=runtime,

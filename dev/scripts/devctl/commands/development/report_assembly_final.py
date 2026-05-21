@@ -40,6 +40,7 @@ def build_final_parts(
         core.review_state,
         packet_attention=core.packet_attention,
     )
+    current_plan_row_id = _current_plan_goal_id(core)
     continuation = continuation_signal(
         packet_attention=core.packet_attention,
         orchestration=core.orchestration,
@@ -49,12 +50,14 @@ def build_final_parts(
         actor=core.actor,
         current_action=core.action,
         fallback_commands=core.next_commands,
+        current_plan_row_id=current_plan_row_id,
     )
     final_response_gate = enforce_final_response_gate(
         continuation,
         packet_attention=core.packet_attention,
         orchestration=core.orchestration,
         next_slice_id=core.next_slice.slice_id,
+        current_plan_row_id=current_plan_row_id,
     )
     status = status_for_report(blockers=blockers, continuation=continuation)
     summary = summary_for_action(
@@ -90,3 +93,12 @@ def build_final_parts(
         summary=summary,
         reviewer_response_shape=reviewer_shape,
     )
+
+
+def _current_plan_goal_id(core: Any) -> str:
+    next_slice_id = str(getattr(core.next_slice, "slice_id", "") or "")
+    if next_slice_id and not next_slice_id.startswith("PKT-BIND-"):
+        for row in core.rows:
+            if str(getattr(row, "row_id", "") or "") == next_slice_id:
+                return next_slice_id
+    return str(getattr(core.current_plan_authority, "plan_row_id", "") or "")

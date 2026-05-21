@@ -32,6 +32,7 @@ from ...runtime.ground_truth_probe_gate import (
     require_recent_ground_truth_receipt,
 )
 from ...runtime.typed_gate_failure import TypedGateFailure
+from ...runtime.value_coercion import coerce_bool
 
 FINAL_RESPONSE_GATE_CONTRACT_ID = "FinalResponseGateResult"
 FINAL_RESPONSE_GATE_SCHEMA_VERSION = 1
@@ -70,6 +71,19 @@ class FinalResponseGateResult:
     why_not_done: str = ""
     stop_policy: str = "stop_only_when_typed_controller_closed"
     gate_failure: TypedGateFailure | None = None
+    # Phase 0.6.A v4.29 chain wiring link 8 (rev_pkt_4696): preserve the six
+    # typed BlockerSnapshot fields from the upstream AgentLoopDecision so the
+    # final-response gate surfaces typed owner/target/reason and stop_anchor
+    # instead of emitting an unrunnable command as ``next_required_command``.
+    # When ``repair_command_runnable`` is False the gate MUST set
+    # ``next_required_command`` to empty and route the agent to ``stop_anchor``
+    # or operator action via the typed fields below.
+    blocker_owner: str = ""
+    blocker_target: str = ""
+    blocker_reason: str = ""
+    repair_command: str = ""
+    stop_anchor: str = ""
+    repair_command_runnable: bool = True
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
@@ -81,6 +95,7 @@ def enforce_final_response_gate(
     packet_attention: Any | None = None,
     orchestration: Any | None = None,
     next_slice_id: str = "",
+    current_plan_row_id: str = "",
     repo_root: Path | None = None,
     ground_truth_expected_trigger_paths: Iterable[str] = (),
     ground_truth_max_age_seconds: int = DEFAULT_MAX_RECEIPT_AGE_SECONDS,
@@ -92,6 +107,7 @@ def enforce_final_response_gate(
         packet_attention=packet_attention,
         orchestration=orchestration,
         next_slice_id=next_slice_id,
+        current_plan_row_id=current_plan_row_id,
         repo_root=repo_root,
         ground_truth_expected_trigger_paths=ground_truth_expected_trigger_paths,
         ground_truth_max_age_seconds=ground_truth_max_age_seconds,
@@ -127,6 +143,7 @@ def _live_final_response_block(
     packet_attention: Any | None,
     orchestration: Any | None,
     next_slice_id: str = "",
+    current_plan_row_id: str = "",
     repo_root: Path | None = None,
     ground_truth_expected_trigger_paths: Iterable[str] = (),
     ground_truth_max_age_seconds: int = DEFAULT_MAX_RECEIPT_AGE_SECONDS,
@@ -135,6 +152,8 @@ def _live_final_response_block(
     packet_block = _packet_attention_final_response_block(
         continuation,
         packet_attention=packet_attention,
+        current_plan_row_id=current_plan_row_id,
+        next_slice_id=next_slice_id,
     )
     if packet_block is not None:
         return packet_block
@@ -142,6 +161,7 @@ def _live_final_response_block(
         continuation,
         orchestration=orchestration,
         next_slice_id=next_slice_id,
+        current_plan_row_id=current_plan_row_id,
         repo_root=repo_root,
         now_utc=now_utc,
     )
@@ -245,13 +265,18 @@ def _packet_attention_final_response_block(
     continuation: DevelopmentContinuationRequiredSignal,
     *,
     packet_attention: Any | None,
+    current_plan_row_id: str = "",
+    next_slice_id: str = "",
 ) -> FinalResponseGateResult | None:
     if packet_attention is None:
         return None
-    attention_required = bool(_field(packet_attention, "attention_required"))
+    # v4.45.5 (rev_pkt_4743): shared coerce_bool so projected
+    # ``attention_required="false"`` no longer ranks as True.
+    attention_required = coerce_bool(_field(packet_attention, "attention_required"))
     pending_packet_count = _int(_field(packet_attention, "pending_packet_count"))
-    wake_required = _truthy(_field(packet_attention, "wake_required"))
-    pivot_required = _truthy(_field(packet_attention, "pivot_required"))
+    # v4.45.5: migrated wake_required / pivot_required to shared coerce_bool.
+    wake_required = coerce_bool(_field(packet_attention, "wake_required"))
+    pivot_required = coerce_bool(_field(packet_attention, "pivot_required"))
     if not (
         attention_required
         or pending_packet_count > 0
@@ -262,6 +287,11 @@ def _packet_attention_final_response_block(
     wake_reason = _text(_field(packet_attention, "wake_reason"))
     attention_reason = _text(_field(packet_attention, "attention_reason"))
     reason = wake_reason or attention_reason or "packet_attention_required"
+    continuation_goal = (
+        current_plan_row_id
+        or _non_packet_goal(next_slice_id)
+        or _text(_field(packet_attention, "latest_attention_packet_id"))
+    )
     return FinalResponseGateResult(
         allow_final_response=False,
         action="continue_to_goal",
@@ -275,13 +305,13 @@ def _packet_attention_final_response_block(
         required_packet_command=continuation.required_packet_command,
         blocking_packet_id=_text(
             _field(packet_attention, "latest_attention_packet_id")
-        ),
+        )
+        if continuation_goal == _text(_field(packet_attention, "latest_attention_packet_id"))
+        else "",
         source="packet_attention",
         continuation_state="must_continue",
         user_action="Continue to goal",
-        continuation_goal=_text(
-            _field(packet_attention, "latest_attention_packet_id")
-        ),
+        continuation_goal=continuation_goal,
         why_not_done=(
             "A scoped packet requires attention before a final response is allowed."
         ),
@@ -294,6 +324,7 @@ def _agent_loop_final_response_block(
     *,
     orchestration: Any | None,
     next_slice_id: str = "",
+    current_plan_row_id: str = "",
     repo_root: Path | None = None,
     now_utc: datetime | None = None,
 ) -> FinalResponseGateResult | None:
@@ -302,12 +333,23 @@ def _agent_loop_final_response_block(
     decisions = tuple(getattr(orchestration, "agent_loop_decisions", ()) or ())
     for agent_decision in prioritized_agent_loop_decisions(decisions):
         required_action = _text(_field(agent_decision, "required_action"))
-        should_continue = bool(
+        # v4.45.6 (rev_pkt_4747): shared coerce_bool so projection
+        # ``should_continue_loop="false"`` short-circuits the final-gate
+        # block for non-blocking actions. Pre-v4.45.6 the raw ``bool()``
+        # truthified the string and forced a block even when the
+        # required_action was non-blocking.
+        should_continue = coerce_bool(
             _field(agent_decision, "should_continue_loop")
         )
         if (
             required_action not in _FINAL_BLOCKING_AGENT_ACTIONS
             and not should_continue
+        ):
+            continue
+        if _stale_packet_agent_loop_decision(
+            agent_decision,
+            current_plan_row_id=current_plan_row_id,
+            required_action=required_action,
         ):
             continue
         active_edit_override = is_active_edit_only_override(agent_decision)
@@ -338,6 +380,24 @@ def _agent_loop_final_response_block(
             required_action=required_action,
             next_slice_id=next_slice_id,
         )
+        # v4.29 link 8 (rev_pkt_4696): read typed BlockerSnapshot fields from
+        # the AgentLoopDecision so the gate can surface owner/target/reason
+        # plus stop_anchor instead of an unrunnable command. The
+        # ``_repair_command_runnable_from_field`` helper preserves the True
+        # default for legacy decisions that lack the field.
+        blocker_owner_value = _text(_field(agent_decision, "blocker_owner"))
+        blocker_target_value = _text(_field(agent_decision, "blocker_target"))
+        blocker_reason_value = _text(_field(agent_decision, "blocker_reason"))
+        repair_command_value = _text(_field(agent_decision, "repair_command"))
+        stop_anchor_value = _text(_field(agent_decision, "stop_anchor"))
+        runnable_value = _repair_command_runnable_from_field(agent_decision)
+        if not runnable_value:
+            # v4.29 unrunnable refusal: do NOT emit the upstream
+            # repair_command as the gate's next_required_command. The agent
+            # MUST route to ``stop_anchor`` or operator override; the
+            # owner/target/reason fields stay populated so consumers can act
+            # on the typed handoff.
+            next_required_command = ""
         blocking_packet_id = agent_loop_blocking_packet_id(
             agent_decision,
             required_action=required_action,
@@ -349,6 +409,12 @@ def _agent_loop_final_response_block(
             action=action,
             reason=reason,
             next_required_command=next_required_command,
+            blocker_owner=blocker_owner_value,
+            blocker_target=blocker_target_value,
+            blocker_reason=blocker_reason_value,
+            repair_command=repair_command_value,
+            stop_anchor=stop_anchor_value,
+            repair_command_runnable=runnable_value,
             required_packet_kind=required_packet_kind,
             required_packet_command=continuation.required_packet_command,
             blocking_packet_id=blocking_packet_id,
@@ -363,7 +429,9 @@ def _agent_loop_final_response_block(
                 or final_user_action_for_agent_loop(required_action)
             ),
             continuation_goal=(
-                _text(_field(agent_decision, "continuation_goal"))
+                current_plan_row_id
+                or _non_packet_goal(next_slice_id)
+                or _text(_field(agent_decision, "continuation_goal"))
                 or blocking_packet_id
                 or continuation.continuation_goal
             ),
@@ -513,10 +581,75 @@ def _int(value: object) -> int:
         return 0
 
 
-def _truthy(value: object) -> bool:
-    if isinstance(value, bool):
-        return value
-    return _text(value).lower() in {"1", "true", "yes", "on"}
+def _non_packet_goal(value: str) -> str:
+    text = _text(value)
+    if not text:
+        return ""
+    blocked_prefixes = (
+        "packet",
+        "communication-packet",
+        "runtime-attention",
+        "checkpoint",
+        "review-loop",
+        "rev_pkt_",
+    )
+    if any(text.startswith(prefix) for prefix in blocked_prefixes):
+        return ""
+    return text
+
+
+def _stale_packet_agent_loop_decision(
+    agent_decision: Any,
+    *,
+    current_plan_row_id: str,
+    required_action: str,
+) -> bool:
+    if not current_plan_row_id:
+        return False
+    packet_id = (
+        _text(_field(agent_decision, "attention_packet_id"))
+        or _text(_field(agent_decision, "active_packet_id"))
+        or _text(_field(agent_decision, "legacy_unscoped_packet_id"))
+    )
+    plan_target_ref = _text(_field(agent_decision, "plan_target_ref"))
+    if plan_target_ref in {current_plan_row_id, f"plan:{current_plan_row_id}"}:
+        return False
+    packet_actions = {
+        "ingest_packet_semantics",
+        "open_packet_body",
+        "pivot_to_packet",
+        "triage_packet",
+        "triage_pending_packet",
+    }
+    return bool(packet_id or plan_target_ref) and required_action in packet_actions
+
+
+# v4.45.5 (rev_pkt_4743): local ``_truthy`` retired in favor of shared
+# ``runtime.value_coercion.coerce_bool`` (imported at module top). The
+# previous local helper diverged on ``"y"`` (truthy treated as False;
+# coerce_bool treats as True) — unintentional divergence per codex's
+# audit. The shared normalizer is now the single canonical boolean
+# coercion in this surface.
+
+
+def _repair_command_runnable_from_field(agent_decision: Any) -> bool:
+    """Return repair_command_runnable preserving the True default when absent.
+
+    v4.29 link 8 (rev_pkt_4696): an AgentLoopDecision row that predates the
+    typed-blocker fields produces ``_field(agent_decision, "repair_command_runnable")
+    -> None``. ``_truthy(None)`` returns False, which would silently flip every
+    legacy decision into unrunnable territory. Treat missing/None as True
+    (the dataclass contract default) so only an EXPLICIT False/"false"/"0"
+    from upstream disables runnable-command emission.
+    """
+    value = _field(agent_decision, "repair_command_runnable")
+    if value is None:
+        return True
+    # v4.45.5 (rev_pkt_4743): use shared coerce_bool so the helper picks up
+    # ``"y"`` as True (matches the rest of the bool boundary). Pre-v4.45.5
+    # _truthy treated ``"y"`` as False — an unintentional divergence codex
+    # called out for parity.
+    return coerce_bool(value)
 
 
 __all__ = [

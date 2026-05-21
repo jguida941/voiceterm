@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from dataclasses import asdict
 
 from .event_projection_context import (
@@ -19,6 +19,8 @@ from ..runtime.instruction_authority import (
     InstructionPriorityDecision,
     packet_instruction_provenance,
 )
+from ..runtime.current_plan_authority import resolve_current_plan_authority
+from ..runtime.plan_packet_routing import packet_can_drive_current_plan
 from ..runtime.review_state_models import ReviewQueueState
 from ..time_utils import utc_timestamp
 from .action_request_delivery import attach_action_request_delivery_receipts
@@ -27,18 +29,27 @@ _PENDING_QUEUE_PROVIDERS = ("codex", "claude", "cursor", "operator")
 _EVENT_LOG_REL = "dev/reports/review_channel/events/trace.ndjson"
 
 
-def derive_event_next_instruction(packets: list[dict[str, object]]) -> str:
-    return derive_event_next_instruction_bundle(packets)[0]
+def derive_event_next_instruction(
+    packets: list[dict[str, object]],
+    *,
+    plan_rows: Iterable[object] = (),
+) -> str:
+    return derive_event_next_instruction_bundle(packets, plan_rows=plan_rows)[0]
 
 
 def derive_event_next_instruction_bundle(
     packets: list[dict[str, object]],
     *,
+    plan_rows: Iterable[object] = (),
     build_event_context_packet_fn=build_event_context_packet,
     append_event_instruction_context_fn=append_event_instruction_context,
     build_instruction_source_fn=build_instruction_source,
 ) -> tuple[str, dict[str, object]]:
-    packet, control_metadata = select_priority_pending_packet(packets)
+    candidate_packets, plan_filter = _plan_graph_instruction_candidates(
+        packets,
+        plan_rows=plan_rows,
+    )
+    packet, control_metadata = select_priority_pending_packet(candidate_packets)
     if packet is not None:
         summary = format_priority_instruction(
             str(packet.get("summary") or ""),
@@ -51,6 +62,8 @@ def derive_event_next_instruction_bundle(
             instruction = append_event_instruction_context_fn(summary, context_packet)
             source = build_instruction_source_fn(packet, context_packet)
             source.update(control_metadata)
+            if plan_filter:
+                source["plan_graph_filter"] = plan_filter
             provenance = packet_instruction_provenance(
                 packet,
                 event_log_rel=_EVENT_LOG_REL,
@@ -77,6 +90,7 @@ def build_event_queue_summary(
     stale_packet_count: int,
     *,
     packets: list[dict[str, object]],
+    plan_rows: Iterable[object] = (),
     build_event_context_packet_fn=build_event_context_packet,
     append_event_instruction_context_fn=append_event_instruction_context,
     build_instruction_source_fn=build_instruction_source,
@@ -84,6 +98,7 @@ def build_event_queue_summary(
     """Build the event-backed queue summary plus derived next-step hint."""
     derived_instruction, derived_source = derive_event_next_instruction_bundle(
         packets,
+        plan_rows=plan_rows,
         build_event_context_packet_fn=build_event_context_packet_fn,
         append_event_instruction_context_fn=append_event_instruction_context_fn,
         build_instruction_source_fn=build_instruction_source_fn,
@@ -106,6 +121,7 @@ def build_event_queue_state(
     stale_packet_count: int,
     packet_rows: list[dict[str, object]],
     *,
+    plan_rows: Iterable[object] = (),
     build_event_context_packet_fn=build_event_context_packet,
     append_event_instruction_context_fn=append_event_instruction_context,
     build_instruction_source_fn=build_instruction_source,
@@ -113,6 +129,7 @@ def build_event_queue_state(
     """Build a typed ReviewQueueState from event reduction outputs."""
     derived_instruction, derived_source = derive_event_next_instruction_bundle(
         packet_rows,
+        plan_rows=plan_rows,
         build_event_context_packet_fn=build_event_context_packet_fn,
         append_event_instruction_context_fn=append_event_instruction_context_fn,
         build_instruction_source_fn=build_instruction_source_fn,
@@ -135,6 +152,7 @@ def attach_event_queue_state(
     review_state: dict[str, object],
     *,
     artifact_root,
+    plan_rows: Iterable[object] = (),
 ) -> None:
     packets = review_state.get("packets")
     if not isinstance(packets, list):
@@ -150,6 +168,7 @@ def attach_event_queue_state(
         pending_counts,
         int(queue.get("stale_packet_count") or 0),
         review_state["packets"],
+        plan_rows=plan_rows,
     )
     review_state["queue"] = asdict(review_state["queue"])
 
@@ -159,6 +178,60 @@ def _pending_counts_from_queue(queue: Mapping[str, object]) -> dict[str, int]:
         provider: int(queue.get(f"pending_{provider}") or 0)
         for provider in _PENDING_QUEUE_PROVIDERS
     }
+
+
+def _plan_graph_instruction_candidates(
+    packets: list[dict[str, object]],
+    *,
+    plan_rows: Iterable[object],
+) -> tuple[list[dict[str, object]], dict[str, object]]:
+    rows = tuple(plan_rows)
+    if not rows:
+        return packets, {}
+    authority = resolve_current_plan_authority(rows, pending_packets=packets)
+    if not authority.has_executable_plan_row:
+        return packets, {
+            "state": "no_current_executable_plan_row",
+            "current_plan_row_id": "",
+        }
+    selected: list[dict[str, object]] = []
+    deferred: list[dict[str, object]] = []
+    for packet in packets:
+        allowed, routing = packet_can_drive_current_plan(
+            packet,
+            rows,
+            current_authority=authority,
+            authority_affecting=_packet_authority_affecting(packet),
+        )
+        if allowed:
+            selected.append(packet)
+            continue
+        deferred.append(
+            {
+                "packet_id": str(packet.get("packet_id") or "").strip(),
+                "classification": routing.classification,
+                "target_plan_row_id": routing.target_plan_row_id,
+                "reason": routing.reason,
+            }
+        )
+    return selected, {
+        "state": "current_plan_authority_filtered",
+        "current_plan_row_id": authority.plan_row_id,
+        "candidate_count": len(selected),
+        "deferred_count": len(deferred),
+        "deferred_packets": deferred[:20],
+    }
+
+
+def _packet_authority_affecting(packet: Mapping[str, object]) -> bool:
+    raw = str(packet.get("authority_affecting") or "").strip().lower()
+    if raw in {"1", "true", "yes"}:
+        return True
+    kind = str(packet.get("kind") or "").strip()
+    requested_action = str(packet.get("requested_action") or "").strip()
+    if requested_action == "review_only":
+        return False
+    return kind in {"action_request", "approval_request", "commit_approval", "instruction"}
 
 
 def _mapping(value: object) -> Mapping[str, object]:

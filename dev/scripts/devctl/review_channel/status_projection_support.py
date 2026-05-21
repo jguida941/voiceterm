@@ -7,6 +7,8 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 
 from ..common import display_path
+from ..runtime.master_plan_contract import DEFAULT_MASTER_PLAN_STORE_REL
+from ..runtime.master_plan_store import read_plan_rows_jsonl
 from ..runtime.review_packet_inbox import build_packet_inbox_payload
 from ..runtime.review_state_models import (
     packet_inbox_from_mapping,
@@ -18,10 +20,7 @@ from ..runtime.review_state_models import (
     ReviewState,
 )
 from .projection_provenance import REVIEW_STATE_SOURCE_CONTRACT, STATUS_SOURCE_COMMAND
-from .packet_control_loop import (
-    format_priority_instruction,
-    select_priority_pending_packet,
-)
+from .event_projection_queue import derive_event_next_instruction_bundle
 from .promotion import PromotionCandidate, promotion_candidate_to_dict
 from .registry_context import AgentRegistryContext
 from .review_candidate import build_review_candidate, review_candidate_error
@@ -79,6 +78,7 @@ class ReviewStatePayloadInputs:
 
 def build_review_state_payload(inputs: ReviewStatePayloadInputs) -> ReviewState:
     """Build the canonical ReviewState payload from bridge-backed inputs."""
+    plan_rows = _read_plan_rows_for_context(inputs.context.repo_root)
     return ReviewState(
         schema_version=1,
         contract_id=REVIEW_STATE_SOURCE_CONTRACT,
@@ -91,6 +91,7 @@ def build_review_state_payload(inputs: ReviewStatePayloadInputs) -> ReviewState:
             inputs.promotion_candidate,
             pending_packets=inputs.context.pending_packets,
             stale_packet_count=inputs.context.stale_packet_count,
+            plan_rows=plan_rows,
         ),
         current_session=inputs.current_session,
         collaboration=inputs.collaboration,
@@ -113,6 +114,7 @@ def build_review_state_payload(inputs: ReviewStatePayloadInputs) -> ReviewState:
                 build_packet_inbox_payload(
                     inputs.context.pending_packets,
                     attention=inputs.typed_attention,
+                    plan_rows=plan_rows,
                 )
             )
             or packet_inbox_from_mapping({"attention_revision": "", "agents": []})
@@ -204,25 +206,14 @@ def build_queue_state(
     *,
     pending_packets: tuple[dict[str, object], ...] = (),
     stale_packet_count: int = 0,
+    plan_rows: tuple[object, ...] = (),
 ) -> ReviewQueueState:
     pending_counts = _count_pending_by_target(pending_packets)
-    derived_instruction = ""
-    derived_source: dict[str, object] = {}
-    selected_packet, control_metadata = select_priority_pending_packet(pending_packets)
-    if selected_packet is not None:
-        selection_policy = str(control_metadata.get("selection_policy") or "").strip()
-        derived_instruction = format_priority_instruction(
-            str(selected_packet.get("summary") or "").strip(),
-            selection_policy=selection_policy,
-        )
-        derived_source = {
-            "source_type": "review_packet",
-            "packet_id": str(selected_packet.get("packet_id") or "").strip(),
-            "from_agent": str(selected_packet.get("from_agent") or "").strip(),
-            "to_agent": str(selected_packet.get("to_agent") or "").strip(),
-            **control_metadata,
-        }
-    elif promotion_candidate is not None:
+    derived_instruction, derived_source = derive_event_next_instruction_bundle(
+        list(pending_packets),
+        plan_rows=plan_rows,
+    )
+    if not derived_instruction and promotion_candidate is not None:
         derived_instruction = promotion_candidate.instruction
         derived_source = promotion_candidate_to_dict(promotion_candidate)
     return ReviewQueueState(
@@ -235,6 +226,13 @@ def build_queue_state(
         derived_next_instruction=derived_instruction,
         derived_next_instruction_source=derived_source,
     )
+
+
+def _read_plan_rows_for_context(repo_root: Path) -> tuple[object, ...]:
+    try:
+        return read_plan_rows_jsonl(repo_root / DEFAULT_MASTER_PLAN_STORE_REL)
+    except (OSError, ValueError):
+        return ()
 
 
 def build_attention(

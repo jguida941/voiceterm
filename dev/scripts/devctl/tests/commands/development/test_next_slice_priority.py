@@ -62,8 +62,8 @@ def test_critical_finding_with_active_target_ref_preempts_leaf_row() -> None:
     assert "critical" in result.reason
 
 
-def test_high_finding_without_linkage_returns_communication_slice() -> None:
-    """Open high finding with no plan-row linkage surfaces as bug-priority-preemption communication slice."""
+def test_high_finding_without_linkage_does_not_preempt_current_plan() -> None:
+    """Open high finding with no plan-row linkage stays in backlog while a plan row is executable."""
     rows = (
         _row(row_id="MP-A", target_ref="pkg/a.py", status="queued"),
     )
@@ -71,10 +71,40 @@ def test_high_finding_without_linkage_returns_communication_slice() -> None:
 
     result = select_next_slice(rows, ranked_findings=findings)
 
+    assert result.slice_id == "MP-A"
+    assert result.status == "queued"
+    assert result.target_ref == "pkg/a.py"
+    assert "current-plan authority" in result.reason
+
+
+def test_high_finding_without_linkage_can_surface_when_no_plan_row_exists() -> None:
+    """Unlinked critical/high findings remain visible if no plan graph row can run."""
+    findings = (_finding(severity="high", primary_file="pkg/orphan.py"),)
+
+    result = select_next_slice((), ranked_findings=findings)
+
     assert result.slice_id == "bug-priority-preemption"
     assert result.status == "attention_required"
     assert result.target_ref == "pkg/orphan.py"
     assert "No active plan-row linkage" in result.reason
+
+
+def test_finding_linkage_ignores_packet_binding_rows() -> None:
+    """PKT-BIND rows are packet evidence, not executable finding targets."""
+    rows = (
+        _row(
+            row_id="PKT-BIND-REV-PKT-1",
+            target_ref="pkg/buggy.py",
+            status="queued",
+        ),
+        _row(row_id="MP-CURRENT", target_ref="pkg/current.py", status="queued"),
+    )
+    findings = (_finding(severity="critical", primary_file="pkg/buggy.py"),)
+
+    result = select_next_slice(rows, ranked_findings=findings)
+
+    assert result.slice_id == "MP-CURRENT"
+    assert "current-plan authority" in result.reason
 
 
 def test_medium_finding_does_not_preempt() -> None:
@@ -118,4 +148,4 @@ def test_no_findings_argument_preserves_pre_slice_x_behavior() -> None:
     result = select_next_slice(rows)
 
     assert result.slice_id == "MP-LEGACY"
-    assert "Selected from typed master-plan rows" in result.reason
+    assert "current-plan authority" in result.reason

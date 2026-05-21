@@ -10,6 +10,7 @@ from ..runtime.master_plan_parse import (
     normalize_plan_proposal,
     plan_proposal_from_packet_fields,
 )
+from ..runtime.plan_packet_routing import PLAN_ROW_PRIORITY_AMENDMENT_PACKET_KIND
 from .contradiction_detector import find_plan_proposal_conflict
 
 PLANNING_PACKET_KINDS = frozenset(
@@ -17,6 +18,7 @@ PLANNING_PACKET_KINDS = frozenset(
         "plan_gap_review",
         "plan_patch_review",
         "plan_ready_gate",
+        PLAN_ROW_PRIORITY_AMENDMENT_PACKET_KIND,
     }
 )
 PROPOSAL_PACKET_KINDS = PLANNING_PACKET_KINDS

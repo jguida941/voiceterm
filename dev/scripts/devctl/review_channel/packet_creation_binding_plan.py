@@ -9,8 +9,12 @@ import re
 
 from ..governance.draft import scan_repo_governance
 from ..runtime.master_plan_contract import IngestionProvenance, PlanRow, SDLCStage
-from ..runtime.master_plan_store import upsert_plan_row_jsonl
+from ..runtime.master_plan_store import read_plan_rows_jsonl, upsert_plan_row_jsonl
 from ..runtime.collaboration_packet_kinds import TASK_STARTED_PACKET_KIND
+from ..runtime.plan_packet_routing import (
+    PLAN_AMENDMENT,
+    classify_packet_for_plan_graph,
+)
 from ..runtime.plan_ref import canonical_plan_ref
 from .event_store import DEFAULT_REVIEW_CHANNEL_PLAN_ID, ReviewChannelArtifactPaths
 from .packet_creation_binding_contracts import (
@@ -39,11 +43,33 @@ def bind_packet_to_plan_row(
         )
 
     typed_store_path = repo_root / master_plan.typed_store_path
+    existing_rows = read_plan_rows_jsonl(typed_store_path)
+    routing = classify_packet_for_plan_graph(packet_event, existing_rows)
+    if routing.classification == PLAN_AMENDMENT:
+        return binding_result(
+            "deferred",
+            "plan_amendment_requires_plan_intake",
+            packet_id=packet_id,
+            binding_target_kind="plan_intent",
+            binding_target=routing.target_plan_row_id,
+            target_ref=target_ref,
+            plan_packet_routing=routing.to_dict(),
+        )
+    if not routing.bind_as_plan_evidence:
+        return binding_result(
+            "skipped",
+            "packet_has_no_plan_graph_binding",
+            packet_id=packet_id,
+            binding_target_kind="communication_only",
+            target_ref=target_ref,
+            plan_packet_routing=routing.to_dict(),
+        )
     row = _typed_plan_row(
         repo_root=repo_root,
         packet_event=packet_event,
         artifact_paths=artifact_paths,
         target_ref=target_ref,
+        classification=routing.classification,
     )
     try:
         store_status, _stored = upsert_plan_row_jsonl(typed_store_path, row)
@@ -69,11 +95,12 @@ def bind_packet_to_plan_row(
     )
     return binding_result(
         store_status,
-        "packet_bound_to_plan_row_at_creation",
+        "packet_bound_to_plan_graph_evidence_at_creation",
         packet_id=packet_id,
-        binding_target_kind="plan_row",
+        binding_target_kind="plan_row_evidence",
         binding_target=row.row_id,
         target_ref=target_ref,
+        plan_packet_routing=routing.to_dict(),
         path=str(typed_store_path),
         projection_path=projection,
     )
@@ -99,6 +126,7 @@ def _typed_plan_row(
     packet_event: Mapping[str, object],
     artifact_paths: ReviewChannelArtifactPaths,
     target_ref: str,
+    classification: str,
 ) -> PlanRow:
     packet_id = _text(packet_event.get("packet_id"))
     source_hash = _content_hash(packet_event)
@@ -109,8 +137,9 @@ def _typed_plan_row(
     return PlanRow(
         row_id=f"PKT-BIND-{_task_slug(packet_id)}",
         title=_row_title(packet_event),
-        status="queued",
+        status="evidence",
         sdlc_stage=SDLCStage.SPEC,
+        row_kind="packet_binding",
         sourced_from_packets=(packet_id,),
         work_evidence_ids=(
             f"packet:{packet_id}",
@@ -131,7 +160,7 @@ def _typed_plan_row(
             _dedupe([*_rows(packet_event.get("anchor_refs")), f"packet:{packet_id}"])
         ),
         target_ref=target_ref,
-        mutation_op=_mutation_op(packet_event),
+        mutation_op=classification or _mutation_op(packet_event),
     )
 
 
@@ -205,7 +234,7 @@ def _projection_markdown_row(
     return (
         f"- [ ] `{row.row_id}` {row.title} "
         f"(source `{packet_id}`; target `{target_ref}`; "
-        f"posted `{posted_at}`; binding `plan_row`)."
+        f"posted `{posted_at}`; binding `plan_row_evidence`)."
     )
 
 

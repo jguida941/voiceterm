@@ -7,6 +7,8 @@ from hashlib import sha256
 import json
 
 from .inbox_command_template import inbox_command_for_agent as _inbox_command_for_agent
+from .current_plan_authority import resolve_current_plan_authority
+from .plan_packet_routing import packet_can_drive_current_plan
 from .review_packet_inbox_actionable import (
     attention_urgency as _attention_urgency,
     ordered_actionable_packets as _ordered_actionable_packets,
@@ -33,11 +35,18 @@ def build_packet_inbox_payload(
     packets: Sequence[object] | object,
     *,
     attention: Mapping[str, object] | None = None,
+    plan_rows: Sequence[object] | object = (),
 ) -> dict[str, object]:
     """Build one canonical packet-inbox payload from reduced packet rows."""
     packet_rows = [dict(packet) for packet in _packet_rows(packets)]
+    plan_row_tuple = tuple(_plan_rows(plan_rows))
     agent_payloads = [
-        _build_agent_attention_payload(agent, packet_rows, attention=attention)
+        _build_agent_attention_payload(
+            agent,
+            packet_rows,
+            attention=attention,
+            plan_rows=plan_row_tuple,
+        )
         for agent in _target_agents(packet_rows)
     ]
     return {
@@ -118,13 +127,23 @@ def _build_agent_attention_payload(
     packet_rows: list[dict[str, object]],
     *,
     attention: Mapping[str, object] | None,
+    plan_rows: tuple[object, ...] = (),
 ) -> dict[str, object]:
     targeted = _targeted_packets(packet_rows, agent)
     live_pending = [packet for packet in targeted if _is_live_pending(packet)]
     live_control = [packet for packet in targeted if _is_live_control_packet(packet)]
-    active_actionable = _actionable_packets(live_control)
-    pending_actionable = _actionable_packets(live_pending)
-    live_finding_packets = _finding_packets(live_pending)
+    active_actionable = _plan_graph_attention_packets(
+        _actionable_packets(live_control),
+        plan_rows=plan_rows,
+    )
+    pending_actionable = _plan_graph_attention_packets(
+        _actionable_packets(live_pending),
+        plan_rows=plan_rows,
+    )
+    live_finding_packets = _plan_graph_attention_packets(
+        _finding_packets(live_pending),
+        plan_rows=plan_rows,
+    )
     selected_actionable = _select_actionable_packet(active_actionable)
     current_instruction_packet_id = _packet_id(selected_actionable)
     latest_finding_packet_id = _packet_id(_latest_packet(live_finding_packets))
@@ -300,6 +319,46 @@ def _packet_rows(packets: Sequence[object] | object) -> tuple[Mapping[str, objec
     if not isinstance(packets, Sequence) or isinstance(packets, (str, bytes)):
         return ()
     return tuple(packet for packet in packets if isinstance(packet, Mapping))
+
+
+def _plan_rows(rows: Sequence[object] | object) -> tuple[object, ...]:
+    if not isinstance(rows, Sequence) or isinstance(rows, (str, bytes)):
+        return ()
+    return tuple(row for row in rows if row is not None)
+
+
+def _plan_graph_attention_packets(
+    packet_rows: list[dict[str, object]],
+    *,
+    plan_rows: tuple[object, ...],
+) -> list[dict[str, object]]:
+    if not plan_rows:
+        return packet_rows
+    authority = resolve_current_plan_authority(plan_rows, pending_packets=packet_rows)
+    if not authority.has_executable_plan_row:
+        return packet_rows
+    result: list[dict[str, object]] = []
+    for packet in packet_rows:
+        allowed, _routing = packet_can_drive_current_plan(
+            packet,
+            plan_rows,
+            current_authority=authority,
+            authority_affecting=_packet_authority_affecting(packet),
+        )
+        if allowed:
+            result.append(packet)
+    return result
+
+
+def _packet_authority_affecting(packet: Mapping[str, object]) -> bool:
+    raw = str(packet.get("authority_affecting") or "").strip().lower()
+    if raw in {"1", "true", "yes"}:
+        return True
+    kind = str(packet.get("kind") or "").strip()
+    requested_action = str(packet.get("requested_action") or "").strip()
+    if requested_action == "review_only":
+        return False
+    return kind in {"action_request", "approval_request", "commit_approval", "instruction"}
 
 
 def _live_packet_ids_by_agent(

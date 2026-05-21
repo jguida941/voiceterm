@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
+from ...runtime.current_plan_authority import CurrentPlanAuthority
 from ...runtime.master_plan_contract import DEFAULT_MASTER_PLAN_STORE_REL, PlanRow
 from ...triage.findings_priority_models import RankedFinding
 from .models import (
@@ -22,9 +23,13 @@ def select_next_slice(
     packet_attention: DevelopmentPacketAttention | None = None,
     orchestration: DevelopmentOrchestrationSnapshot | None = None,
     ranked_findings: Sequence[RankedFinding] | None = None,
+    current_plan_authority: CurrentPlanAuthority | None = None,
 ) -> DevelopmentNextSlice:
     """Select the next bounded development row from typed state."""
     packet_row = _packet_attention_row(rows, packet_attention)
+    current_plan_row = _current_authority_row(rows, current_plan_authority)
+    if current_plan_row is None:
+        current_plan_row = _active_leaf_row(rows)
     selected = _orchestration_blocker_row(rows, orchestration)
     if _packet_attention_closes_orchestration_blocker(
         packet_attention,
@@ -36,6 +41,11 @@ def select_next_slice(
         and packet_attention is not None
         and packet_attention.attention_required
         and packet_attention.authority_affecting
+        and _packet_attention_can_preempt_current_plan(
+            packet_attention=packet_attention,
+            packet_row=packet_row,
+            current_plan_row=current_plan_row,
+        )
     ):
         return _packet_attention_slice(packet_attention, packet_row)
     if selected is not None:
@@ -51,29 +61,60 @@ def select_next_slice(
                 "vocabulary, not scheduling authority."
             ),
         )
-    if packet_attention is not None and packet_attention.attention_required:
-        return _packet_attention_slice(packet_attention, packet_row)
-    finding_slice = _critical_finding_preemption_slice(rows, ranked_findings)
+    finding_slice = _critical_finding_preemption_slice(
+        rows,
+        ranked_findings,
+        current_plan_row=current_plan_row,
+    )
     if finding_slice is not None:
         return finding_slice
-    selected = _active_leaf_row(rows)
-    if selected is None:
+    if current_plan_row is not None:
+        return _plan_row_slice(
+            current_plan_row,
+            reason=(
+                "Selected from typed current-plan authority; packet backlog is "
+                "evidence or communication unless it blocks the current row or "
+                "routes through plan-intent ingestion."
+            ),
+        )
+    if packet_attention is not None and packet_attention.attention_required:
+        return _packet_attention_slice(packet_attention, packet_row)
+    if current_plan_row is None:
         return DevelopmentNextSlice(
             status="none",
             reason="No queued or in-progress typed plan rows found.",
         )
-    return DevelopmentNextSlice(
-        slice_id=selected.row_id,
-        source=selected.source_doc_path or DEFAULT_MASTER_PLAN_STORE_REL,
-        title=selected.title,
-        target_ref=selected.target_ref,
-        status=selected.status,
+    return _plan_row_slice(
+        current_plan_row,
         reason=(
             "Selected from typed master-plan rows using active leaf rows; "
             "active parent rows delegate to concrete child rows before "
             "ordinary status ordering."
         ),
     )
+
+
+def _plan_row_slice(row: PlanRow, *, reason: str) -> DevelopmentNextSlice:
+    return DevelopmentNextSlice(
+        slice_id=row.row_id,
+        source=row.source_doc_path or DEFAULT_MASTER_PLAN_STORE_REL,
+        title=row.title,
+        target_ref=row.target_ref,
+        status=row.status,
+        reason=reason,
+    )
+
+
+def _current_authority_row(
+    rows: tuple[PlanRow, ...],
+    current_plan_authority: CurrentPlanAuthority | None,
+) -> PlanRow | None:
+    if current_plan_authority is None or not current_plan_authority.plan_row_id:
+        return None
+    for row in rows:
+        if row.row_id == current_plan_authority.plan_row_id:
+            return row
+    return None
 
 
 def _first_row_with_status(rows: tuple[PlanRow, ...], status: str) -> PlanRow | None:
@@ -85,7 +126,9 @@ def _first_row_with_status(rows: tuple[PlanRow, ...], status: str) -> PlanRow | 
 
 def _active_leaf_row(rows: tuple[PlanRow, ...]) -> PlanRow | None:
     active_rows = tuple(
-        row for row in rows if row.status in {"in_progress", "queued"}
+        row
+        for row in rows
+        if row.status in {"in_progress", "queued"} and not _packet_binding_row(row)
     )
     leaf_rows = tuple(
         row for row in active_rows if not _has_active_child(row, active_rows)
@@ -118,6 +161,26 @@ def _has_active_child(row: PlanRow, rows: tuple[PlanRow, ...]) -> bool:
 
 def _packet_binding_row(row: PlanRow) -> bool:
     return row.row_id.startswith("PKT-BIND-")
+
+
+def _packet_attention_can_preempt_current_plan(
+    *,
+    packet_attention: DevelopmentPacketAttention,
+    packet_row: PlanRow | None,
+    current_plan_row: PlanRow | None,
+) -> bool:
+    if current_plan_row is None:
+        return True
+    if not packet_attention.authority_affecting:
+        return False
+    row_ids = {
+        current_plan_row.row_id,
+        f"plan:{current_plan_row.row_id}",
+    }
+    durable_row_id = str(packet_attention.durable_plan_row_id or "").strip()
+    if durable_row_id in row_ids:
+        return True
+    return packet_row is not None and packet_row.row_id == current_plan_row.row_id
 
 
 def _orchestration_blocker_row(
@@ -253,22 +316,28 @@ def _packet_attention_slice(
 def _critical_finding_preemption_slice(
     rows: tuple[PlanRow, ...],
     ranked_findings: Sequence[RankedFinding] | None,
+    *,
+    current_plan_row: PlanRow | None = None,
 ) -> DevelopmentNextSlice | None:
     """Preempt ordinary plan work with an open critical/high finding.
 
     Role-flip SLICE-X (codex rev_pkt_4494/4506): unresolved critical/high
     confirmed_issue findings outrank ordinary leaf-row selection in the
     develop-next decision path. The finding is bound to a plan row when its
-    primary_file matches an active row's target_ref; otherwise it surfaces as a
-    communication-only bug-priority slice. Stale/missing finding-source
-    fail-loud detection is upstream of this helper (SLICE-Y scope).
+    primary_file matches an active row's target_ref. Unlinked findings remain
+    visible in the finding backlog, but do not become a competing scheduler lane
+    while the current plan graph has an executable row.
     """
     if not ranked_findings:
         return None
     active_by_target: dict[str, PlanRow] = {
         row.target_ref: row
         for row in rows
-        if row.target_ref and row.status in {"in_progress", "queued"}
+        if (
+            row.target_ref
+            and row.status in {"in_progress", "queued"}
+            and not _packet_binding_row(row)
+        )
     }
     for finding in ranked_findings:
         if finding.resolution_state != "open":
@@ -289,6 +358,8 @@ def _critical_finding_preemption_slice(
                     "active plan-row linkage on target_ref."
                 ),
             )
+        if current_plan_row is not None:
+            continue
         return DevelopmentNextSlice(
             slice_id="bug-priority-preemption",
             source="FindingBacklog.ranked_findings",

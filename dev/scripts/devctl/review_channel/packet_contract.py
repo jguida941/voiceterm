@@ -71,7 +71,7 @@ VALID_PACKET_KINDS = {
     "plan_ready_gate",
     AUTOMATION_OPPORTUNITY_PACKET_KIND,
     COMMIT_APPROVAL_PACKET_KIND,
-} | SESSION_TERMINATION_PACKET_KINDS | COLLABORATION_LIFECYCLE_PACKET_KINDS
+} | PLANNING_PACKET_KINDS | SESSION_TERMINATION_PACKET_KINDS | COLLABORATION_LIFECYCLE_PACKET_KINDS
 CARRIER_PACKET_KINDS = carrier_packet_kinds(VALID_PACKET_KINDS)
 VALID_POLICY_HINTS = {
     "review_only",
@@ -270,6 +270,7 @@ class PacketPostRequest:
         default_factory=PacketAnchorReleaseFields
     )
     plan_proposal: PlanProposal = field(default_factory=PlanProposal)
+    parent_packet_id: str = ""
 
 
 @dataclass(frozen=True, slots=True)

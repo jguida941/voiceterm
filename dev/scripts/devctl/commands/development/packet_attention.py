@@ -11,9 +11,11 @@ from ...runtime.peer_attention_window import _BLOCKING_KINDS
 from ...runtime.master_plan_contract import PlanRow
 from ...runtime.inbox_command_template import inbox_command_for_agent
 from ...runtime.development_packet_failure_owner import class_owner_by_packet_failure
+from ...runtime.current_plan_authority import resolve_current_plan_authority
 from ...runtime.packet_carry_forward_sources import (
     durable_packet_ids_from_plan_rows,
 )
+from ...runtime.plan_packet_routing import packet_can_drive_current_plan
 from ...runtime.review_packet_inbox import packet_inbox_from_review_state
 from .models import DevelopmentPacketAttention
 from .packet_attention_body_followup import (
@@ -33,7 +35,7 @@ from .packet_attention_support import (
     required_command_for_record,
     wake_reason_for_packet,
 )
-from .packet_attention_lifecycle import packet_by_id
+from .packet_attention_lifecycle import packet_by_id, packet_rows
 
 _ATTENTION_REQUIRED_STATUSES = {
     "wake_required",
@@ -41,6 +43,7 @@ _ATTENTION_REQUIRED_STATUSES = {
     "blocked",
     "checkpoint_required",
 }
+
 
 def packet_attention_from_review_state(
     review_state: Mapping[str, object],
@@ -112,6 +115,22 @@ def packet_attention_from_review_state(
         durable_row_id_by_packet=durable_row_id_by_packet,
         packet=attention_packet,
     )
+    current_plan_authority = resolve_current_plan_authority(
+        rows,
+        pending_packets=packet_rows(review_state.get("packets")),
+    )
+    authority_affecting = _authority_affecting_packet(
+        attention_packet,
+        durable_row_id=durable_row_id,
+        rows=rows,
+    )
+    packet_can_drive_attention = _packet_can_drive_attention(
+        attention_packet,
+        rows=rows,
+        current_plan_authority=current_plan_authority,
+        durable_row_id=durable_row_id,
+        authority_affecting=authority_affecting,
+    )
     attention_required = (
         bool(pending_packet_ids)
         or bool(delivery_packet_ids)
@@ -137,6 +156,15 @@ def packet_attention_from_review_state(
         )
         or body_followup.required
     )
+    if attention_required and not packet_can_drive_attention:
+        attention_required = False
+        pending_packet_ids = ()
+        delivery_packet_ids = ()
+        expired_unresolved_ids = ()
+        latest_packet_id = ""
+        packet_id = ""
+        durable_row_id = ""
+        attention_packet = {}
     if not attention_required:
         status = "none"
         wake_reason = ""
@@ -178,11 +206,7 @@ def packet_attention_from_review_state(
         durable_plan_row_id=durable_row_id,
         packet_kind=_packet_text(attention_packet, "kind"),
         requested_action=_packet_text(attention_packet, "requested_action"),
-        authority_affecting=_authority_affecting_packet(
-            attention_packet,
-            durable_row_id=durable_row_id,
-            rows=rows,
-        ),
+        authority_affecting=authority_affecting and packet_can_drive_attention,
         summary=(
             f"Packet attention requires semantic ingestion for {latest_packet_id}."
             if body_followup.required
@@ -203,6 +227,31 @@ def packet_attention_from_review_state(
             )
         ),
     )
+
+
+def _packet_can_drive_attention(
+    packet: Mapping[str, object],
+    *,
+    rows: tuple[PlanRow, ...],
+    current_plan_authority,
+    durable_row_id: str,
+    authority_affecting: bool,
+) -> bool:
+    if not current_plan_authority.has_executable_plan_row:
+        return True
+    packet_id = _packet_text(packet, "packet_id")
+    if not packet_id:
+        return True
+    current_row_id = current_plan_authority.plan_row_id
+    if durable_row_id and durable_row_id == current_row_id:
+        return authority_affecting
+    allowed, _routing = packet_can_drive_current_plan(
+        packet,
+        rows,
+        current_authority=current_plan_authority,
+        authority_affecting=authority_affecting,
+    )
+    return allowed
 
 
 def _authority_affecting_packet(

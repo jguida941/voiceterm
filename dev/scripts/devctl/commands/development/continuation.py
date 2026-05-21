@@ -29,6 +29,7 @@ def continuation_signal(
     actor: str = "",
     current_action: str,
     fallback_commands: tuple[str, ...],
+    current_plan_row_id: str = "",
 ) -> DevelopmentContinuationRequiredSignal:
     """Return whether `/develop` has authority to stop."""
     reasons = _continuation_reasons(
@@ -49,6 +50,7 @@ def continuation_signal(
     continuation_goal = _continuation_goal(
         packet_attention=packet_attention,
         orchestration=orchestration,
+        current_plan_row_id=current_plan_row_id,
     )
     goal_progress = resolve_goal_progress_receipt(
         review_state,
@@ -237,7 +239,10 @@ def _continuation_goal(
     *,
     packet_attention: DevelopmentPacketAttention,
     orchestration: DevelopmentOrchestrationSnapshot,
+    current_plan_row_id: str = "",
 ) -> str:
+    if current_plan_row_id:
+        return current_plan_row_id
     if packet_attention.latest_attention_packet_id:
         return packet_attention.latest_attention_packet_id
     for decision in orchestration.agent_loop_decisions:

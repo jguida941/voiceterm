@@ -8,6 +8,8 @@ from types import SimpleNamespace
 
 from ..runtime.agent_mind_projection_read import read_agent_mind_projection
 from ..runtime.governance_scan import scan_repo_governance_safely
+from ..runtime.master_plan_contract import DEFAULT_MASTER_PLAN_STORE_REL
+from ..runtime.master_plan_store import read_plan_rows_jsonl
 from ..runtime.review_packet_inbox import build_packet_inbox_payload
 from ..runtime.review_state_round_proof import build_round_proofs_from_review_state
 from ..runtime.review_state_parser import review_state_from_payload
@@ -79,7 +81,15 @@ def enrich_event_review_state_impl(
     deps: SimpleNamespace,
 ) -> tuple[dict[str, object], dict[str, object]]:
     review_state = dict(review_state)
-    deps.attach_event_queue_state(review_state, artifact_root=context.artifact_root)
+    plan_rows = _read_plan_rows_for_projection(context.repo_root)
+    try:
+        deps.attach_event_queue_state(
+            review_state,
+            artifact_root=context.artifact_root,
+            plan_rows=plan_rows,
+        )
+    except TypeError:
+        deps.attach_event_queue_state(review_state, artifact_root=context.artifact_root)
 
     base = build_projection_base(review_state, context, deps)
     identity = build_projection_identity(base, deps)
@@ -304,9 +314,11 @@ def _apply_review_state_enrichment(
         bridge_liveness=runtime.typed_bridge_liveness,
         reviewer_runtime=runtime.reviewer_runtime,
     )
+    plan_rows = _read_plan_rows_for_projection(base.repo_root)
     review_state["packet_inbox"] = build_packet_inbox_payload(
         review_state.get("packets", ()),
         attention=runtime.attention,
+        plan_rows=plan_rows,
     )
     registry = review_state.get("registry")
     if isinstance(registry, dict):
@@ -448,6 +460,13 @@ def _attach_packet_surface_provenance(
             packet["source_identity"] = dict(source_identity)
         enriched.append(packet)
     return enriched
+
+
+def _read_plan_rows_for_projection(repo_root) -> tuple[object, ...]:
+    try:
+        return read_plan_rows_jsonl(repo_root / DEFAULT_MASTER_PLAN_STORE_REL)
+    except (OSError, ValueError):
+        return ()
 
 
 def _resolve_current_session(
