@@ -1,0 +1,48 @@
+{
+  "bypass_audit_trail_refs": [],
+  "commit_sha": "7a7afa8520c0d7ca751be3eb889e36b02ea6ebf2",
+  "connectivity_guards_passed": true,
+  "connectivity_guards_ran": [
+    "python3 dev/scripts/checks/check_role_lane_mutation_authority.py --mode pre_mutation --format json",
+    "python3 dev/scripts/checks/check_pre_commit_guard_coverage.py --format json",
+    "python3 dev/scripts/devctl.py check-router --profile mandatory --format json",
+    "python3 dev/scripts/devctl.py check-router --execute --keep-going --command-timeout-seconds 60 --route-timeout-seconds 180 --format json"
+  ],
+  "contract_id": "FeatureProofReceipt",
+  "dogfood_invocation_evidence_ref": "packet:rev_pkt_4795",
+  "evidence_artifacts": [
+    "command_output:test-python:7bc964242ef0539c",
+    "command_output:test-python:3c585b471ce54ab5",
+    "command_output:test-python:57b05bfee505c565",
+    "command_output:test-python:ba885fd2b25af536",
+    "command_output:test-python:b24e0363a4049e4a",
+    "inline:check_role_lane_mutation_authority:expected_red:violation_count=50:reason=role_lane_mutation_without_authority",
+    "inline:check_pre_commit_guard_coverage:ok=true:role_lane_ok=true:expected_pending_count=5",
+    "inline:check_router_profile_mandatory:cli_error=unrecognized_arguments_profile_mandatory",
+    "inline:check_router_execute:ok=false:role_lane_guard_visible=true:unrelated_existing_blockers_present=true"
+  ],
+  "feature_id": "CLAUDE-REV-002-G1-G8-pre-mutation-pre-commit-coverage",
+  "implementer_actor": "codex",
+  "not_tested_rationale": null,
+  "proven_at_utc": "2026-05-21T22:32:35Z",
+  "real_life_test_status": "proven_passed",
+  "review_fleet_actor": "claude",
+  "review_fleet_roles_ran": [
+    "reviewer",
+    "orchestrator",
+    "plan_steward"
+  ],
+  "role_review_receipt_refs": [
+    "packet:rev_pkt_4795"
+  ],
+  "role_review_timeout_refs": [],
+  "schema_version": 1,
+  "tests_failed_count": 0,
+  "tests_passed_count": 4,
+  "tests_run": [
+    "dev/scripts/devctl/tests/checks/test_check_role_lane_mutation_authority.py::test_pre_mutation_mode_blocks_reviewer_edit_against_live_dirty_diff",
+    "dev/scripts/devctl/tests/checks/test_check_role_lane_mutation_authority.py",
+    "dev/scripts/devctl/tests/checks/test_check_pre_commit_guard_coverage.py",
+    "dev/scripts/devctl/tests/commands/governance/test_install_git_hooks.py"
+  ]
+}

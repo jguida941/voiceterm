@@ -32,6 +32,9 @@ _CHECK_SCRIPT_ENTRIES = (
     ("control_decision_consistency", "check_control_decision_consistency.py"),
     ("control_decision_obeyed", "check_control_decision_obeyed.py"),
     ("contract_connectivity", "check_contract_connectivity.py"),
+    ("current_plan_authority", "check_current_plan_authority.py"),
+    ("role_lane_mutation_authority", "check_role_lane_mutation_authority.py"),
+    ("pre_commit_guard_coverage", "check_pre_commit_guard_coverage.py"),
     (
         "contract_registry_composite_key_uniqueness",
         "check_contract_registry_composite_key_uniqueness.py",

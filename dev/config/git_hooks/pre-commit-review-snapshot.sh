@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # devctl-install-git-hooks: managed hook for review-snapshot refresh
 #
-# Blocks raw `git commit` when the typed commit_permission contract says
-# implementation is not currently allowed. Projection refreshes deliberately
-# do not run in pre-commit: this hook executes while git is preparing the
-# index/tree for the user commit, so write/stage operations here can contend
-# with the commit index and hide long-running projection work behind a quiet
-# `git commit`. The post-commit hook owns the trailing ReviewSnapshot receipt
-# after HEAD is stable.
+# Blocks commits when role-lane mutation authority or the typed
+# commit_permission contract says implementation is not currently allowed.
+# Projection refreshes deliberately do not run in pre-commit: this hook executes
+# while git is preparing the index/tree for the user commit, so write/stage
+# operations here can contend with the commit index and hide long-running
+# projection work behind a quiet `git commit`. The post-commit hook owns the
+# trailing ReviewSnapshot receipt after HEAD is stable.
 #
 # Install: `python3 dev/scripts/devctl.py install-git-hooks`
 # Uninstall: `python3 dev/scripts/devctl.py install-git-hooks --uninstall`
@@ -68,6 +68,18 @@ done
 # and must not re-enter the raw git commit gate.
 if [ "${DEVCTL_REVIEW_SNAPSHOT_RECEIPT_COMMIT:-}" = "1" ]; then
     exit 0
+fi
+
+if [ -z "$DEVCTL_PYTHON" ]; then
+    echo "[pre-commit hook] A compatible Python interpreter is required to evaluate role-lane mutation authority; commit is blocked." >&2
+    exit 1
+fi
+
+if ! PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONPATH="$REPO_ROOT/dev/scripts${PYTHONPATH:+:$PYTHONPATH}" \
+    "$DEVCTL_PYTHON" dev/scripts/checks/check_role_lane_mutation_authority.py --mode pre_mutation --format md; then
+    echo "[pre-commit hook] role-lane mutation authority failed; commit is blocked." >&2
+    exit 1
 fi
 
 # Governed `devctl commit` marks the underlying `git commit` invocation with a

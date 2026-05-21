@@ -104,6 +104,18 @@ DEFAULT_AI_GUARD_SPECS = (
         supports_commit_range=False,
     ),
     QualityStepSpec(
+        "role-lane-mutation-authority-guard",
+        "role_lane_mutation_authority",
+        languages=("python",),
+        supports_commit_range=False,
+    ),
+    QualityStepSpec(
+        "pre-commit-guard-coverage-guard",
+        "pre_commit_guard_coverage",
+        languages=("python",),
+        supports_commit_range=False,
+    ),
+    QualityStepSpec(
         "non-trivial-output-proof-guard",
         "non_trivial_output_proof",
         supports_commit_range=False,

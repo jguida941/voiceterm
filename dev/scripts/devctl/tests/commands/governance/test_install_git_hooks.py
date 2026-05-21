@@ -380,6 +380,7 @@ def test_repo_pre_commit_template_checks_commit_permission_before_refresh() -> N
     assert "commit_permission_hook" in content
     assert "raw git commits must not bypass" in content
     assert "DEVCTL_REVIEW_SNAPSHOT_RECEIPT_COMMIT" in content
+    assert "check_role_lane_mutation_authority.py --mode pre_mutation" in content
 
 
 def test_repo_pre_commit_template_does_not_write_projection_artifacts() -> None:

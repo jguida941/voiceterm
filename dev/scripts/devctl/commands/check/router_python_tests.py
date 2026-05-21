@@ -215,6 +215,30 @@ _DEVCTL_TEST_TARGETS: tuple[tuple[str, tuple[str, ...]], ...] = (
         ),
     ),
     (
+        "dev/scripts/checks/check_role_lane_mutation_authority.py",
+        (
+            "dev/scripts/devctl/tests/checks/test_check_role_lane_mutation_authority.py",
+        ),
+    ),
+    (
+        "dev/scripts/devctl/tests/checks/test_check_role_lane_mutation_authority.py",
+        (
+            "dev/scripts/devctl/tests/checks/test_check_role_lane_mutation_authority.py",
+        ),
+    ),
+    (
+        "dev/scripts/checks/check_pre_commit_guard_coverage.py",
+        (
+            "dev/scripts/devctl/tests/checks/test_check_pre_commit_guard_coverage.py",
+        ),
+    ),
+    (
+        "dev/scripts/devctl/tests/checks/test_check_pre_commit_guard_coverage.py",
+        (
+            "dev/scripts/devctl/tests/checks/test_check_pre_commit_guard_coverage.py",
+        ),
+    ),
+    (
         "dev/scripts/checks/check_guardir_extraction_plan_artifacts.py",
         (
             "dev/scripts/devctl/tests/checks/test_check_topology_hardcode_guards.py",
