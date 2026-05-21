@@ -5,6 +5,7 @@ from __future__ import annotations
 import shlex
 from collections.abc import Mapping, Sequence
 
+from .command_envelope_classification import classify_command_mutation
 from .review_channel_post_actions import required_review_channel_post_action
 from .value_coercion import coerce_bool, coerce_string
 
@@ -14,23 +15,35 @@ def action_mutates(
     *,
     decision: Mapping[str, object],
 ) -> bool:
+    """Return True when an attempted action is governed mutation.
+
+    v4.40 (rev_pkt_4712): the local ``mutation_tokens`` substring registry
+    was converged onto the shared ``classify_command_mutation`` taxonomy in
+    ``runtime/command_envelope_classification.py``.
+
+    v4.41 (rev_pkt_4713): the prior lazy-import workaround for the
+    classifier was removed once ``_proxy_execution`` moved to a neutral
+    module — the cycle is broken at the source, so the classifier can be
+    imported normally at module top.
+
+    The function now:
+
+    1. Honors the typed ``mutates`` / ``writes_state`` fast paths
+       (unchanged from earlier behavior).
+    2. Delegates command-text classification to the shared classifier,
+       returning True when the action text contains any governed mutation
+       (worktree state, worktree writes, repo state, pipeline action,
+       review-channel lifecycle, bypass surface).
+    """
     if allowed_controller_action(action, decision=decision):
         return False
     if coerce_bool(action.get("mutates")) or coerce_bool(action.get("writes_state")):
         return True
-    mutation_tokens = (
-        "apply_patch",
-        "git commit",
-        "git push",
-        "raw-git",
-        "raw_git",
-        "devctl.py push",
-        " review-channel --action post",
-        " review-channel --action apply",
-        " review-channel --action dismiss",
-        " review-channel --action absorb",
-    )
-    return any(token in action_text(action) for token in mutation_tokens)
+    text = action_text(action)
+    if not text:
+        return False
+    _, risk = classify_command_mutation(text)
+    return risk != "none"
 
 
 def allowed_controller_action(

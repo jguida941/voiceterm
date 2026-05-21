@@ -111,6 +111,22 @@ def control_decision_violations(
                 detail=f"may_mutate=false next_action={next_action}",
             )
         )
+    # v4.42 (rev_pkt_4714 Finding 2): when next_action is blank but
+    # next_command names a governed mutation, still flag the violation —
+    # may_mutate=False must hold regardless of which surface carries the
+    # mutation intent.
+    elif (
+        may_mutate is False
+        and not _mutation_next_action(next_action)
+        and _mutation_next_command(next_command)
+    ):
+        violations.append(
+            ControlDecisionViolation(
+                source=source,
+                reason="mutation_command_projected_while_mutation_blocked",
+                detail=f"may_mutate=false next_command={next_command}",
+            )
+        )
 
     violations.extend(
         _packet_lifecycle_command_violations(
@@ -230,20 +246,34 @@ def _normalized(value: object) -> str:
 
 
 def _mutation_next_action(value: str) -> bool:
+    """Return True when a typed next-action identifier names a mutation.
+
+    v4.42 (rev_pkt_4714 Finding 2 — part 1): delegates to the typed-action
+    adapter ``runtime/typed_action_mutation.py`` so the mutation registry
+    stays in one place. The ``blocked`` short-circuit is preserved as a
+    fast-path negative.
+    """
     normalized = _normalized(value)
     if not normalized or "blocked" in normalized:
         return False
-    mutation_tokens = (
-        "run_devctl_push",
-        "run_devctl_commit",
-        "raw_git",
-        "raw_git_commit",
-        "git_push",
-        "git_commit",
-        "vcs_push",
-        "vcs_commit",
-    )
-    return any(token in normalized for token in mutation_tokens)
+    from .typed_action_mutation import typed_action_is_mutation  # noqa: PLC0415
+    return typed_action_is_mutation(normalized)
+
+
+def _mutation_next_command(command: object) -> bool:
+    """Return True when a free-text next-command names a mutation.
+
+    v4.42 (rev_pkt_4714 Finding 2 — part 2): codex caught the consistency
+    guard ignoring destructive ``next_command`` (e.g. ``git clean -fdx``)
+    when ``next_action`` is blank. This helper closes that gap by
+    classifying the command text via the shared classifier.
+    """
+    text = coerce_string(command).strip()
+    if not text:
+        return False
+    from .command_envelope_classification import classify_command_mutation  # noqa: PLC0415
+    _, risk = classify_command_mutation(text)
+    return risk != "none"
 
 
 def _push_action(value: str) -> bool:

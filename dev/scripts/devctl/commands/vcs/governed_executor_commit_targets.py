@@ -7,6 +7,7 @@ from ...runtime.conductor_capability import build_conductor_capability_state
 from ...runtime.review_state_models import ReviewState
 from ...runtime.reviewer_runtime_models import has_active_remote_control_attachment
 from .governed_executor_actor_authority import (
+    _collaboration_mapping,
     coding_agent_can_receive_stage_handoff,
     commit_authority_target,
     provider_has_live_role,
@@ -88,15 +89,33 @@ def resolve_commit_execution_target(review_state: ReviewState | None) -> str:
         fallback_provider=review_state.collaboration.coding_agent,
         fallback_role="implementer",
     )
-    implementer_capability = review_state.bridge.implementer_capability or (
-        build_conductor_capability_state(
+    # v4.55.3 (rev_pkt_4778/4780): when typed collaboration is available,
+    # build the capability from typed `role_assignments` rather than
+    # trusting the (potentially legacy/projection-built) bridge
+    # capability. A bridge capability with `may_edit_repo=True` from a
+    # compatibility projection must not bypass the typed gate. The
+    # bridge fallback only applies when no typed collaboration is
+    # supplied (back-compat for callers/test fixtures without typed
+    # role_assignments).
+    typed_collaboration = _collaboration_mapping(review_state)
+    if typed_collaboration is not None and implementer_provider:
+        implementer_capability = build_conductor_capability_state(
             provider=implementer_provider,
             reviewer_mode=reviewer_mode,
             role="implementer",
+            collaboration=typed_collaboration,
         )
-        if implementer_provider
-        else None
-    )
+    else:
+        implementer_capability = review_state.bridge.implementer_capability or (
+            build_conductor_capability_state(
+                provider=implementer_provider,
+                reviewer_mode=reviewer_mode,
+                role="implementer",
+                collaboration=typed_collaboration,
+            )
+            if implementer_provider
+            else None
+        )
     if (
         implementer_provider
         and implementer_capability
@@ -115,15 +134,27 @@ def resolve_commit_execution_target(review_state: ReviewState | None) -> str:
         fallback_provider=review_state.collaboration.review_agent,
         fallback_role="reviewer",
     )
-    reviewer_capability = review_state.bridge.reviewer_capability or (
-        build_conductor_capability_state(
+    # v4.55.3 (rev_pkt_4780): same typed-over-bridge precedence for the
+    # reviewer capability — typed `role_assignments` decide authority,
+    # not bridge projections.
+    if typed_collaboration is not None and reviewer_provider:
+        reviewer_capability = build_conductor_capability_state(
             provider=reviewer_provider,
             reviewer_mode=reviewer_mode,
             role="reviewer",
+            collaboration=typed_collaboration,
         )
-        if reviewer_provider
-        else None
-    )
+    else:
+        reviewer_capability = review_state.bridge.reviewer_capability or (
+            build_conductor_capability_state(
+                provider=reviewer_provider,
+                reviewer_mode=reviewer_mode,
+                role="reviewer",
+                collaboration=typed_collaboration,
+            )
+            if reviewer_provider
+            else None
+        )
     if (
         reviewer_provider
         and reviewer_capability

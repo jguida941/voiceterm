@@ -227,6 +227,17 @@ def resolve_blocker_and_action(
         "next_action": snapshot.next_action or next_action,
         "next_command": next_command,
         "blocker_snapshot": snapshot,
+        # Phase 0.6.A v4.17/v4.18 (rev_pkt_4690): flatten BlockerSnapshot's
+        # typed action fields into the resolver output so downstream
+        # ControlPlaneReadModel.build site reads them without reaching into
+        # the nested snapshot. Preserves the existing nested object too for
+        # consumers that prefer the typed reference.
+        "blocker_owner": snapshot.blocker_owner,
+        "blocker_target": snapshot.blocker_target,
+        "blocker_reason": snapshot.blocker_reason,
+        "repair_command": snapshot.repair_command,
+        "stop_anchor": snapshot.stop_anchor,
+        "repair_command_runnable": snapshot.repair_command_runnable,
     }
 
 

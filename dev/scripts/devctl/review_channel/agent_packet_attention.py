@@ -5,6 +5,13 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass
 
+from ..runtime.plan_currency_authority import (
+    PLAN_CURRENCY_RANK_LINEAGE_AMENDED,
+    build_plan_revision_refresh_required,
+    current_canonical_plan_sha,
+    load_plan_currency_context,
+    plan_currency_rank,
+)
 from ..runtime.reviewer_runtime_models import (
     PacketAttentionState,
     build_packet_attention_state,
@@ -50,6 +57,8 @@ class _AttentionBuildInput:
     fallback: Mapping[str, object]
     agent_sync: Mapping[str, object]
     packet_rows_authoritative: bool
+    current_plan_sha: str = ""
+    row_snapshot_shas: Mapping[str, frozenset[str] | set[str]] | None = None
 
 
 def packet_attention_for_agent(
@@ -94,9 +103,17 @@ def packet_attention_for_agent(
         session=session_id,
     ):
         active_packet = {}
+    # v4.33 (rev_pkt_4707) + v4.36 (rev_pkt_4708): read the current canonical
+    # plan SHA AND the row→snapshot-SHAs lineage so supersession-aware
+    # currency promotes both exact-match and lineage-amended packets over
+    # stale packet debt.
+    plan_currency_ctx = load_plan_currency_context()
+    plan_sha = plan_currency_ctx.current_plan_sha
     attention_packet = best_attention_packet(
         active_packet=active_packet,
         pending_packets=pending_packets,
+        current_plan_sha=plan_sha,
+        row_snapshot_shas=plan_currency_ctx.row_snapshot_shas,
     )
     return _build_attention(
         _AttentionBuildInput(
@@ -109,6 +126,8 @@ def packet_attention_for_agent(
             fallback=fallback,
             agent_sync=agent_sync_row_for_actor(review_state, actor_id),
             packet_rows_authoritative=packet_rows_authoritative,
+            current_plan_sha=plan_sha,
+            row_snapshot_shas=plan_currency_ctx.row_snapshot_shas,
         )
     )
 
@@ -185,6 +204,8 @@ def _build_attention(context: _AttentionBuildInput) -> PacketAttentionState:
         actor=context.actor,
         role=context.role,
         session=context.session,
+        current_plan_sha=context.current_plan_sha,
+        row_snapshot_shas=context.row_snapshot_shas,
     )
     body_open_packet = best_body_open_packet(body_open_packet_rows)
     selected_packet = body_open_packet or attention_packet
@@ -262,6 +283,37 @@ def _build_attention(context: _AttentionBuildInput) -> PacketAttentionState:
                 control_decision_input=context.control_decision_input,
             )
         )
+
+    # v4.36+v4.37 (rev_pkt_4708/4709): if the SELECTED packet ranks
+    # LINEAGE_AMENDED (its target_revision is in the row's snapshot lineage
+    # but is not the latest canonical SHA), emit the typed
+    # PlanRevisionRefreshRequired fields so downstream consumers see a
+    # refresh-needed signal without having to re-evaluate currency.
+    refresh_required = False
+    refresh_old_packet_id = ""
+    refresh_old_sha = ""
+    refresh_latest_sha = ""
+    refresh_target_row_id = ""
+    if (
+        context.current_plan_sha
+        and selected_packet
+        and plan_currency_rank(
+            selected_packet,
+            current_plan_sha=context.current_plan_sha,
+            row_snapshot_shas=context.row_snapshot_shas,
+        )
+        == PLAN_CURRENCY_RANK_LINEAGE_AMENDED
+    ):
+        blocker = build_plan_revision_refresh_required(
+            packet=selected_packet,
+            latest_canonical_sha=context.current_plan_sha,
+        )
+        refresh_required = True
+        refresh_old_packet_id = blocker.old_packet_id
+        refresh_old_sha = blocker.old_packet_sha
+        refresh_latest_sha = blocker.latest_canonical_sha
+        refresh_target_row_id = blocker.target_row_id
+
     return build_packet_attention_state(
         observation_actor_id=context.actor,
         observation_session_id=context.session,
@@ -297,6 +349,11 @@ def _build_attention(context: _AttentionBuildInput) -> PacketAttentionState:
         absorption_command=absorption_command,
         absorption_reason=lifecycle.absorption_reason,
         superseded_packet_id=superseded_packet_id,
+        plan_revision_refresh_required=refresh_required,
+        plan_revision_refresh_old_packet_id=refresh_old_packet_id,
+        plan_revision_refresh_old_sha=refresh_old_sha,
+        plan_revision_refresh_latest_sha=refresh_latest_sha,
+        plan_revision_refresh_target_row_id=refresh_target_row_id,
     )
 
 

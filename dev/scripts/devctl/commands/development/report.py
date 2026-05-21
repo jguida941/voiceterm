@@ -8,6 +8,7 @@ from typing import Any
 
 from ...config import REPO_ROOT
 from ...review_channel.event_store import load_events, resolve_artifact_paths
+from ...runtime.command_envelope_classification import classify_command_envelope
 from ...runtime.development_collaboration_profiles import (
     AgentCollaborationProfile,
     CollaborationRoleCountRequest,
@@ -114,21 +115,75 @@ def _next_step_command_for_report(
     packet_attention_required: bool,
     packet_attention_command: str,
     next_commands: tuple[str, ...],
+    current_actor: str = "",
+    proxy_authority_ref: str = "",
+    decision_authority_refs: tuple[str, ...] = (),
 ) -> str:
+    """Return the next step command, refusing peer-lane and unrunnable shapes.
+
+    v4.32 (rev_pkt_4706): proxy authority must be BOUND to the active
+    decision's authority refs. Each candidate (gate, continuation, packet
+    attention, campaign next) is classified; only ``same_actor_executable``
+    or ``proxy_authorized_executable`` (with bound proxy) emits a command.
+    """
+    runnable = _final_gate_repair_command_runnable(final_response_gate)
     gate_command = str(
         getattr(final_response_gate, "next_required_command", "") or ""
     ).strip()
     if gate_command:
+        gate_classification = classify_command_envelope(
+            command=gate_command,
+            current_actor=current_actor,
+            proxy_authority_ref=proxy_authority_ref,
+            decision_authority_refs=decision_authority_refs,
+            repair_command_runnable=runnable,
+        )
+        # v4.39.1 (rev_pkt_4711): is_safe_to_render combines actor/proxy
+        # check with v4.39 governed-mutation default-deny.
+        if not gate_classification.is_safe_to_render:
+            return ""
         return gate_command
     if _final_gate_is_active_edit_override(final_response_gate):
         return ""
-    return str(getattr(continuation, "next_required_command", "") or "").strip() or (
-        _next_step_command(
-            packet_attention_required=packet_attention_required,
-            packet_attention_command=packet_attention_command,
-            next_commands=next_commands,
-        )
+    if not runnable:
+        return ""
+    fallback = str(
+        getattr(continuation, "next_required_command", "") or ""
+    ).strip() or _next_step_command(
+        packet_attention_required=packet_attention_required,
+        packet_attention_command=packet_attention_command,
+        next_commands=next_commands,
     )
+    if not fallback:
+        return ""
+    fallback_classification = classify_command_envelope(
+        command=fallback,
+        current_actor=current_actor,
+        proxy_authority_ref=proxy_authority_ref,
+        decision_authority_refs=decision_authority_refs,
+        repair_command_runnable=runnable,
+    )
+    if not fallback_classification.is_safe_to_render:
+        return ""
+    return fallback
+
+
+def _final_gate_repair_command_runnable(final_response_gate: Any) -> bool:
+    """Read repair_command_runnable from the gate preserving True default.
+
+    v4.30 link 9 (rev_pkt_4698): the field is True by default for legacy
+    gates that predate the typed-blocker fields. Only an EXPLICIT False or
+    a JSON-projection "false"/"0" disables runnable-command emission so the
+    consumer refuses to resurrect a command from fallback sources.
+    """
+    value = getattr(final_response_gate, "repair_command_runnable", None)
+    if value is None:
+        return True
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() not in {"false", "0", "no", "off"}
+    return bool(value)
 
 
 def _final_gate_is_active_edit_override(final_response_gate: Any) -> bool:

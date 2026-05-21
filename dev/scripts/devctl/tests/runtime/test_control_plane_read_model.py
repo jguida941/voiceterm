@@ -90,6 +90,9 @@ class ControlPlaneReadModelDataclassTests(unittest.TestCase):
             "loop_wake_interval_seconds", "loop_driver_agent",
             "loop_autonomy_ok", "loop_gap_summary", "coordination",
             "session_posture",
+            # Phase 0.6.A v4.17/v4.18 BlockerSnapshot typed action fields
+            "blocker_owner", "blocker_target", "blocker_reason",
+            "repair_command", "stop_anchor", "repair_command_runnable",
         }
         actual_fields = set(model.to_dict().keys())
         self.assertEqual(expected_fields, actual_fields)
@@ -103,6 +106,128 @@ class ContractIdTests(unittest.TestCase):
 
     def test_schema_version(self) -> None:
         self.assertEqual(CONTROL_PLANE_READ_MODEL_SCHEMA_VERSION, 1)
+
+
+class BlockerSnapshotTypedFieldsTests(unittest.TestCase):
+    """v4.17/v4.18 chain wiring (rev_pkt_4687): ControlPlaneReadModel preserves
+    BlockerSnapshot's typed action fields through build + deserialize paths.
+
+    Receiving end of the upstream wire from startup_blocker_decision through
+    context.blocker dict into the read model. Outgoing end feeds
+    agent_loop_context_builder, which is the next chain link.
+    """
+
+    def test_blocker_typed_fields_default_to_safe_values(self) -> None:
+        model = _default_read_model()
+        self.assertEqual(model.blocker_owner, "")
+        self.assertEqual(model.blocker_target, "")
+        self.assertEqual(model.blocker_reason, "")
+        self.assertEqual(model.repair_command, "")
+        self.assertEqual(model.stop_anchor, "")
+        # runnable defaults True so legacy emitters do not accidentally mark
+        # commands unrunnable when the field is absent in upstream context.
+        self.assertTrue(model.repair_command_runnable)
+
+    def test_blocker_typed_fields_serialize_through_to_dict(self) -> None:
+        from dev.scripts.devctl.runtime.control_plane_read_model import (
+            control_plane_read_model_from_mapping,
+        )
+
+        payload = {
+            "top_blocker": "startup authority: startup_authority_failed",
+            "next_action": "checkpoint_blocked_by_startup_authority:startup_authority_failed",
+            "next_command": "python3 dev/scripts/devctl.py session --role observer --format json",
+            "blocker_owner": "claude",
+            "blocker_target": "dev/scripts/devctl/runtime/startup_authority.py",
+            "blocker_reason": "startup_authority_failed",
+            "repair_command": "python3 dev/scripts/devctl.py session --role observer --format json",
+            "stop_anchor": "",
+            "repair_command_runnable": True,
+        }
+        model = control_plane_read_model_from_mapping(payload)
+        self.assertEqual(model.blocker_owner, "claude")
+        self.assertEqual(
+            model.blocker_target, "dev/scripts/devctl/runtime/startup_authority.py"
+        )
+        self.assertEqual(model.blocker_reason, "startup_authority_failed")
+        self.assertIn("devctl.py session", model.repair_command)
+        self.assertEqual(model.stop_anchor, "")
+        self.assertTrue(model.repair_command_runnable)
+
+        # Round-trip back through to_dict preserves the fields
+        out = model.to_dict()
+        self.assertEqual(out["blocker_owner"], "claude")
+        self.assertEqual(out["blocker_reason"], "startup_authority_failed")
+        self.assertEqual(out["repair_command_runnable"], True)
+
+    def test_resolve_blocker_and_action_flattens_typed_fields(self) -> None:
+        """v4.18 (rev_pkt_4690): resolve_blocker_and_action() returns the
+        BlockerSnapshot's typed action fields at the top level of its dict so
+        ControlPlaneReadModel.build can read them without reaching into the
+        nested snapshot.
+
+        Codex's exact reproduction:
+
+            resolve_blocker_and_action(None, None, {"last_guard_ok": True, "check_details": ()},
+                startup_authority={"ok": False, "errors": ["startup_authority_failed"]})
+
+        previously returned only top_blocker/next_action/next_command/blocker_snapshot;
+        now it ALSO returns blocker_owner/blocker_target/blocker_reason/repair_command/
+        stop_anchor/repair_command_runnable as flattened keys.
+        """
+        from dev.scripts.devctl.runtime.control_plane_resolve import (
+            resolve_blocker_and_action,
+        )
+
+        result = resolve_blocker_and_action(
+            None,
+            None,
+            {"last_guard_ok": True, "check_details": ()},
+            startup_authority={"ok": False, "errors": ["startup_authority_failed"]},
+        )
+        # Top-level flattened typed-action fields
+        self.assertIn("blocker_owner", result)
+        self.assertIn("blocker_target", result)
+        self.assertIn("blocker_reason", result)
+        self.assertIn("repair_command", result)
+        self.assertIn("stop_anchor", result)
+        self.assertIn("repair_command_runnable", result)
+        # And they match the nested snapshot's values
+        snapshot = result["blocker_snapshot"]
+        self.assertEqual(result["blocker_owner"], snapshot.blocker_owner)
+        self.assertEqual(result["blocker_target"], snapshot.blocker_target)
+        self.assertEqual(result["blocker_reason"], snapshot.blocker_reason)
+        self.assertEqual(result["repair_command"], snapshot.repair_command)
+        self.assertEqual(result["stop_anchor"], snapshot.stop_anchor)
+        self.assertEqual(
+            result["repair_command_runnable"], snapshot.repair_command_runnable
+        )
+        # The startup_authority scenario produces the expected populated values
+        self.assertEqual(result["blocker_owner"], "claude")
+        self.assertEqual(result["blocker_reason"], "startup_authority_failed")
+        self.assertIn("devctl.py session", result["repair_command"])
+
+    def test_unrunnable_command_classification_threads_through(self) -> None:
+        from dev.scripts.devctl.runtime.control_plane_read_model import (
+            control_plane_read_model_from_mapping,
+        )
+
+        payload = {
+            "top_blocker": "startup authority: unknown",
+            "blocker_owner": "operator",
+            "blocker_target": "MP-GUARDIR-V4-PHASE-0-6-A-NEXT-COMMAND-OBEDIENCE-S1",
+            "blocker_reason": "manual_repair_required",
+            "repair_command": "see operator runbook section 4.2",
+            "stop_anchor": "stop_anchor:operator_action_required",
+            "repair_command_runnable": False,
+        }
+        model = control_plane_read_model_from_mapping(payload)
+        self.assertFalse(
+            model.repair_command_runnable,
+            "v4.18 unrunnable classification must thread through to consumers",
+        )
+        self.assertEqual(model.blocker_owner, "operator")
+        self.assertEqual(model.stop_anchor, "stop_anchor:operator_action_required")
 
 
 class BuildFromEmptySourcesTests(unittest.TestCase):

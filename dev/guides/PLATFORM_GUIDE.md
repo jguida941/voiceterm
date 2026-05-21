@@ -59,8 +59,9 @@ repo pack or product integration layer, not in portable platform code.
 
 The core thesis is:
 
-> Do not trust a probabilistic system with execution authority when execution
-> authority can be compiled from repo evidence and policy.
+> Do not trust a probabilistic system with mutation power when the execution
+> path can be compiled from repo evidence and policy (typed PlanRow rows,
+> contracts, receipts, and guard results).
 
 LLMs are useful because they can search, explain, draft, and repair quickly.
 They are risky when they are asked to remember every project rule from prompt
@@ -334,7 +335,8 @@ Run startup first and let the typed packet tell you the next legal action:
 python3 dev/scripts/devctl.py startup-context --format summary
 ```
 
-Then read the active authority docs for your scope:
+Then read the active-doc projections for your scope (each is a maintained
+projection over typed state, not durable authority):
 
 - `AGENTS.md`
 - `dev/active/INDEX.md`

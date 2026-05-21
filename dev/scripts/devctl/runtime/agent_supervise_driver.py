@@ -173,9 +173,29 @@ def evaluate_agent_supervision(inputs: AgentSuperviseInput) -> AgentSuperviseRep
     )
 
     review_state = coerce_mapping(inputs.review_state)
-    goal_progress = resolve_goal_progress_receipt(review_state, actor=actor)
+    # v4.55.1 priority 1 (rev_pkt_4758/4759): pass supervised session_id and
+    # role into the receipt resolver so anchors explicitly issued to other
+    # sessions (e.g. rev_pkt_4481 → 019e3d46-…) do not leak into helper
+    # sidecars audited via --session-id 019e4a…. The resolver still accepts
+    # legacy unscoped anchors as scope-permissive for back-compat.
+    goal_progress = resolve_goal_progress_receipt(
+        review_state,
+        actor=actor,
+        session_id=session_id,
+        role=role,
+    )
     anchor_id = goal_progress.continuation_anchor_packet_id
-    continuation_anchor_live = bool(anchor_id)
+    # Helper-session-outcome rule (rev_pkt_4758): when supervision is an
+    # explicit external session audit (CLI passed --session-id) and the
+    # audited session is closed/detached, a legacy unscoped anchor that
+    # passed the actor filter must still not be reported as live — a
+    # closed read-only helper can't act on it.
+    explicit_session_audit = bool(coerce_string(inputs.session_id))
+    helper_session_closed = explicit_session_audit and process_state in {
+        "process_exited",
+        "detached_runtime_only",
+    }
+    continuation_anchor_live = bool(anchor_id) and not helper_session_closed
     loop_autonomy = coerce_mapping(review_state.get("collaboration"))
     loop_autonomy_ok = (
         bool(loop_autonomy.get("loop_autonomy_ok"))
@@ -214,8 +234,20 @@ def evaluate_agent_supervision(inputs: AgentSuperviseInput) -> AgentSuperviseRep
         if spawn_action is not None:
             status = "spawn_authorized"
             next_command = _launch_command(role=role)
-        else:
-            status = "blocked"
+        elif helper_session_closed:
+            # v4.55.1 priority 1 (rev_pkt_4762/4763/4764/4765): a closed
+            # read-only helper sidecar audited via explicit `--session-id`
+            # must be a fully nonblocking outcome — typed status, empty
+            # blocked_reasons, no spawn_action, no next_command. Otherwise
+            # `develop next` / CLI exit / orchestration treat the helper
+            # as a controller blocker via residual reason tuples.
+            status = "ignored_helper_closed"
+            blocked = ()
+    if status == "ignored_helper_closed":
+        spawn_action = None
+        next_command = ""
+    elif trigger_reason and spawn_action is None:
+        status = "blocked"
     return AgentSuperviseReport(
         status=status,
         actor=actor,

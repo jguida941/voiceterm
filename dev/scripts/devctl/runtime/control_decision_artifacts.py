@@ -303,7 +303,26 @@ def _decision_matches_latest_event(
     return snapshot_id.endswith(latest_event_id)
 
 
-def _source_latest_event_id(payload: Mapping[str, object]) -> str:
+def source_latest_event_id_from_reduced_state(payload: Mapping[str, object]) -> str:
+    """v4.43.2 (rev_pkt_4717): canonical extraction order for the
+    ``source_latest_event_id`` cursor across typed review-channel reduced
+    state. Walks the priority paths in order:
+
+    1. ``agent_runtime_clock.source_latest_event_id`` (canonical clock)
+    2. ``typed_snapshot_freshness.source_latest_event_id``
+    3. ``agent_sync.source_latest_event_id``
+    4. ``reviewer_runtime.agent_runtime_clock.source_latest_event_id``
+    5. ``reviewer_runtime.source_latest_event_id``
+    6. top-level ``source_latest_event_id``
+
+    Returns ``""`` when none of the paths resolves to a non-empty string.
+
+    The public name was promoted from the prior ``_source_latest_event_id``
+    in v4.43.2 per codex's directive: review-channel consumers (like the
+    obedience guard's stale-decision detector) must reuse this shared
+    extractor instead of building parallel cursor selectors that bypass
+    the typed reducer projections.
+    """
     for path in (
         ("agent_runtime_clock", "source_latest_event_id"),
         ("typed_snapshot_freshness", "source_latest_event_id"),
@@ -316,6 +335,13 @@ def _source_latest_event_id(payload: Mapping[str, object]) -> str:
         if value:
             return value
     return ""
+
+
+#: Backwards-compatible alias for the historical underscore-prefixed name.
+#: Existing callers within this module reference ``_source_latest_event_id``;
+#: the underscore form is preserved so they continue to work, but new
+#: consumers should use the public ``source_latest_event_id_from_reduced_state``.
+_source_latest_event_id = source_latest_event_id_from_reduced_state
 
 
 def _source_head_sha(payload: Mapping[str, object]) -> str:
@@ -436,5 +462,6 @@ __all__ = [
     "control_decision_payload_from_path",
     "load_latest_agent_loop_decision",
     "load_control_decision_payload",
+    "source_latest_event_id_from_reduced_state",
     "write_control_decision_artifacts",
 ]

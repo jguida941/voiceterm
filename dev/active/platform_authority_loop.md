@@ -210,13 +210,13 @@ intended execution order is:
       (`tracker`, `spec`, `runbook`, `guide`, `reference`,
       `generated_report`, `archive`), allowed roots, lifecycle/graduation
       rules, shadow-authority rejection rules, and bounded hot/warm/cold
-      context budgets so governed markdown becomes structured authority rather
+      context budgets so governed markdown becomes a typed-state-bound projection rather
       than ad hoc prose.
 - [ ] Freeze the first markdown-schema split inside that contract:
       plan docs (`tracker`, `spec`, `runbook`) use one canonical metadata
       header plus required execution sections; non-plan governed docs use a
       reduced metadata header that still participates in `DocRegistry`
-      without pretending to be mutable execution authority.
+      without pretending to be mutable execution flow over typed PlanRow state.
 - [ ] Freeze the initial closed taxonomies that `DocPolicy` governs:
       status, owner lane, role, authority, and lifecycle values should be
       config-backed closed sets rather than ad hoc prose strings.
@@ -232,7 +232,7 @@ intended execution order is:
 - [x] Add one repo-pack-configured shared backlog doc to that same doc-
       authority chain so startup/work-intake can expose a governed human+AI
       intake/writeback surface without letting backlog prose bypass
-      `MASTER_PLAN` / active-plan execution authority.
+      `MASTER_PLAN` / active-plan execution flow over typed PlanRow state.
 - [ ] Freeze typed artifact-role / scope rules strongly enough that startup
       and docs-governance can distinguish VoiceTerm product docs,
       development-self-hosting docs, portable adopter docs, and
@@ -965,7 +965,7 @@ intended execution order is:
 - [ ] Treat the Phase 1 anchor-grammar freeze as a hard prerequisite for this
       phase, not as an incidental detail discovered during implementation.
 - [ ] Define one typed `PlanRegistry` contract that maps active plans, scopes,
-      roles, and execution authority without regex-scraping prose tables.
+      roles, and execution flow over typed PlanRow state without regex-scraping prose tables.
 - [ ] Support multiple active plans/scopes at once as a first-class use case.
 - [ ] Define one `PlanTargetRef` contract for mutable reviewed targets:
       plan doc, scope, target kind, stable anchor keys, expected revision,
@@ -1789,7 +1789,7 @@ blocker or exception in plan state before skipping the declared order.
       governance tranche over the governance engine itself: extend the
       existing package-layout / compatibility-shim governance into explicit
       policy for `devctl` root budgets, parser/command placement, subsystem
-      file-count budgets, source-of-truth ownership, active-doc lifecycle,
+      file-count budgets, typed-state ownership, active-doc lifecycle,
       and shim expiry.
 - [ ] Freeze the audit-integration retirement rule in that tranche too:
       whole-system audit docs such as `dev/guides/SYSTEM_AUDIT.md` are
@@ -2284,7 +2284,7 @@ blocker or exception in plan state before skipping the declared order.
 - 2026-03-27 shared-backlog slice landed: repo policy now advertises
   `backlog.md` as a governed shared backlog doc, doc-authority marks it as
   `shared_backlog`, and startup/work-intake can expose it in warm refs plus
-  writeback sinks without treating it as execution authority. Keep the next
+  writeback sinks without treating it as execution flow over typed PlanRow state. Keep the next
   same-lane closure on doc compression, fail-closed fallback removal, and
   publish truth instead of widening backlog into a second tracker.
 - 2026-03-27 consumer-refresh follow-up: the bounded `current_session`
@@ -2465,7 +2465,7 @@ blocker or exception in plan state before skipping the declared order.
   snapshot ordering again.
 - 2026-03-22 checkpoint-enforcement follow-up: the next tranche-4/startup
   authority closure now explicitly treats checkpoint budget as fail-closed
-  execution authority, not advisory status. The branch hit this gap in live
+  execution flow over typed PlanRow state, not advisory status. The branch hit this gap in live
   use: `review-channel --action status` correctly raised
   `checkpoint_required=true`, but the shared worktree had already accumulated
   more than fifty uncommitted paths before the checkpoint was cut. The next
@@ -2875,7 +2875,7 @@ blocker or exception in plan state before skipping the declared order.
 - 2026-04-05: Reviewed the current authority-loop implementation against the
   intended counterexample-driven hardening story and recorded the honest gap in
   owner-plan state. Startup/work-intake already project typed bounded state,
-  probe hints already normalize into canonical findings, design-decision
+  probe hints already normalize into typed FindingBacklog findings, design-decision
   allowlists already emit typed `DecisionPacket` evidence, external findings
   can be imported/adjudicated across repos, and quality-feedback snapshots can
   classify false-positive families and recommend tuning. The missing closure is
@@ -2979,7 +2979,7 @@ blocker or exception in plan state before skipping the declared order.
   enough by itself. The remaining operational missing link is the repo-owned
   persistent Codex reviewer worker/service path that keeps semantic review and
   operator-visible checkpoints alive between Claude passes.
-- 2026-04-03: Promoted the next cross-client source-of-truth slice into the
+- 2026-04-03: Promoted the next cross-client typed-state slice into the
   active `MP-377` authority-loop owner chain. The accepted next bounded work
   is no longer a generic "connect the apps" note: it is one generated
   `system-picture` / external-review reducer over typed startup, review,
@@ -3017,7 +3017,7 @@ blocker or exception in plan state before skipping the declared order.
   `Gate 2` bar because engine-side `check --repo-path` / `probe-report
   --repo-path` are worktree-based onboarding scans, while real Step-0 proof
   still requires target-local `startup-context` and governed push authority.
-  Second, source-of-truth closure is incomplete: live startup/current-state
+  Second, typed-state closure is incomplete: live startup/current-state
   reads still refresh bridge-backed status, checkpoint attention can be
   derived from multiple payload shapes, and the current review-surface parity
   guard does not compare startup receipts or live bridge inputs. Third,
@@ -3267,7 +3267,7 @@ blocker or exception in plan state before skipping the declared order.
   advertises `backlog.md`, governance discovery/doc-authority classify it as
   `shared_backlog`, startup projections report that surface, and
   `WorkIntakePacket` warm refs/writeback sinks can carry it for both humans
-  and AI. The contract stays fail-closed on execution authority: backlog
+  and AI. The contract stays fail-closed on execution flow over typed PlanRow state: backlog
   entries remain shared intake until promoted into `dev/active/MASTER_PLAN.md`
   plus the owning active plan.
 - 2026-03-27: Validated the bounded out-of-order docs-authority /
@@ -3640,7 +3640,7 @@ blocker or exception in plan state before skipping the declared order.
   the repo's main AI bootstrap path even while the full
   `WorkIntakePacket` closure stays open.
 - 2026-03-22: Finished the previously implicit `SYSTEM_AUDIT.md` mapping for
-  the authority-loop lane. The canonical owner split is now explicit in
+  the authority-loop lane. The typed owner-projection split is now explicit in
   checklist form: blocker tranche `D1-D5` / `S1-S4` / `E1` / `G1`, bootstrap
   compression `A5-A8`, memory/session closure `A9-A12`, and path-authority
   portability `A22-A23` all live here instead of only in audit prose.

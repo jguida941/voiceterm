@@ -113,6 +113,17 @@ class ControlPlaneReadModel:
     snapshot_id: str = ""
     zref: str = ""
     provenance: SurfaceProvenance | None = None
+    # Phase 0.6.A v4.17/v4.18/v4.22 BlockerSnapshot typed action fields
+    # (rev_pkt_4672/4674/4676/4683): preserve the blocker repair metadata so
+    # downstream agent_loop_context_builder, develop parser/model, and
+    # final-response gate consumers can refuse to auto-execute
+    # repair_command_runnable=False commands and surface owner/target/reason.
+    blocker_owner: str = ""
+    blocker_target: str = ""
+    blocker_reason: str = ""
+    repair_command: str = ""
+    stop_anchor: str = ""
+    repair_command_runnable: bool = True
 
     def to_dict(self) -> dict[str, Any]:
         payload = asdict(self)
@@ -220,6 +231,14 @@ def build_control_plane_read_model(
             role=resolved_options.caller_role,
             command=context.blocker["next_command"],
         ),
+        blocker_owner=str(context.blocker.get("blocker_owner") or ""),
+        blocker_target=str(context.blocker.get("blocker_target") or ""),
+        blocker_reason=str(context.blocker.get("blocker_reason") or ""),
+        repair_command=str(context.blocker.get("repair_command") or ""),
+        stop_anchor=str(context.blocker.get("stop_anchor") or ""),
+        repair_command_runnable=bool(
+            context.blocker.get("repair_command_runnable", True)
+        ),
         reviewer_mode=context.reviewer["reviewer_mode"],
         operator_interaction_mode=context.operator_interaction_mode,
         reviewer_freshness=context.reviewer["reviewer_freshness"],
@@ -283,6 +302,14 @@ def control_plane_read_model_from_mapping(
         top_blocker=coerce_string(value.get("top_blocker")) or "none",
         next_action=coerce_string(value.get("next_action")) or "n/a",
         next_command=coerce_string(value.get("next_command")),
+        blocker_owner=coerce_string(value.get("blocker_owner")),
+        blocker_target=coerce_string(value.get("blocker_target")),
+        blocker_reason=coerce_string(value.get("blocker_reason")),
+        repair_command=coerce_string(value.get("repair_command")),
+        stop_anchor=coerce_string(value.get("stop_anchor")),
+        repair_command_runnable=coerce_bool(
+            value.get("repair_command_runnable", True)
+        ),
         reviewer_mode=coerce_string(value.get("reviewer_mode")) or "single_agent",
         operator_interaction_mode=coerce_string(value.get("operator_interaction_mode")) or "unresolved",
         reviewer_freshness=coerce_string(value.get("reviewer_freshness")) or "--",

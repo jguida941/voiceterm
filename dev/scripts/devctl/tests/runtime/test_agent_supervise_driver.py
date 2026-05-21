@@ -208,6 +208,137 @@ def test_supervise_driver_execute_launches_authorized_spawn(tmp_path: Path) -> N
     assert kwargs["cwd"] == tmp_path
 
 
+def test_v4551_closed_helper_sidecar_status_is_ignored_not_blocked(
+    tmp_path: Path,
+) -> None:
+    """v4.55.1 priority 1 (rev_pkt_4762/4763) regression.
+
+    When CLI invokes `agent-supervise --session-id <sidecar-uuid>` to
+    audit a CLOSED read-only helper sidecar, the supervise outcome must
+    surface as the typed nonblocking status `ignored_helper_closed`, NOT
+    `blocked`. Otherwise `develop next` / orchestration consumers
+    promote a dead helper sidecar into a controller blocker via
+    bypass_receipt_missing / loop_autonomy_not_green even after the
+    anchor is suppressed. Uses rev_pkt_4381-shape projected anchor
+    (target_session_id, target_role, anchor_scope all empty after
+    review_state projection drops the local-review sentinel).
+    """
+    now = datetime(2026, 5, 12, 0, 20, tzinfo=UTC)
+    session = _session_file(tmp_path, mtime_epoch=now.timestamp() - 1621)
+    legacy_anchor = {
+        "packet_id": "rev_pkt_4381_shape",
+        "kind": "continuation_anchor",
+        "to_agent": "codex",
+        "target_role": "",
+        "target_session_id": "",
+        "session_id": None,
+        "anchor_scope": "",
+        "status": "acked",
+        "lifecycle_current_state": "acknowledged",
+        "posted_at": "2026-05-12T00:00:00Z",
+    }
+
+    report = evaluate_agent_supervision(
+        AgentSuperviseInput(
+            session_id="019e4a49-5c2c-7292-84cb-272045b48c92",
+            session_path=session,
+            repo_root=tmp_path,
+            review_state={"packets": [legacy_anchor]},
+            bypass_receipt=None,
+            now_utc=now,
+            staleness_threshold_seconds=600,
+        )
+    )
+
+    assert report.process_state == "detached_runtime_only"
+    assert report.status == "ignored_helper_closed"
+    assert report.continuation_anchor_live is False
+
+
+def test_v4551_session_scoped_anchor_for_other_session_does_not_leak(
+    tmp_path: Path,
+) -> None:
+    """A session-scoped continuation anchor explicitly targeted at a
+    different session must not appear in the supervise report for an
+    audited helper sidecar (rev_pkt_4481 shape: anchor_scope=session,
+    target_session_id pointing at a different reviewer session)."""
+    now = datetime(2026, 5, 12, 0, 20, tzinfo=UTC)
+    session = _session_file(tmp_path, mtime_epoch=now.timestamp() - 901)
+    other_session_anchor = {
+        "packet_id": "rev_pkt_4481_shape",
+        "kind": "continuation_anchor",
+        "to_agent": "codex",
+        "anchor_scope": "session",
+        "target_session_id": "019e3d46-5e44-7741-b2e9-e956dc12adbf",
+        "session_id": "019e3d46-5e44-7741-b2e9-e956dc12adbf",
+        "target_role": "reviewer",
+        "status": "pending",
+        "lifecycle_current_state": "pending",
+        "posted_at": "2026-05-12T00:00:00Z",
+    }
+
+    report = evaluate_agent_supervision(
+        AgentSuperviseInput(
+            session_id="019e4a49-5c2c-7292-84cb-272045b48c92",
+            role="reviewer",
+            session_path=session,
+            repo_root=tmp_path,
+            review_state={"packets": [other_session_anchor]},
+            bypass_receipt=None,
+            now_utc=now,
+            staleness_threshold_seconds=600,
+        )
+    )
+
+    assert report.continuation_anchor_packet_id == ""
+    assert report.status == "ignored_helper_closed"
+
+
+def test_v4551_role_scoped_anchor_visible_to_freeze_resurrection(
+    tmp_path: Path,
+) -> None:
+    """rev_pkt_4760 acceptance: a role-scoped anchor for
+    target_role=reviewer must remain visible to the legitimate
+    freeze-and-spawn flow (no explicit `--session-id`, path-derived
+    session). Spawn must still be authorized with bypass_receipt present.
+    """
+    now = datetime(2026, 5, 12, 0, 20, tzinfo=UTC)
+    session = _session_file(tmp_path, mtime_epoch=now.timestamp() - 901)
+    role_scoped_anchor = {
+        "packet_id": "rev_pkt_role_anchor",
+        "kind": "continuation_anchor",
+        "to_agent": "codex",
+        "anchor_scope": "role",
+        "target_role": "reviewer",
+        "status": "pending",
+        "lifecycle_current_state": "pending",
+        "posted_at": "2026-05-12T00:00:00Z",
+    }
+
+    report = evaluate_agent_supervision(
+        AgentSuperviseInput(
+            session_path=session,  # no explicit session_id
+            pid=0,
+            repo_root=tmp_path,
+            review_state={
+                "packets": [role_scoped_anchor],
+                "collaboration": {
+                    "loop_autonomy_ok": True,
+                    "loop_wake_mode": "continuous",
+                    "loop_driver_agent": "claude",
+                },
+            },
+            bypass_receipt=_receipt(),
+            now_utc=now,
+            staleness_threshold_seconds=900,
+        )
+    )
+
+    assert report.status == "spawn_authorized"
+    assert report.continuation_anchor_live is True
+    assert report.continuation_anchor_packet_id == "rev_pkt_role_anchor"
+
+
 def test_supervise_driver_execute_refuses_without_authorized_spawn(
     tmp_path: Path,
 ) -> None:

@@ -30,9 +30,19 @@ from dataclasses import dataclass, field
 import re
 from typing import TYPE_CHECKING, Any, Literal, cast
 
+from .topology_authority_facts import live_implementer_provider
+
 if TYPE_CHECKING:
     from .review_state_models import ReviewState
     from .startup_push_models import PushDecisionState
+
+# v4.55 continuation (rev_pkt_4788): legacy implementer-owner literal.
+# Surfaces using this constant are migration-only fallbacks; the typed
+# `live_implementer_provider(collaboration)` from topology_authority_facts
+# is the runtime authority. When typed collaboration is supplied and a
+# live `coding_agent` role_assignment is present, the typed provider wins
+# over this default.
+_LEGACY_IMPLEMENTER_OWNER_DEFAULT = "claude"
 
 # Acceptable blocker sources. Ordered by severity so that the first
 # source that fires wins when multiple conditions are true at once.
@@ -48,6 +58,88 @@ IMPORT_INDEX_ATOMICITY_BLOCKER_KIND = "import_index_atomicity"
 STARTUP_AUTHORITY_NEXT_ACTION_PREFIX = "checkpoint_blocked_by_startup_authority:"
 
 
+_STARTUP_AUTHORITY_REPAIR_DIRECTIVES: dict[
+    str, tuple[str, str, str, str, str]
+] = {
+    "import_index_atomicity": (
+        _LEGACY_IMPLEMENTER_OWNER_DEFAULT,
+        "dev/state/import_index.jsonl",
+        "import_index_atomicity_violation",
+        # v4.43.3 (rev_pkt_4718): the prior repair command
+        # ``devctl.py check --target import-index-atomicity --format md`` was
+        # NOT runnable — ``devctl check`` has no ``--target`` flag.
+        # v4.43.4 (rev_pkt_4720): switched to the stable public shim path
+        # ``dev/scripts/checks/check_startup_authority_contract.py`` so the
+        # AI-facing typed control surface (agent-loop, develop next,
+        # generated boot cards, check-router) converges on one public
+        # command shape. The shim wraps the same implementation in
+        # ``dev/scripts/checks/startup_authority_contract/command.py``.
+        "python3 dev/scripts/checks/check_startup_authority_contract.py --format md",
+        "",
+    ),
+    "startup_authority_failed": (
+        _LEGACY_IMPLEMENTER_OWNER_DEFAULT,
+        "dev/scripts/devctl/runtime/startup_authority.py",
+        "startup_authority_failed",
+        (
+            "python3 dev/scripts/devctl.py session --role observer "
+            "--include-review-status always --format json"
+        ),
+        "",
+    ),
+    "checkpoint_required": (
+        _LEGACY_IMPLEMENTER_OWNER_DEFAULT,
+        "dev/scripts/devctl/runtime/agent_loop_decision_builder.py",
+        "checkpoint_required",
+        (
+            "python3 dev/scripts/devctl.py develop next --actor agent "
+            "--enforce-final-response-gate --format json"
+        ),
+        "",
+    ),
+}
+
+
+_DEFAULT_STARTUP_AUTHORITY_REPAIR: tuple[str, str, str, str, str] = (
+    "operator",
+    "dev/scripts/devctl/runtime/startup_blocker_decision.py",
+    "startup_authority_kind_unknown",
+    "",
+    "stop_anchor:startup_authority:operator_review_required",
+)
+
+
+def _resolve_startup_authority_repair(
+    startup_kind: str,
+    *,
+    collaboration: Mapping[str, object] | None = None,
+) -> tuple[str, str, str, str, str]:
+    """Return (owner, target, reason, repair_command, stop_anchor) for a startup kind.
+
+    Phase 0.6.A v4.17 (rev_pkt_4672): live startup-authority blockers must carry
+    an actionable typed repair. Known kinds get a runnable command; unknown
+    kinds escalate to a stop_anchor so the agent does not loop on an unmappable
+    blocker. Exactly one of ``repair_command`` or ``stop_anchor`` is non-empty.
+
+    v4.55 continuation (rev_pkt_4788): when typed `collaboration` is
+    supplied AND the resolved directive's owner is the legacy
+    implementer default (``_LEGACY_IMPLEMENTER_OWNER_DEFAULT``), the
+    typed ``live_implementer_provider`` overrides the literal. The
+    legacy default remains the back-compat fallback for callers that
+    do not yet thread typed collaboration through.
+    """
+    owner, target, reason, repair_command, stop_anchor = (
+        _STARTUP_AUTHORITY_REPAIR_DIRECTIVES.get(
+            startup_kind, _DEFAULT_STARTUP_AUTHORITY_REPAIR
+        )
+    )
+    if owner == _LEGACY_IMPLEMENTER_OWNER_DEFAULT and collaboration is not None:
+        typed_owner = live_implementer_provider(collaboration)
+        if typed_owner:
+            owner = typed_owner
+    return (owner, target, reason, repair_command, stop_anchor)
+
+
 @dataclass(frozen=True, slots=True)
 class BlockerSnapshot:
     """Typed startup-blocker authority shared across every surface.
@@ -58,6 +150,42 @@ class BlockerSnapshot:
     names the rule that fired so the reducer's trace is auditable, and
     ``derivation_evidence`` lists the observed facts that justified the
     choice.
+
+    Phase 0.6.A v4.17 (rev_pkt_4672) adds five typed action fields so
+    startup_authority_failed / repair_startup_authority / final-response
+    blockers carry enough context for an agent to act, not just observe:
+
+    - ``blocker_owner``: who is responsible for resolving the blocker
+      (``operator``, ``claude``, ``codex``, ``system``).
+    - ``blocker_target``: the slice/path/runtime the blocker scopes
+      (e.g. ``MP-GUARDIR-V4-PHASE-0-6-A-STARTUP-REPAIR-COMMAND-S1``).
+    - ``blocker_reason``: typed short-form reason code/text.
+    - ``repair_command``: runnable shell command an agent can execute, OR
+    - ``stop_anchor``: typed anchor reference that formally pauses the goal.
+
+    Exactly one of ``repair_command`` or ``stop_anchor`` SHOULD be non-empty
+    for live-agent blockers; both empty is allowed when the blocker_source
+    is ``none`` (no actionable repair needed). Self-referential read-only
+    agent-loop commands MUST NOT be the only ``repair_command`` value
+    returned twice in a row without a changed blocker, command, or stop_anchor
+    (loop-detection enforced by the consumer).
+
+    Phase 0.6.A v4.18 (rev_pkt_4674) adds ``repair_command_runnable`` so
+    callers can distinguish between commands that are safe to auto-execute
+    and commands that are informational only (e.g. they would fail
+    ``ControlDecisionObeyedGuard`` because they mutate state without the
+    necessary controller-decision context):
+
+    - ``repair_command_runnable=True`` (default): the command is expected to
+      pass its guard when run by the named ``blocker_owner``. Read-only
+      commands (session, status, inbox, show, develop next, check) are
+      always runnable; write commands (review-channel post / ingest / ack,
+      vcs.commit, vcs.push) MUST carry obedience-pass context or be marked
+      unrunnable.
+    - ``repair_command_runnable=False``: the command is informational
+      ``see also`` guidance, NOT a literal directive to execute. ``blocker_owner``
+      + ``blocker_target`` identify the typed plan row / human action that
+      must occur instead. The agent loop MUST NOT auto-execute these.
     """
 
     schema_version: int = 1
@@ -66,6 +194,12 @@ class BlockerSnapshot:
     next_action: str = ""
     blocker_source: BlockerSource = "none"
     derivation_evidence: tuple[str, ...] = field(default_factory=tuple)
+    blocker_owner: str = ""
+    blocker_target: str = ""
+    blocker_reason: str = ""
+    repair_command: str = ""
+    stop_anchor: str = ""
+    repair_command_runnable: bool = True
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -75,6 +209,12 @@ class BlockerSnapshot:
             "next_action": self.next_action,
             "blocker_source": self.blocker_source,
             "derivation_evidence": list(self.derivation_evidence),
+            "blocker_owner": self.blocker_owner,
+            "blocker_target": self.blocker_target,
+            "blocker_reason": self.blocker_reason,
+            "repair_command": self.repair_command,
+            "stop_anchor": self.stop_anchor,
+            "repair_command_runnable": self.repair_command_runnable,
         }
 
 
@@ -241,6 +381,7 @@ def derive_blocker_decision(
     push_action: str = "",
     pending_count: int | None = None,
     startup_authority: object = None,
+    collaboration: Mapping[str, object] | None = None,
 ) -> BlockerSnapshot:
     """Canonical reducer for top_blocker + next_action.
 
@@ -278,11 +419,22 @@ def derive_blocker_decision(
     startup_kind = startup_authority_blocker_kind(startup_authority)
     if startup_kind:
         evidence.append(f"startup_authority.blocker_kind={startup_kind}")
+        owner, target, reason, repair_command, stop_anchor = (
+            _resolve_startup_authority_repair(
+                startup_kind,
+                collaboration=collaboration,
+            )
+        )
         return BlockerSnapshot(
             top_blocker=f"startup authority: {startup_kind}",
             next_action=f"{STARTUP_AUTHORITY_NEXT_ACTION_PREFIX}{startup_kind}",
             blocker_source="startup_authority",
             derivation_evidence=tuple(evidence),
+            blocker_owner=owner,
+            blocker_target=target,
+            blocker_reason=reason,
+            repair_command=repair_command,
+            stop_anchor=stop_anchor,
         )
 
     failing = quality.get("failing")
@@ -387,9 +539,82 @@ def derive_startup_blocker(
     )
 
 
+def detect_self_referential_loop(
+    snapshot: BlockerSnapshot,
+    previous_snapshot: BlockerSnapshot | None,
+) -> bool:
+    """True when the new snapshot would self-reference the prior one.
+
+    Phase 0.6.A v4.17 (rev_pkt_4672): the agent-loop cannot return the same
+    self-referential read-only ``repair_command`` twice in a row without a
+    changed blocker, command, or ``stop_anchor``. A loop is detected when:
+
+      - The previous snapshot exists and named a non-empty ``repair_command``,
+      - The new snapshot has the same ``top_blocker``, ``repair_command``,
+        and ``stop_anchor`` as the previous, AND
+      - There is no explicit operator override active (handled by the caller
+        via :func:`escalate_self_referential_loop_to_stop_anchor` after this
+        predicate fires).
+
+    Returns False if either snapshot lacks a ``repair_command`` (the predicate
+    only fires for command-based loops; a stop_anchor sequence is already an
+    explicit pause, not a self-loop).
+    """
+    if previous_snapshot is None:
+        return False
+    if not snapshot.repair_command:
+        return False
+    if not previous_snapshot.repair_command:
+        return False
+    if snapshot.repair_command != previous_snapshot.repair_command:
+        return False
+    if snapshot.top_blocker != previous_snapshot.top_blocker:
+        return False
+    if snapshot.stop_anchor != previous_snapshot.stop_anchor:
+        return False
+    return True
+
+
+def escalate_self_referential_loop_to_stop_anchor(
+    snapshot: BlockerSnapshot,
+) -> BlockerSnapshot:
+    """Convert a self-referential blocker into a typed stop_anchor escalation.
+
+    Called by the agent-loop driver when :func:`detect_self_referential_loop`
+    returns True. Preserves blocker context but swaps the unactionable
+    ``repair_command`` for a ``stop_anchor`` that names the operator as owner
+    of the next step. Adds a typed derivation_evidence line so audits can
+    trace why the escalation fired.
+    """
+    return BlockerSnapshot(
+        schema_version=snapshot.schema_version,
+        contract_id=snapshot.contract_id,
+        top_blocker=snapshot.top_blocker,
+        next_action=snapshot.next_action,
+        blocker_source=snapshot.blocker_source,
+        derivation_evidence=snapshot.derivation_evidence
+        + ("loop_detected:same_repair_command_twice",),
+        blocker_owner="operator",
+        blocker_target=snapshot.blocker_target,
+        blocker_reason=(
+            f"loop:{snapshot.blocker_reason}"
+            if snapshot.blocker_reason
+            else "loop:self_referential_repair_command"
+        ),
+        repair_command="",
+        stop_anchor=(
+            f"stop_anchor:self_referential_loop:{snapshot.blocker_reason}"
+            if snapshot.blocker_reason
+            else "stop_anchor:self_referential_loop:operator_override_required"
+        ),
+    )
+
+
 __all__ = [
     "BlockerSnapshot",
     "BlockerSource",
     "derive_blocker_decision",
     "derive_startup_blocker",
+    "detect_self_referential_loop",
+    "escalate_self_referential_loop_to_stop_anchor",
 ]

@@ -63,6 +63,17 @@ class DevelopmentAgentLoopInput:
     new_peer_input: bool = False
     switch_to_packet_goal: bool = False
     continue_before_final: bool = False
+    # Phase 0.6.A v4.23 chain wiring link 7 (rev_pkt_4694): preserve the
+    # BlockerSnapshot typed action fields parsed from AgentLoopDecision so
+    # `/develop next` and downstream consumers can refuse
+    # repair_command_runnable=False commands and route to the named
+    # blocker_owner with the typed repair_command or stop_anchor.
+    blocker_owner: str = ""
+    blocker_target: str = ""
+    blocker_reason: str = ""
+    repair_command: str = ""
+    stop_anchor: str = ""
+    repair_command_runnable: bool = True
 
 
 @dataclass(frozen=True, slots=True)

@@ -203,13 +203,25 @@ def _source_row(
 
 
 def _row_has_loop_authority(row: Mapping[str, object]) -> bool:
-    """Stale visibility rows do not create loop work unless a packet binds them."""
-    if (
+    """Stale visibility rows do not create loop work unless a packet binds them.
+
+    v4.55.2 (rev_pkt_4769/4770): rows demoted to `subagent` via the helper
+    session demotion path (`role_source == "helper_session_demotion"`)
+    are evidence-only — they may show up on the work board for visibility
+    but must not produce an AgentLoopDecision or final-gate blocker. The
+    exception is when an explicit packet binding ties the helper to live
+    work (active/attention/executing packet on this exact session); a
+    deliberately packet-bound helper can still be surfaced.
+    """
+    explicit_packet_binding = bool(
         _text(row.get("active_packet_id"))
         or _text(row.get("attention_packet_id"))
         or _text(row.get("executing_packet_id"))
-    ):
+    )
+    if explicit_packet_binding:
         return True
+    if _text(row.get("role_source")) == "helper_session_demotion":
+        return False
     if _text(row.get("confidence_class")) == "stale":
         return False
     stale_after = _int(row.get("stale_after_seconds"))

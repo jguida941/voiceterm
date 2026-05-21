@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from ..runtime.review_packet_inbox_liveness import is_expired_unresolved
 
+from .event_models import event_id_rank
 from .pending_packets import live_pending_packets, partition_live_packet_queue
 from .packet_body_observation import packet_body_digest, packet_body_observed_by
 from .packet_route_scope import normalize_packet_route_role
@@ -145,6 +146,15 @@ def _inbox_pending_packets(
     *,
     target: str | None,
 ) -> tuple[dict[str, object], ...]:
+    """Return route-scoped live pending packets, freshest first.
+
+    v4.55.4 (rev_pkt_4786/4787): sort by ``latest_event_id`` descending so
+    plan-bound packets named by `develop next` surface at the top of the
+    inbox view instead of being buried under old transport debt.
+    `live_pending_packets` itself preserves insertion order (audit
+    determinism); freshness ordering is layered on at the inbox boundary
+    so other consumers retain insertion order.
+    """
     packet_rows = tuple(packet for packet in packets if isinstance(packet, dict))
     live_rows = tuple(
         packet for packet in live_pending_packets(packet_rows)
@@ -155,14 +165,36 @@ def _inbox_pending_packets(
         for packet in live_rows
     }
     if not target:
-        return live_rows
+        return _sort_inbox_packets_freshest_first(live_rows)
     routed_rows = tuple(
         packet
         for packet in packet_rows
         if str(packet.get("packet_id") or "").strip() not in live_ids
         and _route_scoped_actor_packet_still_requires_read(packet, target=target)
     )
-    return (*live_rows, *routed_rows)
+    combined = (*live_rows, *routed_rows)
+    return _sort_inbox_packets_freshest_first(combined)
+
+
+def _sort_inbox_packets_freshest_first(
+    packets: tuple[dict[str, object], ...],
+) -> tuple[dict[str, object], ...]:
+    """Sort inbox packets so the highest ``latest_event_id`` ranks first.
+
+    Uses ``event_id_rank`` (same comparator the agent-loop attention
+    selector consumes) so the inbox and ``develop next`` agree on which
+    packet is current. Packets without a parseable ``latest_event_id``
+    sort last but keep stable relative order.
+    """
+    return tuple(
+        sorted(
+            packets,
+            key=lambda packet: event_id_rank(
+                str(packet.get("latest_event_id") or "").strip()
+            ),
+            reverse=True,
+        )
+    )
 
 
 def _route_scoped_actor_packet_still_requires_read(

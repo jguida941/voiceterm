@@ -13,6 +13,7 @@ from ...runtime.agent_loop_operator_override import (
     EDIT_ONLY_OVERRIDE_SCOPE,
     OPERATOR_OVERRIDE_REQUESTOR,
 )
+from ...runtime.value_coercion import coerce_bool
 
 
 def agent_loop_blocking_packet_id(
@@ -43,7 +44,9 @@ def agent_loop_decision_priority(agent_decision: Any) -> tuple[int, int]:
         _text(_field(agent_decision, "active_packet_id"))
         or _text(_field(agent_decision, "attention_packet_id"))
     )
-    may_mutate = bool(_field(agent_decision, "may_mutate"))
+    # v4.45.5 (rev_pkt_4743): shared coerce_bool for may_mutate so projection
+    # values like ``"false"`` are not ranked as mutation-capable.
+    may_mutate = coerce_bool(_field(agent_decision, "may_mutate"))
     if required_action == "open_packet_body":
         return (0, 0)
     if has_packet:
@@ -74,6 +77,16 @@ def is_status_probe_command(command: str) -> bool:
 
 
 def is_executable_next_command(command: str) -> bool:
+    """Return True only when the next command is a safe, non-governed
+    devctl invocation.
+
+    v4.42 (rev_pkt_4714 Finding 1): codex caught this function returning
+    True for ``python3 dev/scripts/devctl.py push --execute`` — a governed
+    mutation that the final-response gate MUST NOT auto-execute. The fix
+    delegates to ``classify_command_mutation`` so any non-``none`` risk
+    class is rejected, while preserving the devctl-family check for read-
+    only commands.
+    """
     command_text = _text(command)
     if not command_text:
         return False
@@ -84,11 +97,18 @@ def is_executable_next_command(command: str) -> bool:
     if not parts:
         return False
     executable = PurePath(parts[0]).name
-    if executable in {"devctl", "devctl.py"}:
-        return True
-    if executable == "python" or executable.startswith("python"):
-        return python_invokes_devctl(parts[1:])
-    return executable == "uv" and uv_invokes_devctl(parts[1:])
+    is_devctl_family = (
+        executable in {"devctl", "devctl.py"}
+        or (executable == "python" or executable.startswith("python"))
+        and python_invokes_devctl(parts[1:])
+        or (executable == "uv" and uv_invokes_devctl(parts[1:]))
+    )
+    if not is_devctl_family:
+        return False
+    # v4.42: reject governed mutations even within the devctl family.
+    from ...runtime.command_envelope_classification import classify_command_mutation  # noqa: PLC0415
+    _, risk = classify_command_mutation(command_text)
+    return risk == "none"
 
 
 def python_invokes_devctl(args: list[str]) -> bool:
@@ -131,8 +151,36 @@ def agent_loop_next_required_command(
         and (not next_command or next_command == next_loop_command)
     ):
         return plan_override_command(agent_decision, next_slice_id=next_slice_id)
+    # v4.45.2 (rev_pkt_4737 / rev_pkt_4738): drop ``next_loop_command`` from
+    # the fallback chain. After v4.45, ``AgentLoopDecision.next_command`` is
+    # the canonical source for the actor's next executable command —
+    # populated when ``can_run_next_command=True``, empty when the actor is
+    # blocked. Falling back to ``next_loop_command`` here re-emitted the
+    # same agent-loop invocation as ``next_required_command`` even when the
+    # actor was blocked, producing an end-to-end read-only self-loop
+    # downstream (codex's rev_pkt_4737 dogfood reproduction). The blocker
+    # owner/target/reason/repair_command fields stay populated on the
+    # AgentLoopDecision so consumers can surface the typed unrunnable
+    # blocker without re-issuing the loop command.
+    #
+    # v4.45.3 (rev_pkt_4739 Hooke #2): when the decision is blocked
+    # (can_run_next_command=False) AND next_command is empty AND
+    # continuation also has no executable command, return empty directly
+    # instead of letting ``fallback_next_required_command`` synthesize a
+    # default ``develop next`` invocation. The blocked typed handoff
+    # carries the actor's instructions via the blocker_* fields; the
+    # fabricated ``develop next`` would itself be a no-progress hop the
+    # actor cannot meaningfully complete in the blocked state.
+    # v4.45.4 (rev_pkt_4742): use shared runtime.coerce_bool so projection
+    # rows carrying ``"false"`` / ``"0"`` parse correctly. Raw ``bool()``
+    # treated those as True and silently re-enabled the develop-next
+    # fallback for blocked actors that codex's verbatim repro captured.
+    can_run = coerce_bool(_field(agent_decision, "can_run_next_command"))
+    upstream_command = next_command or continuation.next_required_command
+    if not upstream_command and not can_run:
+        return ""
     return fallback_next_required_command(
-        next_command or next_loop_command or continuation.next_required_command,
+        upstream_command,
         actor=_text(_field(agent_decision, "actor_id")),
     )
 
@@ -171,7 +219,7 @@ def should_surface_plan_override(agent_decision: Any, *, required_action: str) -
         return False
     if is_active_edit_only_override(agent_decision):
         return False
-    if _truthy(_field(agent_decision, "may_mutate")):
+    if coerce_bool(_field(agent_decision, "may_mutate")):
         return False
     if _text(_field(agent_decision, "active_packet_id")):
         return False
@@ -213,14 +261,14 @@ def plan_override_command(agent_decision: Any, *, next_slice_id: str) -> str:
 
 
 def is_active_edit_only_override(agent_decision: Any) -> bool:
-    if _truthy(_field(agent_decision, "operator_override_edit_allowed")):
+    if coerce_bool(_field(agent_decision, "operator_override_edit_allowed")):
         return True
-    if _truthy(_field(agent_decision, "operator_override_active")):
+    if coerce_bool(_field(agent_decision, "operator_override_active")):
         scope = _text(_field(agent_decision, "operator_override_scope"))
         return not scope or scope == "edit-only"
     override = _field(agent_decision, "operator_override")
     if isinstance(override, Mapping):
-        if not _truthy(override.get("active")):
+        if not coerce_bool(override.get("active")):
             return False
         if _text(override.get("scope")) and _text(override.get("scope")) != "edit-only":
             return False
@@ -291,7 +339,8 @@ def _field(value: Any, key: str) -> Any:
     return getattr(value, key, None)
 
 
-def _truthy(value: object) -> bool:
-    if isinstance(value, bool):
-        return value
-    return _text(value).lower() in {"1", "true", "yes", "on"}
+# v4.45.5 (rev_pkt_4743): local ``_truthy`` retired in favor of shared
+# ``runtime.value_coercion.coerce_bool``. The two diverged on ``"y"``
+# (truthy treated as False; coerce_bool treats as True) — that mismatch
+# was unintentional and the shared normalizer is now the single
+# canonical boolean coercion in this surface.

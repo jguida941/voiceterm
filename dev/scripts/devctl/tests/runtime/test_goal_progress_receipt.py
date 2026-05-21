@@ -192,6 +192,123 @@ def test_expired_stop_anchor_does_not_close_live_continuation_goal() -> None:
     assert "continuation_anchor_active:rev_pkt_anchor" in signal.reasons
 
 
+def test_v4551_anchor_with_unrelated_session_does_not_leak() -> None:
+    """v4.55.1 rev_pkt_4758/4759 priority 1.
+
+    A continuation_anchor packet targeted at session "session-A" must not
+    appear in the goal-progress receipt resolved for a helper sidecar that
+    has supervised session "session-B-helper", even if the actor matches.
+    Before v4.55.1 the resolver matched on actor alone and leaked rev_pkt_4481
+    -shaped anchors into unrelated closed sidecars.
+    """
+    anchor = _continuation_anchor()
+    anchor["target_session_id"] = "session-A"
+
+    receipt = resolve_goal_progress_receipt(
+        {"packets": [anchor]},
+        actor="codex",
+        session_id="session-B-helper",
+    )
+
+    assert receipt.continuation_anchor_packet_id == ""
+    assert receipt.status == "missing"
+
+
+def test_v4551_anchor_with_matching_session_remains_visible() -> None:
+    """When the anchor's target_session_id matches the supervised session,
+    it is in scope and the receipt resolves normally."""
+    anchor = _continuation_anchor()
+    anchor["target_session_id"] = "session-B"
+
+    receipt = resolve_goal_progress_receipt(
+        {"packets": [anchor]},
+        actor="codex",
+        session_id="session-B",
+    )
+
+    assert receipt.continuation_anchor_packet_id == "rev_pkt_anchor"
+
+
+def test_v4551_legacy_unscoped_anchor_passes_through_session_filter() -> None:
+    """Back-compat: legacy continuation_anchor packets that carry no
+    target_session_id and no session_id remain visible to a supervised
+    session, since they were not explicitly scoped away from it. The
+    closed-helper-session-outcome rule in agent_supervise_driver.py
+    handles the case where a dead sidecar shouldn't act on the anchor."""
+    anchor = _continuation_anchor()
+    # No target_session_id, no packet session_id → unscoped legacy anchor.
+
+    with_session = resolve_goal_progress_receipt(
+        {"packets": [anchor]},
+        actor="codex",
+        session_id="session-X",
+    )
+    without_session = resolve_goal_progress_receipt(
+        {"packets": [anchor]},
+        actor="codex",
+    )
+
+    assert with_session.continuation_anchor_packet_id == "rev_pkt_anchor"
+    assert without_session.continuation_anchor_packet_id == "rev_pkt_anchor"
+
+
+def test_v4551_role_scoped_anchor_with_mismatched_role_does_not_leak() -> None:
+    """A role-scoped anchor for target_role=reviewer must not appear
+    when the supervised role is dashboard."""
+    anchor = _continuation_anchor()
+    anchor["anchor_scope"] = "role"
+    anchor["target_role"] = "reviewer"
+
+    receipt = resolve_goal_progress_receipt(
+        {"packets": [anchor]},
+        actor="codex",
+        session_id="session-x",
+        role="dashboard",
+    )
+
+    assert receipt.continuation_anchor_packet_id == ""
+
+
+def test_v4551_role_scoped_anchor_with_matching_role_remains_visible() -> None:
+    """A role-scoped anchor is in scope when the supervised role
+    matches, even when the supervised session differs from the
+    anchor's original posting session."""
+    anchor = _continuation_anchor()
+    anchor["anchor_scope"] = "role"
+    anchor["target_role"] = "reviewer"
+
+    receipt = resolve_goal_progress_receipt(
+        {"packets": [anchor]},
+        actor="codex",
+        session_id="session-x",
+        role="reviewer",
+    )
+
+    assert receipt.continuation_anchor_packet_id == "rev_pkt_anchor"
+
+
+def test_v4551_role_scoped_continuation_survives_session_id_change() -> None:
+    """rev_pkt_4760 acceptance: a role-scoped continuation anchor for
+    target_role=reviewer must remain visible after the reviewer's
+    session id changes. The anchor was originally posted by session-old;
+    a fresh session-new with role=reviewer must still see it.
+    """
+    anchor = _continuation_anchor()
+    anchor["anchor_scope"] = "role"
+    anchor["target_role"] = "reviewer"
+    anchor["target_session_id"] = ""             # role-scoped, no session pin
+    anchor["session_id"] = "session-old"         # original posting session
+
+    receipt = resolve_goal_progress_receipt(
+        {"packets": [anchor]},
+        actor="codex",
+        session_id="session-new",
+        role="reviewer",
+    )
+
+    assert receipt.continuation_anchor_packet_id == "rev_pkt_anchor"
+
+
 def _continuation_anchor() -> dict[str, object]:
     return {
         "packet_id": "rev_pkt_anchor",

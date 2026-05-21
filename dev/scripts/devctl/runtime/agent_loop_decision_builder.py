@@ -128,6 +128,12 @@ def decision(
         next_command=next_command,
         next_action=ctx.next_action,
         top_blocker=ctx.top_blocker,
+        blocker_owner=ctx.blocker_owner,
+        blocker_target=ctx.blocker_target,
+        blocker_reason=ctx.blocker_reason,
+        repair_command=ctx.repair_command,
+        stop_anchor=ctx.stop_anchor,
+        repair_command_runnable=ctx.repair_command_runnable,
         user_action=readable["user_action"],
         continuation_goal=readable["continuation_goal"],
         why_not_done=readable["why_not_done"],
@@ -285,8 +291,13 @@ def next_command_for_turn(
         return ""
     if loop_policy.can_run_next_command:
         return ctx.next_command
-    if should_continue_loop and loop_next_command:
-        return loop_next_command
+    # v4.45 (rev_pkt_4729 / rev_pkt_4732): when can_run_next_command=False the
+    # actor cannot execute any command. Emitting `loop_next_command` here
+    # created a no-progress self-loop where the same agent-loop invocation
+    # was re-issued indefinitely while safe_to_continue=False and
+    # may_mutate=False. Return empty so the supervisor sees a clear
+    # "wait for external state change" signal while should_continue_loop
+    # can independently keep the loop alive.
     return ""
 
 

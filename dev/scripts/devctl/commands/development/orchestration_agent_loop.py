@@ -58,12 +58,24 @@ def agent_loop_signals(
                 source_surface="agent-loop",
                 severity=agent_loop_severity(row, status),
                 recommended_action=row.user_action or row.required_action or "inspect_agent_loop",
+                # v4.45.3 (rev_pkt_4739): gate ALL three command fields on
+                # can_run_next_command. Hooke audit caught that v4.45.2
+                # only gated suggested_command; closure_check_command and
+                # source_command still injected next_loop_command even for
+                # blocked actors. ``closure_check_command`` is diagnostic
+                # only (consumer should not execute it), but to avoid any
+                # downstream rehydration when actor is blocked, emit empty
+                # there too.
                 closure_check_command=(
                     row.next_loop_command
                     or "python3 dev/scripts/devctl.py agent-loop --format json"
+                ) if row.can_run_next_command else "",
+                source_command=(
+                    row.next_loop_command if row.can_run_next_command else ""
                 ),
-                source_command=row.next_loop_command,
-                suggested_command=row.next_loop_command,
+                suggested_command=(
+                    row.next_command if row.can_run_next_command else ""
+                ),
             )
         )
     return tuple(signals)

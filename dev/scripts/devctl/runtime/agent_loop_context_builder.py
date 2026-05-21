@@ -22,6 +22,7 @@ from .agent_loop_operator_override import (
     apply_operator_override_actions,
     operator_override_from_request,
 )
+from .value_coercion import coerce_bool
 from .value_coercion import coerce_mapping as _mapping
 from .value_coercion import coerce_text as _text
 
@@ -163,4 +164,44 @@ def build_agent_loop_context_impl(inputs: AgentLoopContextBuildInput):
         loop_intent=normalize_loop_intent(inputs.loop_intent),
         requested_plan_ref=_text(inputs.requested_plan_ref),
         requested_packet_id=_text(inputs.requested_packet_id),
+        # Phase 0.6.A v4.23 (rev_pkt_4692): read BlockerSnapshot typed action
+        # fields from dashboard.control_plane so the decision builder can
+        # carry them through to downstream consumers.
+        #
+        # v4.45 (rev_pkt_4729/4730/4732): normalize so an empty repair_command
+        # cannot reach the decision claiming repair_command_runnable=True.
+        # The duplicate BlockerSnapshot shape across AgentLoopDecision /
+        # AgentLoopContext / ControlPlaneReadModel made it possible for the
+        # control plane default (True) to outlive an upstream empty
+        # repair_command, producing the contradictory shape codex traced in
+        # rev_pkt_4729 (empty repair + repair_command_runnable=True +
+        # can_run_next_command=False + self-loop next_command).
+        blocker_owner=_text(control_plane.get("blocker_owner")),
+        blocker_target=_text(control_plane.get("blocker_target")),
+        blocker_reason=_text(control_plane.get("blocker_reason")),
+        repair_command=_text(control_plane.get("repair_command")),
+        stop_anchor=_text(control_plane.get("stop_anchor")),
+        repair_command_runnable=_normalize_repair_command_runnable(
+            repair_command=_text(control_plane.get("repair_command")),
+            raw_value=control_plane.get("repair_command_runnable", True),
+        ),
     )
+
+
+def _normalize_repair_command_runnable(
+    *,
+    repair_command: str,
+    raw_value: object,
+) -> bool:
+    """Return the normalized repair_command_runnable flag.
+
+    An empty repair_command can never be runnable. This invariant is enforced
+    here so downstream consumers (agent-loop decision builder, final-response
+    gate, operator command wrappers, control-decision obedience guard) do not
+    have to re-verify it. Prior shape — empty repair_command paired with
+    repair_command_runnable=True — was the load-bearing contradiction in the
+    rev_pkt_4729 self-loop bug.
+    """
+    if not repair_command:
+        return False
+    return coerce_bool(raw_value)

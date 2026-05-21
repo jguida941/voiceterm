@@ -43,7 +43,11 @@ def agent_supervise_signals(
                 staleness_threshold_seconds=DEFAULT_RELAUNCH_WINDOW_SECONDS,
             )
         )
-        if report.status == "healthy":
+        if report.status in {"healthy", "ignored_helper_closed"}:
+            # v4.55.1 priority 1 (rev_pkt_4762/4763): a closed read-only
+            # helper sidecar audited via explicit `--session-id` produces a
+            # typed nonblocking AgentSuperviseReport; skip it so develop
+            # orchestration does not promote a dead helper into a blocker.
             continue
         signals.append(_signal_for_report(report))
     return tuple(signals)

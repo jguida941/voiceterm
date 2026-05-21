@@ -1,12 +1,18 @@
 # Master Plan (Active, Unified)
 
-## Canonical Plan Rule
+## Tracker Projection Rule
 
-- This file is the single active plan for strategy, execution, and release tracking.
-- `dev/active/INDEX.md` is the canonical active-doc registry and read-order map for agents.
-- Execution-owner budget: keep repo-wide execution authority at five or fewer
-  active docs total (`MASTER_PLAN.md` plus 3-4 owner specs). Narrower or
-  completed lanes remain as reference-only owner docs until archived.
+- This file is a maintained tracker projection over typed PlanRow state in
+  `dev/state/plan_index.jsonl` for strategy, execution, and release tracking;
+  durable execution authority lives in the typed plan_index.jsonl store,
+  contracts, receipts, and guard results, not in this markdown surface.
+- `dev/active/INDEX.md` is a maintained pointer index over
+  `dev/state/plan_index.jsonl`; the markdown is a projection, not durable
+  authority.
+- Tracker-projection budget: keep maintained owner-doc projections at five or
+  fewer active docs total (`MASTER_PLAN.md` plus 3-4 owner-spec projections).
+  Narrower or completed lanes remain as reference-only owner docs until
+  archived.
 - `dev/active/theme_upgrade.md`, `dev/active/memory_studio.md`,
   `dev/active/devctl_reporting_upgrade.md`,
   `dev/active/autonomous_control_plane.md`,
@@ -19,7 +25,7 @@
   `dev/active/remote_control_runtime.md`, and other narrower lane docs remain
   owner references only unless the typed phase/task registry in
   `dev/active/ai_governance_platform.md` promotes them back into the active
-  execution-owner set.
+  tracker-projection owner set.
 - `dev/active/review_channel.md` now carries the reusable review/runtime
   contract slice for MP-355 plus the temporary markdown-swarm operating mode
   used by the current Codex/Claude cycle; implementation tasks stay in that
@@ -519,7 +525,7 @@
   registered on the typed work board. `/develop audit-packets --drain-packets`
   exposes the existing deterministic packet-debt writer for eligible
   plan-row ingestion receipts, keeping packet transport as provenance rather
-  than source-of-truth work state. Remaining Bundle JJ/KK closure is the
+  than typed-state work-state authority. Remaining Bundle JJ/KK closure is the
   orchestrator action loop: consume these packet debt, peer-mind,
   session-discovery, smartness-input, and fanout-pressure signals and write
   bounded `OrchestratorAction` / `WorkerPacket` decisions instead of relying on
@@ -1229,7 +1235,7 @@
 - Current main product lane: `MP-377` AI governance platform extraction. Treat
   `dev/active/ai_governance_platform.md` as the main scoped plan for the
   system that improves AI coding quality and is being pulled out of VoiceTerm.
-- Active execution-owner set (2026-04-13 consolidation): tracker
+- Active tracker-projection owner set (2026-04-13 consolidation): tracker
   `dev/active/MASTER_PLAN.md` plus owner specs
   `dev/active/ai_governance_platform.md`,
   `dev/active/review_channel.md`,
@@ -1438,7 +1444,7 @@
   guards, probes, and roles under `dev/reports/dogfood/`, writes refreshed
   `summary.{md,json}` projections for later sessions, and
   `governance-review` now accepts `signal_type=dogfood` so system-test
-  failures can close out in the canonical findings ledger. The same slice
+  failures can close out in the typed FindingBacklog ledger. The same slice
   hardened publication truth by making governed push preflight reproject the
   active `bridge.md` compatibility surface from typed review status before
   the blocking checks run, closing the stale role-marker push blocker.
@@ -1969,7 +1975,7 @@
   write slice remains the mobile/helper/repo-pack read-side closure already
   tracked above, followed by the live remote-control proof.
 - Current 2026-04-01 architecture-absorption follow-up inside that same lane:
-  fold the accepted external integration review into canonical owner plans
+  fold the accepted external integration review into typed owner-projection plans
   instead of carrying `dev/intrgrate_analysis.md` as shadow authority. The
   absorbed gaps are now explicit and phased: typed onboarding/ratification +
   inference provenance, derived session capability projection, surface-
@@ -2344,7 +2350,7 @@
   Planned lane parsing, conductor launch specs, prompts, status/doctor
   surfaces, bridge start rules, and narrow recover flows must resolve the
   active reviewer/implementer provider from typed lane role data and
-  repo-owned collaboration/runtime state, while the canonical bootstrap
+  repo-owned collaboration/runtime state, while the typed bootstrap
   commands remain `startup-context --role <role>` and
   `session-resume --role <role> --format bootstrap`.
 - Current clean-tree operational blocker inside that same lane: the repo is not
@@ -3025,7 +3031,7 @@
 - 2026-03-26 documentation-authority/self-hosting priority correction: the
   repo already has the universal markdown/governance plan, but it is split
   across the tracked `MP-377` / `MP-376` docs rather than one root tracker.
-  Canonical execution authority stays in `MASTER_PLAN.md`,
+  Maintained tracker projection over typed PlanRow state stays in `MASTER_PLAN.md`,
   `ai_governance_platform.md`, `platform_authority_loop.md`,
   `portable_code_governance.md`, and `PLAN_FORMAT.md`; root companions such
   as `UNIVERSAL_SYSTEM_PLAN.md`, `UNIVERSAL_SYSTEM_EVIDENCE.md`,
@@ -3122,8 +3128,10 @@
   treats root `backlog.md` as a repo-pack-configured governed shared backlog
   doc instead of an orphaned side file. Startup/work-intake can surface that
   backlog in warm refs plus writeback sinks for human/AI coordination, while
-  execution authority stays fail-closed on `dev/active/MASTER_PLAN.md` plus
-  the owning active plan. This closes the old "hidden backlog vs tracked
+  tracker-projected execution flow stays fail-closed against the typed
+  PlanRow store at `dev/state/plan_index.jsonl` (mirrored by
+  `dev/active/MASTER_PLAN.md` and the owning active plan projection). This
+  closes the old "hidden backlog vs tracked
   execution" gap without reopening a second tracker surface.
 - 2026-03-27 portable baseline-repo contract clarified: keep `backlog.md`
   empty unless there is real queued work. Foundational architecture and
@@ -3580,7 +3588,7 @@
   after the checkpointed graph slice rather than mixing it into the same
   implementation batch.
 - Audit-integration rule: if a whole-system audit finding is accepted, rewrite it
-  into canonical execution state in `MASTER_PLAN`, the relevant active plan
+  into typed-PlanRow execution state in `MASTER_PLAN`, the relevant active plan
   doc, and maintainer docs when process policy changes. Do not keep live work
   pointing back to `dev/guides/SYSTEM_AUDIT.md` after the canonical docs have
   been updated. Once its accepted items are fully absorbed or explicitly
@@ -3590,7 +3598,7 @@
   unreviewed coverage, per-family disposition mix, and time-to-disposition
   before drawing quality conclusions from the ledger.
 - Current startup-authority gap: the repo already has partial intake pieces
-  (`AGENTS.md` bootstrap order, `check-router`, `orchestrate-status`,
+  (`AGENTS.md` typed bootstrap projection, `check-router`, `orchestrate-status`,
   `docs-check`, `render-surfaces`, `swarm_run`), but not one enforced,
   repo-pack-driven startup path that reads the active plan registry, inspects
   the current git diff, maps the slice to MP scope, and routes accepted
@@ -3621,7 +3629,7 @@
 - Self-hosting structure-governance follow-up: that consolidation pass must
   extend the existing package-layout / compatibility-shim governance into a
   broader repo-owned structure policy over `devctl` root budgets, parser and
-  command placement, subsystem file-count budgets, source-of-truth ownership,
+  command placement, subsystem file-count budgets, typed-state ownership,
   active-doc lifecycle, and shim expiry so the engine can block the same
   accretive sprawl it currently reports.
 - Documentation-authority follow-up: this self-hosting pass must also deliver
@@ -4544,7 +4552,7 @@
 - MP-347 bundle-render automation update: added
   `check_agents_bundle_render.py` (`--write` regen mode) and wired
   `docs-check --strict-tooling` to fail when AGENTS rendered bundle docs drift
-  from canonical registry output.
+  from typed registry output.
 - MP-347 lint-debt governance update: Rust dead-code debt is now inventoryable
   and policy-gated (`--report-dead-code`, `--fail-on-undocumented-dead-code`)
   with all current `#[allow(dead_code)]` instances documented by explicit
@@ -6277,7 +6285,7 @@ become the main product surface.
   - [ ] Add one explicit absorption-before-archive pass for the repo's own
     reference markdown: no root evidence companion or `dev/active`
     reference/bridge doc should move until its accepted conclusions are
-    mirrored into the canonical owner chain and the doc-authority report marks
+    mirrored into the typed owner-projection chain and the doc-authority report marks
     it reference-only with no unmapped execution state.
   - [ ] Keep exported measurement schemas honest about lifecycle:
     `portable_governance_episode` and `portable_governance_eval_record`
@@ -6440,7 +6448,7 @@ become the main product surface.
   current shared worktree, `GUARD_AUDIT_FINDINGS.md` and
   `ZGRAPH_RESEARCH_EVIDENCE.md` may be consulted as local reference-only
   companions for supporting evidence and idea inventory, but they are not
-  canonical execution authority and all accepted conclusions must be mirrored
+  maintained tracker projection over typed PlanRow state and all accepted conclusions must be mirrored
   into tracked plan state here plus the `MP-377` spec chain before
   implementation or review.
   Latest synthesis follow-up (2026-04-01): keep the remaining architecture
@@ -6450,7 +6458,7 @@ become the main product surface.
   ratification/provenance and the permanent portability benchmark suite; and
   `MP-355` owns role-owned multi-provider plus terminal-host abstraction over
   the same `CollaborationSession` backend.
-  Latest cross-client source-of-truth follow-up (2026-04-03): the next
+  Latest cross-client typed-state follow-up (2026-04-03): the next
   bounded `MP-377` slice is one generated `system-picture` / external-review
   orientation reducer over typed startup, review, control, governance-review,
   external-findings, and quality-feedback state. That reducer must emit one
@@ -6737,7 +6745,7 @@ become the main product surface.
     helpers.
   - [ ] Make `validation_plan` and contract testing concrete, not aspirational:
     execute `DecisionPacket.validation_plan` on the first repair/apply lane,
-    normalize failure cases into canonical findings through a dedicated
+    normalize failure cases into typed FindingBacklog findings through a dedicated
     adapter, register strict pytest contract/guard markers, and add focused
     contract-test coverage for task-router, push-policy, startup-context
     shape, and the first validation/failure adapter path.
@@ -9168,3 +9176,115 @@ auditable while new post-mandate commits must resolve.
 - [ ] `PKT-BIND-REV-PKT-4608` Packet action request: Run governed commit staging from remote-control lane (source `rev_pkt_4608`; target `devctl_commit:36b1e81024b9978dabcf368ccaed3fc7d85274e8`; posted `2026-05-19T23:40:54.072359Z`; binding `plan_row`).
 - [ ] `PKT-BIND-REV-PKT-4609` Packet action request: Run governed commit staging from remote-control lane (source `rev_pkt_4609`; target `devctl_commit:8b6424e8d2e0123d7b522746d0840d42cefd5cf5`; posted `2026-05-20T01:40:20.764310Z`; binding `plan_row`).
 - [ ] `PKT-BIND-REV-PKT-4616` Packet action request: Run governed commit staging from remote-control lane (source `rev_pkt_4616`; target `devctl_commit:465a3e1565ad111caa04bcdd3d941e27ce10ad89`; posted `2026-05-20T02:42:54.378004Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4651` Packet work: Work Stream A.0: add GitMutationProofReceipt code_identity_hash (source `rev_pkt_4651`; target `dev/scripts/devctl/runtime/git_mutation_proof_receipt.py`; posted `2026-05-20T19:18:38.807603Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4652` Packet work: Start Phase 0.6.A task_produced guard repair (source `rev_pkt_4652`; target `slice:phase-0-6-a-task-produced-guard-repair`; posted `2026-05-20T19:31:28.033093Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4653` Packet finding: Guard repair integration point (source `rev_pkt_4653`; target `dev/scripts/devctl/commands/review_channel/event_handler.py`; posted `2026-05-20T19:34:56.597916Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4654` Packet finding: Guard repair also needs review_accepted post action mapping (source `rev_pkt_4654`; target `dev/scripts/devctl/runtime/review_channel_post_actions.py`; posted `2026-05-20T19:37:16.746877Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4656` Packet finding: v4.10 authority and mutation-lease amendment applied (source `rev_pkt_4656`; target `plan:MP-GUARDIR-V4-PHASE-0-6-A-ROLE-MUTATION-LEASE-S1`; posted `2026-05-20T20:05:15.368091Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4661` Packet finding: Finding: review_accepted must not close task_progress (source `rev_pkt_4661`; target `plan:MP-377`; posted `2026-05-20T20:40:35.790967Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4662` Packet finding: Blocking finding: review_accepted cannot close task_progress (source `rev_pkt_4662`; target `dev/scripts/devctl/commands/review_channel/event_handler.py`; posted `2026-05-20T20:46:36.794560Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4664` Packet work: Task started: Phase 0.6.D source-session stamping (source `rev_pkt_4664`; target `dev/scripts/devctl/commands/review_channel`; posted `2026-05-20T20:55:06.909888Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4665` Packet work: Task started: Phase 0.6.D source-session stamping (real source session) (source `rev_pkt_4665`; target `dev/scripts/devctl/commands/review_channel`; posted `2026-05-20T20:59:51.990262Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4666` Packet finding: Retry v4.13 task_produced with matching parent target_ref (source `rev_pkt_4666`; target `dev/scripts/devctl/commands/review_channel`; posted `2026-05-20T21:03:00.908984Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4670` Packet finding: Finding: verifier must fail closed when source-session projection is absent (source `rev_pkt_4670`; target `plan:MP-377`; posted `2026-05-20T21:27:19.253570Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4672` Packet work: v4.17 applied: implement startup repair command slice (source `rev_pkt_4672`; target `plan:MP-GUARDIR-V4-PHASE-0-6-A-STARTUP-REPAIR-COMMAND-S1`; posted `2026-05-20T22:40:41.935652Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4674` Packet finding: v4.18 add-on: emitted next command must pass ControlDecisionObeyedGuard (source `rev_pkt_4674`; target `plan:MP-GUARDIR-V4-PHASE-0-6-A-NEXT-COMMAND-OBEDIENCE-S1`; posted `2026-05-20T22:51:31.512234Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4676` Packet finding: Review rev_pkt_4673: startup model slice passes, callsite wiring still required (source `rev_pkt_4676`; target `plan:MP-GUARDIR-V4-PHASE-0-6-A-STARTUP-REPAIR-COMMAND-S1`; posted `2026-05-20T22:58:17.805650Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4677` Packet finding: v4.19 review: repair_command_runnable is substrate, not closure (source `rev_pkt_4677`; target `plan:MP-GUARDIR-V4-PHASE-0-6-A-NEXT-COMMAND-OBEDIENCE-S1`; posted `2026-05-20T23:01:58.405933Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4679` Packet finding: v4.20 finding: blocker metadata drops before consumers and Codex task_progress review post is not guard-obedient (source `rev_pkt_4679`; target `plan:MP-GUARDIR-V4-PHASE-0-6-A-REVIEW-FEEDBACK-POST-OBEDIENCE-S1`; posted `2026-05-20T23:16:26.929887Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4681` Packet finding: v4.22 finding: rev_pkt_4680 progress accepted, primary parent evidence still ambiguous (source `rev_pkt_4681`; target `plan:MP-GUARDIR-V4-PHASE-0-6-B-CASCADE-PARENT-AUTHORITY-S1`; posted `2026-05-20T23:27:44.772960Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4683` Packet finding: v4.22 finding: parent_packet_id is gate-only and not persisted in typed packet evidence (source `rev_pkt_4683`; target `plan:MP-GUARDIR-V4-PHASE-0-6-B-CASCADE-PARENT-AUTHORITY-S1`; posted `2026-05-20T23:36:58.234454Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4685` Packet finding: v4.22 finding: parent_resolution metadata must not attach to non-cascade findings (source `rev_pkt_4685`; target `plan:MP-GUARDIR-V4-PHASE-0-6-B-CASCADE-PARENT-AUTHORITY-S1`; posted `2026-05-20T23:45:29.456276Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4688` Packet finding: v4.23 plan amendment: checkpoint coordination and blocker metadata must compose, not fork (source `rev_pkt_4688`; target `plan:MP-GUARDIR-V4-PHASE-0-6-A-REVIEW-FEEDBACK-POST-OBEDIENCE-S1`; posted `2026-05-21T00:03:13.482112Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4690` Packet finding: rev_pkt_4689 drops BlockerSnapshot fields on the build path (source `rev_pkt_4690`; target `plan:MP-GUARDIR-V4-PHASE-0-6-A-STARTUP-REPAIR-COMMAND-S1`; posted `2026-05-21T00:07:19.651077Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4699` Packet finding: Live link 9 repro: develop consumers still surface stale cross-actor command (source `rev_pkt_4699`; target `plan:MP-GUARDIR-V4-PHASE-0-6-A-NEXT-COMMAND-OBEDIENCE-S1`; posted `2026-05-21T01:18:39.104845Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4701` Packet finding: Finding on rev_pkt_4700: live develop output still emits stale cross-actor command (source `rev_pkt_4701`; target `plan:MP-GUARDIR-V4-PHASE-0-6-A-NEXT-COMMAND-OBEDIENCE-S1`; posted `2026-05-21T01:28:43.303450Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4703` Packet finding: Finding on rev_pkt_4702: wrapper role/proxy command envelopes still needed (source `rev_pkt_4703`; target `plan:MP-GUARDIR-V4-PHASE-0-6-A-NEXT-COMMAND-OBEDIENCE-S1`; posted `2026-05-21T01:42:52.330913Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4705` Packet finding: Finding on rev_pkt_4704: central command envelope/proxy classification required (source `rev_pkt_4705`; target `plan:MP-GUARDIR-V4-PHASE-0-6-A-COMMAND-ENVELOPE-NORMALIZATION-S1`; posted `2026-05-21T01:55:16.550287Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4706` Packet finding: Finding on rev_pkt_4705: v4.32 command-envelope closure requirements (source `rev_pkt_4706`; target `plan:MP-GUARDIR-V4-PHASE-0-6-A-COMMAND-ENVELOPE-NORMALIZATION-S1`; posted `2026-05-21T02:09:10.578770Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4707` Packet finding: Finding on rev_pkt_4706: stale packet selection hides current plan-bound work (source `rev_pkt_4707`; target `plan:MP-GUARDIR-V4-PHASE-0-6-A-REVIEW-FEEDBACK-POST-OBEDIENCE-S1`; posted `2026-05-21T02:19:17.092801Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4708` Packet finding: Finding on rev_pkt_4707: plan-currency selector needs supersession-aware currentness (source `rev_pkt_4708`; target `plan:MP-GUARDIR-V4-PHASE-0-6-A-REVIEW-FEEDBACK-POST-OBEDIENCE-S1`; posted `2026-05-21T02:33:09.569536Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4709` Packet finding: Finding: v4.37 packet-to-plan authority and worktree-state mutation rules (source `rev_pkt_4709`; target `plan:MP-GUARDIR-V4-PHASE-0-6-E-CURRENT-PLAN-AUTHORITY-S1`; posted `2026-05-21T02:43:14.464609Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4710` Packet finding: Finding: v4.39 canonical source-of-truth and worktree mutation rules (source `rev_pkt_4710`; target `plan:MP-GUARDIR-V4-PHASE-0-6-A-MUTATION-METHOD-PROVENANCE-S1`; posted `2026-05-21T02:55:48.827747Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4711` Packet finding: Finding on rev_pkt_4710: mutation fields must block runnable command rendering (source `rev_pkt_4711`; target `plan:MP-GUARDIR-V4-PHASE-0-6-A-COMMAND-ENVELOPE-NORMALIZATION-S1`; posted `2026-05-21T03:03:35.914765Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4712` Packet finding: Finding: v4.40 mutation allowlist convergence scope (source `rev_pkt_4712`; target `plan:MP-GUARDIR-V4-PHASE-0-6-A-COMMAND-ENVELOPE-NORMALIZATION-S1`; posted `2026-05-21T03:18:04.185009Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4713` Packet finding: Finding: v4.41 classifier import isolation proof required (source `rev_pkt_4713`; target `plan:MP-GUARDIR-V4-PHASE-0-6-C-COORDINATION-LANE-IMPORT-ISOLATION-S1`; posted `2026-05-21T03:26:36.103903Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4714` Packet finding: Finding: v4.42 typed-action adapter convergence scope (source `rev_pkt_4714`; target `plan:MP-GUARDIR-V4-PHASE-0-6-A-COMMAND-ENVELOPE-NORMALIZATION-S1`; posted `2026-05-21T03:35:41.410026Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4715` Packet finding: Verified v4.42; next v4.43 reviewer-acceptance freshness repair (source `rev_pkt_4715`; target `plan:MP-GUARDIR-V4-PHASE-0-6-A-REVIEW-FEEDBACK-POST-OBEDIENCE-S1`; posted `2026-05-21T03:47:39.440122Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4716` Packet finding: Finding: v4.43 stale blocker is not wired to live review-channel path (source `rev_pkt_4716`; target `plan:MP-GUARDIR-V4-PHASE-0-6-A-REVIEW-FEEDBACK-POST-OBEDIENCE-S1`; posted `2026-05-21T03:58:45.851115Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4717` Packet finding: Finding: v4.43.1 observed-event source must use canonical reducer state (source `rev_pkt_4717`; target `plan:MP-GUARDIR-V4-PHASE-0-6-A-REVIEW-FEEDBACK-POST-OBEDIENCE-S1`; posted `2026-05-21T04:10:42.829361Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4718` Packet finding: Finding: import-index repair command is not runnable (source `rev_pkt_4718`; target `plan:MP-GUARDIR-V4-PHASE-0-6-A-STARTUP-REPAIR-COMMAND-S1`; posted `2026-05-21T04:24:07.785240Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4719` Packet finding: Finding: review_accepted closure still blocked by guard (source `rev_pkt_4719`; target `plan:MP-GUARDIR-V4-PHASE-0-6-A-REVIEW-FEEDBACK-POST-OBEDIENCE-S1`; posted `2026-05-21T04:25:51.690887Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4720` Packet finding: Finding: v4.43.3 repair command should use stable check shim (source `rev_pkt_4720`; target `plan:MP-GUARDIR-V4-PHASE-0-6-A-STARTUP-REPAIR-COMMAND-S1`; posted `2026-05-21T04:32:51.409903Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4721` Packet finding: Finding: v4.43.4 test failure text still names internal module (source `rev_pkt_4721`; target `plan:MP-GUARDIR-V4-PHASE-0-6-A-STARTUP-REPAIR-COMMAND-S1`; posted `2026-05-21T04:38:56.939643Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4722` Packet finding: Finding: verified reviewer progress post blocked by ControlDecisionObeyedGuard (source `rev_pkt_4722`; target `plan:MP-GUARDIR-V4-PHASE-0-6-A-REVIEW-FEEDBACK-POST-OBEDIENCE-S1`; posted `2026-05-21T04:44:39.124915Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4723` Packet finding: Finding: maintained docs still promote projection surfaces as authority (source `rev_pkt_4723`; target `plan:MP-GUARDIR-V4-PHASE-0-6-E-INSTRUCTION-SURFACE-USABILITY-S1`; posted `2026-05-21T04:49:44.020455Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4724` Packet finding: Finding: GuardIR v4 needs no-disconnected-duplicate acceptance bundle (source `rev_pkt_4724`; target `plan:MP-GUARDIR-V4-PHASE-0-6-E-CURRENT-PLAN-AUTHORITY-S1`; posted `2026-05-21T04:50:45.965722Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4725` Packet finding: Finding: v4.44 prose-authority guard misses source-of-truth language (source `rev_pkt_4725`; target `plan:MP-GUARDIR-V4-PHASE-0-6-E-INSTRUCTION-SURFACE-USABILITY-S1`; posted `2026-05-21T04:59:35.437774Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4726` Packet finding: Finding: v4.44.1 prose-authority guard default repo root masks live violations (source `rev_pkt_4726`; target `plan:MP-GUARDIR-V4-PHASE-0-6-E-INSTRUCTION-SURFACE-USABILITY-S1`; posted `2026-05-21T05:04:46.418700Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4727` Packet finding: Finding: v4.44.1 prose-authority slice leaves integration gates red (source `rev_pkt_4727`; target `plan:MP-GUARDIR-V4-PHASE-0-6-E-INSTRUCTION-SURFACE-USABILITY-S1`; posted `2026-05-21T05:08:39.450584Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4728` Packet finding: Finding: v4.44.2 prose-authority guard scope misses active authority docs (source `rev_pkt_4728`; target `plan:MP-GUARDIR-V4-PHASE-0-6-E-INSTRUCTION-SURFACE-USABILITY-S1`; posted `2026-05-21T05:14:40.216413Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4729` Packet finding: Finding: agent-loop emits empty repair command as runnable self-loop (source `rev_pkt_4729`; target `plan:MP-GUARDIR-V4-PHASE-0-6-A-STARTUP-REPAIR-COMMAND-S1`; posted `2026-05-21T05:17:32.458873Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4730` Packet finding: Finding: BlockerSnapshot duplicate shape drives agent-loop drift (source `rev_pkt_4730`; target `plan:MP377-P233`; posted `2026-05-21T05:25:29.759422Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4731` Packet finding: Finding: route-scoped plan packets hidden behind watch limit (source `rev_pkt_4731`; target `plan:MP377-P0-T08F`; posted `2026-05-21T05:28:38.065839Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4732` Packet finding: Finding: agent-loop self-loop root cause in next_command_for_turn (source `rev_pkt_4732`; target `plan:MP-GUARDIR-V4-PHASE-0-6-A-STARTUP-REPAIR-COMMAND-S1`; posted `2026-05-21T05:29:47.962437Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4733` Packet finding: Finding: communication-only packets can block controller without durable plan owner (source `rev_pkt_4733`; target `plan:MP377-P0-T08F`; posted `2026-05-21T05:37:34.688526Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4734` Packet finding: Finding: packet attention must use existing durable/communication classifications (source `rev_pkt_4734`; target `plan:MP377-P0-T08F`; posted `2026-05-21T05:44:19.504036Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4735` Packet finding: Finding: v4.44.3 qualifier logic false-negative remains (source `rev_pkt_4735`; target `plan:MP-GUARDIR-V4-PHASE-0-6-E-INSTRUCTION-SURFACE-USABILITY-S1`; posted `2026-05-21T05:46:56.527719Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4736` Packet finding: Finding: communication-only task_progress packet blocks controller with no legal reviewer disposition (source `rev_pkt_4736`; target `plan:MP377-P0-T08F`; posted `2026-05-21T06:01:12.497460Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4737` Packet finding: Finding: v4.45 fixes AgentLoopDecision.next_command but develop/final surfaces still re-emit agent-loop self-loop (source `rev_pkt_4737`; target `plan:MP-GUARDIR-V4-PHASE-0-6-A-STARTUP-REPAIR-COMMAND-S1`; posted `2026-05-21T06:04:29.771640Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4738` Packet work: TASK_STARTED v4.45.2: consume blocked AgentLoopDecision as unrunnable blocker in develop/final surfaces (source `rev_pkt_4738`; target `plan:MP-GUARDIR-V4-PHASE-0-6-A-STARTUP-REPAIR-COMMAND-S1`; posted `2026-05-21T06:07:11.666428Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4739` Packet finding: Finding: v4.45.2 still has upstream next_loop_command rehydration paths (source `rev_pkt_4739`; target `plan:MP-GUARDIR-V4-PHASE-0-6-A-STARTUP-REPAIR-COMMAND-S1`; posted `2026-05-21T06:15:48.205140Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4740` Packet finding: Finding: raw git stash attempt/report still bypasses typed worktree mutation authority (source `rev_pkt_4740`; target `plan:MP-GUARDIR-V4-PHASE-0-6-A-COMMAND-ENVELOPE-NORMALIZATION-S1`; posted `2026-05-21T06:21:13.886566Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4741` Packet finding: Review failed: v4.45.2 closure is partial; parser/campaign/dogfood/raw-stash gaps remain (source `rev_pkt_4741`; target `plan:MP-GUARDIR-V4-PHASE-0-6-A-COMMAND-ENVELOPE-NORMALIZATION-S1`; posted `2026-05-21T06:22:41.359234Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4742` Packet finding: Finding: v4.45.3 final-gate consumer still truthifies string false can_run_next_command (source `rev_pkt_4742`; target `plan:MP-GUARDIR-V4-PHASE-0-6-A-COMMAND-ENVELOPE-NORMALIZATION-S1`; posted `2026-05-21T06:29:13.229213Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4743` Packet finding: Finding: boolean normalizer convergence still incomplete beyond can_run_next_command (source `rev_pkt_4743`; target `plan:MP-GUARDIR-V4-PHASE-0-6-A-COMMAND-ENVELOPE-NORMALIZATION-S1`; posted `2026-05-21T06:36:10.931907Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4744` Packet finding: Finding: stale transport packet can become controller authority and ack cleanup is guard-blocked (source `rev_pkt_4744`; target `plan:MP-GUARDIR-V4-PHASE-0-6-A-COMMAND-ENVELOPE-NORMALIZATION-S1`; posted `2026-05-21T06:45:57.738156Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4745` Packet finding: Finding: instruction projections are projection-only but too thin for role-aware typed routing (source `rev_pkt_4745`; target `plan:MP-GUARDIR-V4-PHASE-0-6-E-INSTRUCTION-SURFACE-USABILITY-S1`; posted `2026-05-21T06:47:17.325754Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4746` Packet finding: Finding: source-of-truth rule exists; enforcement must cover every packet/plan consumer (source `rev_pkt_4746`; target `plan:MP-GUARDIR-V4-PHASE-0-6-E-CURRENT-PLAN-AUTHORITY-S1`; posted `2026-05-21T06:48:13.727385Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4747` Packet finding: Finding: v4.45.5 leaves two boolean-normalizer leaks (source `rev_pkt_4747`; target `plan:MP-GUARDIR-V4-PHASE-0-6-A-COMMAND-ENVELOPE-NORMALIZATION-S1`; posted `2026-05-21T06:51:46.974629Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4748` Packet finding: Finding: add no-duplicate-system acceptance before extending role/packet/navigation machinery (source `rev_pkt_4748`; target `plan:MP-GUARDIR-V4-PHASE-0-6-E-CURRENT-PLAN-AUTHORITY-S1`; posted `2026-05-21T07:01:20.472684Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4749` Packet finding: Finding: role/continuation authority leaks across stale sessions and peer-owned commands (source `rev_pkt_4749`; target `plan:MP-GUARDIR-V4-PHASE-0-6-E-ROLE-BOOT-CONTINUATION-S1`; posted `2026-05-21T07:06:30.767206Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4750` Packet finding: Finding: review_accepted still blocked without control-decision input (source `rev_pkt_4750`; target `plan:MP-GUARDIR-V4-PHASE-0-6-A-REVIEW-FEEDBACK-POST-OBEDIENCE-S1`; posted `2026-05-21T07:13:16.301052Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4751` Packet finding: Finding: platform-contract closure drift must be plan-bound before implementation continues (source `rev_pkt_4751`; target `plan:MP-GUARDIR-V4-PHASE-0-6-E-CURRENT-PLAN-AUTHORITY-S1`; posted `2026-05-21T07:25:07.125998Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4752` Packet finding: Finding: ReviewState contract drift critical finding needs active PlanRow owner (source `rev_pkt_4752`; target `plan:MP-GUARDIR-V4-PHASE-0-6-E-CURRENT-PLAN-AUTHORITY-S1`; posted `2026-05-21T07:30:02.489788Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4753` Packet finding: Finding: packet-to-plan enforcement contracts exist but need hard resolver gates (source `rev_pkt_4753`; target `plan:MP-GUARDIR-V4-PHASE-0-6-E-CURRENT-PLAN-AUTHORITY-S1`; posted `2026-05-21T07:32:17.045607Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4754` Packet finding: Finding: closed read-only sidecar sessions still become controller blockers (source `rev_pkt_4754`; target `plan:MP-GUARDIR-V4-PHASE-0-6-E-ROLE-BOOT-CONTINUATION-S1`; posted `2026-05-21T07:35:08.496435Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4755` Packet finding: Finding: topology labels must compile to typed role/cardinality authority, not remain controller truth (source `rev_pkt_4755`; target `plan:MP377-COLLABORATION-MODE-TOPOLOGY-S1`; posted `2026-05-21T11:30:29.927824Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4756` Packet finding: Finding: v4.54 plan amendment verifies structurally but closure gates remain red (source `rev_pkt_4756`; target `plan:MP-GUARDIR-V4-PHASE-0-6-E-CURRENT-PLAN-AUTHORITY-S1`; posted `2026-05-21T11:33:52.915236Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4757` Packet finding: Finding: helper-sidecar blocker persists after v4.54 and topology fanout (source `rev_pkt_4757`; target `plan:MP-GUARDIR-V4-PHASE-0-6-E-ROLE-BOOT-CONTINUATION-S1`; posted `2026-05-21T11:36:23.162090Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4758` Packet finding: v4.55.1 tighten stale-anchor and topology-label acceptance before continuing implementation (source `rev_pkt_4758`; target `plan:MP-GUARDIR-V4-PHASE-0-6-E-ROLE-BOOT-CONTINUATION-S1`; posted `2026-05-21T11:45:00.230355Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4759` Packet work: Implement v4.55.1 priority 1: scoped continuation anchors for helper sidecars (source `rev_pkt_4759`; target `plan:MP-GUARDIR-V4-PHASE-0-6-E-ROLE-BOOT-CONTINUATION-S1`; posted `2026-05-21T11:49:19.721928Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4760` Packet finding: Review finding on v4.55.1 patch: session filter must preserve role-scoped anchors (source `rev_pkt_4760`; target `dev/scripts/devctl/runtime/goal_progress_receipt.py`; posted `2026-05-21T11:52:53.410561Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4761` Packet finding: Review finding: supervise-driver tests fail after partial v4.55.1 patch (source `rev_pkt_4761`; target `dev/scripts/devctl/runtime/agent_supervise_driver.py`; posted `2026-05-21T11:54:52.571341Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4762` Packet finding: Review finding: anchor suppression alone still leaves helper sidecars as blockers (source `rev_pkt_4762`; target `dev/scripts/devctl/runtime/agent_supervise_driver.py`; posted `2026-05-21T11:56:42.114779Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4763` Packet finding: Review finding: v4.55.1 still blocks on closed sidecar after anchor suppression (source `rev_pkt_4763`; target `dev/scripts/devctl/runtime/agent_supervise_driver.py`; posted `2026-05-21T12:04:09.829322Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4764` Packet finding: Review finding: ignored_helper_closed status needs CLI/orchestration handling and role-scope fix (source `rev_pkt_4764`; target `dev/scripts/devctl/runtime/goal_progress_receipt.py`; posted `2026-05-21T12:08:49.248568Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4765` Packet finding: Review finding: v4.55.1 still lacks CLI success path for ignored_helper_closed (source `rev_pkt_4765`; target `dev/scripts/devctl/commands/runtime/agent_supervise.py`; posted `2026-05-21T12:13:05.516969Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4766` Packet finding: Review evidence: v4.55.1 priority 1 accepted; lifecycle review_accepted guard still blocks (source `rev_pkt_4766`; target `dev/scripts/devctl/runtime/agent_supervise_driver.py`; posted `2026-05-21T12:18:27.149224Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4767` Packet work: Implement v4.55.2: Codex helper sessions must not become reviewer controller rows (source `rev_pkt_4767`; target `dev/scripts/devctl/review_channel/agent_work_board_projection.py`; posted `2026-05-21T12:23:40.745616Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4768` Packet finding: Review finding: v4.55.2 recency demotion still leaves Codex helpers as reviewer blockers (source `rev_pkt_4768`; target `dev/scripts/devctl/review_channel/agent_work_board_projection.py`; posted `2026-05-21T12:28:32.443529Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4769` Packet finding: Review finding: v4.55.2 demotes helpers but still lets subagents block final gate (source `rev_pkt_4769`; target `dev/scripts/devctl/review_channel/agent_work_board_projection.py`; posted `2026-05-21T12:30:30.381593Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4770` Packet finding: Review finding: v4.55.2 still promotes Codex subagent helpers into final-gate blockers (source `rev_pkt_4770`; target `dev/scripts/devctl/review_channel/agent_loop_decision_projection.py`; posted `2026-05-21T12:35:15.980925Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4771` Packet finding: Review evidence: v4.55.2 helper subagent blocker fixed; review_accepted guard blocked (source `rev_pkt_4771`; target `dev/scripts/devctl/review_channel/agent_loop_decision_projection.py`; posted `2026-05-21T12:44:25.048238Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4772` Packet work: Implement topology source-of-truth: legacy mode labels cannot drive runtime authority (source `rev_pkt_4772`; target `dev/scripts/devctl/platform/coordination_topology_support.py`; posted `2026-05-21T12:45:38.999270Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4773` Packet finding: v4.55.3 is not complete: typed reducer added but runtime consumers still branch on legacy labels (source `rev_pkt_4773`; target `runtime://topology-authority`; posted `2026-05-21T12:53:23.847296Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4774` Packet finding: Topology bug: read-only Codex sidecar is being promoted to reviewer packet-attention owner (source `rev_pkt_4774`; target `runtime://topology-authority`; posted `2026-05-21T12:56:07.579428Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4775` Packet finding: v4.55.3 v2 still incomplete: auto-mode typed reducer is not fed by production callers (source `rev_pkt_4775`; target `runtime://topology-authority`; posted `2026-05-21T12:58:00.853119Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4776` Packet finding: v4.55.3 v3 is progress, not closure: many legacy reviewer-mode authority paths remain (source `rev_pkt_4776`; target `runtime://topology-authority`; posted `2026-05-21T13:06:06.909407Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4777` Packet finding: v4.55.3 v4 still incomplete: composite guard only tests reducer, not authority consumers (source `rev_pkt_4777`; target `runtime://topology-authority`; posted `2026-05-21T13:08:07.974885Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4778` Packet finding: v4.55.3 conductor patch is consumer-incomplete: production callers omit typed collaboration (source `rev_pkt_4778`; target `dev/scripts/devctl/runtime/conductor_capability.py`; posted `2026-05-21T13:15:15.447457Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4779` Packet finding: Controller stale-packet regression: launch redirects active v4.55.3 work to rev_pkt_4704 (source `rev_pkt_4779`; target `runtime://packet-attention-current-goal`; posted `2026-05-21T13:16:03.854160Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4780` Packet finding: v4.55.3 governed executor still trusts legacy-built bridge capability before typed facts (source `rev_pkt_4780`; target `dev/scripts/devctl/commands/vcs/governed_executor_commit_targets.py`; posted `2026-05-21T13:20:50.294273Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4781` Packet finding: v4.55.3 v7 still leaks: _collaboration_mapping misses object-shaped typed collaboration (source `rev_pkt_4781`; target `dev/scripts/devctl/commands/vcs/governed_executor_actor_authority.py`; posted `2026-05-21T13:24:43.647405Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4782` Packet finding: v4.55.3 v7 not accepted: no regression/code change for object-shaped collaboration leak (source `rev_pkt_4782`; target `dev/scripts/devctl/commands/vcs/governed_executor_actor_authority.py`; posted `2026-05-21T13:27:01.834920Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4783` Packet finding: v4.55.3 v8 regression: reviewer single-agent path now incorrectly requires live coding_agent (source `rev_pkt_4783`; target `dev/scripts/devctl/runtime/conductor_capability.py`; posted `2026-05-21T13:31:31.268579Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4784` Packet finding: v4.55.3 controller contradiction: stale inbox packet required but ack/review closure is guard-blocked (source `rev_pkt_4784`; target `runtime://packet-attention-control-decision-closure`; posted `2026-05-21T13:42:06.250929Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4785` Packet finding: Review evidence: v4.55.3 v9 topology capability patch is clean; continue controller closure fix (source `rev_pkt_4785`; target `runtime://packet-attention-control-decision-closure`; posted `2026-05-21T13:49:18.773302Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4786` Packet finding: Active packet hidden by inbox ordering: develop selects rev_pkt_4785 but Claude inbox shows old queue (source `rev_pkt_4786`; target `runtime://packet-attention-inbox-current-goal`; posted `2026-05-21T13:52:45.329249Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4787` Packet work: v4.55.4 execution-lane repair: stop plan-only/stale-packet loop and restore coding/review lanes (source `rev_pkt_4787`; target `runtime://typed-controller/execution-lane`; posted `2026-05-21T14:00:57.274753Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4788` Packet finding: Topology implementation target: remove legacy labels and provider defaults from controller truth (source `rev_pkt_4788`; target `plan:MP-GUARDIR-V4-PHASE-0-6-E-ROLE-BOOT-CONTINUATION-S1`; posted `2026-05-21T14:35:09.124164Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4789` Packet finding: Source-of-truth selector bug: current PlanRow must outrank stale packet attention (source `rev_pkt_4789`; target `plan:MP-GUARDIR-V4-PHASE-0-6-E-CURRENT-PLAN-AUTHORITY-S1`; posted `2026-05-21T14:40:01.102432Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4790` Packet finding: Selector resolver must stay thin and be wired before closure (source `rev_pkt_4790`; target `plan:MP-GUARDIR-V4-PHASE-0-6-E-CURRENT-PLAN-AUTHORITY-S1`; posted `2026-05-21T14:53:32.039134Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4791` Packet finding: Dogfood still selects stale packet attention until resolver is wired (source `rev_pkt_4791`; target `plan:MP-GUARDIR-V4-PHASE-0-6-E-CURRENT-PLAN-AUTHORITY-S1`; posted `2026-05-21T14:59:59.095048Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4792` Packet finding: Plan pipeline test failure: future/stale packets steal current feature work (source `rev_pkt_4792`; target `plan:MP-GUARDIR-V4-PHASE-0-6-E-CURRENT-PLAN-AUTHORITY-S1`; posted `2026-05-21T15:04:17.038829Z`; binding `plan_row`).

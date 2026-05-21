@@ -61,6 +61,19 @@ def build_packet_arguments(arg_builder: Callable[..., Any]) -> list[Any]:
             ),
         ),
         arg_builder(
+            "--parent-packet-id",
+            default="",
+            help=(
+                "Explicit primary parent packet for cascade-direction closures "
+                "(task_produced/task_progress/task_blocked/review_accepted/"
+                "review_failed). When set, the cascade authority binds to this "
+                "packet regardless of evidence_ref ordering. When omitted with "
+                "multiple packet:rev_pkt_<id> evidence refs, the cascade-post "
+                "authority fails closed (v4.22 rev_pkt_4681: evidence ORDER must "
+                "not silently choose lifecycle parentage)."
+            ),
+        ),
+        arg_builder(
             "--confidence",
             type=float,
             default=1.0,

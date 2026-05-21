@@ -19,6 +19,10 @@ from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from typing import Any
 
+from .topology_authority_facts import (
+    live_implementer_present,
+    live_reviewer_present,
+)
 from .project_governance_contract import (
     DELIVERY_MODE_GIT_PUSH_REQUIRED,
     DELIVERY_MODE_LIBRARY_IMPORT_ONLY,
@@ -66,7 +70,16 @@ class AutoModeState:
 
 @dataclass(frozen=True, slots=True)
 class AutoModeInputs:
-    """Derived inputs collected from repo-owned typed state."""
+    """Derived inputs collected from repo-owned typed state.
+
+    `collaboration` is the typed CollaborationSessionState mapping
+    (with `role_assignments` / `participants` keys). When supplied,
+    v4.55.3 (rev_pkt_4772/4773) dispatches `reviewer_alive` /
+    `implementer_alive` from typed role_assignments; the legacy
+    `reviewer_mode` / `implementer_status` strings become evidence-only
+    in that mode. Callers that do NOT pass `collaboration` fall back
+    to the legacy label paths for migration back-compat.
+    """
 
     push_decision_action: str = ""
     push_decision_reason: str = ""
@@ -82,6 +95,7 @@ class AutoModeInputs:
     operator_interaction_mode: str = "local_terminal"
     delivery_mode: str = DELIVERY_MODE_GIT_PUSH_REQUIRED
     timestamp_utc: str = ""
+    collaboration: "Mapping[str, object] | None" = None
 
 
 # Phase transition table: maps current conditions to the next expected step
@@ -112,15 +126,32 @@ def resolve_auto_mode_phase(inputs: AutoModeInputs) -> AutoModeState:
     5. Dirty worktree with work in progress forces implementing phase.
     6. Otherwise idle.
     """
-    reviewer_alive = inputs.reviewer_mode in (
-        "active_dual_agent",
-        "dual_agent",
-    )
-    implementer_alive = inputs.implementer_status in (
-        "implementing",
-        "active",
-        "coding",
-    )
+    # v4.55.3 (rev_pkt_4772/4773): when caller supplies typed
+    # `collaboration` state, derive reviewer/implementer liveness from
+    # typed `role_assignments` via `topology_authority_facts`. Legacy
+    # `reviewer_mode` / `implementer_status` labels remain only as
+    # diagnostic/migration evidence in that mode — they cannot grant
+    # authority alone. Callers that do not yet supply `collaboration`
+    # fall back to the legacy label paths for back-compat.
+    if inputs.collaboration is not None:
+        reviewer_alive = live_reviewer_present(
+            inputs.collaboration,
+            legacy_label=inputs.reviewer_mode,
+        )
+        implementer_alive = live_implementer_present(
+            inputs.collaboration,
+            legacy_label=inputs.implementer_status,
+        )
+    else:
+        reviewer_alive = inputs.reviewer_mode in (
+            "active_dual_agent",
+            "dual_agent",
+        )
+        implementer_alive = inputs.implementer_status in (
+            "implementing",
+            "active",
+            "coding",
+        )
 
     phase, next_transition = _resolve_phase_and_transition(
         inputs,

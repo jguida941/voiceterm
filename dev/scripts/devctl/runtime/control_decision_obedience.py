@@ -61,12 +61,50 @@ class ControlDecisionObedienceViolation:
 
 
 @dataclass(frozen=True, slots=True)
+class StaleControllerDecisionBlocker:
+    """v4.43 (rev_pkt_4715): typed blocker for stale-source-decision failures.
+
+    Emitted when ``_violations_for_action`` would report opaque obedience
+    violations BUT the underlying decision input is older than the
+    attempted action's observed event id. Distinguishes "your action is
+    wrong" (real violation) from "your decision input was stale" (refresh
+    decision and retry).
+
+    Codex's rev_pkt_4715 reproduction: ``review_accepted`` post against
+    fresh body-observed state failed with 4 raw violations because the
+    decision input was sourced from ``agent-runtime-clock:rev_evt_84896``
+    while the action observed a much later event id. Refreshing the
+    decision would have made the action legal.
+    """
+
+    blocker_id: str
+    decision_source_latest_event_id: str
+    action_observed_event_id: str
+    suppressed_violation_reasons: tuple[str, ...] = ()
+    detail: str = ""
+    schema_version: int = 1
+    contract_id: str = "StaleControllerDecisionBlocker"
+
+    def to_dict(self) -> dict[str, object]:
+        payload = asdict(self)
+        payload["suppressed_violation_reasons"] = list(
+            self.suppressed_violation_reasons
+        )
+        return payload
+
+
+@dataclass(frozen=True, slots=True)
 class ControlDecisionObedienceReport:
     ok: bool
     decision_present: bool
     attempted_action_count: int
     violation_count: int
     violations: tuple[dict[str, str], ...] = ()
+    # v4.43 (rev_pkt_4715): when an obedience failure is driven by stale
+    # decision input (vs. a real action violation), the report carries a
+    # typed ``stale_decision_blocker`` so consumers can refresh the
+    # decision and retry instead of seeing raw violations.
+    stale_decision_blocker: dict[str, object] | None = None
     schema_version: int = CONTROL_DECISION_OBEYED_SCHEMA_VERSION
     contract_id: str = CONTROL_DECISION_OBEYED_CONTRACT_ID
 
@@ -80,7 +118,15 @@ def evaluate_control_decision_obedience(
     attempted_actions: Iterable[Mapping[str, object]],
     allow_empty: bool = False,
 ) -> ControlDecisionObedienceReport:
-    """Fail when an attempted action violates the last controller decision."""
+    """Fail when an attempted action violates the last controller decision.
+
+    v4.43 (rev_pkt_4715): when violations are driven by stale decision
+    input (the decision's ``source_latest_event_id`` is older than the
+    attempted action's observed event id), a typed
+    ``StaleControllerDecisionBlocker`` is emitted instead of (or alongside)
+    the raw violations. Consumers can distinguish "refresh decision and
+    retry" from "real action violation, fix the action".
+    """
 
     actions = tuple(attempted_actions)
     violations: list[ControlDecisionObedienceViolation] = []
@@ -102,13 +148,108 @@ def evaluate_control_decision_obedience(
         for action in actions:
             violations.extend(_violations_for_action(decision, action))
     violation_payloads = tuple(violation.to_dict() for violation in violations)
+
+    # v4.43 (rev_pkt_4715): detect stale-decision failures and emit typed
+    # blocker. Triggers when ALL of the following hold:
+    #   - decision is present (not a no_control_decision_input failure)
+    #   - at least one obedience violation fired
+    #   - the decision's source_latest_event_id is strictly older than the
+    #     observed event id on at least one attempted action
+    stale_decision_blocker_payload: dict[str, object] | None = None
+    if decision is not None and violations and actions:
+        stale_blocker = _detect_stale_decision_blocker(decision, actions, violations)
+        if stale_blocker is not None:
+            stale_decision_blocker_payload = stale_blocker.to_dict()
+
     return ControlDecisionObedienceReport(
         ok=not violation_payloads,
         decision_present=decision is not None,
         attempted_action_count=len(actions),
         violation_count=len(violation_payloads),
         violations=violation_payloads,
+        stale_decision_blocker=stale_decision_blocker_payload,
     )
+
+
+def _detect_stale_decision_blocker(
+    decision: Mapping[str, object],
+    actions: tuple[Mapping[str, object], ...],
+    violations: list[ControlDecisionObedienceViolation],
+) -> StaleControllerDecisionBlocker | None:
+    """Return a typed blocker if the obedience failure is driven by stale state.
+
+    v4.43 (rev_pkt_4715): the decision's ``source_latest_event_id`` is
+    compared against each attempted action's observed event id (or
+    ``started_at_utc`` as a fallback). When the decision is strictly older
+    by event-rank, the obedience violations are likely artifacts of stale
+    state — the consumer should refresh the decision and retry rather
+    than treat them as real action violations.
+
+    v4.43.1 (rev_pkt_4716): the live ``_review_channel_lifecycle_gate``
+    copies the action's ``source_latest_event_id`` from the loaded decision
+    (same event id on both sides → never triggers). The detector now
+    PREFERS ``observed_event_id`` when set — this is the gate-supplied
+    fresh observation from canonical typed review-channel state, distinct
+    from the action's source-decision provenance.
+    """
+    decision_event_id = coerce_string(
+        decision.get("source_latest_event_id")
+    ).strip()
+    if not decision_event_id:
+        return None
+    decision_rank = _event_id_rank(decision_event_id)
+    if decision_rank < 0:
+        return None
+    for action in actions:
+        # v4.43.1: prefer the gate-supplied ``observed_event_id`` (canonical
+        # review-channel state) over the action's ``source_latest_event_id``
+        # (copied from the decision and therefore equal to ``decision_event_id``
+        # in the live path).
+        action_event_id = coerce_string(
+            action.get("observed_event_id")
+            or action.get("source_latest_event_id")
+            or action.get("latest_event_id")
+        ).strip()
+        if not action_event_id:
+            continue
+        action_rank = _event_id_rank(action_event_id)
+        if action_rank < 0:
+            continue
+        if action_rank > decision_rank:
+            blocker_id = (
+                f"stale_decision:{decision_event_id}:vs:{action_event_id}"
+            )
+            return StaleControllerDecisionBlocker(
+                blocker_id=blocker_id,
+                decision_source_latest_event_id=decision_event_id,
+                action_observed_event_id=action_event_id,
+                suppressed_violation_reasons=tuple(
+                    v.reason for v in violations
+                ),
+                detail=(
+                    f"Decision input is from {decision_event_id}; attempted "
+                    f"action observed {action_event_id}. Refresh decision "
+                    f"before retrying."
+                ),
+            )
+    return None
+
+
+def _event_id_rank(event_id: str) -> int:
+    """Extract the numeric rank from a ``rev_evt_NNNNN`` event id.
+
+    Returns -1 if the input is not in the expected form so callers can
+    fall back to event-id-string equality. Mirrors the helper in
+    ``review_channel/event_models.py:event_id_rank`` but locally inlined
+    so this guard module stays leaf-safe (no review_channel imports).
+    """
+    prefix = "rev_evt_"
+    if not event_id.startswith(prefix):
+        return -1
+    try:
+        return int(event_id[len(prefix):])
+    except ValueError:
+        return -1
 
 
 def build_attempted_action_receipt(
@@ -427,24 +568,14 @@ def _action_proxy_execution(action: Mapping[str, object]) -> bool:
     )
 
 
-def _proxy_execution(
-    *,
-    executor_actor: str,
-    executor_role: str,
-    executor_session_id: str,
-    subject_actor: str,
-    subject_role: str,
-    subject_session_id: str,
-) -> bool:
-    if not executor_actor or not subject_actor:
-        return False
-    if executor_actor != subject_actor:
-        return True
-    if executor_role and subject_role and executor_role != subject_role:
-        return True
-    if executor_session_id and subject_session_id and executor_session_id != subject_session_id:
-        return True
-    return False
+# v4.41 (rev_pkt_4713): ``_proxy_execution`` moved to the neutral
+# ``runtime/proxy_execution.py`` module so downstream modules (e.g.
+# ``command_envelope_classification``) can consume the primitive without
+# importing the whole control-decision-obedience graph. The name is
+# re-exported here for backwards-compat — existing callers continue to
+# import ``_proxy_execution`` from ``control_decision_obedience``.
+from .proxy_execution import _proxy_execution as _proxy_execution  # noqa: PLC0414
+
 
 def _action_executes_command(action: Mapping[str, object]) -> bool:
     if coerce_bool(action.get("executes_command")):

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import json
+import re
 import time
 from types import SimpleNamespace
 
@@ -720,6 +721,13 @@ def _review_channel_lifecycle_gate(
         source_latest_event_id=source_latest_event_id,
         started_at_utc=utc_timestamp(),
     ).to_dict()
+    # v4.43.1 (rev_pkt_4716): populate ``observed_event_id`` from canonical
+    # review-channel state so the stale-decision blocker can compare the
+    # decision source against fresh observation rather than against the
+    # action's source-decision provenance (which is the same as decision).
+    observed_event_id = _latest_observed_event_id(context)
+    if observed_event_id:
+        attempted["observed_event_id"] = observed_event_id
     if _operator_post_authority(args):
         return {
             "ok": True,
@@ -734,6 +742,22 @@ def _review_channel_lifecycle_gate(
             "contract_id": "ControlDecisionObeyedGuard",
             "orchestrator_source_authority": True,
             "authority_ordering": "orchestrator_source_before_control_decision_obedience",
+            "attempted_action_receipt": attempted,
+        }
+    if _cascade_lifecycle_read_authority(args):
+        return {
+            "ok": True,
+            "contract_id": "ControlDecisionObeyedGuard",
+            "cascade_lifecycle_read_authority": True,
+            "authority_ordering": "cascade_lifecycle_read_before_control_decision_obedience",
+            "attempted_action_receipt": attempted,
+        }
+    if _cascade_lifecycle_post_authority(args, repo_root=context.repo_root):
+        return {
+            "ok": True,
+            "contract_id": "ControlDecisionObeyedGuard",
+            "cascade_lifecycle_post_authority": True,
+            "authority_ordering": "cascade_lifecycle_post_before_control_decision_obedience",
             "attempted_action_receipt": attempted,
         }
     if not decision and _allow_missing_control_decision_for_test(
@@ -755,6 +779,56 @@ def _review_channel_lifecycle_gate(
     return report
 
 
+def _latest_observed_event_id(context) -> str:
+    """v4.43.2 (rev_pkt_4717): read the canonical observed event id from
+    typed review-channel reduced state.
+
+    Delegates to ``source_latest_event_id_from_reduced_state`` which walks
+    the typed extraction order (AgentRuntimeClock → typed_snapshot_freshness
+    → agent_sync → reviewer_runtime → top-level). The reduced state is read
+    from ``context.artifact_paths.state_path`` — the canonical projection
+    JSON written by ``refresh_event_bundle``.
+
+    v4.43.1 used a direct trace.ndjson tail reader (which codex correctly
+    flagged as a parallel cursor selector bypassing typed reducer state).
+    v4.43.2 routes through the shared canonical extractor instead — the
+    obedience guard's stale-decision detector sees the same event id that
+    AgentRuntimeClock / agent_sync / reviewer_runtime consumers see.
+
+    Returns ``""`` on any failure (missing artifact_paths, missing file,
+    parse error, no typed event cursor yet) — the stale detector treats
+    a missing ``observed_event_id`` as "no fresh observation supplied"
+    and falls back to comparing against the action's ``source_latest_event_id``.
+    """
+    artifact_paths = getattr(context, "artifact_paths", None)
+    if artifact_paths is None:
+        return ""
+    state_path = getattr(artifact_paths, "state_path", "")
+    if not state_path:
+        return ""
+    try:
+        from pathlib import Path  # noqa: PLC0415
+        path = Path(state_path)
+        if not path.exists():
+            return ""
+        import json  # noqa: PLC0415
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            return ""
+        if not isinstance(payload, dict):
+            return ""
+        # v4.43.2: reuse the canonical extractor so the observation cursor
+        # is the same one AgentRuntimeClock / agent_sync / reviewer_runtime
+        # consumers see — no parallel cursor selector.
+        from ...runtime.control_decision_artifacts import (  # noqa: PLC0415
+            source_latest_event_id_from_reduced_state,
+        )
+        return source_latest_event_id_from_reduced_state(payload)
+    except OSError:
+        return ""
+
+
 def _operator_post_authority(args) -> bool:
     """Operator-authored packet posts outrank stale controller wait state."""
     return (
@@ -766,6 +840,254 @@ def _operator_post_authority(args) -> bool:
 _ORCHESTRATOR_AUTHORIZED_POST_KINDS: frozenset[str] = frozenset(
     {"task_started", "finding"}
 )
+
+
+_CASCADE_LIFECYCLE_AUTHORIZED_POSTS: frozenset[tuple[str, str]] = frozenset(
+    {
+        ("claude", "task_produced"),
+        ("claude", "task_blocked"),
+        ("claude", "task_progress"),
+        ("codex", "review_accepted"),
+        ("codex", "review_failed"),
+        ("codex", "task_blocked"),
+        ("codex", "task_progress"),
+    }
+)
+
+
+_CASCADE_PEER_REVERSAL: frozenset[tuple[str, str]] = frozenset(
+    {
+        ("claude", "codex"),
+        ("codex", "claude"),
+    }
+)
+
+
+_CASCADE_PARENT_PACKET_RE = re.compile(r"^packet:rev_pkt_\d+$")
+
+
+_CASCADE_AGENT_ROLES: dict[str, str] = {
+    "claude": "implementer",
+    "codex": "reviewer",
+}
+
+
+_CASCADE_PARENT_STALE_STATUSES: frozenset[str] = frozenset(
+    {"expired", "dismissed", "applied", "rejected"}
+)
+
+
+_CASCADE_CLOSURE_PARENT_KINDS: dict[str, frozenset[str]] = {
+    "task_produced": frozenset({"task_started", "review_failed", "task_progress"}),
+    "task_progress": frozenset(
+        {"task_started", "task_produced", "task_progress", "task_blocked", "review_failed"}
+    ),
+    "task_blocked": frozenset(
+        {"task_started", "task_produced", "task_progress", "review_failed"}
+    ),
+    "review_accepted": frozenset({"task_produced"}),
+    "review_failed": frozenset({"task_produced", "task_progress"}),
+}
+
+
+_CASCADE_LIFECYCLE_READ_ACTIONS: frozenset[str] = frozenset(
+    {"show", "inbox", "operator-inbox", "status", "history", "sync-status"}
+)
+
+
+_CASCADE_LIVE_AGENT_PEERS: frozenset[str] = frozenset({"claude", "codex"})
+
+
+_CASCADE_FALLBACK_SESSION_IDS: frozenset[str] = frozenset({"", "local-review"})
+
+
+def _resolve_cascade_live_session_id(
+    agent_provider: str,
+    repo_root: Path,
+) -> str:
+    """Read the current live session_id for a live agent from typed agent_minds projection.
+
+    Phase 0.6.D v4.14 (rev_pkt_4668): re-uses the existing AgentMindSlice projection
+    at ``dev/reports/agent_minds/<agent>_latest.json`` rather than introducing a
+    parallel session registry. Returns empty string when the projection is absent.
+    """
+    if agent_provider not in _CASCADE_LIVE_AGENT_PEERS:
+        return ""
+    path = repo_root / "dev/reports/agent_minds" / f"{agent_provider}_latest.json"
+    if not path.is_file():
+        return ""
+    try:
+        with path.open(encoding="utf-8") as f:
+            data = json.load(f)
+    except (OSError, ValueError):
+        return ""
+    if not isinstance(data, dict):
+        return ""
+    return str(data.get("session_id") or "").strip()
+
+
+def _cascade_lifecycle_read_authority(args) -> bool:
+    """Read-action bypass for show/inbox/status: reads cannot mutate state.
+
+    ControlDecisionObeyedGuard is a write-side authority gate. Read actions cannot
+    mutate the event log or projections, so blocking them on stale-decision state
+    would starve reviewers of the visibility they need to write valid closures
+    (rev_pkt_4659 noted ``--action show rev_pkt_4655`` being blocked after a
+    sibling finding posted).
+    """
+    action = coerce_string(getattr(args, "action", "")).strip()
+    return action in _CASCADE_LIFECYCLE_READ_ACTIONS
+
+
+def _resolve_cascade_parent_packet(
+    parent_packet_id: str,
+    repo_root: Path,
+) -> dict[str, object] | None:
+    """Lookup a parent packet by id from the event-log replay.
+
+    Returns the packet dict (post-event hydration) or None if not found.
+    """
+    try:
+        from ...review_channel.pending_packet_storage import load_pending_packets
+
+        packets = load_pending_packets(repo_root, fail_closed=False)
+    except Exception:  # pragma: no cover - storage layer fail-open
+        return None
+    for packet in packets:
+        if not isinstance(packet, dict):
+            continue
+        if str(packet.get("packet_id") or "").strip() == parent_packet_id:
+            return dict(packet)
+    return None
+
+
+def _cascade_lifecycle_post_authority(
+    args,
+    *,
+    repo_root: Path | None = None,
+    parent_resolver: object = None,
+) -> bool:
+    """Bilateral cascade-closure post authority for task_started -> task_produced -> review_accepted.
+
+    Companion to _orchestrator_post_authority. Where the orchestrator authority lets codex
+    initiate work (task_started/finding) without first running ``develop next``, this rule
+    permits the matching closure-direction posts so claude can return task_produced and
+    codex can post review_accepted/review_failed without being gated by the most recent
+    AgentLoopDecision's wait/may_mutate/body_open state.
+
+    Phase 0.6.A structural narrow (rev_pkt_4657):
+      - Only ``review-channel --action post``
+      - Only (from_agent, kind) pairs in ``_CASCADE_LIFECYCLE_AUTHORIZED_POSTS``
+      - (from_agent, to_agent) must be claude<->codex reversal
+      - --target-session-id and --target-role must be non-empty
+      - At least one --evidence-ref must match ``packet:rev_pkt_<digits>``
+
+    v4.22 explicit primary parent resolution (rev_pkt_4681):
+      - If ``--parent-packet-id`` is set, it must match a packet:rev_pkt_<id>
+        evidence_ref (or evidence_refs may be empty) and that id is the parent.
+      - If ``--parent-packet-id`` is empty and exactly one packet:rev_pkt_<id>
+        evidence_ref is present, that ref is the parent (backwards compat).
+      - If ``--parent-packet-id`` is empty and MULTIPLE packet:rev_pkt_<id>
+        evidence_refs are present, the predicate fails closed - evidence
+        order MUST NOT silently choose lifecycle parentage.
+
+    Phase 0.6.B semantic cross-reference against parent task_started (rev_pkt_4659):
+      - Parent packet must resolve via ``parent_resolver`` / ``load_pending_packets``
+      - parent.kind == "task_started" (unrelated-parent-kind rejected)
+      - parent.status not in {expired, dismissed, applied, rejected} (stale rejected)
+      - closure.from_agent == parent.to_agent AND closure.to_agent == parent.from_agent
+        (wrong-peer rejected via authoritative cross-ref vs structural reversal)
+      - closure.target_session_id == parent.session_id (wrong-session rejected)
+      - closure.target_role == _CASCADE_AGENT_ROLES[parent.from_agent] (wrong-role rejected)
+      - When both non-empty: closure.target_ref == parent.target_ref (target-ref mismatch
+        rejected)
+
+    Fail-closed: if no ``repo_root`` and no ``parent_resolver`` are provided, returns False.
+    Production callers pass ``repo_root=context.repo_root``; unit tests inject
+    ``parent_resolver`` for deterministic verification without event-log fixtures.
+    """
+    if coerce_string(getattr(args, "action", "")).strip() != "post":
+        return False
+    from_agent = coerce_string(getattr(args, "from_agent", "")).strip()
+    to_agent = coerce_string(getattr(args, "to_agent", "")).strip()
+    kind = coerce_string(getattr(args, "kind", "")).strip()
+    if (from_agent, kind) not in _CASCADE_LIFECYCLE_AUTHORIZED_POSTS:
+        return False
+    if (from_agent, to_agent) not in _CASCADE_PEER_REVERSAL:
+        return False
+    target_session_id = coerce_string(getattr(args, "target_session_id", "")).strip()
+    if not target_session_id:
+        return False
+    target_role = coerce_string(getattr(args, "target_role", "")).strip()
+    if not target_role:
+        return False
+    evidence_refs = getattr(args, "evidence_ref", None) or ()
+    matching_packet_ids: list[str] = []
+    for ref in evidence_refs:
+        ref_str = coerce_string(ref).strip()
+        if _CASCADE_PARENT_PACKET_RE.match(ref_str):
+            matching_packet_ids.append(ref_str.split(":", 1)[1])
+    explicit_parent_id = coerce_string(
+        getattr(args, "parent_packet_id", "")
+    ).strip()
+    if explicit_parent_id:
+        if explicit_parent_id not in matching_packet_ids:
+            return False
+        parent_packet_id = explicit_parent_id
+    elif len(matching_packet_ids) == 1:
+        parent_packet_id = matching_packet_ids[0]
+    elif len(matching_packet_ids) > 1:
+        return False
+    else:
+        parent_packet_id = ""
+    if not parent_packet_id:
+        return False
+    resolver = parent_resolver
+    if resolver is None:
+        if repo_root is None:
+            return False
+        resolver = lambda pid: _resolve_cascade_parent_packet(pid, repo_root)
+    try:
+        parent = resolver(parent_packet_id)
+    except Exception:  # pragma: no cover - resolver fail-closed
+        return False
+    if parent is None or not isinstance(parent, dict):
+        return False
+    parent_kind = str(parent.get("kind") or "").strip()
+    expected_parent_kinds = _CASCADE_CLOSURE_PARENT_KINDS.get(kind, frozenset())
+    if parent_kind not in expected_parent_kinds:
+        return False
+    parent_status = str(parent.get("status") or "").strip()
+    if parent_status in _CASCADE_PARENT_STALE_STATUSES:
+        return False
+    parent_from = str(parent.get("from_agent") or "").strip()
+    parent_to = str(parent.get("to_agent") or "").strip()
+    if from_agent != parent_to or to_agent != parent_from:
+        return False
+    parent_session_id = str(parent.get("session_id") or "").strip()
+    if (
+        parent_from in _CASCADE_LIVE_AGENT_PEERS
+        or parent_to in _CASCADE_LIVE_AGENT_PEERS
+    ) and parent_session_id in _CASCADE_FALLBACK_SESSION_IDS:
+        return False
+    if target_session_id != parent_session_id:
+        return False
+    if target_session_id in _CASCADE_FALLBACK_SESSION_IDS:
+        return False
+    if repo_root is not None and parent_from in _CASCADE_LIVE_AGENT_PEERS:
+        live_session_id = _resolve_cascade_live_session_id(parent_from, repo_root)
+        if not live_session_id:
+            return False
+        if live_session_id != parent_session_id:
+            return False
+    expected_target_role = _CASCADE_AGENT_ROLES.get(parent_from, "")
+    if expected_target_role and target_role != expected_target_role:
+        return False
+    target_ref = coerce_string(getattr(args, "target_ref", "")).strip()
+    parent_target_ref = str(parent.get("target_ref") or "").strip()
+    if target_ref and parent_target_ref and target_ref != parent_target_ref:
+        return False
+    return True
 
 
 def _orchestrator_post_authority(args) -> bool:

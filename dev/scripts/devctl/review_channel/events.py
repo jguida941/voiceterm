@@ -125,6 +125,12 @@ def post_packet(
         if authority_evidence
         else {}
     )
+    # v4.22 (rev_pkt_4683): persist parent-resolution decision into event metadata
+    # so review-channel show / history / replay can audit which packet authorized
+    # the cascade closure, not just rely on first-evidence-ref ordering.
+    parent_resolution = _parent_resolution_metadata(request)
+    if parent_resolution:
+        metadata = {**metadata, "parent_resolution": parent_resolution}
     event = {
         "schema_version": 1,
         "event_id": next_event_id(existing_events),
@@ -258,6 +264,66 @@ def transition_packet(
         artifact_paths=artifact_paths,
     )
     return refreshed, written_event
+
+
+_CASCADE_LIFECYCLE_KINDS_WITH_PARENT_RESOLUTION: frozenset[str] = frozenset(
+    {
+        "task_produced",
+        "task_progress",
+        "task_blocked",
+        "review_accepted",
+        "review_failed",
+    }
+)
+
+
+def _parent_resolution_metadata(request) -> dict[str, object]:
+    """Build the parent-resolution metadata block for a packet event.
+
+    Phase 0.6.A v4.22 (rev_pkt_4683): when a post is authorized via the
+    cascade-post lane with an explicit ``--parent-packet-id``, the resolution
+    decision MUST land in the typed event so audit / replay / projections can
+    verify which packet authorized the cascade closure - not infer it from
+    evidence_ref ordering.
+
+    Phase 0.6.A v4.22 narrowing (rev_pkt_4685): only attach parent-resolution
+    metadata to cascade-direction lifecycle kinds. Findings, action_requests,
+    continuation_anchors, and other non-closure packet kinds can cite packet
+    refs as evidence without implying a lifecycle parent edge.
+
+    Returns a dict with primary_parent_packet_id, candidate_parent_refs,
+    supporting_evidence_refs, and parent_resolution_decision keys, or an
+    empty dict when the packet kind is not a cascade-direction lifecycle
+    kind OR there is no parent designation.
+    """
+    if request.kind not in _CASCADE_LIFECYCLE_KINDS_WITH_PARENT_RESOLUTION:
+        return {}
+    parent_id = (request.parent_packet_id or "").strip()
+    evidence_refs = list(request.evidence_refs)
+    candidate_refs: list[str] = []
+    parent_prefix = "packet:rev_pkt_"
+    for ref in evidence_refs:
+        text = str(ref or "").strip()
+        if text.startswith(parent_prefix):
+            suffix = text[len(parent_prefix):]
+            if suffix and suffix.isdigit():
+                candidate_refs.append(text)
+    if not parent_id and len(candidate_refs) != 1:
+        return {}
+    if not parent_id and len(candidate_refs) == 1:
+        primary_packet_id = candidate_refs[0].split(":", 1)[1]
+        decision = "single_ref_implicit"
+    else:
+        primary_packet_id = parent_id
+        decision = "explicit_parent_packet_id"
+    parent_ref = f"packet:{primary_packet_id}"
+    supporting_refs = [ref for ref in evidence_refs if ref != parent_ref]
+    return {
+        "primary_parent_packet_id": primary_packet_id,
+        "candidate_parent_refs": list(candidate_refs),
+        "supporting_evidence_refs": supporting_refs,
+        "parent_resolution_decision": decision,
+    }
 
 
 def _validate_transition(

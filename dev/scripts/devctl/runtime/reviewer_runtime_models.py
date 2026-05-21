@@ -134,6 +134,17 @@ class PacketAttentionState:
     wake_required: bool = False
     stale_reason: str = ""
     pivot_reasons: tuple[str, ...] = ()
+    # v4.36+v4.37 (rev_pkt_4708/4709): when the selected attention packet
+    # ranks LINEAGE_AMENDED (its target_revision is in the row's snapshot
+    # lineage but isn't the latest canonical SHA), surface a typed refresh
+    # signal so consumers know a refreshed packet is required before
+    # closure. Fields populate the ``PlanRevisionRefreshRequired`` contract;
+    # absent values mean no refresh required.
+    plan_revision_refresh_required: bool = False
+    plan_revision_refresh_old_packet_id: str = ""
+    plan_revision_refresh_old_sha: str = ""
+    plan_revision_refresh_latest_sha: str = ""
+    plan_revision_refresh_target_row_id: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -244,6 +255,11 @@ def build_packet_attention_state(
     absorption_command: str = "",
     absorption_reason: str = "",
     superseded_packet_id: str = "",
+    plan_revision_refresh_required: bool = False,
+    plan_revision_refresh_old_packet_id: str = "",
+    plan_revision_refresh_old_sha: str = "",
+    plan_revision_refresh_latest_sha: str = "",
+    plan_revision_refresh_target_row_id: str = "",
 ) -> PacketAttentionState:
     """Derive typed per-actor_session attention state.
 
@@ -285,6 +301,13 @@ def build_packet_attention_state(
         wake_required = True
     if superseded_packet_id:
         pivot_reasons.append("active_packet_superseded")
+        wake_required = True
+    if plan_revision_refresh_required:
+        # v4.36+v4.37 (rev_pkt_4708/4709): a selected LINEAGE_AMENDED packet
+        # requires a refreshed packet against the latest canonical plan
+        # revision. Surface as a wake/pivot reason so consumers see the
+        # blocker without scanning the typed refresh fields directly.
+        pivot_reasons.append("plan_revision_refresh_required")
         wake_required = True
     if not observation_actor_id:
         # Per rev_pkt_2498 (5): ambiguous provider must mark pivot_required +
@@ -332,6 +355,11 @@ def build_packet_attention_state(
         wake_required=wake_required,
         stale_reason=stale_reason,
         pivot_reasons=tuple(pivot_reasons),
+        plan_revision_refresh_required=plan_revision_refresh_required,
+        plan_revision_refresh_old_packet_id=plan_revision_refresh_old_packet_id,
+        plan_revision_refresh_old_sha=plan_revision_refresh_old_sha,
+        plan_revision_refresh_latest_sha=plan_revision_refresh_latest_sha,
+        plan_revision_refresh_target_row_id=plan_revision_refresh_target_row_id,
     )
 
 

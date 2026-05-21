@@ -39,6 +39,70 @@ def test_agent_supervise_parser_accepts_execute_flag() -> None:
     assert args.execute is True
 
 
+def test_v4551_agent_supervise_command_exits_zero_for_ignored_helper_closed(
+    tmp_path: Path,
+    capsys,
+) -> None:
+    """v4.55.1 priority 1 (rev_pkt_4764/4765): `--session-id` audit of a
+    closed read-only helper sidecar must surface as a typed nonblocking
+    outcome with CLI exit code 0, so audit callers do not falsely fail
+    when a helper is just dormant. Status must be `ignored_helper_closed`
+    and `blocked_reasons` must be empty.
+    """
+    session = tmp_path / "rollout-2026-05-12T01-00-00-aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee.jsonl"
+    session.write_text("{}\n", encoding="utf-8")
+    os.utime(session, (0, 0))
+    review_state = tmp_path / "review_state.json"
+    review_state.write_text(
+        json.dumps(
+            {
+                "packets": [
+                    {
+                        "packet_id": "rev_pkt_4381_shape",
+                        "kind": "continuation_anchor",
+                        "to_agent": "codex",
+                        "target_role": "",
+                        "target_session_id": "",
+                        "session_id": None,
+                        "anchor_scope": "",
+                        "status": "acked",
+                        "lifecycle_current_state": "acknowledged",
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    rc = agent_supervise.run(
+        SimpleNamespace(
+            actor="codex",
+            provider="codex",
+            role="reviewer",
+            pid=0,
+            session_id="019e4a49-5c2c-7292-84cb-272045b48c92",
+            session_path=str(session),
+            sessions_root="",
+            review_state_path=str(review_state),
+            bypass_receipt_file="",
+            bypass_receipt_json="",
+            staleness_threshold_seconds=600,
+            format="json",
+            output=None,
+            pipe_command=None,
+            pipe_args=None,
+        )
+    )
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["status"] == "ignored_helper_closed"
+    assert payload["continuation_anchor_live"] is False
+    assert payload["blocked_reasons"] == []
+    assert payload["spawn_action"] is None
+    assert payload["next_command"] == ""
+
+
 def test_agent_supervise_command_reports_spawn_authorized(
     tmp_path: Path,
     capsys,

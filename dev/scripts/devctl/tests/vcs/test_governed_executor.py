@@ -3191,3 +3191,84 @@ def _approve_pipeline(
             ),
         ),
     )
+
+
+def test_v4553_object_shaped_collaboration_empty_role_assignments_fails_closed_over_bridge() -> None:
+    """v4.55.3 (rev_pkt_4781/4782) regression: when the review_state's
+    collaboration is an attribute-shaped object (SimpleNamespace) with
+    empty role_assignments, a legacy bridge.implementer_capability with
+    may_edit_repo=True must NOT bypass the typed gate.
+    resolve_commit_execution_target must return '' (fail closed).
+    """
+    bridge_capability = SimpleNamespace(
+        provider="claude",
+        may_edit_repo=True,
+    )
+    bridge = SimpleNamespace(
+        effective_reviewer_mode="active_dual_agent",
+        reviewer_mode="active_dual_agent",
+        implementer_capability=bridge_capability,
+        reviewer_capability=None,
+    )
+    collaboration = SimpleNamespace(
+        reviewer_mode="active_dual_agent",
+        coding_agent="claude",
+        review_agent="codex",
+        role_assignments=(),
+        participants=(
+            SimpleNamespace(
+                agent_id="claude",
+                provider="claude",
+                role="implementer",
+                live=True,
+            ),
+        ),
+        mutation_owner="",
+    )
+    review_state = SimpleNamespace(bridge=bridge, collaboration=collaboration)
+
+    target = _resolve_commit_execution_target(review_state)
+
+    assert target == "", (
+        "Empty typed role_assignments + bridge.implementer_capability."
+        "may_edit_repo=True must fail closed under v4.55.3, but "
+        f"resolve_commit_execution_target returned {target!r}"
+    )
+
+
+def test_v4553_single_agent_no_typed_reviewer_fails_closed_over_bridge() -> None:
+    """v4.55.3 (rev_pkt_4783) regression: single_agent reviewer-mutation
+    branch must be gated on typed `live_reviewer_present`. When typed
+    collaboration is supplied with empty role_assignments (no live
+    `review_agent`) and a legacy bridge.reviewer_capability claims
+    may_edit_repo=True, resolve_commit_execution_target must return ''
+    (fail closed) — the legacy reviewer_mode='single_agent' string alone
+    cannot grant mutation authority without typed reviewer evidence.
+    """
+    bridge_capability = SimpleNamespace(
+        provider="codex",
+        may_edit_repo=True,
+    )
+    bridge = SimpleNamespace(
+        effective_reviewer_mode="single_agent",
+        reviewer_mode="single_agent",
+        implementer_capability=None,
+        reviewer_capability=bridge_capability,
+    )
+    collaboration = SimpleNamespace(
+        reviewer_mode="single_agent",
+        coding_agent="claude",
+        review_agent="codex",
+        role_assignments=(),
+        participants=(),
+        mutation_owner="",
+    )
+    review_state = SimpleNamespace(bridge=bridge, collaboration=collaboration)
+
+    target = _resolve_commit_execution_target(review_state)
+
+    assert target == "", (
+        "single_agent + empty typed role_assignments + "
+        "bridge.reviewer_capability.may_edit_repo=True must fail closed "
+        f"under v4.55.3 v9, but resolve_commit_execution_target returned {target!r}"
+    )

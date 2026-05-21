@@ -1769,7 +1769,17 @@ def test_startup_blocker_overrides_work_packet_but_keeps_loop_alive() -> None:
         "python3 dev/scripts/devctl.py agent-loop --format json "
         "--actor claude --role implementer --session-id s1"
     )
-    assert decision.next_command == decision.next_loop_command
+    # v4.45 (rev_pkt_4729 / rev_pkt_4732): when can_run_next_command=False the
+    # actor cannot execute anything. The old shape — next_command mirroring
+    # next_loop_command while can_run_next_command=False — produced an
+    # infinite no-progress self-loop that codex's sidecar
+    # 019e48fc-fb8d-73c0-9351-d87f83a62201 traced as the rev_pkt_4729 root
+    # cause. The decision builder now returns "" so the supervisor sees a
+    # clear "wait for external state change" signal; should_continue_loop
+    # independently keeps the loop alive without re-issuing the same
+    # invocation.
+    assert decision.next_command != decision.next_loop_command
+    assert decision.next_command == ""
     assert decision.loop_mode == "observer_wait"
     assert decision.can_run_next_command is False
     assert decision.policy_reason == "repair_startup_authority_requires_mutation_authority"
@@ -3080,3 +3090,207 @@ def test_unresolved_dead_session_routes_to_recovery_not_continue() -> None:
     assert decision.safe_to_continue is False
     assert decision.loop_mode == "recover_or_relaunch"
     assert decision.can_run_next_command is False
+
+
+# ---------------------------------------------------------------------------
+# Phase 0.6.A v4.23 (rev_pkt_4692) BlockerSnapshot typed action fields flow
+# from dashboard.control_plane through AgentLoopContext into AgentLoopDecision
+# ---------------------------------------------------------------------------
+
+
+def test_agent_loop_decision_threads_blocker_metadata_from_dashboard() -> None:
+    """v4.23 (rev_pkt_4692): build_agent_loop_decision preserves all 6 typed
+    BlockerSnapshot fields from dashboard.control_plane through the context
+    builder and into the AgentLoopDecision result.
+
+    Codex's exact verification axis: posting dashboard.control_plane with
+    blocker_owner/blocker_target/blocker_reason/repair_command/stop_anchor/
+    repair_command_runnable=False must produce an AgentLoopDecision that
+    carries all 6 values intact (not empty/True defaults).
+    """
+    decision = build_agent_loop_decision(
+        review_state=_state(),
+        dashboard={
+            "now": {},
+            "control_plane": {
+                "top_blocker": "startup authority: startup_authority_failed",
+                "next_action": "checkpoint_blocked_by_startup_authority:startup_authority_failed",
+                "next_command": "python3 dev/scripts/devctl.py session --format json",
+                "blocker_owner": "operator",
+                "blocker_target": "MP-GUARDIR-V4-PHASE-0-6-A-NEXT-COMMAND-OBEDIENCE-S1",
+                "blocker_reason": "manual_repair_required",
+                "repair_command": "see operator runbook section 4.2",
+                "stop_anchor": "stop_anchor:operator_action_required",
+                "repair_command_runnable": False,
+            },
+        },
+        actor_id="claude",
+        actor_role="implementer",
+    )
+    assert decision.blocker_owner == "operator"
+    assert (
+        decision.blocker_target
+        == "MP-GUARDIR-V4-PHASE-0-6-A-NEXT-COMMAND-OBEDIENCE-S1"
+    )
+    assert decision.blocker_reason == "manual_repair_required"
+    assert decision.repair_command == "see operator runbook section 4.2"
+    assert decision.stop_anchor == "stop_anchor:operator_action_required"
+    assert decision.repair_command_runnable is False
+
+
+# ---------------------------------------------------------------------------
+# v4.45 (rev_pkt_4729 / rev_pkt_4730 / rev_pkt_4732) — agent-loop self-loop fix
+# ---------------------------------------------------------------------------
+
+
+def test_v4_45_empty_repair_command_normalizes_runnable_to_false() -> None:
+    """v4.45 (rev_pkt_4730/4732): an empty repair_command cannot reach the
+    decision claiming repair_command_runnable=True. Codex's
+    rev_pkt_4729 sidecar
+    019e48fc-fb8d-73c0-9351-d87f83a62201 traced this contradiction
+    (empty + runnable=True + can_run_next_command=False + self-loop
+    next_command) to the agent_loop_context_builder default that resolved
+    repair_command_runnable=True when control_plane omitted the field.
+    The context builder now normalizes empty repair_command →
+    repair_command_runnable=False at the boundary so downstream consumers
+    do not have to re-verify the invariant.
+    """
+    decision = build_agent_loop_decision(
+        review_state=_state(
+            _packet(
+                packet_id="rev_pkt_test_empty_repair",
+                lifecycle_current_state="applied",
+                status="applied",
+            )
+        ),
+        dashboard={
+            "control_plane": {
+                "top_blocker": "startup authority: dirty_and_untracked_budget_exceeded",
+                "next_action": "checkpoint_blocked_by_startup_authority:dirty_and_untracked_budget_exceeded",
+                "next_command": "checkpoint pending changes",
+                "blocker_owner": "operator",
+                "blocker_target": "operator_review_required",
+                "blocker_reason": "dirty_and_untracked_budget_exceeded",
+                # Empty repair_command paired with runnable=True is the bad
+                # shape codex flagged. Builder must normalize it.
+                "repair_command": "",
+                "repair_command_runnable": True,
+                "stop_anchor": "stop_anchor:startup_authority:operator_review_required",
+            }
+        },
+        actor_id="codex",
+        actor_role="reviewer",
+        session_id="codex-session",
+    )
+    assert decision.repair_command == ""
+    # Critical invariant: empty repair_command must not claim runnable=True.
+    assert decision.repair_command_runnable is False
+
+
+def test_v4_45_blocked_actor_does_not_self_loop_when_cannot_run() -> None:
+    """v4.45 (rev_pkt_4729/4732): when can_run_next_command=False the
+    decision builder must NOT set next_command=next_loop_command. That
+    shape created a no-progress infinite self-loop where the same
+    agent-loop invocation was re-issued while safe_to_continue=False
+    and may_mutate=False — exactly the rev_pkt_4729 reproduction.
+
+    Builder now returns "" for next_command in this case so the supervisor
+    sees a clear "wait for external state change" signal. The loop stays
+    alive via should_continue_loop=True without re-issuing itself.
+    """
+    decision = build_agent_loop_decision(
+        review_state=_state(
+            _packet(
+                packet_id="rev_pkt_test_self_loop",
+                lifecycle_current_state="applied",
+                status="applied",
+            )
+        ),
+        dashboard={
+            "control_plane": {
+                "top_blocker": "startup authority: dirty_and_untracked_budget_exceeded",
+                "next_action": "checkpoint_blocked_by_startup_authority:dirty_and_untracked_budget_exceeded",
+                "blocker_owner": "operator",
+                "repair_command": "",
+                "repair_command_runnable": True,  # builder must normalize
+            }
+        },
+        actor_id="codex",
+        actor_role="reviewer",
+        session_id="codex-session",
+    )
+    assert decision.loop_state == "blocked"
+    assert decision.can_run_next_command is False
+    assert decision.safe_to_continue is False
+    assert decision.may_mutate is False
+    # next_loop_command remains populated so the supervisor can identify
+    # the loop driver, but the decision must NOT re-issue it as the
+    # actor's next_command.
+    assert decision.next_loop_command != ""
+    assert decision.next_command != decision.next_loop_command
+    assert decision.next_command == ""
+    # repair_command_runnable normalization is independently verified
+    assert decision.repair_command_runnable is False
+
+
+def test_v4_45_runnable_repair_command_still_claims_runnable() -> None:
+    """v4.45 defensive: when repair_command is NON-empty, the builder must
+    preserve the upstream repair_command_runnable value. Only the empty
+    case is normalized down; a real repair command paired with
+    runnable=True must stay runnable=True so consumers can offer it."""
+    decision = build_agent_loop_decision(
+        review_state=_state(
+            _packet(
+                packet_id="rev_pkt_test_real_repair",
+                lifecycle_current_state="applied",
+                status="applied",
+            )
+        ),
+        dashboard={
+            "control_plane": {
+                "top_blocker": "startup authority: import_index_atomicity",
+                "next_action": "checkpoint_blocked_by_startup_authority:import_index_atomicity",
+                "blocker_owner": "claude",
+                "repair_command": (
+                    "python3 dev/scripts/checks/check_startup_authority_contract.py "
+                    "--format md"
+                ),
+                "repair_command_runnable": True,
+            }
+        },
+        actor_id="claude",
+        actor_role="implementer",
+        session_id="claude-session",
+    )
+    assert decision.repair_command != ""
+    assert decision.repair_command_runnable is True
+
+
+def test_v4_45_runnable_false_passed_through_when_runnable_false_provided() -> None:
+    """v4.45 defensive: an upstream False must survive normalization even
+    when a non-empty repair_command is present. Normalization is a
+    one-way down-only override (True→False on empty); it must never
+    flip False→True."""
+    decision = build_agent_loop_decision(
+        review_state=_state(
+            _packet(
+                packet_id="rev_pkt_test_false_passthrough",
+                lifecycle_current_state="applied",
+                status="applied",
+            )
+        ),
+        dashboard={
+            "control_plane": {
+                "top_blocker": "startup authority: manual_repair_required",
+                "next_action": "manual_repair_required",
+                "blocker_owner": "operator",
+                "repair_command": "see operator runbook section 4.2",
+                "repair_command_runnable": False,
+            }
+        },
+        actor_id="claude",
+        actor_role="implementer",
+        session_id="claude-session",
+    )
+    assert decision.repair_command == "see operator runbook section 4.2"
+    assert decision.repair_command_runnable is False

@@ -3,15 +3,19 @@
 **Status**: active  |  **Last updated**: 2026-05-19 | **Owner:** Tooling/control plane/product architecture
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
-`MP-377`, and it is the canonical active architecture plan for the standalone
-AI governance product scope. `MASTER_PLAN` stays the repo-wide tracker
-authority, but this file is the main scoped plan for architecture decisions,
-documentation consolidation, extraction sequencing, and implementation order
-under `MP-377`.
+`MP-377`, and it is the maintained projection of architecture decisions for the
+standalone AI governance product scope; durable plan state lives in
+`dev/state/plan_index.jsonl` under `MP-377`, contracts, receipts, and guard
+results. `MASTER_PLAN` stays the maintained repo-wide tracker projection over
+`dev/state/plan_index.jsonl`, but this file is the primary scoped owner-spec
+projection for architecture decisions, documentation consolidation, extraction
+sequencing, and implementation order under `MP-377`.
 
-For this product scope, treat this file as the only main active plan. Companion
-docs may exist for narrower engine/adoption depth or durable guide material,
-but they must route back here instead of acting like peer execution authority.
+For this product scope, treat this file as the primary maintained owner-spec
+projection (over typed PlanRow state in `dev/state/plan_index.jsonl`).
+Companion docs may exist for narrower engine/adoption depth or durable guide
+material, but they must route back here instead of acting like peer
+tracker-projection surfaces.
 Repo-wide status and strategy surfaces must point here while `MP-377` is the
 active extraction lane; if another active doc claims top-level product
 priority, treat that as plan drift and correct the summary surface rather than
@@ -29,7 +33,7 @@ integration layer.
 
 This is one `MP-377` campaign, not a new active plan. V2.1 is the
 scope-preserving ingestion source for this handoff; after ingestion, durable
-execution authority lives in typed `PlanRow` rows, packets, findings, ADRs,
+execution flow over typed PlanRow state lives in typed `PlanRow` rows, packets, findings, ADRs,
 typed decisions, automation-debt rows, and explicit retirements. Markdown
 surfaces are owner-doc/projection surfaces only.
 
@@ -62,6 +66,26 @@ Current ingestion status:
   `watcher_owner=claude`, `watcher_status=live`, and `safe_to_fanout=false`;
   Claude stays watcher/verification owner, while mutable fanout remains
   blocked.
+- 2026-05-21 MP-GUARDIR-V4-PHASE-0-6-E prose-authority demotion: the
+  hand-maintained guides (`dev/guides/SYSTEM_MAP.md`,
+  `dev/guides/DEVELOPMENT.md`) and the active-doc index
+  (`dev/active/INDEX.md`) had drifted into language that framed generated
+  boot cards (`AGENTS.md`, `CLAUDE.md`) and the active markdown tracker
+  (`MASTER_PLAN.md`) as the source of truth, typed bootstrap order, or
+  canonical tracker/registry — while typed state in
+  `dev/state/plan_index.jsonl` plus contracts, receipts, and guards remain
+  the durable authority. A new `check_no_prose_authority_promotion.py`
+  guard now scans those maintained docs with a legacy substring pass and a
+  contextual pass that flags protected-doc references co-occurring with
+  dangerous authority terms unless the line is qualified as a projection,
+  pointer index, or historical changelog. The maintained docs were
+  reworded across seven spots to lead with the typed `devctl session`
+  bootstrap and frame the markdown surfaces as `tracker_projection` over
+  typed state, and `check_active_plan_sync.py` was updated so the new
+  `tracker_projection` authority for `MASTER_PLAN.md` is allowed only when
+  it points at `dev/state/plan_index.jsonl` (the typed PlanRow store),
+  keeping the durable-authority binding enforced through a named constant
+  instead of free-form prose.
 - 2026-05-12 continuation-gate dogfood found that the final-response gate could
   still strand Codex after startup bootstrap by preferring a peer
   `repair_startup_authority` row whose `next_command` was prose
@@ -1261,7 +1285,7 @@ Current 2026-04-05 role/bootstrap closure note:
 - Launch/bootstrap ownership in the shared governance runtime must stay
   role-first (`reviewer`, `implementer`, `operator`), not provider-first.
   A repo or operator may assign Codex, Claude, or another supported provider
-  to any of those roles, but the canonical bootstrap remains
+  to any of those roles, but the typed bootstrap remains
   `startup-context --role <role>` plus
   `session-resume --role <role> --format bootstrap`, and review-channel /
   recover / prompt surfaces must derive the current provider from typed lane
@@ -2661,7 +2685,7 @@ Use this coherence stack:
 
 ### Coherence rules
 
-1. Every major surface must name its canonical owner.
+1. Every major surface must name its typed owner-projection.
 2. Every machine payload family must have a versioned schema.
 3. Every human-readable or UI-visible surface must be a projection over a
    stronger machine contract.
@@ -3830,7 +3854,7 @@ split across overlapping documents.
   guides.
   Inferred: consolidation is not optional.
 - Execution state is distributed even though `MASTER_PLAN` is supposed to be
-  singular tracker authority.
+  singular tracker projection.
   Inspected: `dev/active/MASTER_PLAN.md`, `dev/active/operator_console.md`,
   `dev/active/autonomous_control_plane.md`,
   `dev/active/review_channel.md`, `dev/active/review_probes.md`.
@@ -4316,9 +4340,10 @@ docs/
   `dev/guides/AI_GOVERNANCE_PLATFORM.md`; retain
   `dev/guides/PORTABLE_CODE_GOVERNANCE.md` only as an adoption/how-to guide if
   it becomes materially shorter and non-overlapping.
-- Retain `dev/active/MASTER_PLAN.md` as tracker authority and
-  `dev/active/INDEX.md` as router authority. Do not keep architectural state
-  split across execution specs once consolidated.
+- Retain `dev/active/MASTER_PLAN.md` as the maintained tracker projection
+  over `dev/state/plan_index.jsonl` and `dev/active/INDEX.md` as the
+  maintained router projection over the same typed PlanRow store. Do not
+  keep architectural state split across execution specs once consolidated.
 - Generate instruction and workflow docs from repo-pack config:
   `AGENTS.md`, `CLAUDE.md`, slash/skill templates, and hook/workflow stubs.
 - Add drift checks for every generated surface. The current AGENTS bundle check
@@ -4630,7 +4655,7 @@ alone. Use these proof gates:
 
 ### Phase P0 - Findings Spine, Dogfood, And Plan Authority
 
-Phase metadata: phase_id=MP377-P0; owner_doc=`dev/active/ai_governance_platform.md`; status=in_progress; depends_on=none; summary=Collapse execution authority to one umbrella plan plus a small owner-doc set, then land the missing findings and dogfood closeout spine.
+Phase metadata: phase_id=MP377-P0; owner_doc=`dev/active/ai_governance_platform.md`; status=in_progress; depends_on=none; summary=Collapse execution flow over typed PlanRow state to one umbrella plan plus a small owner-doc set, then land the missing findings and dogfood closeout spine.
 
 - [x] `MP377-P0-T01` Implement one canonical `FindingBacklog` reader/writer and route finding intake plus compatibility import through it.
       owner_doc: `dev/active/platform_authority_loop.md`
@@ -4708,7 +4733,7 @@ Phase metadata: phase_id=MP377-P0; owner_doc=`dev/active/ai_governance_platform.
       planning packets. Pending or expired plan packets surface as
       `plan_anchor_pending` startup/session continuity, while only explicitly
       applied plan packets remain eligible to create `MasterPlan` / `PlanRow`
-      execution authority through `PacketPlanIntegration`.
+      execution flow over typed PlanRow state through `PacketPlanIntegration`.
 - [x] `MP377-P0-T08A` Add packet lifecycle/disposition history to the review-channel reducer so packet ACKs and acted-on transitions survive context switches.
       owner_doc: `dev/active/ai_governance_platform.md`
       status: `done`
@@ -5124,7 +5149,7 @@ Phase metadata: phase_id=MP377-P0; owner_doc=`dev/active/ai_governance_platform.
       status: `done`
       depends_on: `MP377-P0-T08A`, `MP377-P0-T13A`, `MP377-P0-T20`
       scope: Preserve the V2.1 superset in this owner doc, mirror only a summary in `MASTER_PLAN.md`, and write machine-readable `PlanRow` rows to `dev/state/plan_index.jsonl`. This row does not authorize Slice X extraction or mutable fanout.
-      acceptance_criteria: V2.1 source wording says markdown is ingestion/projection, not durable execution authority; `dev/state/plan_index.jsonl` contains GuardIR rows with `IngestionProvenance`; the immediate next rows are A.5 checkpoint, Runtime Agreement, PortabilityLeakInventory, multi-agent readiness, and extraction; Claude watcher ownership remains typed review-channel state.
+      acceptance_criteria: V2.1 source wording says markdown is ingestion/projection, not durable execution flow over typed PlanRow state; `dev/state/plan_index.jsonl` contains GuardIR rows with `IngestionProvenance`; the immediate next rows are A.5 checkpoint, Runtime Agreement, PortabilityLeakInventory, multi-agent readiness, and extraction; Claude watcher ownership remains typed review-channel state.
 - [ ] `MP377-P0-T22A` Checkpoint the completed A.5 lifecycle/commit-seam work through packet authority, with Claude as the live watcher/verification owner.
       phase_id: `MP377-P0`
       owner_doc: `dev/active/ai_governance_platform.md`
@@ -6516,7 +6541,7 @@ Phase metadata: phase_id=MP377-P1; owner_doc=`dev/active/ai_governance_platform.
       owner_doc: `dev/active/platform_authority_loop.md`
       status: `done`
       depends_on: `MP377-P1-T03`
-- [ ] `MP377-P1-T05` Render `INDEX.md`, `MASTER_PLAN.md`, and owner-plan markdown as bounded projections over the semantic `PlanRegistry` closure instead of treating raw markdown as mutable execution authority.
+- [ ] `MP377-P1-T05` Render `INDEX.md`, `MASTER_PLAN.md`, and owner-plan markdown as bounded projections over the semantic `PlanRegistry` closure instead of treating raw markdown as mutable execution flow over typed PlanRow state.
       owner_doc: `dev/active/ai_governance_platform.md`
       status: `blocked`
       depends_on: `MP377-P1-T04`, `MP391-P0`
@@ -7011,7 +7036,7 @@ Phase metadata: phase_id=MP377-P2; owner_doc=`dev/active/review_probes.md`; stat
 
 Phase metadata: phase_id=MP377-P3; owner_doc=`dev/active/portable_code_governance.md`; status=pending; depends_on=`MP377-P0`, `MP377-P1`, `MP377-P2`; summary=Prove the consolidated owner-doc set, typed plan authority, and dogfood audit path on another repository without core-engine patching.
 
-- [ ] `MP377-P3-T01` Validate the reduced execution-owner set plus typed plan routing and dogfood audit coverage on a second repo layout.
+- [ ] `MP377-P3-T01` Validate the reduced tracker-projection owner set plus typed plan routing and dogfood audit coverage on a second repo layout.
       owner_doc: `dev/active/portable_code_governance.md`
       status: `pending`
       depends_on: `MP377-P2-T02`, `MP377-P2-T04`
@@ -7252,8 +7277,8 @@ prefer the typed phase/task entries before any free-form backlog bullets.
       views onto the same runtime state model instead of duplicated shaping.
 - [ ] Make machine-readable runtime state authoritative in live operation:
       `review_state.json`, typed projections, and registry state should be the
-      source of truth while markdown, PyQt6, phone/mobile, and terminal views
-      stay projections over that same backend.
+      durable typed-state authority while markdown, PyQt6, phone/mobile, and
+      terminal views stay projections over that same backend.
 - [ ] Ship a bootstrap/adoption flow that an AI can run against a new repo
       without hand-editing core engine code.
 - [ ] Add a self-hosting simplification program for the governance engine
@@ -7270,7 +7295,7 @@ prefer the typed phase/task entries before any free-form backlog bullets.
       itself: package roles (`public_entrypoint`, `compat_shim`,
       `implementation_package`, `support_module`, `generated_artifact`,
       `doc_authority`), `devctl` root-file budgets, approved parser/command
-      locations, subsystem file-count budgets, source-of-truth ownership,
+      locations, subsystem file-count budgets, typed-state ownership,
       active-doc lifecycle, and shim expiry should be policy-backed instead of
       left as reviewer memory.
 - [ ] Project that same structure policy into one startup/AI-readable
@@ -7386,7 +7411,7 @@ prefer the typed phase/task entries before any free-form backlog bullets.
       the architecture instead of dissolving into generic prose:
       `governance-quality-feedback` in startup, a shared guard/check runner,
       review-channel consolidation, root/package consolidation, shared
-      markdown/artifact writers, contract single-source-of-truth closure, and
+      markdown/artifact writers, contract typed-state single-source closure, and
       parser-location unification each need explicit owners/phases in this
       plan chain.
 - [ ] Land one first-step command for this slice:
@@ -8204,7 +8229,7 @@ prefer the typed phase/task entries before any free-form backlog bullets.
 - [ ] Keep that cache/query layer explainable and portable: canonical
       human-readable JSON artifacts first, append-only refresh-ledger rows
       second, optional SQLite query cache third. Do not make semantic/vector
-      retrieval the only source of truth; treat it as an optional accelerator
+      retrieval the only durable typed-state source; treat it as an optional accelerator
       over the canonical artifacts once the deterministic snapshot contract is
       stable.
 - [ ] Make the cross-repo session-start flow explicit on top of that cache
@@ -8617,7 +8642,7 @@ prefer the typed phase/task entries before any free-form backlog bullets.
       subprocess/git lookups from the first touched runtime helpers.
 - [ ] Make `validation_plan` and contract testing concrete, not aspirational:
       execute `DecisionPacket.validation_plan` on the first repair/apply lane,
-      normalize failure cases into canonical findings through a dedicated
+      normalize failure cases into typed FindingBacklog findings through a dedicated
       failure adapter, register strict pytest contract/guard markers, and add
       focused contract-test coverage for task-router, push-policy,
       startup-context shape, and the first validation/failure adapter path.
@@ -9086,7 +9111,7 @@ working on `MP-377`.
   `governance-import-findings` now treats `LIVE_RUN.md` as explicit
   compatibility intake with repo-scoped `repo_name:Q-ID` sync keys instead of
   manual copy-forward. That makes the campaign executable through repo-owned
-  ledgers: canonical findings stay in `FindingBacklog` /
+  ledgers: typed FindingBacklog findings stay in `FindingBacklog` /
   `governance-review`, `LIVE_RUN.md` stays mirror/projection evidence, and
   dogfood rows can link the two without chat-local bookkeeping.
 - 2026-04-15 docs-routing authority closure:
@@ -9141,7 +9166,7 @@ working on `MP-377`.
   coordination resync rather than review attention degradation. Remaining live
   resync receipts are now honest operational state, not a repair-surface blind
   spot.
-- Current status: the umbrella plan now owns the reduced execution-owner set
+- Current status: the umbrella plan now owns the reduced tracker-projection owner set
   and the typed phase/task contract. The live dogfood walkthrough already
   closed the stale `active_target` / projection parity gaps across startup,
   session-resume, dashboard, review-channel status, and context-graph, and
@@ -9879,7 +9904,7 @@ working on `MP-377`.
   therefore current-target publication parity plus explicit shape cleanup/debt
   capture, executed through the sanctioned review-channel topology with
   `--codex-workers 0 --claude-workers 3`.
-- 2026-04-03 cross-client source-of-truth follow-up is now explicit in the
+- 2026-04-03 cross-client typed-state follow-up is now explicit in the
   main `MP-377` owner chain. Read-only review across the PyQt6 operator
   console, iPhone mobile app, and Claude remote-loop surfaces confirmed that
   the missing platform layer is still the planned generated
@@ -10037,7 +10062,7 @@ working on `MP-377`.
   memory expansion.
 - 2026-03-27 shared-backlog intake landed: the same owner chain now treats a
   repo-pack-configured shared backlog doc as governed intake visible to
-  startup/work-intake while keeping execution authority in
+  startup/work-intake while keeping execution flow over typed PlanRow state in
   `dev/active/MASTER_PLAN.md` plus the owning active plan. Humans and AI can
   share one backlog file without reopening the old hidden-backlog problem.
 - 2026-03-27 current priority lock: treat the next `MP-377` work as one
@@ -10504,9 +10529,9 @@ working on `MP-377`.
   graph lane can answer "hotter/cooler/stable" and cycle-count drift without
   inventing another analysis stack. Next Part-53 work is checkpoint/CI
   capture widening and richer drift heuristics, not base diff/trend wiring.
-- `dev/active/ai_governance_platform.md` is the only main active plan for this
+- `dev/active/ai_governance_platform.md` is the primary maintained owner-spec projection for this
   product scope; companion docs now route back here instead of acting like peer
-  execution authority.
+  execution flow over typed PlanRow state.
 - Session-level "where we left off" state belongs in this file's `Session
   Resume` and `Progress Log`, not in the future structured audit/database
   ledger.
@@ -10565,7 +10590,7 @@ working on `MP-377`.
   current feature-branch upstream while the worktree was dirty, yielding
   `changed_paths=0` and a docs-lane misroute. The current branch now narrows
   both seams without widening the owner chain: typed review-state producers
-  must prefer canonical registry rows over `_compat` inputs, and dirty
+  must prefer typed registry rows over `_compat` inputs, and dirty
   startup-intake preflight should anchor to the development-branch diff base
   until the slice is checkpointed.
 - 2026-03-27 validation follow-up: the bounded fixes are now exercised
@@ -10767,7 +10792,7 @@ working on `MP-377`.
   every frontend or workflow loop at once.
 - The recent iOS/mobile path cleanup is only partial. Shell scripts now name
   the canonical VoiceTerm paths, but `MobileRelayPreviewData.swift` still
-  duplicates literals with only a source-of-truth comment, so that surface
+  duplicates literals with only a typed-state-pointer comment, so that surface
   remains interim documentation rather than a finished repo-pack contract.
 - The transitional `review_channel` runtime modules (`core.py`, `state.py`,
   `event_store.py`, `promotion.py`) now read path defaults from
@@ -10880,7 +10905,7 @@ Execution order for this section:
 7. ~~Widen `RepoPathConfig` coverage~~ — done. `RepoPathConfig` now has 15
    fields, 13 OC/frontend modules consume `VOICETERM_PATH_CONFIG`, 5
    repo-pack collector helpers replace forbidden imports, and iOS shell
-   scripts centralize paths with source-of-truth comments. Only non-blocking
+   scripts centralize paths with typed-state-pointer comments. Only non-blocking
    presentation/help strings and test fixtures retain inline path literals.
 8. Finish the compatibility contract, not just the version field:
    document schema-version ownership, migration rules, compatibility checks,
@@ -11011,7 +11036,7 @@ Execution order for this section:
 
 1. Read `AGENTS.md`, then `dev/active/INDEX.md`, then
    `dev/active/MASTER_PLAN.md`.
-2. Read this file and treat it as the only main active plan for the standalone
+2. Read this file and treat it as the primary maintained owner-spec projection for the standalone
    governance product scope.
 3. Read this `Session Resume` section and the latest `Progress Log` entries
    before making recommendations or edits.
@@ -11129,7 +11154,7 @@ Execution order for this section:
 - 2026-04-27: Closed `MP377-P0-T11` as the bounded proof-tick authority repair
   discovered during `rev_pkt_2000` / `rev_pkt_2001`. The new
   `dev/active/agent_substrate_architecture_review.md` keeps the architecture
-  decision in one reference surface, while execution authority stays in this
+  decision in one reference surface, while execution flow over typed PlanRow state stays in this
   typed phase registry. `check_review_surface_consistency` now chooses
   expected proof-tick values from explicit field authority priority and checks
   `operator_interaction_mode` separately from reviewer posture; any-agent
@@ -11339,7 +11364,7 @@ Execution order for this section:
   `test_planning_ir.py`, and `test_startup_context.py`; next queued work is
   `MP377-P1-T05` so `INDEX.md` / `MASTER_PLAN.md` / owner-plan markdown can
   become bounded projections over the persisted registry instead of mutable
-  execution authority.
+  execution flow over typed PlanRow state.
 - 2026-04-15: Started `MP377-P1-T05` with the first artifact-first authority
   consumer pass instead of another markdown-only plan note. Context-graph plan
   nodes, reviewer tracker-plan resolution, scoped promotion MP lookup, and
@@ -11956,7 +11981,7 @@ Execution order for this section:
   from the live command catalog plus registered guard/probe entrypoints
   instead of fixed counts, and `governance-review` now accepts
   `signal_type=dogfood` so dogfood-discovered failures can close out in the
-  canonical findings ledger. The same slice also hardened governed push:
+  typed FindingBacklog findings ledger. The same slice also hardened governed push:
   active bridge preflight now refreshes typed review status and reprojects
   `bridge.md` before the blocking checks run, so stale role-specific marker
   drift no longer strands publication. The next foundation work is to unify
@@ -12434,7 +12459,7 @@ Execution order for this section:
   remains a repo-owned persistent Codex reviewer worker/service path that can
   hold semantic review cadence between Claude passes while 8+8 stays
   conductor-managed scaffolding rather than finished native worker topology.
-- 2026-04-03: Promoted the cross-client source-of-truth follow-up into the
+- 2026-04-03: Promoted the cross-client typed-state follow-up into the
   tracked `MP-377` plan chain instead of leaving it as chat guidance. The
   accepted next bounded slice is one generated `system-picture` /
   external-review orientation reducer over typed startup, review, control,
@@ -13265,7 +13290,7 @@ Execution order for this section:
   only where they strengthen the existing platform direction. The chosen path
   is to extend the current package-layout / compatibility-shim governance into
   a broader structure-policy layer over `devctl` root budgets, parser/command
-  placement, subsystem file-count budgets, source-of-truth ownership,
+  placement, subsystem file-count budgets, typed-state ownership,
   active-doc lifecycle, and shim expiry rather than inventing a second
   unrelated topology system. Also froze the audit-integration retirement rule:
   whole-system audits remain temporary reference evidence, and once accepted
@@ -13594,7 +13619,7 @@ Execution order for this section:
   `P0` evidence-model gap is narrowed but not closed and wording must not
   claim that guards already emit canonical `Finding` records end-to-end.
 - 2026-03-17: Captured the next missing authority seam in explicit product
-  state: the repo has strong startup ingredients (`AGENTS.md` bootstrap order,
+  state: the repo has strong startup ingredients (`AGENTS.md` typed bootstrap projection,
   `check-router`, `orchestrate-status`, `docs-check`, `render-surfaces`,
   `swarm_run`), but still lacks one enforced, repo-pack-aware work-intake path
   that reads active plans plus the current git diff and then tells an AI or
@@ -14002,7 +14027,7 @@ Execution order for this section:
 - 2026-03-15: Re-reviewed the recent iOS/mobile path cleanup and downgraded it
   from "closed seam" to "partial seam." The shell scripts now name the
   canonical VoiceTerm paths, but `MobileRelayPreviewData.swift` still carries
-  duplicate literals with only a source-of-truth comment. Keep that surface
+  duplicate literals with only a typed-state-pointer comment. Keep that surface
   marked interim until generated or emitted repo-pack-owned metadata replaces
   the duplicated literals. The same review pass also added an explicit
   green-slice commit/push reminder so `MP-377` does not keep widening an
@@ -14010,7 +14035,7 @@ Execution order for this section:
 - 2026-03-15: Extended the repo-pack path boundary to iOS/mobile surfaces.
   Shell scripts (`sync_live_bundle_to_simulator.sh`,
   `run_guided_simulator_demo.sh`) now centralize VoiceTerm artifact paths as
-  variables with `RepoPathConfig` source-of-truth comments instead of
+  variables with `RepoPathConfig` typed-state-pointer comments instead of
   inlining them in CLI args. Swift preview data
   (`MobileRelayPreviewData.swift`) now carries a canonical-source comment
   linking back to `repo_packs/voiceterm.py::RepoPathConfig`. Full
@@ -14251,7 +14276,7 @@ Execution order for this section:
   staged roadmap directly into this file so `MP-377` now has one main active
   plan linked from the tracker instead of relying on chat transcripts and
   overlapping docs. The explicit working stance is now: this file is the
-  canonical active plan for the standalone governance product,
+  primary maintained owner-spec projection for the standalone governance product,
   `dev/active/portable_code_governance.md` remains the narrower engine
   companion, `dev/active/MASTER_PLAN.md` remains the tracker, and immediate
   execution starts with documentation consolidation plus canonical
@@ -14557,7 +14582,7 @@ Execution order for this section:
   gaps, operator-console ideas, Rust/product surfaces, CI/test/config
   integrations, AGENTS/memory conversion ideas, and related proof chains.
   They are useful implementation/review companions in this workspace, but the
-  tracked plan chain remains the canonical execution authority.
+  tracked plan chain remains the maintained tracker projection over typed PlanRow state.
 - Maintained platform proof index (reference-only, non-authoritative):
   `dev/audits/AI_GOVERNANCE_PLATFORM_PROOF_LEDGER.md` collects the
   current self-hosting POC boundary, market comparison, cross-repo pilot proof
@@ -15050,7 +15075,7 @@ identity into executable contracts:
   contract-registry identity. Same-owner duplicate artifact/runtime rows are
   deduped at registry-build time; the remaining `RustAuditReport` and
   `SecurityReport` owner forks are explicit policy TODOs until an operator
-  chooses canonical owner paths.
+  chooses typed owner-projection paths.
 
 Verification should include the two new guard tests, packet TTL tests,
 platform contract closure, governance closure, registry path integrity, schema

@@ -25,25 +25,25 @@
 
 Already know the feature area? Use this short loop:
 
-1. Read `AGENTS.md`, then `dev/active/INDEX.md` and `dev/active/MASTER_PLAN.md`.
+1. Resolve typed authority FIRST: run `python3 dev/scripts/devctl.py session --role observer --include-review-status always --format json` and consume the `SessionOrientationPacket.final`. Then consult `AGENTS.md` / `dev/active/INDEX.md` / `dev/active/MASTER_PLAN.md` only as projections over `dev/state/plan_index.jsonl`, `dev/state/contract_registry.jsonl`, and ingested PlanRows (per GuardIR v4.37+).
 2. Make your code, test, and doc changes in one scoped commit.
 3. Run the bundle that matches your change type (`bundle.runtime`, `bundle.docs`, or `bundle.tooling`).
-4. Run any risk-matrix add-ons listed in `AGENTS.md` for the paths you touched.
+4. Run any risk-matrix add-ons listed in `AGENTS.md` for the paths you touched. (`AGENTS.md` is a generated projection; durable risk policy lives in `dev/config/devctl_repo_policy.json` and typed guards.)
 5. Push to a branch off `develop` (or `master` for releases only).
 
 ## Workflow ownership and routing
 
-Use docs like this:
+Use docs like this — these are **projections over typed authority**, not durable authority on their own (per GuardIR v4.37+ packet-as-evidence rule):
 
-- **`AGENTS.md`** -- which workflow to follow (read this first).
-- **`dev/guides/DEVELOPMENT.md`** (this file) -- exact commands and check steps.
-- **`dev/scripts/README.md`** -- `devctl` and release command reference.
+- **`AGENTS.md`** -- generated boot card projecting typed startup-authority into agent-readable form. Durable workflow authority lives in `ProjectGovernance`, repo-pack policy, and typed startup-authority contracts.
+- **`dev/guides/DEVELOPMENT.md`** (this file) -- exact commands and check steps; projection over `dev/config/devctl_repo_policy.json` and the typed guard inventory.
+- **`dev/scripts/README.md`** -- `devctl` and release command reference; projection over registered command contracts.
 - **`dev/guides/MCP_DEVCTL_ALIGNMENT.md`** -- MCP adapter policy and extension rules.
 - **`.github/workflows/README.md`** -- what each GitHub workflow does.
-- **`dev/active/INDEX.md`** -- active plan docs and when to read each one.
-- **`dev/active/MASTER_PLAN.md`** -- source of truth for current work.
+- **`dev/active/INDEX.md`** -- maintained pointer over typed `plan_index.jsonl`; canonical PlanRow registry is the JSONL store, not this file.
+- **`dev/active/MASTER_PLAN.md`** -- maintained tracker projection over the typed plan state. Source of truth for current work is `dev/state/plan_index.jsonl` + `dev/state/plan_row_closure_receipts.jsonl`.
 - **`backlog.md`** -- shared repo-visible backlog/intake for humans + AI; promote items into the active plan chain before execution.
-- **`dev/active/pre_release_architecture_audit.md`** -- canonical findings + execution checklist for pre-release architecture/tooling remediation (`MP-347`, `MP-349`).
+- **`dev/active/pre_release_architecture_audit.md`** -- maintained findings projection + execution checklist over typed `FindingBacklog` state for pre-release architecture/tooling remediation (`MP-347`, `MP-349`).
 - Whole-system audit references (for example
   `dev/guides/SYSTEM_AUDIT.md`) are temporary
   reference evidence only. Accepted findings must be copied into canonical
@@ -758,7 +758,7 @@ Three quality layers matter in practice:
 - Contract registry identity is the composite `(contract_id, schema_version)`.
   The registry builder collapses same-owner artifact/runtime re-emissions, and
   `check_contract_registry_composite_key_uniqueness.py` keeps divergent owner
-  forks visible as policy TODOs until a canonical owner path is chosen.
+  forks visible as policy TODOs until a typed owner-projection path is chosen.
 - When a policy-backed slice needs a simpler human-facing entrypoint, prefer a
   short wrapper command over asking maintainers to remember raw policy paths.
   Current examples: `python3 dev/scripts/devctl.py launcher-check`,
@@ -1286,7 +1286,7 @@ Three quality layers matter in practice:
     current graph adjacency. When repo policy advertises a shared backlog doc,
     the same packet may surface that backlog in warm refs and writeback sinks
     so humans and AI can share one repo-visible intake surface without
-    mistaking it for execution authority. The reviewed markdown `## Session
+    mistaking it for typed PlanRow execution state. The reviewed markdown `## Session
     Resume` section still remains the canonical restart surface; the typed
     continuity state is a startup projection over that markdown, not a second
     authority store. The same startup path now persists governed markdown
@@ -2227,7 +2227,7 @@ flowchart TD
   N --> O[Run post-push audit]
 ```
 
-`AGENTS.md` stays the source of truth for policy/branch workflow.
+`AGENTS.md` stays the maintained projection of policy/branch workflow over typed startup-authority; durable authority lives in `dev/config/devctl_repo_policy.json` and the registered guards.
 `dev/scripts/devctl/bundle_registry.py` is the source of truth for exact bundle
 command lists.
 
@@ -2751,13 +2751,14 @@ Read:
 - `dev/active/MASTER_PLAN.md`
 - `dev/active/ai_governance_platform.md`
 
-Treat `dev/active/ai_governance_platform.md` as the only main active plan for
-the standalone governance product scope. Read its `Session Resume` section and
-latest `Progress Log` entries first, then continue the listed next actions
-unless I reprioritize.
+Treat `dev/active/ai_governance_platform.md` as the primary maintained owner-spec
+projection over typed PlanRow state for the standalone governance product scope.
+Read its `Session Resume` section and latest `Progress Log` entries first, then
+continue the listed next actions unless I reprioritize.
 Treat the typed phase/task registry at the top of its `## Execution Checklist`
-as the live execution authority for `MP-377`; load owner-reference docs only
-when that active phase/task route points there.
+as the live tracker projection for `MP-377` (durable PlanRow state lives in
+`dev/state/plan_index.jsonl`); load owner-reference docs only when that active
+phase/task route points there.
 
 Before you finish, update `dev/active/ai_governance_platform.md`:
 - `Session Resume`
@@ -2790,7 +2791,7 @@ Structured audit/event ledgers are separate from that handoff surface:
   `--campaign-id`, `--scenario-id`, `--repo-scope`, `--repo-label`,
   `--repo-path`, `--topology`, `--lane-role`, `--live-run-ref`, and
   `--governance-finding-id` so later closeout can reconcile dogfood receipts,
-  `LIVE_RUN` compatibility updates, and canonical findings without chat-local
+  `LIVE_RUN` compatibility updates, and typed FindingBacklog findings without chat-local
   correlation; plain
   `python3 dev/scripts/devctl.py governance-review --record --signal-type dogfood`
   remains the manual fallback for later closeout or reclassification.
@@ -2991,7 +2992,7 @@ Docs governance guardrails:
   wake packet handlers or launch conductors.
 - `devctl` structured status reports for `check`/`triage` now emit UTC timestamps for deterministic run-correlation across local + CI artifacts.
 - `python3 dev/scripts/checks/check_agents_contract.py` validates that `AGENTS.md` is a generated projection-only `InstructionBootCard` with required bootstrap sections, command routes, valid session role discovery, help-discovery commands, provenance markers, size budgets, and forbidden authority-claim/role-placeholder checks.
-- `python3 dev/scripts/checks/check_active_plan_sync.py` validates `dev/active/INDEX.md` registry coverage, tracker authority, active-doc cross-link integrity, execution-plan metadata/marker/section parity, the typed umbrella-plan phase/task contract, and `MP-*` scope parity between index/spec docs and `MASTER_PLAN`. The same guard now runs in the default AI guard lane, so `devctl check --profile ci` and governed commit bundles no longer rely on docs-only enforcement for plan drift.
+- `python3 dev/scripts/checks/check_active_plan_sync.py` validates `dev/active/INDEX.md` registry coverage, tracker-projection authority (anchored to typed `dev/state/plan_index.jsonl`), active-doc cross-link integrity, execution-plan metadata/marker/section parity, the typed umbrella-plan phase/task contract, and `MP-*` scope parity between index/spec docs and `MASTER_PLAN`. The same guard now runs in the default AI guard lane, so `devctl check --profile ci` and governed commit bundles no longer rely on docs-only enforcement for plan drift.
 - `python3 dev/scripts/checks/check_release_version_parity.py` validates Cargo/PyPI/macOS release version parity.
 - `find . -maxdepth 1 -type f -name '--*'` catches accidental root-level argument artifact files.
 

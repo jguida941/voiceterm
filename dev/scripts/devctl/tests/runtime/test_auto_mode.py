@@ -210,6 +210,64 @@ class ResolveAutoModePhaseTests(unittest.TestCase):
         ))
         self.assertFalse(state.reviewer_alive)
 
+    def test_v4553_legacy_label_alone_does_not_grant_reviewer_alive_when_typed_collaboration_present(self) -> None:
+        """v4.55.3 (rev_pkt_4772/4773) acceptance: when caller supplies
+        typed `collaboration` state, a legacy `reviewer_mode` label
+        like "active_dual_agent" cannot grant `reviewer_alive` on its
+        own. Empty `role_assignments` means no live reviewer.
+        """
+        state = resolve_auto_mode_phase(self._inputs(
+            reviewer_mode="active_dual_agent",
+            collaboration={"role_assignments": []},
+        ))
+        self.assertFalse(state.reviewer_alive)
+
+    def test_v4553_typed_reviewer_assignment_grants_reviewer_alive(self) -> None:
+        """When typed `role_assignments` names a live reviewer, that
+        grants `reviewer_alive` regardless of the legacy label value.
+        """
+        state = resolve_auto_mode_phase(self._inputs(
+            reviewer_mode="single_agent",  # legacy label says NOT alive
+            collaboration={
+                "role_assignments": [
+                    {
+                        "agent_id": "codex",
+                        "provider": "codex",
+                        "role_id": "review_agent",
+                        "live": True,
+                    }
+                ]
+            },
+        ))
+        self.assertTrue(state.reviewer_alive)
+
+    def test_v4553_typed_implementer_assignment_grants_implementer_alive(self) -> None:
+        state = resolve_auto_mode_phase(self._inputs(
+            implementer_status="",  # legacy label says NOT alive
+            collaboration={
+                "role_assignments": [
+                    {
+                        "agent_id": "claude",
+                        "provider": "claude",
+                        "role_id": "coding_agent",
+                        "live": True,
+                    }
+                ]
+            },
+        ))
+        self.assertTrue(state.implementer_alive)
+
+    def test_v4553_no_collaboration_preserves_legacy_back_compat(self) -> None:
+        """If the caller has not yet been updated to pass
+        `collaboration`, the legacy label paths continue to work for
+        back-compat. This is what the existing tests above rely on.
+        """
+        state = resolve_auto_mode_phase(self._inputs(
+            reviewer_mode="active_dual_agent",
+            # collaboration omitted (defaults to None)
+        ))
+        self.assertTrue(state.reviewer_alive)
+
     def test_implementer_alive_when_implementing(self) -> None:
         state = resolve_auto_mode_phase(self._inputs(
             implementer_status="implementing",

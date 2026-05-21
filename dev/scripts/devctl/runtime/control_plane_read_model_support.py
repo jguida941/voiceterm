@@ -33,6 +33,7 @@ from .reviewer_runtime_models import (
     remote_control_attachment_from_mapping,
 )
 from .session_posture import SessionPosture, session_posture_from_mapping
+from .topology_authority_facts import typed_collaboration_from_review_state
 from .value_coercion import coerce_string
 
 if TYPE_CHECKING:
@@ -123,6 +124,14 @@ def resolve_control_plane_context(
         git=inputs.git,
         governance=inputs.governance,
     )
+    # v4.55.3 (rev_pkt_4775): production builder must feed typed
+    # collaboration into AutoModeInputs so reviewer_alive/implementer_alive
+    # are derived from role_assignments instead of legacy reviewer_mode
+    # labels. Falling back to None preserves back-compat when the payload
+    # doesn't have a typed collaboration block yet.
+    typed_collaboration = typed_collaboration_from_review_state(
+        inputs.review_state_payload
+    )
     auto_state = resolve_auto_mode_phase(
         AutoModeInputs(
             push_decision_action=push_action,
@@ -136,6 +145,7 @@ def resolve_control_plane_context(
             pending_action_requests=pending,
             operator_interaction_mode=operator_interaction_mode,
             timestamp_utc=utc_now_iso(),
+            collaboration=typed_collaboration,
         )
     )
     reviewer_observation = _build_reviewer_observation(

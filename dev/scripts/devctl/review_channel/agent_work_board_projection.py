@@ -133,6 +133,17 @@ def _build_codex_session_rows(
             role_resolution,
             provider_session_count=session_count,
         )
+        # v4.55.2 (rev_pkt_4767): when multiple recent codex session files
+        # exist, only the most-recently-active one is the main conductor.
+        # Older entries are read-only helper/explorer sidecars from spawn
+        # audits and must not inherit provider-level reviewer authority;
+        # demote them to `subagent` so develop next / launch dry-run do
+        # not surface them as codex:reviewer controller blockers.
+        role_resolution = _demote_helper_codex_session(
+            role_resolution,
+            session_index=index,
+            session_count=session_count,
+        )
         rows.append(
             build_session_row(
                 actor_id="codex",
@@ -305,6 +316,39 @@ def _agent_sync_row_for(
         return None
     row = agents.get(agent_id)
     return row if isinstance(row, dict) else None
+
+
+def _demote_helper_codex_session(
+    resolution: RuntimeRoleResolution,
+    *,
+    session_index: int,
+    session_count: int,
+) -> RuntimeRoleResolution:
+    """v4.55.2 (rev_pkt_4767): demote non-conductor codex session rows.
+
+    `recent_sessions` returns sessions sorted by mtime descending, so
+    `session_index == 1` is the most-recently-active codex session
+    (the main conductor / reviewer). Any later index is a read-only
+    helper, explorer, or research sidecar left on disk by an earlier
+    spawn audit. Those must not inherit provider-level reviewer
+    authority from `RuntimeRoleIndex` just because actor_id=codex has
+    reviewer authority — otherwise `develop next` and
+    `develop launch` dry-run promote helper sidecars to controller
+    rows. Demote to `subagent` with read_only mutation and no
+    capabilities so the typed lanes see them as evidence-only.
+    """
+    if session_count <= 1 or session_index == 1:
+        return resolution
+    if resolution.role in {"subagent", "researcher"}:
+        return resolution
+    return replace(
+        resolution,
+        role="subagent",
+        role_source="helper_session_demotion",
+        role_scope="session",
+        mutation_mode="read_only",
+        granted_capabilities=(),
+    )
 
 
 def _session_safe_role_resolution(

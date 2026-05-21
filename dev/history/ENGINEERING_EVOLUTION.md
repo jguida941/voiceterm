@@ -37,6 +37,41 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [User Path (5 min)](#user-path-5-min)
 - [Developer Path (15 min)](#developer-path-15-min)
 
+### 2026-05-21 - Maintained-doc prose stops claiming durable authority
+
+The cascade absorption window across MP-GUARDIR-V4-PHASE-0-6-E surfaced a quiet
+authority-promotion path: hand-maintained guides such as `dev/guides/SYSTEM_MAP.md`,
+`dev/guides/DEVELOPMENT.md`, and `dev/active/INDEX.md` had drifted into language
+that framed generated boot cards (`AGENTS.md`, `CLAUDE.md`) and active markdown
+trackers (`MASTER_PLAN.md`) as the source of truth, canonical bootstrap order,
+or canonical tracker/registry — while typed state in `dev/state/plan_index.jsonl`
+plus contracts, receipts, and guards remain the durable authority.
+
+Change: a new `check_no_prose_authority_promotion.py` guard scans maintained
+docs with both a legacy substring pass over explicit disallowed phrases and a
+contextual scan that flags any protected-doc reference co-occurring with a
+dangerous authority term unless the line is qualified as a projection, pointer
+index, or historical changelog. The maintained docs were reworded across seven
+spots to lead with the typed `devctl session` bootstrap command and frame the
+markdown surfaces as `tracker_projection` over typed state. `check_active_plan_sync.py`
+was updated so the new `tracker_projection` authority for `MASTER_PLAN.md` is
+allowed only when it points at the typed PlanRow store `dev/state/plan_index.jsonl`,
+keeping the durable-authority binding enforced through a named constant rather
+than free-form prose. The generated `system_map_index` managed block inside
+`SYSTEM_MAP.md` was refreshed through `render-surfaces --write` after the
+new check + test files were added, so the instruction-surface-sync gate stays
+green without hand-editing generated content.
+
+Evidence:
+
+- `dev/scripts/checks/check_no_prose_authority_promotion.py`
+- `dev/scripts/devctl/tests/checks/test_check_no_prose_authority_promotion.py`
+- `dev/scripts/checks/check_active_plan_sync.py`
+- `dev/guides/SYSTEM_MAP.md`
+- `dev/guides/DEVELOPMENT.md`
+- `dev/active/INDEX.md`
+- `dev/scripts/README.md`
+
 ### 2026-05-19 - Typed collaboration reads and posts become route-exact
 
 The GuardIR extraction checkpoint exposed a live-controller gap: parser and

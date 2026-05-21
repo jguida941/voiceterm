@@ -2,10 +2,11 @@
 
 **Purpose.** Connectivity index for *how the typed system is wired together and
 where it is not*. This is a **supplementary navigation surface**, not a bootstrap
-replacement. The canonical bootstrap order in `AGENTS.md:235-242` and
-`dev/active/INDEX.md:3-4` always comes first — SYSTEM_MAP.md is consulted
-**after** startup-context + INDEX + MASTER_PLAN (see section 12 for full
-sequence).
+replacement. The typed bootstrap order — `python3 dev/scripts/devctl.py session
+--role observer --include-review-status always --format json`, then the
+`AGENTS.md`/`dev/active/INDEX.md` projections over typed state — always comes
+first; SYSTEM_MAP.md is consulted **after** the typed session/INDEX/MASTER_PLAN
+projection chain (see section 12 for full sequence).
 
 **Maintenance rule (honor or the map decays).** Every time dogfood,
 findings-priority, agent-mind, system-picture, or any audit surfaces a new
@@ -20,7 +21,7 @@ the system that works together. Keep on iterating till everything is connected."
 
 **Last updated:** 2026-04-25 (managed connectivity block, `system-map` command,
 startup/session key-surface wiring, and rev_pkt_1358/1370/1374/1380 corrections
-folded into the SYSTEM_MAP source-of-truth slice.)
+folded into the SYSTEM_MAP projection slice.)
 
 ---
 
@@ -55,7 +56,7 @@ Operator directs agents via typed packets; **current-session role assignment is 
 
 ### Where This Doc Fits (1 sentence)
 
-SYSTEM_MAP.md is a supplementary navigation index read AFTER the canonical bootstrap (`startup-context` → `INDEX.md` → `MASTER_PLAN.md`); use section 0 (flowchart), section 4 (projection graph), section 10 (priority backlog), and the section-30+ subsystem deep-dives to locate details in `dev/guides/` and `dev/active/`.
+SYSTEM_MAP.md is a supplementary navigation index read AFTER the typed bootstrap projection chain (`startup-context` → `INDEX.md` → `MASTER_PLAN.md`); use section 0 (flowchart), section 4 (projection graph), section 10 (priority backlog), and the section-30+ subsystem deep-dives to locate details in `dev/guides/` and `dev/active/`.
 
 ---
 
@@ -105,13 +106,13 @@ What counts as execution authority vs navigation vs reference:
 
 | Tier | Surface | Role |
 |------|---------|------|
-| 1 — **Execution authority** | `startup-context --format json`, `session-resume --role <r> --format bootstrap`, `review-channel --action status`, `push --execute` | Typed state; agent MUST act on these |
-| 2 — **Canonical prose authority** | `AGENTS.md`, `dev/active/INDEX.md`, `dev/active/MASTER_PLAN.md`, `dev/active/ai_governance_platform.md` | Prose that binds behavior when typed state is silent |
-| 2-ref — **Reference-only owner docs** | `dev/active/platform_authority_loop.md` (per `INDEX.md:34-36` — load ONLY when typed MP-377 route names it; do not treat as always-canonical) | Scoped reference — authority only when the active typed phase points at it |
-| 3 — **Navigation / connectivity index** | `SYSTEM_MAP.md` (this doc), `context-graph --mode bootstrap` | Human-readable reducer over the system; NOT authority |
-| 4 — **Reference / generated projection** | `dev/guides/*`, `dev/reports/*`, `bridge.md`, `dev/audits/REVIEW_SNAPSHOT.md` | Consult when tier 1–3 points at them; do not treat as authority on their own |
+| 1 — **Execution authority (typed state)** | `dev/state/plan_index.jsonl`, `dev/state/contract_registry.jsonl`, `dev/state/transition_modules.jsonl`, ingested receipts under `dev/state/`, `ProjectGovernance`, registered guards, `startup-context --format json`, `session-resume --role <r> --format bootstrap`, `review-channel --action status`, `push --execute` | Typed durable authority; agents MUST act on these (per GuardIR v4.37+) |
+| 2 — **Projection / pointer index over typed state** | `AGENTS.md` (generated boot card), `dev/active/INDEX.md`, `dev/active/MASTER_PLAN.md`, `dev/active/ai_governance_platform.md` | **Maintained projections / pointer indexes** over the typed PlanRow / startup-authority state in tier 1. Read for navigation and human context, not as durable authority. When projection disagrees with tier 1, tier 1 wins. |
+| 2-ref — **Reference-only owner docs** | `dev/active/platform_authority_loop.md` (per `INDEX.md:34-36` — load ONLY when typed MP-377 route names it; do not treat as always-canonical) | Scoped reference — typed authority only when the active typed phase points at it; otherwise documentation evidence |
+| 3 — **Navigation / connectivity index** | `SYSTEM_MAP.md` (this doc), `context-graph --mode bootstrap` | Human-readable reducer over the system; NOT durable authority |
+| 4 — **Reference / generated projection / historical evidence** | `dev/guides/*`, `dev/reports/*`, `bridge.md`, `dev/audits/REVIEW_SNAPSHOT.md`, offline findings under `dev/reports/review_channel/offline_findings/` | Consult when tier 1–3 points at them; do not treat as durable authority on their own. Historical/offline evidence MUST NOT become durable acceptance authority — closure must land in typed PlanRow + receipts. |
 
-**Resolution policy (not enforced):** if tier 3 conflicts with tier 1, tier 1 wins and tier 3 should be hand-updated (or, once rev_pkt_1370 Patch 1 lands, regenerated). Today this is a convention, not a guard — there is no check_* that fails when tier 3 drifts from tier 1. This doc can become stale; typed state cannot.
+**Resolution policy (per GuardIR v4.37+ packet-as-evidence rule):** projections and offline evidence (tiers 2–4) are NOT durable authority. When any tier conflicts with tier 1 typed state, tier 1 wins; projections must be re-rendered or hand-updated to match. The proposed guard `check_no_prose_authority_promotion.py` (queued via rev_pkt_4723) will fail when maintained docs promote generated markdown, active markdown, bridge/dashboard text, or chat above typed state. Today this is a convention partially enforced by `check_instruction_surface_sync.py`; the broader prose-authority guard is the next ratchet.
 
 **Freshness contract (initial enforcement active):** SYSTEM_MAP.md now contains a `system_map_renderer` managed block registered in `repo_governance.surface_generation.surfaces`. `check_instruction_surface_sync.py` validates that generated block and `render-surfaces --write --surface system_map_index` refreshes it. The remaining target is broader: move more prose into typed `ConnectivityRegistry` inputs so SYSTEM_MAP.md becomes a generated projection over typed state (see §51 closure row), not a hand-maintained doc.
 
@@ -130,8 +131,8 @@ This block is generated by `system_map_renderer`; edit the typed inputs or rerun
 
 | Root | Python files | Largest namespaces |
 |---|---:|---|
-| `dev/scripts/devctl` | 2505 | commands=629, tests=624, runtime=481, review_channel=319, platform=88, governance=74, (root)=63, context_graph=47 |
-| `dev/scripts/checks` | 575 | (root)=181, package_layout=32, platform_contract_closure=22, review_probes=21, multi_agent_sync=19, python_analysis=17, code_shape=15, rust_analysis=15 |
+| `dev/scripts/devctl` | 2522 | tests=637, commands=629, runtime=485, review_channel=319, platform=88, governance=74, (root)=63, context_graph=47 |
+| `dev/scripts/checks` | 576 | (root)=182, package_layout=32, platform_contract_closure=22, review_probes=21, multi_agent_sync=19, python_analysis=17, code_shape=15, rust_analysis=15 |
 
 ### Governed Surfaces
 
@@ -548,14 +549,14 @@ are stale.
 
 ---
 
-## 12. Where This Doc Fits In the Bootstrap Order
+## 12. Where This Doc Fits In the Typed Bootstrap Projection Chain
 
-**SYSTEM_MAP.md supplements the canonical bootstrap — it does NOT replace it.**
+**SYSTEM_MAP.md supplements the typed bootstrap projection chain — it does NOT replace it.**
 The required order per `AGENTS.md:235-242` and `dev/active/INDEX.md:3-4` is:
 
 1. `python3 dev/scripts/devctl.py startup-context --format summary` (STEP 0 per CLAUDE.md)
-2. `dev/active/INDEX.md` — canonical registry for active docs
-3. `dev/active/MASTER_PLAN.md` — execution authority / tracker
+2. `dev/active/INDEX.md` — maintained pointer index over `dev/state/plan_index.jsonl` (the canonical PlanRow registry); the markdown is a projection, not durable authority
+3. `dev/active/MASTER_PLAN.md` — maintained tracker projection over `dev/state/plan_index.jsonl`
 4. Task-class router → matching command bundle
 
 **Read SYSTEM_MAP.md (this doc) AFTER step 1 for connectivity context** — it is
@@ -636,7 +637,7 @@ role and current state:
 
 | Plan | Scope | Role | Status | Last |
 |---|---|---|---|---|
-| `MASTER_PLAN.md` | MP-377..MP-410 unified | canonical tracker | in_progress | Apr 19 |
+| `MASTER_PLAN.md` | MP-377..MP-410 unified | tracker_projection (over `dev/state/plan_index.jsonl`) | in_progress | Apr 19 |
 | `ai_governance_platform.md` | MP-377 governance product | spec + tracker | in_progress | Apr 19 |
 | `review_channel.md` | MP-355 dual-agent surfaces | spec + mirrored | active | Apr 17 |
 | `review_probes.md` | MP-368..MP-375 AI review | spec + mirrored | active | Apr 9 |
@@ -1731,7 +1732,7 @@ External AI proposed 5-plan survivor set; agent audit expanded to **11 active sp
 ### Proposed survivors (11 active + 1 tracker)
 | Plan | Scope | Role |
 |---|---|---|
-| `MASTER_PLAN.md` | MP-377..MP-410 unified | canonical tracker |
+| `MASTER_PLAN.md` | MP-377..MP-410 unified | tracker_projection (over `dev/state/plan_index.jsonl`) |
 | `ai_governance_platform.md` | MP-377 product extraction | spec + owner |
 | `platform_authority_loop.md` | MP-377 startup/authority | engine/executable spine |
 | `review_channel.md` | MP-355 control surface | subsystem owner |

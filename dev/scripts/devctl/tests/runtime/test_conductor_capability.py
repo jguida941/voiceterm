@@ -89,6 +89,100 @@ class TestConductorCapability(unittest.TestCase):
         self.assertEqual(implementer.role, "implementer")
         self.assertTrue(implementer.may_edit_repo)
 
+    def test_v4553_legacy_active_dual_agent_alone_cannot_grant_implementer_edit_capability(self) -> None:
+        """rev_pkt_4777 acceptance: when typed `collaboration` is supplied
+        with empty `role_assignments`, the legacy `reviewer_mode=
+        active_dual_agent` label alone must NOT grant `may_edit_repo=True`
+        on the implementer capability. A live `coding_agent` role
+        assignment is required.
+        """
+        capability = build_conductor_capability_state(
+            provider="codex",
+            role="implementer",
+            reviewer_mode="active_dual_agent",
+            collaboration={"role_assignments": []},
+        )
+        self.assertFalse(capability.may_edit_repo)
+        self.assertEqual(capability.queue_policy, "inactive")
+        self.assertIn(
+            "typed role_assignments",
+            capability.status_summary,
+        )
+
+    def test_v4553_typed_coding_agent_role_assignment_grants_implementer_edit_capability(self) -> None:
+        """Positive case: when typed role_assignments names a live
+        coding_agent, the implementer capability returns the active
+        dual-agent branch (may_edit_repo=True).
+        """
+        capability = build_conductor_capability_state(
+            provider="codex",
+            role="implementer",
+            reviewer_mode="active_dual_agent",
+            collaboration={
+                "role_assignments": [
+                    {
+                        "agent_id": "claude",
+                        "provider": "claude",
+                        "role_id": "coding_agent",
+                        "live": True,
+                    }
+                ]
+            },
+        )
+        self.assertTrue(capability.may_edit_repo)
+
+    def test_v4553_no_collaboration_param_preserves_legacy_back_compat(self) -> None:
+        """When `collaboration` is omitted, the legacy `reviewer_mode`
+        path continues to grant implementer capability — this is the
+        back-compat for callers not yet updated.
+        """
+        capability = build_conductor_capability_state(
+            provider="codex",
+            role="implementer",
+            reviewer_mode="active_dual_agent",
+        )
+        self.assertTrue(capability.may_edit_repo)
+
+    def test_v4553_v9_single_agent_no_live_review_agent_fails_closed(self) -> None:
+        """v4.55.3 v9 (rev_pkt_4783): when typed collaboration is supplied
+        with single_agent reviewer_mode but no live `review_agent` in
+        role_assignments, the reviewer-mutation branch must be gated.
+        The legacy reviewer_mode='single_agent' string alone cannot grant
+        may_edit_repo=True without typed reviewer evidence.
+        """
+        capability = build_conductor_capability_state(
+            provider="codex",
+            role="reviewer",
+            reviewer_mode="single_agent",
+            collaboration={"role_assignments": []},
+        )
+        self.assertFalse(capability.may_edit_repo)
+        self.assertEqual(capability.worker_unavailable_policy, "inactive")
+
+    def test_v4553_v9_single_agent_typed_live_review_agent_grants_mutation(self) -> None:
+        """v4.55.3 v9: symmetric positive case — single_agent with a typed
+        live `review_agent` role_assignment opens the reviewer-mutation
+        branch (may_edit_repo=True). This preserves the existing
+        `test_commit_execution_target_falls_back_to_writable_reviewer_lane`
+        behavior under v9.
+        """
+        capability = build_conductor_capability_state(
+            provider="codex",
+            role="reviewer",
+            reviewer_mode="single_agent",
+            collaboration={
+                "role_assignments": [
+                    {
+                        "agent_id": "codex",
+                        "provider": "codex",
+                        "role_id": "review_agent",
+                        "live": True,
+                    }
+                ]
+            },
+        )
+        self.assertTrue(capability.may_edit_repo)
+
     def test_role_bootstrap_commands_are_canonical(self) -> None:
         self.assertEqual(
             session_resume_command_for_role("reviewer"),

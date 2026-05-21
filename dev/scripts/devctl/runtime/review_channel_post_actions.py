@@ -9,9 +9,13 @@ _POST_ACTION_BY_KIND = (
     ("action_request", "review-channel.post_action_request"),
     ("continuation_anchor", "review-channel.post_continuation_anchor"),
     ("stop_anchor", "review-channel.post_stop_anchor"),
+    ("task_started", "review-channel.post_task_started"),
     ("task_produced", "review-channel.post_task_produced"),
     ("task_progress", "review-channel.post_task_progress"),
     ("task_produced:artifact", "review-channel.post_evidence"),
+    ("task_blocked", "review-channel.post_task_blocked"),
+    ("review_accepted", "review-channel.post_review_accepted"),
+    ("review_failed", "review-channel.post_review_failed"),
 )
 
 

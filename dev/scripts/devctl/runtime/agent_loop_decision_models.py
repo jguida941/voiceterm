@@ -48,6 +48,12 @@ class AgentLoopDecision:
     next_command: str = ""
     next_action: str = ""
     top_blocker: str = ""
+    blocker_owner: str = ""
+    blocker_target: str = ""
+    blocker_reason: str = ""
+    repair_command: str = ""
+    stop_anchor: str = ""
+    repair_command_runnable: bool = True
     user_action: str = ""
     continuation_goal: str = ""
     why_not_done: str = ""
@@ -122,6 +128,12 @@ class AgentLoopDecision:
             "next_command": self.next_command,
             "next_action": self.next_action,
             "top_blocker": self.top_blocker,
+            "blocker_owner": self.blocker_owner,
+            "blocker_target": self.blocker_target,
+            "blocker_reason": self.blocker_reason,
+            "repair_command": self.repair_command,
+            "stop_anchor": self.stop_anchor,
+            "repair_command_runnable": self.repair_command_runnable,
             "user_action": self.user_action,
             "continuation_goal": self.continuation_goal,
             "why_not_done": self.why_not_done,

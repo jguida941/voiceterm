@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
+from ...runtime.value_coercion import coerce_bool as _coerce_bool
 from ...runtime.remote_control_attachment_models import (
     remote_control_attachment_from_mapping,
 )
@@ -207,7 +208,9 @@ def _campaign_roles(
                 active_packet_id=_text(row.get("active_packet_id"))
                 or _text(row.get("attention_packet_id"))
                 or _text(row.get("executing_packet_id")),
-                may_mutate=bool(decision.get("may_mutate")),
+                # v4.45.5 (rev_pkt_4743): shared coerce_bool so projected
+                # ``"false"``/``"0"`` correctly suppress mutation posture.
+                may_mutate=_coerce_bool(decision.get("may_mutate")),
                 required_action=_normalized_required_action(
                     _text(decision.get("required_action"))
                 ),
@@ -224,7 +227,23 @@ def _campaign_roles(
                 ),
                 proof_state=_text(decision.get("proof_state")),
                 blocker=_text(decision.get("top_blocker")),
-                next_command=_text(decision.get("next_loop_command")),
+                # v4.45.3 (rev_pkt_4739): only emit next_loop_command as
+                # the campaign role's next_command when the actor can
+                # actually run it. Blocked decisions (can_run_next_command=
+                # false from typed policy) previously surfaced
+                # next_loop_command unconditionally, which fed
+                # codex_next_command / claude_next_command / operator
+                # wrappers with the read-only agent-loop self-loop.
+                # v4.45.4 (rev_pkt_4742): replaced local _coerce_bool
+                # helper with shared ``runtime.value_coercion.coerce_bool``
+                # to converge on the typed normalizer. The import is
+                # cycle-safe: ``runtime.value_coercion`` only depends on
+                # stdlib (``collections.abc``, ``typing``).
+                next_command=(
+                    _text(decision.get("next_loop_command"))
+                    if _coerce_bool(decision.get("can_run_next_command"))
+                    else ""
+                ),
             )
         )
     return tuple(rows)

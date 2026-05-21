@@ -51,6 +51,15 @@ class AgentLoopContext:
     loop_intent: str
     requested_plan_ref: str
     requested_packet_id: str
+    # Phase 0.6.A v4.17/v4.18/v4.23 (rev_pkt_4692): BlockerSnapshot typed action
+    # fields read from dashboard.control_plane so decision-builder and
+    # downstream consumers can refuse repair_command_runnable=False commands.
+    blocker_owner: str = ""
+    blocker_target: str = ""
+    blocker_reason: str = ""
+    repair_command: str = ""
+    stop_anchor: str = ""
+    repair_command_runnable: bool = True
 
 
 PacketState = AgentPacketFocus

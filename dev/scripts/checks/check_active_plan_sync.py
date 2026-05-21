@@ -64,15 +64,25 @@ INDEX_PATH = ACTIVE_DIR / "INDEX.md"
 MASTER_PLAN_PATH = ACTIVE_DIR / "MASTER_PLAN.md"
 
 ALLOWED_ROLES = {"tracker", "spec", "runbook", "reference"}
+
+TYPED_PLAN_STORE_PATH = "dev/state/plan_index.jsonl"
+TRACKER_PROJECTION_AUTHORITY_LITERAL = (
+    f"`tracker_projection` (over `{TYPED_PLAN_STORE_PATH}`)"
+)
+
 ALLOWED_AUTHORITIES = {
     "canonical",
     "mirrored in MASTER_PLAN",
     "supporting",
     "reference-only",
+    TRACKER_PROJECTION_AUTHORITY_LITERAL,
 }
 
 REQUIRED_REGISTRY_ROWS = {
-    "dev/active/MASTER_PLAN.md": {"role": "tracker", "authority": "canonical"},
+    "dev/active/MASTER_PLAN.md": {
+        "role": "tracker",
+        "authority": TRACKER_PROJECTION_AUTHORITY_LITERAL,
+    },
     "dev/active/ai_governance_platform.md": {
         "role": "spec",
         "authority": "mirrored in MASTER_PLAN",

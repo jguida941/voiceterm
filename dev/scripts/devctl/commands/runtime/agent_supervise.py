@@ -87,7 +87,11 @@ def run(args: Any) -> int:
         pipe_args=getattr(args, "pipe_args", None),
         writer=write_output,
     )
-    if report.status == "healthy":
+    if report.status in {"healthy", "ignored_helper_closed"}:
+        # v4.55.1 priority 1 (rev_pkt_4764/4765): `ignored_helper_closed`
+        # is a typed nonblocking outcome for closed read-only helper
+        # sidecar audits. CLI exits 0 so the audit caller can chain
+        # commands without falsely failing on a dead helper.
         return 0
     if report.status != "spawn_authorized":
         return 1

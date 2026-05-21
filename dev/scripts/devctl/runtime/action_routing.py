@@ -38,6 +38,12 @@ _COORDINATION_POST_ACTIONS = (
     "review-channel.post_evidence",
 )
 _IMPLEMENTATION_ACTIONS = ("implementation.edit", "vcs.stage", "vcs.commit")
+#: v4.42 (rev_pkt_4714 Finding 3): the legacy typed action tuple is
+#: preserved as the canonical action-routing surface, but its membership is
+#: now verified against the shared typed-action mutation adapter. Adding
+#: an action here without a corresponding mapping in
+#: ``runtime/typed_action_mutation.py`` is caught by the v4.42 regression
+#: tests, preventing drift between the two registries.
 _MUTATING_ACTIONS = (
     "implementation.edit", "vcs.stage", "vcs.commit", "vcs.push",
     "runtime.recover", "runtime.terminate",

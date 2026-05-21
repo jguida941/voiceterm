@@ -1,16 +1,29 @@
 # Active Docs Index
 
-This file is the canonical registry for `dev/active/*.md`.
-Agents must read this file first before loading active planning docs.
+This file is a **maintained pointer/projection** over the typed plan state. The
+**canonical PlanRow registry** is `dev/state/plan_index.jsonl` (per GuardIR
+v4.37+ packet-as-evidence rule); this markdown lists active owner docs and when
+to read them but is not itself durable plan authority. Closure receipts live in
+`dev/state/plan_row_closure_receipts.jsonl`, intent ingest receipts in
+`dev/state/plan_ingestion_receipts.jsonl`, and source snapshots in
+`dev/state/plan_source_snapshots.jsonl`. Resolve plan questions through those
+typed stores first; consult this file as a maintained navigation index.
+
 Keep the execution-owner set small: `MASTER_PLAN.md` plus 3-4 owner specs.
 Narrower or completed lanes stay here as reference-only owner docs until they
 are archived or folded into the umbrella plan.
 
 ## Registry
 
-| Path | Role | Execution authority | MP scope | When agents read |
+The `Execution authority` column below describes each doc's **role in the
+projection**, not durable authority. A row marked `tracker_projection` is a
+maintained projection over `dev/state/plan_index.jsonl` (the typed canonical
+PlanRow store); a `reference-only` row is documentation that informs the typed
+plan but is not consulted as authority.
+
+| Path | Role | Authority projection | MP scope | When agents read |
 |---|---|---|---|---|
-| `dev/active/MASTER_PLAN.md` | `tracker` | `canonical` | all active MP execution state | always |
+| `dev/active/MASTER_PLAN.md` | `tracker` | `tracker_projection` (over `dev/state/plan_index.jsonl`) | all active MP execution state | always |
 | `dev/active/README.md` | `reference` | `reference-only` | active-doc navigation helper (non-tracker) | when scanning `dev/active/` ownership/read-order context |
 | `dev/active/theme_upgrade.md` | `reference` | `reference-only` | `MP-099`, `MP-148..MP-151`, `MP-161..MP-167`, `MP-172..MP-182` | when Theme Studio, overlay visual research, or visual-surface redesign context is needed; execution state stays in `MASTER_PLAN.md` |
 | `dev/active/memory_studio.md` | `reference` | `reference-only` | `MP-230..MP-255` | only when memory/action/context-pack reference context is needed |
@@ -32,7 +45,7 @@ are archived or folded into the umbrella plan.
 | `dev/active/ralph_guardrail_control_plane.md` | `reference` | `reference-only` | `MP-360..MP-367` | when Ralph guardrail/control-plane reference context is needed |
 | `dev/active/review_probes.md` | `spec` | `mirrored in MASTER_PLAN` | `MP-368..MP-375` | when implementing heuristic review probes, non-blocking risk-hint collectors, or probe-fed AI review triage surfaces |
 | `dev/active/portable_code_governance.md` | `reference` | `reference-only` | `MP-376` | when extending the portable guard/probe engine, defining repo-policy vs engine boundaries, building measurement/eval corpora, exporting the governance stack for off-repo review, or piloting the system on other repositories; keep the live execution order in `dev/active/ai_governance_platform.md` and treat this as the owner reference for the portable-proof phase instead of a standalone authority surface |
-| `dev/active/ai_governance_platform.md` | `spec` | `mirrored in MASTER_PLAN` | `MP-377` | read first for any standalone governance-product architecture, packaging, repo-pack, runtime-contract, or extraction work; this is the only main active plan for the transition from VoiceTerm-embedded tooling to an installable product |
+| `dev/active/ai_governance_platform.md` | `spec` | `mirrored in MASTER_PLAN` | `MP-377` | read first for any standalone governance-product architecture, packaging, repo-pack, runtime-contract, or extraction work; this is the primary maintained owner-spec projection for the transition from VoiceTerm-embedded tooling to an installable product |
 | `dev/active/agent_substrate_architecture_review.md` | `reference` | `reference-only` | `MP-377` / Plan 4.1 | when validating the 2026-04-27 operator request for one coherent agent substrate, proof-tick authority, mode-axis separation, or future any-agent-any-role capability migration; execution order stays in `ai_governance_platform.md` |
 | `dev/active/platform_authority_loop.md` | `reference` | `reference-only` | `MP-377` | after reading `ai_governance_platform.md`, load only when the current typed phase/task route names startup authority, repo-pack activation, plan routing, or runtime/evidence/context closure as the owner doc |
 | `dev/active/autonomous_governance_loop_v2.md` | `reference` | `reference-only` | `MP-377` | after reading `ai_governance_platform.md`, load only when the current typed phase/task route names loop-v2 composition, findings priority, auto-mode, monitor, or graph-backed discoverability as the owner doc |
@@ -53,7 +66,7 @@ are archived or folded into the umbrella plan.
    context, not top-level priority signals in that mode.
 3.1 Read only the owner docs named by the typed phase/task registry at the top
     of `dev/active/ai_governance_platform.md`.
-    The default execution-owner set is:
+    The default tracker-projection owner set is:
     `dev/active/review_channel.md`,
     `dev/active/review_probes.md`,
     plus reference owner docs such as

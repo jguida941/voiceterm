@@ -49,6 +49,7 @@ class GitMutationProofReceipt:
     failure_reason: str = ""
     recorded_at_utc: str = ""
     produced_by: str = "devctl"
+    code_identity_hash: str = ""
     evidence_refs: tuple[str, ...] = ()
     artifact_paths: tuple[str, ...] = ()
     correlation_context: CorrelationContext = field(default_factory=CorrelationContext)
@@ -94,6 +95,7 @@ def git_mutation_proof_receipt_from_mapping(
         failure_reason=coerce_string(mapping.get("failure_reason")),
         recorded_at_utc=coerce_string(mapping.get("recorded_at_utc")),
         produced_by=coerce_string(mapping.get("produced_by")) or "devctl",
+        code_identity_hash=coerce_string(mapping.get("code_identity_hash")),
         evidence_refs=coerce_string_items(mapping.get("evidence_refs")),
         artifact_paths=coerce_string_items(mapping.get("artifact_paths")),
         correlation_context=correlation_context,
@@ -163,6 +165,7 @@ def build_commit_git_mutation_proof_receipt(
         status="verified" if verified else "failed",
         failure_reason=failure_reason,
         recorded_at_utc=_utc_now(),
+        code_identity_hash=claim.code_identity_hash,
         artifact_paths=tuple(path for path in claim.artifact_paths if path),
         evidence_refs=unique_refs(
             (
@@ -173,6 +176,7 @@ def build_commit_git_mutation_proof_receipt(
                 else "",
                 _ref("pipeline", claim.pipeline_id),
                 _ref("plan", claim.plan_row_id),
+                _ref("code_identity", claim.code_identity_hash),
             )
         ),
         correlation_context=claim.correlation_context,
@@ -231,6 +235,7 @@ def build_push_git_mutation_proof_receipt(
         status="verified" if verified else "failed",
         failure_reason=failure_reason,
         recorded_at_utc=_utc_now(),
+        code_identity_hash=claim.code_identity_hash,
         artifact_paths=tuple(path for path in claim.artifact_paths if path),
         evidence_refs=unique_refs(
             (
@@ -241,6 +246,7 @@ def build_push_git_mutation_proof_receipt(
                 _ref("branch", branch_name),
                 _ref("pipeline", claim.pipeline_id),
                 _ref("plan", claim.plan_row_id),
+                _ref("code_identity", claim.code_identity_hash),
             )
         ),
         correlation_context=claim.correlation_context,

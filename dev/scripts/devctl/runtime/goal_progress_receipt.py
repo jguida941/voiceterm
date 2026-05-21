@@ -5,6 +5,12 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 
+from .anchor_scope import (
+    ANCHOR_SCOPE_PLAN,
+    ANCHOR_SCOPE_ROLE,
+    ANCHOR_SCOPE_SESSION,
+    effective_anchor_scope,
+)
 from .collaboration_packet_kinds import GOAL_PROGRESS_PACKET_KIND
 from .packet_transport_expiry import packet_transport_expired
 from .session_termination_policy import CONTINUATION_ANCHOR_PACKET_KIND
@@ -47,12 +53,26 @@ def resolve_goal_progress_receipt(
     *,
     actor: str,
     continuation_goal: str = "",
+    session_id: str = "",
+    role: str = "",
 ) -> GoalProgressReceipt:
-    """Resolve the newest goal_progress receipt for one actor and goal."""
+    """Resolve the newest goal_progress receipt for one actor and goal.
+
+    When `session_id` or `role` is supplied, the continuation-anchor candidate
+    set is narrowed so anchors not issued to the supervised session/role do
+    not leak in. This closes v4.55.1 priority 1 (rev_pkt_4758/4759): closed
+    read-only helper sidecars must not inherit unrelated continuation anchors
+    via actor-only matching.
+    """
     state = coerce_mapping(review_state)
     actor_id = coerce_string(actor)
     goal = coerce_string(continuation_goal)
-    anchor = _latest_continuation_anchor(state, actor_id=actor_id)
+    anchor = _latest_continuation_anchor(
+        state,
+        actor_id=actor_id,
+        session_id=coerce_string(session_id),
+        role=coerce_string(role),
+    )
     anchor_id = coerce_string(anchor.get("packet_id"))
     base = {
         "actor_id": actor_id,
@@ -138,6 +158,8 @@ def _latest_continuation_anchor(
     review_state: Mapping[str, object],
     *,
     actor_id: str,
+    session_id: str = "",
+    role: str = "",
 ) -> Mapping[str, object]:
     candidates = [
         packet
@@ -145,8 +167,50 @@ def _latest_continuation_anchor(
         if coerce_string(packet.get("kind")) == CONTINUATION_ANCHOR_PACKET_KIND
         and _active(packet)
         and _actor_matches(packet, actor_id=actor_id)
+        and _session_matches(packet, session_id=session_id)
+        and _role_matches(packet, role=role)
     ]
     return _latest_packet(candidates)
+
+
+def _session_matches(packet: Mapping[str, object], *, session_id: str) -> bool:
+    """Filter anchors by typed scope semantics from runtime.anchor_scope.
+
+    Per rev_pkt_4760 acceptance:
+      - session-scoped anchors: require exact `target_session_id` match
+      - role-scoped anchors: not session-gated (the role filter handles
+        these — they intentionally survive session id changes for a
+        continuing reviewer)
+      - plan-scoped anchors: not session-gated (a plan continuation
+        applies to whichever session resumes the plan)
+
+    Truly unscoped legacy anchors (`effective_anchor_scope` defaults
+    them to role) are NOT filtered out at the session layer. The
+    closed-helper-audit predicate in agent_supervise_driver.py catches
+    the remaining helper-sidecar leak class.
+    """
+    if not session_id:
+        return True
+    scope = effective_anchor_scope(packet)
+    if scope == ANCHOR_SCOPE_SESSION:
+        target = coerce_string(packet.get("target_session_id"))
+        return target == session_id
+    return True
+
+
+def _role_matches(packet: Mapping[str, object], *, role: str) -> bool:
+    """`target_role` is a hard discriminator regardless of anchor_scope
+    (per rev_pkt_4764). An anchor that names `target_role=reviewer`
+    must not match a `role=dashboard` supervised session, even when the
+    anchor is plan-scoped or session-scoped. Anchors with no
+    `target_role` remain role-agnostic.
+    """
+    if not role:
+        return True
+    target_role = coerce_string(packet.get("target_role"))
+    if not target_role:
+        return True
+    return target_role == role
 
 
 def _latest_goal_progress_packet(

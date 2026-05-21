@@ -517,3 +517,60 @@ def test_targeted_inbox_visibility_does_not_depend_on_actor_flag() -> None:
 
     assert [packet["packet_id"] for packet in without_actor] == ["rev_pkt_scoped"]
     assert [packet["packet_id"] for packet in with_actor] == ["rev_pkt_scoped"]
+
+
+def test_v4554_inbox_surfaces_freshest_packet_first() -> None:
+    """v4.55.4 (rev_pkt_4786/4787) regression: when develop next names a
+    fresh plan-bound packet for the agent, the inbox view must surface
+    that packet at the top instead of older transport debt.
+    `filter_inbox_packets` sorts by `latest_event_id` descending so the
+    inbox and `develop next` agree on which packet is current.
+    """
+    review_state = {
+        "packets": [
+            {
+                "packet_id": "rev_pkt_old_debt",
+                "status": "pending",
+                "kind": "task_progress",
+                "from_agent": "codex",
+                "to_agent": "claude",
+                "latest_event_id": "rev_evt_84500",
+                "posted_at": "2026-05-20T10:00:00Z",
+            },
+            {
+                "packet_id": "rev_pkt_current_goal",
+                "status": "pending",
+                "kind": "finding",
+                "attention_urgency": "blocking",
+                "from_agent": "codex",
+                "to_agent": "claude",
+                "latest_event_id": "rev_evt_85258",
+                "posted_at": "2026-05-21T14:00:57Z",
+            },
+            {
+                "packet_id": "rev_pkt_middle_age",
+                "status": "pending",
+                "kind": "task_started",
+                "from_agent": "codex",
+                "to_agent": "claude",
+                "latest_event_id": "rev_evt_85000",
+                "posted_at": "2026-05-21T08:00:00Z",
+            },
+        ],
+    }
+
+    packets = filter_inbox_packets(
+        review_state,
+        target="claude",
+        status="pending",
+        limit=20,
+    )
+
+    assert [packet["packet_id"] for packet in packets] == [
+        "rev_pkt_current_goal",
+        "rev_pkt_middle_age",
+        "rev_pkt_old_debt",
+    ], (
+        "v4.55.4 inbox must surface freshest packet first; got "
+        f"{[p['packet_id'] for p in packets]!r}"
+    )

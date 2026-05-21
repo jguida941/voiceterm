@@ -2,12 +2,94 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+from dataclasses import asdict, is_dataclass
+
 from ...runtime.conductor_capability import build_conductor_capability_state
 from ...runtime.review_state_collaboration_models import (
     ActorAuthorityState,
     actor_authority_for_capability,
 )
 from ...runtime.review_state_models import ReviewState
+
+
+def _collaboration_mapping(review_state: ReviewState) -> Mapping[str, object] | None:
+    """v4.55.3 (rev_pkt_4778/4781): extract the typed CollaborationSessionState
+    as a plain mapping so authority helpers (live_reviewer_present /
+    live_implementer_present) can read `role_assignments` directly.
+
+    Handles three collaboration shapes:
+      - Mapping (dict-like): returned as-is.
+      - dataclass: serialized via asdict().
+      - Attribute-shaped object (SimpleNamespace, custom classes with
+        `role_assignments` / `participants` attributes): build a mapping
+        from the attribute namespace. This closes the rev_pkt_4781 leak
+        where attribute-shaped fixtures fell through to the legacy bridge
+        path because they're neither Mapping nor dataclass.
+
+    Returns None only when the review_state has no usable collaboration
+    block at all (e.g. attribute access raises or no `role_assignments`
+    field present).
+    """
+    collaboration = getattr(review_state, "collaboration", None)
+    if collaboration is None:
+        return None
+    if isinstance(collaboration, Mapping):
+        return collaboration
+    if is_dataclass(collaboration):
+        try:
+            return asdict(collaboration)
+        except TypeError:
+            return None
+    # Attribute-shaped fallback: any object exposing role_assignments
+    # or participants is typed-collaboration-enough for authority gating.
+    role_assignments = getattr(collaboration, "role_assignments", None)
+    participants = getattr(collaboration, "participants", None)
+    if role_assignments is None and participants is None:
+        return None
+    extracted: dict[str, object] = {}
+    if role_assignments is not None:
+        extracted["role_assignments"] = _coerce_assignment_rows(role_assignments)
+    if participants is not None:
+        extracted["participants"] = _coerce_assignment_rows(participants)
+    return extracted
+
+
+def _coerce_assignment_rows(rows: object) -> list[Mapping[str, object]]:
+    """Coerce role_assignments/participants from attribute-shaped or
+    iterable forms into a list of plain mappings so the typed-facts
+    helpers can iterate uniformly.
+    """
+    if rows is None:
+        return []
+    if isinstance(rows, (list, tuple)):
+        normalized: list[Mapping[str, object]] = []
+        for row in rows:
+            if isinstance(row, Mapping):
+                normalized.append(row)
+                continue
+            if is_dataclass(row):
+                try:
+                    normalized.append(asdict(row))
+                except TypeError:
+                    continue
+                continue
+            # Attribute-shaped row: pull the fields v4.55.3 cares about.
+            row_map: dict[str, object] = {}
+            for key in (
+                "agent_id",
+                "provider",
+                "role_id",
+                "live",
+                "role",
+                "actor_id",
+            ):
+                if hasattr(row, key):
+                    row_map[key] = getattr(row, key)
+            if row_map:
+                normalized.append(row_map)
+        return normalized
+    return []
 
 
 def commit_authority_target(review_state: ReviewState) -> str:
@@ -54,10 +136,17 @@ def coding_agent_can_receive_stage_handoff(
         or review_state.bridge.reviewer_mode
         or "single_agent"
     )
+    # v4.55.3 (rev_pkt_4778): governed executor mutation authority must
+    # NOT come from legacy reviewer_mode strings alone. Pass the typed
+    # CollaborationSessionState so build_conductor_capability_state can
+    # gate `may_edit_repo` on the typed `role_assignments` (a live
+    # `coding_agent` assignment), not just on `active_dual_agent`.
+    typed_collaboration = _collaboration_mapping(review_state)
     capability = build_conductor_capability_state(
         provider=provider,
         reviewer_mode=reviewer_mode,
         role="implementer",
+        collaboration=typed_collaboration,
     )
     if capability is None or not getattr(capability, "may_edit_repo", False):
         return False

@@ -219,8 +219,9 @@ python3 dev/scripts/devctl.py render-surfaces --format json
 python3 dev/scripts/devctl.py render-surfaces --write --format md
 ```
 
-That command is the executable source of truth for the shared layer model,
-runtime contracts, repo-local boundaries, and current portability status.
+That command is the executable proof emitter for the shared layer model,
+runtime contracts, repo-local boundaries, and current portability status; the
+durable authority lives in the typed contracts and receipts it surfaces.
 
 `system-picture` is the bounded external-review reducer that composes the
 typed startup, graph, review-runtime, governance-review, imported-findings,
