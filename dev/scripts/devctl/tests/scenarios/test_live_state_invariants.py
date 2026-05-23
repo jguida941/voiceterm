@@ -2969,3 +2969,219 @@ def test_topology_literal_count_must_be_zero_in_production_outside_enum_owners()
         "  remaining 30+ across review_channel/coordination paths."
     )
 
+
+# =====================================================================
+# A38.4 — TDD the SYSTEM_MAP itself (operator amendment 2026-05-23T22:00Z)
+# =====================================================================
+#
+# SYSTEM_MAP.md is the "Living Connectivity Index" — the truth-source for
+# the proposed A38.3 system_map_steward role. If its numeric inventory
+# claims are stale, every audit consuming them produces verdicts against
+# a fictional inventory. These invariants assert the claims match reality
+# via direct filesystem walk. Currently RED for guard + probe + command
+# counts (claim=71/26/85, actual=158/80/107 as of 2026-05-23).
+#
+# Recursive value: today's session caught 8 architectural smells via
+# semantic-TDD invariants over RUNTIME code; these invariants extend the
+# same discipline to the DOC that defines the discipline. Phase 0
+# (TDD-the-TDD-role) and Phase 0.x (typed-state over env-var hacks) were
+# the same shape — apply the discipline to itself.
+
+import re as _re_system_map
+_SYSTEM_MAP_PATH = REPO_ROOT / "dev" / "guides" / "SYSTEM_MAP.md"
+
+
+def _read_system_map_text() -> str:
+    if not _SYSTEM_MAP_PATH.exists():
+        return ""
+    return _SYSTEM_MAP_PATH.read_text(encoding="utf-8")
+
+
+def _parse_first_claim_count(text: str, pattern: str) -> int | None:
+    """Return the first integer matching pattern, or None if missing.
+
+    The pattern uses a single capture group for the integer. Returns the
+    FIRST match so multi-occurrence claims are consistently sourced from
+    the executive-summary block.
+    """
+    match = _re_system_map.search(pattern, text)
+    if match is None:
+        return None
+    try:
+        return int(match.group(1))
+    except (ValueError, IndexError):
+        return None
+
+
+def _count_top_level_check_scripts() -> int:
+    target = REPO_ROOT / "dev" / "scripts" / "checks"
+    if not target.is_dir():
+        return 0
+    return sum(1 for p in target.glob("check_*.py") if p.is_file())
+
+
+def _count_probe_scripts() -> int:
+    """Count probe_*.py across the codebase (probes are now mixed in checks/)."""
+    scan_roots = (
+        REPO_ROOT / "dev" / "scripts" / "checks",
+        REPO_ROOT / "dev" / "scripts" / "coderabbit",
+        REPO_ROOT / "dev" / "scripts" / "probes",  # legacy location
+    )
+    total = 0
+    for root in scan_roots:
+        if not root.is_dir():
+            continue
+        total += sum(1 for p in root.glob("probe_*.py") if p.is_file())
+    return total
+
+
+def _count_devctl_subcommands() -> int:
+    """Count devctl top-level subcommands by parsing --help output."""
+    import subprocess
+    try:
+        result = subprocess.run(
+            ["python3", str(REPO_ROOT / "dev" / "scripts" / "devctl.py"), "--help"],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return 0
+    help_text = result.stdout + result.stderr
+    match = _re_system_map.search(r"\{([^}]+)\}", help_text)
+    if not match:
+        return 0
+    return sum(1 for token in match.group(1).split(",") if token.strip())
+
+
+def _count_contracts_in_registry() -> int:
+    target = REPO_ROOT / "dev" / "state" / "contract_registry.jsonl"
+    if not target.is_file():
+        return 0
+    return sum(1 for _ in target.read_text(encoding="utf-8").splitlines() if _.strip())
+
+
+@pytest.mark.xfail(strict=True, reason="A38.4 — SYSTEM_MAP.md inventory claim stale: parsed 71 guards from doc, actual is 158. Ratchets to GREEN once A38.4 S1.B fixes the doc.")
+def test_system_map_guard_count_matches_reality():
+    """A38.4 invariant — SYSTEM_MAP guard count must match filesystem.
+
+    Parses the first 'N guards' claim from SYSTEM_MAP.md and asserts
+    equality with the count of `check_*.py` files in `dev/scripts/checks/`.
+    Currently RED: doc claims 71, actual is 158 (123% drift). Ratchets
+    to GREEN when A38.4 S1.B updates the doc.
+    """
+    text = _read_system_map_text()
+    claimed = _parse_first_claim_count(text, r"(\d+)\s+guards?\b")
+    actual = _count_top_level_check_scripts()
+    assert claimed is not None, (
+        "INVARIANT VIOLATED: system_map_guard_count_matches_reality\n"
+        "  SYSTEM_MAP.md contains no parseable 'N guards' claim.\n"
+        "  Add a numeric inventory claim so this invariant has a target."
+    )
+    assert claimed == actual, (
+        "INVARIANT VIOLATED: system_map_guard_count_matches_reality\n"
+        f"  SYSTEM_MAP.md claims: {claimed} guards\n"
+        f"  Filesystem actual:    {actual} (`check_*.py` in dev/scripts/checks/)\n"
+        f"  Drift:                {actual - claimed:+d}\n"
+        "  Truth-source drift breaks A38.3 system_map_steward audits.\n"
+        "  Run A38.4 S1.B to update the doc with current count."
+    )
+
+
+@pytest.mark.xfail(strict=True, reason="A38.4 — SYSTEM_MAP.md inventory claim stale: parsed 26 probes from doc, actual is 80. Probes are no longer in dev/scripts/probes/ but mixed across checks/ and coderabbit/. Ratchets to GREEN once A38.4 S1.B fixes the doc.")
+def test_system_map_probe_count_matches_reality():
+    """A38.4 invariant — SYSTEM_MAP probe count must match filesystem.
+
+    Parses 'N probes' claim from SYSTEM_MAP.md and asserts equality with
+    the count of `probe_*.py` files across `dev/scripts/checks/` +
+    `dev/scripts/coderabbit/` + the legacy `dev/scripts/probes/` location.
+    Currently RED: doc claims 26, actual is 80 (208% drift).
+    """
+    text = _read_system_map_text()
+    claimed = _parse_first_claim_count(text, r"(\d+)\s+probes?\b")
+    actual = _count_probe_scripts()
+    assert claimed is not None, (
+        "INVARIANT VIOLATED: system_map_probe_count_matches_reality\n"
+        "  SYSTEM_MAP.md contains no parseable 'N probes' claim."
+    )
+    assert claimed == actual, (
+        "INVARIANT VIOLATED: system_map_probe_count_matches_reality\n"
+        f"  SYSTEM_MAP.md claims: {claimed} probes\n"
+        f"  Filesystem actual:    {actual} (probe_*.py across checks/ + coderabbit/)\n"
+        f"  Drift:                {actual - claimed:+d}\n"
+        "  Probes appear to have moved from dev/scripts/probes/ to mixed\n"
+        "  locations; doc was not updated. Run A38.4 S1.B."
+    )
+
+
+@pytest.mark.xfail(strict=True, reason="A38.4 — SYSTEM_MAP.md inventory claim stale: parsed 84-85 commands from doc, actual is 107. Ratchets to GREEN once A38.4 S1.B fixes the doc.")
+def test_system_map_devctl_command_count_within_tolerance():
+    """A38.4 invariant — SYSTEM_MAP devctl command count within ±2 of reality.
+
+    Parses 'N commands' claim from SYSTEM_MAP.md and asserts within ±2
+    of the actual subcommand count from `devctl --help`. Tolerance
+    accounts for legitimate phrasing variance ('85 commands → only 19
+    dogfood-covered'). Currently RED: claims range 84-85, actual is 107.
+    """
+    text = _read_system_map_text()
+    claimed = _parse_first_claim_count(text, r"(\d+)\s+commands?\b")
+    actual = _count_devctl_subcommands()
+    assert claimed is not None, (
+        "INVARIANT VIOLATED: system_map_devctl_command_count_within_tolerance\n"
+        "  SYSTEM_MAP.md contains no parseable 'N commands' claim."
+    )
+    assert abs(claimed - actual) <= 2, (
+        "INVARIANT VIOLATED: system_map_devctl_command_count_within_tolerance\n"
+        f"  SYSTEM_MAP.md claims: {claimed} commands\n"
+        f"  devctl --help actual: {actual}\n"
+        f"  Drift:                {actual - claimed:+d} (tolerance ±2)\n"
+        "  Update the doc's command-count claim. Run A38.4 S1.B."
+    )
+
+
+@pytest.mark.xfail(strict=True, reason="A38.4 — SYSTEM_MAP.md lacks a clean 'N typed contracts in registry' claim; current regex matches the unrelated 'first 12 contracts plus required authority contracts' partial-render line. Ratchets to GREEN once A38.4 S1.B adds an explicit total-contract-count sentence with the actual number (248).")
+def test_system_map_contract_registry_count_matches():
+    """A38.4 invariant — SYSTEM_MAP contract count must match registry.
+
+    Asserts that an explicit 'N typed contracts in registry' (or similar
+    total-count) sentence in SYSTEM_MAP.md matches
+    `wc -l dev/state/contract_registry.jsonl`. Currently RED-via-xfail
+    because the doc only mentions 'first 12 contracts plus required
+    authority contracts' (partial render), not a total. A38.4 S1.B will
+    add an explicit total-count claim alongside the other inventory
+    numbers (guards/probes/commands) so the doc has one canonical
+    statement of platform inventory.
+    """
+    text = _read_system_map_text()
+    # Tightened regex: require "typed contracts" or "contracts in registry"
+    # to avoid false-positive matches like "first 12 contracts plus..."
+    match = _re_system_map.search(
+        r"(\d+)\s+(?:typed\s+contracts?\s+in\s+registry|contracts?\s+in\s+(?:the\s+)?registry|registered\s+typed\s+contracts?)",
+        text,
+        flags=_re_system_map.IGNORECASE,
+    )
+    claimed: int | None
+    if match is None:
+        # No explicit total-count claim yet; the xfail catches this.
+        claimed = None
+    else:
+        try:
+            claimed = int(match.group(1))
+        except (ValueError, IndexError):
+            claimed = None
+    actual = _count_contracts_in_registry()
+    assert claimed is not None, (
+        "INVARIANT VIOLATED: system_map_contract_registry_count_matches\n"
+        f"  SYSTEM_MAP.md has no explicit total-count claim (e.g.\n"
+        f"  '{actual} typed contracts in registry').\n"
+        f"  Filesystem actual: {actual} rows in contract_registry.jsonl.\n"
+        "  A38.4 S1.B adds an explicit total-count sentence."
+    )
+    assert claimed == actual, (
+        "INVARIANT VIOLATED: system_map_contract_registry_count_matches\n"
+        f"  SYSTEM_MAP.md claims: {claimed} typed contracts in registry\n"
+        f"  contract_registry.jsonl actual: {actual}\n"
+        f"  Drift: {actual - claimed:+d}"
+    )
+

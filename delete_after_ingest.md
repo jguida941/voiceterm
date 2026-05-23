@@ -5507,3 +5507,354 @@ role inversion) lives at:
 Phase A revert verified complete: A27, A28, A29, A36 amendments removed; A25,
 A26, A30, A31, A32, A33, A34, A35 retained. Files G59 guard + absorb-output
 wrapper + their tests + receipt directory + 6 registration entries removed.
+
+### A38. Adaptive Cadence + Receipt Steward + System-Map Steward (Operator Amendment 2026-05-23T21:35Z)
+
+This amendment defines three composable typed substrates surfaced by 3 parallel
+design agents under the operator direction "tell me what you think then add to
+plan what we find." It addresses three structural gaps observed in today's
+session: (1) the 9-step semantic-TDD ritual has fixed cost regardless of slice
+blast radius so it becomes overhead on small slices; (2) `FeatureProofReceipt`
+emission was approximated rather than emitted per-slice with pytest node ids;
+(3) the AI governance platform has 248 typed contracts + 71 guards + 26 probes
++ ~6 active platform layers, but no role audits whether each slice CONNECTED
+to the relevant platform pieces — slices can pass narrow tests while leaving
+substantial platform inventory disconnected.
+
+#### A38.1 — Adaptive Semantic-TDD Cadence Mode (`MP-SEMANTIC-TDD-CADENCE-S1`)
+
+Typed `SemanticTDDCadenceMode` enum at `dev/scripts/devctl/runtime/semantic_tdd_cadence.py`
+with 5 modes (`FULL`, `STANDARD`, `LIGHT`, `SKIP_NEXT`, `ADAPTIVE_AUTO`) plus
+per-step firing matrix. Cheap-and-valuable rails NEVER skip: 2a/2b xfail-strict
+ratchet check, connectivity sweep BEFORE/AFTER, evidence-log guard. Expensive-
+and-conditional steps (A26 reinforcement, DOGFOOD live invocation, FeatureProofReceipt
+emission, REVIEW reviewer-packet) fire under FULL+STANDARD, skip under LIGHT.
+
+Typed signal: `CatchKind` enum with 5 typed catch categories (`RED_FIRST_CATCH`,
+`CASCADE_CATCH`, `CONNECTIVITY_AFTER`, `XFAIL_TRANSITION`, `TYPE_INTROSPECTION`).
+Rolling window N=10 slices. Auto-selection thresholds: catch_rate ≥ 0.60 → FULL;
+0.30 ≤ rate < 0.60 → STANDARD; 0.10 ≤ rate < 0.30 → LIGHT; rate < 0.10 →
+SKIP_NEXT (with periodic FULL revalidation every 5th SKIP). Hysteresis: 3
+consecutive sub-threshold readings required before downshift, prevents
+oscillation. Force-promote triggers: any 2a/2b xfail-strict transition (XPASS↔XFAIL)
+forces FULL on next slice regardless of catch rate; severe AFTER-sweep findings
+force 2 FULL slices. Slices touching peer-spawn / bypass-scope / role-authority /
+multi-agent-handoff force-promote to FULL.
+
+Persisted state: `SemanticTDDCadenceState` dataclass to `dev/state/semantic_tdd_cadence.jsonl`
+via `append_json_mapping` (uses PathRoots.state from A37 Phase 0.x).
+
+CLI surface:
+- `devctl semantic-tdd cadence set --mode <enum> --expires-after-slices <N> --reason "<text>"` (durable pin, auto-revert)
+- `devctl semantic-tdd cadence status --format json|md` (current state + recent outcomes + threshold debug)
+- `devctl develop next --cadence-mode full|standard|light|skip-once|adaptive` (per-invocation override)
+- Mode-change events emit typed `SemanticTDDCadenceTransitionPacket` through review-channel `--action post`; no prose authority.
+
+Plan-row breakdown:
+- `MP-SEMANTIC-TDD-CADENCE-S1.A`: typed contract + RED tests for firing matrix + auto-select thresholds (~1 FULL slice)
+- `MP-SEMANTIC-TDD-CADENCE-S1.B`: thread `current_mode` into `check_semantic_tdd_evidence_log.py` so LIGHT relaxes case-count delta requirement (~1 STANDARD slice)
+- `MP-SEMANTIC-TDD-CADENCE-S1.C`: CLI surface + typed transition packet emission (~1 FULL slice)
+- `MP-SEMANTIC-TDD-CADENCE-S1.D`: dogfood for 1 week, capture real CatchOutcome rows, validate threshold tuning (~5 slices of observation)
+
+Honest weak points (from the design): the catch-rate signal is a LAGGING
+indicator; steady-state savings are ~30-40% (not 80%); "catch" classification
+is harder than the typed enum makes it look. Ship anyway because today's
+session shows the upside is real: 6 slices today, concentrated catches in 3
+of them; LIGHT mode for the other 3 saves real time.
+
+#### A38.2 — Receipt Steward Role (`A38-RECEIPT-STEWARD-ROLE-S1..S4`)
+
+Typed `receipt_steward` role (`RoleCapabilityClass.GOVERNANCE`, audit-only,
+never mutation) sibling to `SemanticTDDRoleSpec`. Lives at
+`dev/scripts/devctl/runtime/receipt_steward_role.py` with 6 typed phases
+(`DISCOVER_SLICE`, `INVENTORY_EVIDENCE_PATHS`, `VERIFY_RECEIPT_PRESENT`,
+`VERIFY_PYTEST_NODE_RESOLVABLE`, `VERIFY_COMMIT_SHA_LINKED`, `EMIT_AUDIT_RECEIPT`).
+
+Typed scope-claim ("latch claim"): `ReceiptStewardScopeClaim` mirrors
+`BypassLifecycle` (request → evaluation → claim → expiry) but for READ-only
+audit paths. Default scope_paths: `("dev/reports/feature_proof_receipts/",
+"dev/state/plan_index.jsonl", "dev/active/semantic_tdd_lane.md",
+"evidence.md", ".git/")`. Default TTL 30 minutes. Persisted to
+`dev/state/receipt_steward_claims.jsonl`. CLI fails closed without active claim.
+
+Output: typed `ReceiptStewardAuditReceipt` with `missing_items` taxonomy
+(7 typed values): `missing_completely`, `missing_pytest_node`,
+`stale_commit_reference`, `dangling_plan_row`, `no_evidence_case`,
+`pytest_node_unresolvable`, `dirty_tree_at_audit`. First 5 are blocking;
+last 2 are advisory.
+
+CLI:
+- `devctl receipt-steward audit --slice-id <id> --format json` (single slice)
+- `devctl receipt-steward audit-recent --since-commit <sha> --limit N --format json` (bulk)
+- `devctl receipt-steward audit-gap-report --format md` (maintainer-readable)
+- `devctl receipt-steward claim --action request|extend|release --ttl-minutes N` (scope-claim lifecycle)
+
+Three integration hooks: (a) optional post-slice audit (`develop next` surfaces
+typed `next_recommended_command` after `SemanticTDDRolePhase.RECEIPT` completes);
+(b) **plan-row close precondition** — `queued → in_progress → done` transition
+requires `missing_items == ()` OR explicit `ReceiptExemptionRequest` honored;
+(c) **`enforce-final-response-gate` composition** — gate denies
+`final_response_allowed=true` until receipt-steward audit passes for active
+slice. This is the teeth: an agent cannot say "TASK_COMPLETE" without an
+audit pass.
+
+Bounded recursion: receipt_steward emits its OWN `FeatureProofReceipt` per
+audit invocation with `meta_audit_depth: 1` cap. One layer is enough; two
+is bureaucracy.
+
+Typed exemption lifecycle for docs-only slices: `ReceiptExemptionRequest →
+ReceiptExemptionEvaluation → ReceiptExemptionGrant → ReceiptExemptionExpiry`
+persisted to `dev/state/receipt_exemption_grants.jsonl`. Requires operator
+approval — no prose exemptions.
+
+Plan-row breakdown:
+- `A38-RECEIPT-STEWARD-ROLE-S1`: typed spec module + alias wiring + 2a alias-resolution test (~150 LOC)
+- `A38-RECEIPT-STEWARD-ROLE-S2`: CLI + scope-claim lifecycle + audit receipt emission (~500 LOC)
+- `A38-RECEIPT-STEWARD-ROLE-S3`: gate composition + plan-row gate (~200 LOC) — DO NOT enforce until backfill ≥ 80% complete
+- `A38-RECEIPT-STEWARD-ROLE-S4`: exemption lifecycle (~150 LOC)
+
+Honest take from the design: HIGH value if integrated into the final-response
+gate; LOW value as standalone manual CLI. Build the integration first.
+
+#### A38.3 — System-Map Steward Role (`A38-SYSTEM-MAP-STEWARD-S1..S3`)
+
+THIS IS THE PLATFORM-COVERAGE ROLE (not "TDD-discipline audit" — corrected per
+operator clarification 2026-05-23T21:50Z). The role audits whether each slice
+CONNECTED to the AI governance platform pieces that are relevant to its scope.
+
+Likely unifies with existing `system_alignment_role` already in
+`DEFAULT_ROLE_IDS` (the role is underdeveloped; this amendment specializes it
+into a typed audit surface).
+
+Source of truth: `dev/guides/SYSTEM_MAP.md` (the "Living Connectivity Index"
+with operator directive: "Keep on connecting systems that aren't connected
+and making sure everything that is connected is just supposed to be the system
+that works together. Keep on iterating till everything is connected.")
+
+The role's central loop per slice:
+1. Read the platform inventory: SYSTEM_MAP.md + `dev/active/ai_governance_platform.md`
+   + `dev/active/INDEX.md` + `dev/state/contract_registry.jsonl` (248 contracts)
+   + `dev/scripts/checks/` (71 guards) + `dev/scripts/probes/` (26 probes)
+   + `devctl list --format json` (CLI surface inventory)
+2. Determine which platform pieces are RELEVANT to the slice (file paths
+   touched, plan_row scope, capability category)
+3. Audit: did the slice CONNECT to / TOUCH the relevant pieces? Was anything
+   missed?
+4. If a NEW DISCONNECTION is surfaced (a system that should be connected and
+   isn't), the role EMITS a typed `SystemMapRowProposal` and either
+   (a) writes the row to SYSTEM_MAP.md directly under capability grant, or
+   (b) opens a typed proposal packet for operator approval
+5. Emit typed `PlatformCoverageAudit` receipt
+
+Audit dimensions are PLATFORM COMPONENTS (NOT TDD steps):
+- `project_governance_authority_chain_consulted` — did `session` run before mutation?
+- `repo_pack_contract_respected` — slice touching pack-policy paths
+- `plan_registry_tied` — slice tied to typed `PlanRow`
+- `collaboration_session_actor_authority_typed` — actor held typed grant
+- `typed_action_result_chain` — `TypedAction → ActionResult → RunRecord → ValidationReceipt` emitted?
+- `bypass_lifecycle_composed` — if `--no-verify`, was a `BypassReceipt` in scope?
+- `feature_proof_receipt_chain` (delegates to receipt_steward)
+- `relevant_guards_ran` — guards matching file paths touched ran in BEFORE/AFTER sweep
+- `relevant_probes_ran` — probes matching scope category ran
+- `findings_priority_impact_observable` — slice resolving a finding has rank delta
+- `index_md_active_doc_registry_covered` — slice touching `dev/active/*.md` has INDEX row
+- `system_map_maintenance_rule_followed` — slice surfacing new disconnection has SYSTEM_MAP row
+- `ai_governance_platform_layer_named` — slice touches platform layer (Core/Runtime/Frontends/Adapters/RepoPacks) → must name
+- `contract_registry_updated` — slice adding typed contract → registered
+- `devctl_cli_inventory_current` — slice adding subcommand → in `devctl list`
+
+Each dimension carries (a) relevance assessment (high/medium/low/irrelevant
+to slice scope), (b) observed touch (connected/missed/n/a), (c) evidence_path
+(typed reference to artifact), (d) explanation.
+
+Typed receipt shape:
+```python
+@dataclass(frozen=True, slots=True)
+class PlatformComponentTouch:
+    component_id: str
+    relevance_to_slice: Literal["high", "medium", "low", "irrelevant"]
+    observed_touch: Literal["connected", "missed", "n/a"]
+    evidence_path: str
+    explanation: str
+
+@dataclass(frozen=True, slots=True)
+class PlatformCoverageAudit:
+    audit_id: str
+    slice_id: str
+    commit_sha: str
+    components: tuple[PlatformComponentTouch, ...]
+    missed_pieces: tuple[str, ...]
+    new_disconnections_surfaced: tuple[str, ...]
+    system_map_update_proposed: bool
+    system_map_proposal_id: str  # empty if no proposal
+    coverage_grade: Literal["complete", "partial", "incomplete"]
+    schema_version: int = 1
+    contract_id: str = "PlatformCoverageAudit"
+```
+
+Typed scope-claim `SystemMapStewardScopeClaim` mirrors the receipt_steward
+pattern (request → evaluation → claim → expiry) but with broader read paths
+covering the full platform inventory PLUS write authority for SYSTEM_MAP.md
+itself (the maintenance rule requires the role to be ABLE to update the map).
+
+CLI:
+- `devctl system-map-steward audit --slice-id <id> --format json`
+- `devctl system-map-steward propose-row --component <id> --description "<text>" --format json` (typed disconnection proposal)
+- `devctl system-map-steward coverage-report --since-commit <sha> --format md` (maintainer-readable)
+- `devctl system-map-steward connectivity-trend --window 30 --format md` (which platform pieces are decaying — UNTOUCHED in last N slices)
+
+This is exactly the inverse of the `devctl system-map` command which renders
+the connectivity SNAPSHOT — the steward AUDITS connectivity per slice and
+maintains the doc that the snapshot reflects.
+
+Composes-with:
+- Existing `devctl system-map` command — reads its output as the snapshot
+- Existing `system_alignment_role` — UNIFIES with it (single typed role, two
+  reinforcing jobs: maintain SYSTEM_MAP + audit per-slice connectivity)
+- Cadence mode — LIGHT cadence batches audits; FULL fires per-slice
+- Receipt steward — `feature_proof_receipt_chain` dimension delegates
+- `check_active_plan_sync.py` — composes for `index_md_active_doc_registry_covered`
+- `check_multi_agent_sync.py` — composes for `collaboration_session_actor_authority_typed`
+- `findings-priority` ranker — composes for `findings_priority_impact_observable`
+- `dev/active/INDEX.md` — composes for active-doc coverage dimension
+
+Plan-row breakdown:
+- `A38-SYSTEM-MAP-STEWARD-S1`: typed `SystemMapStewardRoleSpec` + `PlatformCoverageAudit`
+  + `PlatformComponentTouch` + `SystemMapStewardScopeClaim` dataclasses;
+  unify with `system_alignment_role` in `DEFAULT_ROLE_IDS`; 2a/2b RED tests
+  (~600 LOC)
+- `A38-SYSTEM-MAP-STEWARD-S2`: audit-dimension evaluators (one per dimension)
+  + `devctl system-map-steward audit` CLI (~1200 LOC)
+- `A38-SYSTEM-MAP-STEWARD-S3`: SYSTEM_MAP.md write authority + `propose-row`
+  CLI + `connectivity-trend` reporter + CI integration via
+  `check_system_map_coverage_within_window.py` (~600 LOC)
+
+The semantic distinction from the originally-proposed (incorrect)
+`governance_holism_steward`: the audit is NOT "did the discipline fire" but
+"did the slice CONNECT to the relevant platform pieces." A slice can pass
+narrow TDD discipline while leaving 60% of the relevant platform inventory
+disconnected — this role catches that.
+
+#### A38 composition + sequencing
+
+The three substrates compose cleanly:
+1. CADENCE controls WHEN audit runs (LIGHT/FULL/SKIP gates expensive steps)
+2. RECEIPT_STEWARD audits WHETHER per-slice receipts were emitted with valid pytest node ids + commit SHA
+3. SYSTEM_MAP_STEWARD audits WHETHER per-slice connected to the right platform pieces
+
+Receipt steward's `feature_proof_receipt_chain` dimension is consumed by
+system_map_steward as one of its dimensions — loose coupling via typed audit
+contract, not duplicated logic.
+
+Recommended ship order: A38.2 (receipt_steward) first — closes the operator's
+admitted gap immediately. Then A38.1 (cadence) — lets the existing ritual
+adapt. Then A38.3 (system_map_steward) — the largest substrate, ships once
+A38.2 has produced enough audit receipts to validate the delegation contract.
+
+Total estimated complexity: ~3500-4500 LOC across the three substrates.
+3-4 engineer-weeks if done sequentially. Each S1 plan row is the irreversible
+substrate decision; S2-S3 rows are iteratable; S3 rows are CI lock-in (do not
+skip ahead to S3 without S1+S2 producing real evidence).
+
+This amendment is operator-authored. Authority comes from the operator's
+direct direction "tell me what you think then add to plan what we find" at
+2026-05-23T21:35Z and "this is wrong for I don't want the system role you
+look at just TDD but the entire ai governance platform" at 2026-05-23T21:50Z
+correcting the system_map_steward framing.
+
+#### A38.4 — TDD the SYSTEM_MAP itself (`A38-TDD-SYSTEM-MAP-INVARIANTS-S1`)
+
+Operator-surfaced drift discovery 2026-05-23T22:00Z: "We have way more than
+72 guards tho might wanna TDD system map too lmao." Actual measurement
+confirms SYSTEM_MAP.md inventory claims are stale by a factor of ~2x:
+
+| Inventory claim in SYSTEM_MAP.md | Claimed | Actual | Drift |
+|---|---|---|---|
+| `check_*.py` guards in `dev/scripts/checks/` | 71 | 158 | +87 (123%) |
+| `probe_*.py` probes (formerly `dev/scripts/probes/`, now mixed in `dev/scripts/checks/` + `dev/scripts/coderabbit/`) | 26 | 80 | +54 (208%) |
+| `devctl` subcommands | 84-85 (varies) | 107 | +22-23 |
+| Source files in context-graph snapshot | 2973 | unverified | — |
+| Contracts in registry | implied | 248 | matches |
+
+The recursive insight: SYSTEM_MAP.md is the TRUTH SOURCE for the proposed
+A38.3 `system_map_steward` role's per-slice connectivity audits. If the
+doc claims 71 guards and the slice's audit dimension `relevant_guards_ran`
+consults that claim to decide which guards to check, the audit produces
+verdicts against a fictional inventory. STALE TRUTH-SOURCE → INVALID AUDITS.
+
+The fix is structurally the same recursive move as Phase 0 (TDD-the-TDD-role)
+and Phase 0.x (typed-state over env-var hacks): apply the discipline TO the
+doc that defines the discipline.
+
+Land typed RED-FIRST invariants in
+`dev/scripts/devctl/tests/scenarios/test_live_state_invariants.py` that
+ASSERT SYSTEM_MAP.md inventory claims match the actual filesystem walk.
+Initial invariants (all expected RED today, ratchet to GREEN as doc is
+brought current):
+
+1. `test_system_map_guard_count_matches_reality` — parses the "X guards"
+   numeric claim from SYSTEM_MAP.md and asserts it equals
+   `len(glob("dev/scripts/checks/check_*.py"))`. RED today (claim=71,
+   actual=158).
+2. `test_system_map_probe_count_matches_reality` — same shape for probes.
+   RED today (claim=26, actual=80).
+3. `test_system_map_devctl_command_count_within_tolerance` — parses
+   command-count claims and asserts within ±2 of actual subcommand count.
+   RED today (claim ranges from 84 to 85; actual=107).
+4. `test_system_map_contract_registry_count_matches` — asserts the doc's
+   contract-count claim matches `wc -l dev/state/contract_registry.jsonl`.
+   May be GREEN today depending on doc text; verifies the load-bearing
+   number explicitly.
+
+These invariants serve dual purpose:
+- **Drift catcher**: any future inventory-counting claim added to the doc
+  is automatically checked against reality. The doc cannot quietly become
+  stale again.
+- **Audit truth-source guarantee**: A38.3 `system_map_steward` consults
+  the doc as authority; these invariants guarantee the authority is
+  current. The role's `relevant_guards_ran` dimension is only valid if
+  the guard count claim is current.
+
+Beyond raw counts, two structural invariants to add as a follow-up:
+
+5. `test_system_map_lists_each_guard_path_at_least_once` (xfail-strict
+   target) — every `check_*.py` file in `dev/scripts/checks/` appears at
+   least once in SYSTEM_MAP.md by path or by guard-id substring. Stays
+   RED today (many guards are unlisted) and ratchets up as the doc's
+   row coverage expands.
+6. `test_system_map_lists_each_devctl_subcommand_at_least_once` — same
+   shape for `devctl` subcommands.
+
+These two invariants are the maintenance-rule mechanization for
+A38.3 — every new guard or subcommand triggers RED until the doc gains a
+row, just like every new typed contract triggers `check_systemmap_covers_contract_registry.py`
+to fail until SYSTEM_MAP's auto-rendered managed block updates.
+
+Plan-row breakdown:
+- `A38-TDD-SYSTEM-MAP-INVARIANTS-S1.A`: write invariants 1-4 (count-based);
+  observe RED; do NOT fix SYSTEM_MAP.md yet — locking in visible drift is
+  the win (~1 STANDARD slice)
+- `A38-TDD-SYSTEM-MAP-INVARIANTS-S1.B`: fix SYSTEM_MAP.md numeric claims
+  to match reality, including a new managed footer "Last counted YYYY-MM-DD
+  by test_system_map_*_count_matches_reality" so the source of the
+  number is typed; verify invariants 1-4 flip to GREEN (~1 LIGHT slice)
+- `A38-TDD-SYSTEM-MAP-INVARIANTS-S1.C`: write invariants 5-6 (path-coverage)
+  as xfail-strict ratchets (~1 STANDARD slice)
+- `A38-TDD-SYSTEM-MAP-INVARIANTS-S1.D`: integrate into A38.3
+  `system_map_steward` audit dimension — the steward's
+  `truth_source_current_ratchet` dimension consumes these invariants'
+  GREEN/XFAIL counts (~1 STANDARD slice)
+
+Composes-with:
+- `check_systemmap_covers_contract_registry.py` (existing) — covers
+  the contract-registry slice; the new invariants cover the
+  guard/probe/command slices alongside it
+- A38.3 `system_map_steward` — these invariants make the doc safe to
+  consume as the role's truth-source
+- A38.1 cadence-mode — these invariants are CHEAP rails (fast file glob
+  + regex parse), they NEVER skip regardless of cadence mode
+
+The "lmao" version of this is honest: today we shipped 6 semantic-TDD
+slices and one of them caught a 2x-stale doc claim. The discipline
+applied to itself surfaces gaps the discipline applied to code cannot.
+Recursive value. Ship.
