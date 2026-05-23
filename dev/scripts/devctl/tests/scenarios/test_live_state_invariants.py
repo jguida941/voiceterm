@@ -2751,7 +2751,12 @@ _ENUM_OWNER_EXEMPTIONS = (
 #   2026-05-23 C.0  baseline      = 44 (initial capture)
 #   2026-05-23 C.3  → 41 (3 files retired: collaboration_session_status,
 #                         follow_controller, collaboration_registry)
-TOPOLOGY_LITERAL_BASELINE_FILE_COUNT = 41
+#   2026-05-23 C.4  → 40 (1 file retired: control_topology.py — Literal
+#                         cutover removed `single_agent` from
+#                         ObservedControlTopology; line 148 migrated to
+#                         reviewer_mode_is_single_agent(); line 154
+#                         migrated to OperatorInteractionMode enum members)
+TOPOLOGY_LITERAL_BASELINE_FILE_COUNT = 40
 
 
 def _count_topology_literal_files() -> int:
@@ -2811,6 +2816,109 @@ def test_topology_literal_file_count_must_not_grow_above_baseline():
         "  coord[\"authority_mode\"]) or move the value into an enum owner\n"
         "  (reviewer_mode.py / operator_context.py). Slice C.1..C.4 are\n"
         "  the retirement slices; do not add new violations on top."
+    )
+
+
+def test_observed_control_topology_literal_must_not_carry_single_agent_authority_label():
+    """Slice C.4 — `single_agent` is an AUTHORITY mode, not a TOPOLOGY value.
+
+    The `ObservedControlTopology` Literal union conflated topology
+    (role occupancy: who's present) with authority mode (which
+    `ReviewerMode` is active). Slice C.4 removes `single_agent` from the
+    topology Literal entirely; the authority-mode semantic survives in
+    `ReviewerMode.SINGLE_AGENT` + `actor_authorities`. The sanctioned
+    single-agent runtime path returns `single_implementer_single_reviewer`
+    topology (both notional roles available, held by one operator-attended
+    actor) with the `single_agent` authority surviving through the
+    reviewer-mode channel.
+    """
+    import typing
+    from dev.scripts.devctl.runtime.control_topology import ObservedControlTopology
+    args = typing.get_args(ObservedControlTopology)
+    assert "single_agent" not in args, (
+        "INVARIANT VIOLATED: observed_control_topology_literal_must_not_carry_single_agent_authority_label\n"
+        f"  ObservedControlTopology args: {args}\n"
+        "  `single_agent` is an AUTHORITY mode (ReviewerMode.SINGLE_AGENT),\n"
+        "  not a topology value. Remove from the Literal union; return\n"
+        "  `single_implementer_single_reviewer` topology for the sanctioned\n"
+        "  single-agent path and carry the single_agent semantic through\n"
+        "  ReviewerMode + actor_authorities."
+    )
+
+
+def test_derive_startup_control_truth_sanctioned_single_agent_returns_role_shaped_topology():
+    """Slice C.4 — sanctioned single-agent path returns role-shaped topology.
+
+    When `is_sanctioned_single_agent_control` fires, the legacy code
+    returned `("single_agent", "active")`. After Slice C.4, the return
+    must be `("single_implementer_single_reviewer", "active")` — both
+    notional roles are present (held by the single operator-attended
+    actor); the `single_agent` semantic survives via ReviewerMode +
+    actor_authorities, not via the topology Literal.
+    """
+    from types import SimpleNamespace
+    from dev.scripts.devctl.runtime.control_topology import derive_startup_control_truth
+
+    review_state = SimpleNamespace(
+        bridge={
+            "reviewer_mode": "single_agent",
+            "effective_reviewer_mode": "single_agent",
+            "codex_conductor_active": True,
+            "claude_conductor_active": False,
+        },
+        collaboration={"participants": ()},
+        reviewer_runtime=SimpleNamespace(
+            reviewer_mode="single_agent",
+            effective_reviewer_mode="single_agent",
+            remote_control_attachment=SimpleNamespace(status="detached"),
+        ),
+    )
+    reviewer_gate = SimpleNamespace(
+        reviewer_mode="single_agent",
+        effective_reviewer_mode="single_agent",
+        operator_interaction_mode="local_terminal",
+    )
+    topology, permission = derive_startup_control_truth(
+        review_state,
+        reviewer_gate=reviewer_gate,
+    )
+    assert topology == "single_implementer_single_reviewer", (
+        "INVARIANT VIOLATED: derive_startup_control_truth_sanctioned_single_agent_returns_role_shaped_topology\n"
+        f"  got topology: {topology!r}\n"
+        "  expected: 'single_implementer_single_reviewer' (role-shaped, both\n"
+        "  notional roles available; single_agent semantic survives via\n"
+        "  ReviewerMode + actor_authorities)."
+    )
+    assert permission == "active"
+
+
+def test_control_topology_must_not_carry_topology_literal():
+    """Slice C.4 — control_topology.py drops topology literals.
+
+    After the C.4 migration, control_topology.py must contain zero
+    quoted-string topology literals (`single_agent` / `dual_agent` /
+    `active_dual_agent`). The function names `is_sanctioned_single_agent_control`
+    and `is_sanctioned_local_single_agent` are concept names; the __all__
+    entries are tuple strings whose quote-boundaries don't form a topology
+    literal match (the hunt looks for `"single_agent"` exactly, not the
+    substring inside `"is_sanctioned_single_agent_control"`).
+    """
+    target = REPO_ROOT / "dev" / "scripts" / "devctl" / "runtime" / "control_topology.py"
+    content = target.read_text(encoding="utf-8")
+    found: list[str] = []
+    for label in _TOPOLOGY_LITERAL_LABELS:
+        if f'"{label}"' in content or f"'{label}'" in content:
+            found.append(label)
+    assert not found, (
+        "INVARIANT VIOLATED: control_topology_must_not_carry_topology_literal\n"
+        f"  file: {target.relative_to(REPO_ROOT)}\n"
+        f"  literals still present: {found}\n"
+        "  After Slice C.4: remove from Literal union (line 24), from\n"
+        "  derive_implementation_permission set (line 102), change\n"
+        "  sanctioned return (line 127-128), migrate effective_mode\n"
+        "  comparison to reviewer_mode_is_single_agent() (line 148),\n"
+        "  migrate interaction_mode set to OperatorInteractionMode enum\n"
+        "  members (line 154)."
     )
 
 

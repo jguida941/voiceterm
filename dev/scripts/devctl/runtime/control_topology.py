@@ -5,13 +5,14 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Literal
 
-from .conductor_capability import normalize_reviewer_mode
 from .control_topology_bridge_counts import boolish
 from .control_topology_numeric import (
     count,
     int_value,
     supervised_conductor_count as resolve_supervised_conductor_count,
 )
+from .operator_context import OperatorInteractionMode
+from .reviewer_mode import reviewer_mode_is_single_agent
 from .runtime_count_roles import provider_has_only_non_tandem_presence
 from .role_profile import role_capability_classes
 from .control_topology_runtime_counts import (
@@ -21,7 +22,6 @@ from .control_topology_runtime_counts import (
 
 ObservedControlTopology = Literal[
     "single_implementer_single_reviewer",
-    "single_agent",
     "dual_implementer",
     "implementer_without_reviewer",
     "reviewer_only",
@@ -99,7 +99,7 @@ def derive_implementation_permission(
     topology: ObservedControlTopology | str,
 ) -> ImplementationPermission:
     """Return the implementation permission implied by observed topology."""
-    if topology in {"single_implementer_single_reviewer", "single_agent"}:
+    if topology == "single_implementer_single_reviewer":
         return "active"
     if topology in {"dual_implementer", "implementer_without_reviewer"}:
         return "suspended"
@@ -125,7 +125,7 @@ def derive_startup_control_truth(
     )
     typed_live_pair = _typed_live_reviewer_and_implementer_present(review_state)
     if sanctioned_single_agent and topology != "dual_implementer" and not typed_live_pair:
-        return "single_agent", "active"
+        return "single_implementer_single_reviewer", "active"
     return topology, derive_implementation_permission(topology)
 
 
@@ -145,14 +145,14 @@ def is_sanctioned_single_agent_control(
         or _text(_field(bridge, "effective_reviewer_mode"))
         or _text(_field(bridge, "reviewer_mode"))
     )
-    if normalize_reviewer_mode(effective_mode) != "single_agent":
+    if not reviewer_mode_is_single_agent(effective_mode):
         return False
 
     interaction_mode = _text(_field(reviewer_gate, "operator_interaction_mode"))
     if interaction_mode and interaction_mode not in {
-        "local_terminal",
-        "single_agent",
-        "remote_control",
+        OperatorInteractionMode.LOCAL_TERMINAL.value,
+        OperatorInteractionMode.SINGLE_AGENT.value,
+        OperatorInteractionMode.REMOTE_CONTROL.value,
     }:
         return False
 

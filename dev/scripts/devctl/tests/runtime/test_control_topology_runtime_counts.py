@@ -141,5 +141,5 @@ def test_startup_control_truth_coalesces_single_agent_role_assignments() -> None
 
     topology, permission = derive_startup_control_truth(review_state)
 
-    assert topology == "single_agent"
+    assert topology == "single_implementer_single_reviewer"
     assert permission == "active"

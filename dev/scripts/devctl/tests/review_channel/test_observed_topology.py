@@ -127,7 +127,6 @@ def test_startup_control_truth_uses_detached_runtime_presence_for_topology() -> 
     ("topology", "expected"),
     (
         ("single_implementer_single_reviewer", "active"),
-        ("single_agent", "active"),
         ("dual_implementer", "suspended"),
         ("implementer_without_reviewer", "suspended"),
         ("reviewer_only", "blocked"),
@@ -164,7 +163,7 @@ def test_derive_startup_control_truth_promotes_local_single_agent_takeover() -> 
         reviewer_gate=reviewer_gate,
     )
 
-    assert topology == "single_agent"
+    assert topology == "single_implementer_single_reviewer"
     assert permission == "active"
 
 
@@ -194,7 +193,7 @@ def test_derive_startup_control_truth_prefers_single_agent_over_stale_pair_evide
         reviewer_gate=reviewer_gate,
     )
 
-    assert topology == "single_agent"
+    assert topology == "single_implementer_single_reviewer"
     assert permission == "active"
 
 
@@ -224,7 +223,7 @@ def test_derive_startup_control_truth_allows_remote_control_single_agent() -> No
         reviewer_gate=reviewer_gate,
     )
 
-    assert topology == "single_agent"
+    assert topology == "single_implementer_single_reviewer"
     assert permission == "active"
 
 
@@ -255,7 +254,7 @@ def test_derive_startup_control_truth_promotes_remote_single_agent_over_implemen
         reviewer_gate=reviewer_gate,
     )
 
-    assert topology == "single_agent"
+    assert topology == "single_implementer_single_reviewer"
     assert permission == "active"
 
 
