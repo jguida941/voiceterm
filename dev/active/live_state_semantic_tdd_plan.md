@@ -1090,3 +1090,60 @@ The operator's directive: *"If you get through to the end of it and everything i
 1. Are the Phase A reverts (G59, absorb_output, A24/A27/A28/A29/A36) all clear to proceed, conditional only on `git status` verifying they're session-introduced?
 2. Is the strict B1→B2→B3→B4 sequencing acceptable (no check-router wiring until green), or do you want a "tracked but skipped" pytest marker so the failing tests are visible in CI even while red?
 3. For Phase C's adapter: is modifying the existing `ground-truth-probe --record` command acceptable, or should we add a new flag like `--pytest-target` so the existing semantics stay untouched and only the new opt-in path inspects pytest output?
+
+## Semantic TDD Role — Typed Contract (Phase 0 of A37, landed 2026-05-23)
+
+The semantic-TDD ritual was previously fragmented across three role ids
+(`tdd_discovery`, `tdd_first_role`, `dogfood_test`) all carrying
+`RoleCapabilityClass.TEST`. They were phases of one ritual, not three
+distinct roles. Phase 0 of A37 consolidates them into one typed contract:
+
+- **Module**: `dev/scripts/devctl/runtime/semantic_tdd_role.py`
+- **Role id**: `semantic_tdd`
+- **Capability class**: `RoleCapabilityClass.TEST`
+- **Dataclasses**: `SemanticTDDRolePhase` (StrEnum) + `SemanticTDDRolePhaseSpec`
+  (frozen, slots) + `SemanticTDDRoleSpec` (frozen, slots)
+- **Factory**: `semantic_tdd_role_spec()` returns the canonical instance
+- **Documentation pointer**: this file (`live_state_semantic_tdd_plan.md`)
+
+### The 8 typed phases (sub-actions of the same role)
+
+| Phase | Evidence required at exit |
+|---|---|
+| `discovery` | invariant statement + scope of consumers it protects |
+| `red_first` | failing pytest node id + assertion error text quoted in the matrix row |
+| `code_apply` | commit SHA or diff range + file:line list |
+| `green_verify` | pytest passing output captured to the matrix row |
+| `reinforce` | list of A26 layers applied + their results |
+| `dogfood_proof` | artifact path(s) + sha256 + typed receipt id(s) |
+| `receipt` | matrix row diff + FeatureProofReceipt id + advanced plan_row_id |
+| `review` | reviewer packet id (review_accepted or review_failed) |
+
+The 9-step ritual in the execution plan (`Process` section of
+`/Users/jguida941/.claude/plans/you-need-to-go-twinkly-lake.md`) ties
+these phases to the surrounding non-semantic-tdd roles (`duplicate_scope_guard`
+runs the BEFORE/AFTER sweeps at steps 1 and 6; `implementer` does
+`code_apply` at step 3; `architect` co-runs `reinforce` at step 5;
+`plan_steward` does `receipt` at step 8; `reviewer` does `review` at step 9).
+
+### Migration shape
+
+- `_ROLE_ID_ALIASES` in `dev/scripts/devctl/runtime/role_profile.py` now
+  resolves the three legacy ids to `semantic_tdd` so existing callsites
+  keep working transparently.
+- `DEFAULT_ROLE_IDS` keeps the legacy ids alongside `semantic_tdd` as
+  visible debt until full retirement (post-Slice C ratchet).
+- Three live-state invariants in
+  `dev/scripts/devctl/tests/scenarios/test_live_state_invariants.py`
+  lock the migration shape:
+  - `test_semantic_tdd_role_aliases_resolve_legacy_tdd_role_ids` (2a
+    current-safety, GREEN): legacy ids resolve through `normalize_role_id`
+    to `"semantic_tdd"`.
+  - `test_legacy_tdd_role_ids_must_not_remain_in_default_role_ids` (2b
+    target architecture, `xfail(strict=True)`): legacy ids are gone from
+    `DEFAULT_ROLE_IDS` and `_ROLE_CAPABILITY_CLASSES`. Stays RED until
+    every callsite migrates and retirement is safe.
+  - `test_semantic_tdd_role_spec_phases_match_documented_ritual` (parity,
+    GREEN): the typed `SemanticTDDRoleSpec.phases` tuple matches the
+    9-step ritual documented in the execution plan. Catches drift between
+    the doc and the typed contract in either direction.

@@ -2100,3 +2100,548 @@ def test_gate_blocker_source_must_match_unsatisfied_ground_truth_receipt():
         "  block, it must be preferred over orchestration-signal blocks."
     )
 
+
+# ---------------------------------------------------------------------------
+# Invariants Pre-0.a / Pre-0.b — `develop ingest-plan` accepts operator
+# amendments (canonical 2a/2b split per dev/active/live_state_semantic_tdd_plan.md)
+# ---------------------------------------------------------------------------
+#
+# Context: a session attempted to ingest amendment A37 from
+# `delete_after_ingest.md` via `develop ingest-plan` and was rejected with
+# `reason=missing_plan_row_or_checklist_authority` until `--plan-row-id`
+# was passed explicitly. Once explicit, ingest succeeded and a typed
+# `PlanRow` landed in `dev/state/plan_index.jsonl`. These two invariants
+# lock in that contract while ratcheting toward auto-derivation:
+#
+# Pre-0.a (current-safety quarantine, passes today): given a valid
+# operator-amendment body + an explicit `--plan-row-id`, `develop
+# ingest-plan --dry-run` must accept the source and report
+# `ok=True` with `reason=plan_rows_upserted_dry_run` (or
+# `plan_rows_upserted` if dry-run is unsupported by this command).
+#
+# Pre-0.b (target architecture, xfail-strict): same body WITHOUT
+# `--plan-row-id` must auto-derive the row id from a `### A<N>. <title>
+# (Operator Amendment <date>)` heading and still succeed. Stays RED as
+# visible debt until the parser at
+# `dev/scripts/devctl/commands/development/plan_intake_phase0.py`
+# learns to recognize the amendment-heading pattern.
+
+
+def _operator_amendment_body_for_ingest_test() -> str:
+    """Synthesize a minimal valid operator-amendment body for ingest tests."""
+    return (
+        "### A99. Smoke Amendment For Ingest Invariant (Operator Amendment 2026-05-23)\n"
+        "\n"
+        "This amendment is a hermetic test fixture. It exists only so the\n"
+        "live-state invariants can exercise the `develop ingest-plan`\n"
+        "contract for operator amendments. Do not ingest into live state.\n"
+        "\n"
+        "- Phase 0: smoke phase for the ingest invariant only.\n"
+        "- No real plan rows are advanced by this fixture.\n"
+    )
+
+
+def test_ingest_plan_accepts_operator_amendment_with_explicit_plan_row_id(
+    tmp_path,
+):
+    """Pre-0.a — current-safety quarantine.
+
+    When `develop ingest-plan --dry-run` is given a valid operator
+    amendment body + explicit `--plan-row-id`, it must accept the source.
+    This passes today and protects against regression of the explicit-id
+    path. Empirically proven by the real A37 ingestion at
+    plan_index.jsonl row_id=A37-TOPOLOGY-RETIREMENT-AMENDMENT-S1.
+    """
+    body_path = tmp_path / "smoke_amendment.md"
+    body_path.write_text(_operator_amendment_body_for_ingest_test(), encoding="utf-8")
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "dev/scripts/devctl.py",
+            "develop",
+            "ingest-plan",
+            "--dry-run",
+            "--body-file", str(body_path),
+            "--plan-row-id", "A99-SMOKE-AMENDMENT-INVARIANT-S1",
+            "--title", "A99 Smoke Amendment For Ingest Invariant",
+            "--source", str(body_path),
+            "--source-kind", "operator_amendment",
+            "--source-ref", f"file:{body_path.name}",
+            "--target-ref", "plan:MP-GUARDIR-V4-PHASE-0-6-E-CURRENT-PLAN-AUTHORITY-S1",
+            "--sdlc-stage", "spec",
+            "--reason", "live-state invariant smoke test for ingest contract",
+            "--format", "json",
+        ],
+        cwd=str(REPO_ROOT),
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+
+    try:
+        payload = _json_module.loads(result.stdout)
+    except Exception as exc:
+        raise AssertionError(
+            f"develop ingest-plan did not emit valid JSON (exit={result.returncode}):\n"
+            f"stdout head:\n{result.stdout[:1500]}\n"
+            f"stderr head:\n{result.stderr[:1500]}\n"
+            f"json parse error: {exc!r}"
+        )
+
+    receipt = payload.get("receipt") or {}
+    reason = str(receipt.get("reason") or "")
+
+    assert payload.get("ok") is True, (
+        "INVARIANT VIOLATED: ingest_plan_accepts_operator_amendment_with_explicit_plan_row_id\n"
+        "  develop ingest-plan rejected a valid operator amendment + explicit --plan-row-id.\n"
+        f"  ok: {payload.get('ok')!r}\n"
+        f"  receipt.reason: {reason!r}\n"
+        f"  receipt.contract_id: {receipt.get('contract_id')!r}\n"
+        "  Empirically this path works (see real A37 ingestion landing\n"
+        "  row_id=A37-TOPOLOGY-RETIREMENT-AMENDMENT-S1 in plan_index.jsonl).\n"
+        "  A regression here breaks the operator-amendment contract that\n"
+        "  every A-amendment in delete_after_ingest.md relies on."
+    )
+    assert reason in {"plan_rows_upserted", "plan_rows_upserted_dry_run"} or "plan_rows" in reason, (
+        f"INVARIANT VIOLATED: expected receipt.reason to indicate a successful "
+        f"plan-rows ingest; got {reason!r}"
+    )
+
+
+@pytest.mark.xfail(strict=True, reason="Pre-0.b target: parser must learn to auto-derive row_id from `### A<N>. ...` amendment heading; until then, operator amendments require explicit --plan-row-id")
+def test_ingest_plan_auto_derives_row_id_from_amendment_heading(tmp_path):
+    """Pre-0.b — target architecture, xfail-strict ratchet.
+
+    Same body as Pre-0.a but WITHOUT `--plan-row-id`. The parser at
+    `plan_intake_phase0.parse_plan_authority_sections` should detect the
+    `### A99. Smoke Amendment For Ingest Invariant (Operator Amendment
+    ...)` heading and auto-derive a row id (e.g.
+    `A99-SMOKE-AMENDMENT-FOR-INGEST-INVARIANT-S1`), so the ingest succeeds.
+
+    Stays RED as visible debt until the parser extension lands. xfail
+    strict so it cannot be silently "fixed" by removing the assertion.
+    """
+    body_path = tmp_path / "smoke_amendment_auto_derive.md"
+    body_path.write_text(_operator_amendment_body_for_ingest_test(), encoding="utf-8")
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "dev/scripts/devctl.py",
+            "develop",
+            "ingest-plan",
+            "--dry-run",
+            "--body-file", str(body_path),
+            # intentionally NO --plan-row-id; the parser must derive it
+            "--title", "A99 Smoke Amendment For Ingest Invariant",
+            "--source", str(body_path),
+            "--source-kind", "operator_amendment",
+            "--source-ref", f"file:{body_path.name}",
+            "--target-ref", "plan:MP-GUARDIR-V4-PHASE-0-6-E-CURRENT-PLAN-AUTHORITY-S1",
+            "--sdlc-stage", "spec",
+            "--reason", "live-state invariant smoke test for auto-derive contract",
+            "--format", "json",
+        ],
+        cwd=str(REPO_ROOT),
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+
+    payload = _json_module.loads(result.stdout)
+    receipt = payload.get("receipt") or {}
+    reason = str(receipt.get("reason") or "")
+
+    assert payload.get("ok") is True, (
+        "INVARIANT VIOLATED: ingest_plan_auto_derives_row_id_from_amendment_heading\n"
+        "  develop ingest-plan should auto-derive a row id from the\n"
+        "  `### A99. ... (Operator Amendment ...)` heading and accept the\n"
+        "  source without requiring --plan-row-id. Today the parser at\n"
+        "  dev/scripts/devctl/commands/development/plan_intake_phase0.py\n"
+        "  only recognizes specific section names ('rows to ingest from\n"
+        "  this plan', etc.) — it does not detect amendment headings.\n"
+        f"  ok: {payload.get('ok')!r}\n"
+        f"  receipt.reason: {reason!r}\n"
+        "  Fix: extend parse_plan_authority_sections to recognize headings\n"
+        "  shaped like `### A<N>. <title> (Operator Amendment <date>)` and\n"
+        "  emit a ParsedPlanAuthorityRow with derived row_id."
+    )
+
+
+# ---------------------------------------------------------------------------
+# Invariants Phase 0 — Consolidated SemanticTDDRole + typed phases
+# (canonical 2a/2b split per dev/active/live_state_semantic_tdd_plan.md)
+# ---------------------------------------------------------------------------
+#
+# Context: tdd_discovery, tdd_first_role, and dogfood_test all carry
+# RoleCapabilityClass.TEST. They are phases of one TDD ritual, not three
+# distinct roles. Phase 0 consolidates them into a single typed
+# SemanticTDDRoleSpec whose typed phases (discovery, red_first,
+# green_verify, dogfood_proof, etc.) are sub-actions of the same role.
+# The legacy role ids become deprecated aliases mapped to the new role
+# via _ROLE_ID_ALIASES.
+#
+# Phase 0.2a (current-safety, GREEN after consolidation lands): every
+# legacy role id in {tdd_discovery, tdd_first_role, dogfood_test}
+# resolves through normalize_role_id() to "semantic_tdd". This protects
+# against regression of the alias resolution.
+#
+# Phase 0.2b (target architecture, xfail-strict): the legacy role ids
+# do not appear AT ALL in DEFAULT_ROLE_IDS or _ROLE_CAPABILITY_CLASSES.
+# Stays RED as visible debt until full retirement (post-Slice C ratchet).
+#
+# Phase 0.phase-shape (current-safety, GREEN after dataclass lands):
+# SemanticTDDRoleSpec.phases lists exactly the 9-step ritual from the
+# Process section of the execution plan. If the doc changes or the
+# typed contract drifts, this invariant catches it.
+
+
+def test_semantic_tdd_role_aliases_resolve_legacy_tdd_role_ids():
+    """Phase 0.2a — current-safety quarantine.
+
+    Every legacy role id in {tdd_discovery, tdd_first_role, dogfood_test}
+    must resolve through normalize_role_id() to "semantic_tdd". This
+    protects against regression of the alias resolution after Phase 0
+    consolidation lands.
+
+    RED today (consolidation not in code yet); GREEN once
+    _ROLE_ID_ALIASES is extended to map the three legacy ids to
+    "semantic_tdd".
+    """
+    from dev.scripts.devctl.runtime.role_profile import normalize_role_id
+
+    legacy_ids = ("tdd_discovery", "tdd_first_role", "dogfood_test")
+    mismatches: list[tuple[str, str]] = []
+    for legacy in legacy_ids:
+        resolved = normalize_role_id(legacy)
+        if resolved != "semantic_tdd":
+            mismatches.append((legacy, resolved))
+
+    assert not mismatches, (
+        "INVARIANT VIOLATED: semantic_tdd_role_aliases_resolve_legacy_tdd_role_ids\n"
+        "  The consolidated SemanticTDDRole should be the canonical typed\n"
+        "  role for the TDD ritual. Legacy ids must resolve to it through\n"
+        "  _ROLE_ID_ALIASES so existing references keep working during\n"
+        "  the migration.\n"
+        f"  legacy ids not resolving to 'semantic_tdd': {mismatches}\n"
+        "  Fix: in dev/scripts/devctl/runtime/role_profile.py extend\n"
+        "  _ROLE_ID_ALIASES with:\n"
+        "    'tdd_discovery': 'semantic_tdd',\n"
+        "    'tdd_first_role': 'semantic_tdd',\n"
+        "    'dogfood_test': 'semantic_tdd',\n"
+        "  And add 'semantic_tdd' to DEFAULT_ROLE_IDS +\n"
+        "  _ROLE_CAPABILITY_CLASSES (capability_class=TEST)."
+    )
+
+
+@pytest.mark.xfail(strict=True, reason="Phase 0.2b target: legacy tdd_discovery/tdd_first_role/dogfood_test must be fully removed from DEFAULT_ROLE_IDS once all callsites migrate to semantic_tdd; until then aliases route the work but the legacy ids stay visible")
+def test_legacy_tdd_role_ids_must_not_remain_in_default_role_ids():
+    """Phase 0.2b — target architecture, xfail-strict ratchet.
+
+    The legacy ids tdd_discovery, tdd_first_role, dogfood_test must not
+    appear in DEFAULT_ROLE_IDS or _ROLE_CAPABILITY_CLASSES. They are
+    deprecated; the typed `semantic_tdd` role replaces them. Stays RED
+    as visible debt until full retirement is safe (every callsite
+    migrated; aliases removed cleanly).
+    """
+    from dev.scripts.devctl.runtime.role_profile import (
+        DEFAULT_ROLE_IDS,
+        _ROLE_CAPABILITY_CLASSES,
+    )
+
+    legacy_ids = {"tdd_discovery", "tdd_first_role", "dogfood_test"}
+    in_defaults = legacy_ids & set(DEFAULT_ROLE_IDS)
+    in_capability_map = legacy_ids & set(_ROLE_CAPABILITY_CLASSES.keys())
+
+    assert not in_defaults and not in_capability_map, (
+        "INVARIANT VIOLATED: legacy_tdd_role_ids_must_not_remain_in_default_role_ids\n"
+        "  Legacy TDD role ids should be retired from DEFAULT_ROLE_IDS and\n"
+        "  _ROLE_CAPABILITY_CLASSES once every callsite migrates to\n"
+        "  'semantic_tdd'. They currently remain as visible debt.\n"
+        f"  legacy ids still in DEFAULT_ROLE_IDS: {sorted(in_defaults)}\n"
+        f"  legacy ids still in _ROLE_CAPABILITY_CLASSES: {sorted(in_capability_map)}\n"
+        "  Fix (post-Slice C, when safe): remove the three legacy entries\n"
+        "  from DEFAULT_ROLE_IDS and _ROLE_CAPABILITY_CLASSES in\n"
+        "  dev/scripts/devctl/runtime/role_profile.py. Aliases in\n"
+        "  _ROLE_ID_ALIASES should still resolve them to 'semantic_tdd'\n"
+        "  for any straggler caller, but the role itself becomes\n"
+        "  alias-only."
+    )
+
+
+def test_semantic_tdd_role_spec_phases_match_documented_ritual():
+    """Phase 0 phase-shape invariant.
+
+    The typed SemanticTDDRoleSpec.phases tuple must list exactly the
+    9-step ritual the Process section of
+    /Users/jguida941/.claude/plans/you-need-to-go-twinkly-lake.md
+    describes. The plan-doc ritual and the typed contract must stay in
+    sync; if either drifts, this catches it.
+
+    RED today (SemanticTDDRoleSpec not yet defined); GREEN once Phase 0
+    code lands.
+    """
+    expected_phase_ids = (
+        "discovery",
+        "red_first",
+        "code_apply",
+        "green_verify",
+        "reinforce",
+        "dogfood_proof",
+        "receipt",
+        "review",
+    )
+
+    try:
+        from dev.scripts.devctl.runtime.semantic_tdd_role import (
+            SemanticTDDRoleSpec,
+            semantic_tdd_role_spec,
+        )
+    except ImportError as exc:
+        raise AssertionError(
+            "INVARIANT VIOLATED: semantic_tdd_role_spec_phases_match_documented_ritual\n"
+            "  Module dev/scripts/devctl/runtime/semantic_tdd_role.py does not\n"
+            "  exist or does not export SemanticTDDRoleSpec + a\n"
+            "  semantic_tdd_role_spec() factory.\n"
+            f"  import error: {exc!r}\n"
+            "  Fix: create dev/scripts/devctl/runtime/semantic_tdd_role.py with\n"
+            "  - SemanticTDDRolePhase StrEnum (discovery, red_first, code_apply,\n"
+            "    green_verify, reinforce, dogfood_proof, receipt, review)\n"
+            "  - SemanticTDDRoleSpec frozen dataclass with phases tuple +\n"
+            "    role_id='semantic_tdd' + capability_class=RoleCapabilityClass.TEST\n"
+            "    + deprecated_aliases tuple + documentation_doc path +\n"
+            "    schema_version=1 + contract_id='SemanticTDDRoleSpec'\n"
+            "  - semantic_tdd_role_spec() factory returning the canonical instance"
+        )
+
+    spec = semantic_tdd_role_spec()
+    actual_phase_ids = tuple(str(p.phase_id) if hasattr(p, "phase_id") else str(p) for p in spec.phases)
+
+    assert actual_phase_ids == expected_phase_ids, (
+        "INVARIANT VIOLATED: semantic_tdd_role_spec_phases_match_documented_ritual\n"
+        "  SemanticTDDRoleSpec.phases does not match the 9-step ritual\n"
+        "  documented in the execution plan's Process section.\n"
+        f"  expected: {expected_phase_ids}\n"
+        f"  actual:   {actual_phase_ids}\n"
+        "  Either the plan-doc Process table changed or the typed contract\n"
+        "  drifted. Re-align so the typed contract and the documented\n"
+        "  ritual stay parity."
+    )
+
+    assert spec.role_id == "semantic_tdd", (
+        f"INVARIANT VIOLATED: SemanticTDDRoleSpec.role_id must be 'semantic_tdd'; got {spec.role_id!r}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Invariants Phase 0.5 — `devctl role` CLI surface
+# (MP377-TYPED-ROLE-MODE-CUSTOMIZATION-S1)
+# ---------------------------------------------------------------------------
+#
+# Per the two-tier model accepted 2026-05-23: the CLI does lightweight
+# typed connectivity validation (schema + capability_class lookup +
+# referenced-id existence + round-trip read-after-write) and emits a
+# typed RoleConnectivityProof receipt. NO pytest invocation in the CLI
+# itself (portability to repos without test infrastructure). The full
+# TDD discipline runs in the SUBSTRATE-level test suite — these
+# invariants.
+#
+# Two JSONL stores: dev/state/system_roles.seed.jsonl (tracked) and
+# dev/state/custom_roles.jsonl (gitignored). The --as-system flag
+# decides which store the CLI writes to. DEFAULT_ROLE_IDS is derived
+# from the seed file at module load (no longer a hardcoded tuple).
+#
+# All four invariants below use --dry-run to avoid mutating live state;
+# they exercise the CLI parser + handler shape without persisting.
+
+
+def test_devctl_role_subcommand_is_registered_and_listed():
+    """Phase 0.5 — CLI surface registration.
+
+    The `role` subcommand must be registered at the top level of devctl
+    AND appear in `devctl list` output. RED today (subcommand not yet
+    wired); GREEN once Phase 0.5 ships the 11-file CLI wiring.
+    """
+    result = subprocess.run(
+        [sys.executable, "dev/scripts/devctl.py", "list", "--format", "json"],
+        cwd=str(REPO_ROOT),
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    try:
+        payload = _json_module.loads(result.stdout)
+    except Exception:
+        # Fall back to text-format listing if json isn't supported
+        result = subprocess.run(
+            [sys.executable, "dev/scripts/devctl.py", "list"],
+            cwd=str(REPO_ROOT),
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        listed = result.stdout
+        assert "role" in listed.split(), (
+            "INVARIANT VIOLATED: devctl_role_subcommand_is_registered_and_listed\n"
+            "  `devctl list` output does not contain a `role` subcommand.\n"
+            f"  output head:\n{listed[:1500]}\n"
+            "  Fix: Phase 0.5 must wire dev/scripts/devctl/cli_parser/role.py\n"
+            "  + add `role` to dev/scripts/devctl/commands/listing/__init__.py\n"
+            "  COMMANDS tuple (alphabetically)."
+        )
+        return
+
+    commands = payload.get("commands") or payload.get("subcommands") or []
+    assert "role" in commands or any(
+        c.get("name") == "role" if isinstance(c, dict) else False for c in commands
+    ), (
+        "INVARIANT VIOLATED: devctl_role_subcommand_is_registered_and_listed\n"
+        f"  `devctl list` JSON does not include role subcommand.\n"
+        f"  commands: {commands[:20]!r}"
+    )
+
+
+def test_devctl_role_create_emits_typed_role_connectivity_proof_receipt(tmp_path):
+    """Phase 0.5 — typed receipt + schema validation.
+
+    `devctl role create --dry-run` for a syntactically valid custom role
+    must emit a typed RoleConnectivityProof receipt with structural
+    fields (contract_id, role_id, schema_version, connectivity_ok). The
+    --dry-run flag prevents writing to the live JSONL stores. RED today
+    (CLI doesn't exist); GREEN once Phase 0.5 ships the create handler +
+    validator + receipt builder.
+    """
+    result = subprocess.run(
+        [
+            sys.executable,
+            "dev/scripts/devctl.py",
+            "role",
+            "create",
+            "--role-id", "smoke_role_for_phase05_invariant",
+            "--base-tandem-role", "reviewer",
+            "--base-workstream", "architect",
+            "--display-name", "Smoke Role For Phase 0.5 Invariant",
+            "--description", "hermetic test fixture",
+            "--dry-run",
+            "--format", "json",
+        ],
+        cwd=str(REPO_ROOT),
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    try:
+        payload = _json_module.loads(result.stdout)
+    except Exception as exc:
+        raise AssertionError(
+            "INVARIANT VIOLATED: devctl_role_create_emits_typed_role_connectivity_proof_receipt\n"
+            f"  `devctl role create --dry-run` did not emit valid JSON (exit={result.returncode}).\n"
+            f"  stdout head:\n{result.stdout[:1500]}\n"
+            f"  stderr head:\n{result.stderr[:1500]}\n"
+            f"  parse err: {exc!r}"
+        )
+
+    receipt = payload.get("receipt") or payload.get("role_connectivity_proof") or {}
+    assert payload.get("ok") is True, (
+        "INVARIANT VIOLATED: devctl_role_create_emits_typed_role_connectivity_proof_receipt\n"
+        f"  ok={payload.get('ok')!r}; expected True for a valid --dry-run create.\n"
+        f"  receipt: {receipt!r}"
+    )
+    assert receipt.get("contract_id") == "RoleConnectivityProof", (
+        f"INVARIANT VIOLATED: receipt.contract_id must be 'RoleConnectivityProof'; "
+        f"got {receipt.get('contract_id')!r}"
+    )
+    assert receipt.get("connectivity_ok") is True, (
+        f"INVARIANT VIOLATED: receipt.connectivity_ok must be True for the "
+        f"hermetic valid role; got {receipt.get('connectivity_ok')!r}"
+    )
+
+
+def test_devctl_role_create_as_system_targets_seed_file(tmp_path, monkeypatch):
+    """Phase 0.5 — --as-system writes to seed file, not custom file.
+
+    `devctl role create --as-system --dry-run` must report the intended
+    persistence target as dev/state/system_roles.seed.jsonl (or env-var
+    override). Without --as-system, target must be dev/state/custom_roles.jsonl.
+    RED today; GREEN once Phase 0.5 ships the --as-system flag + dual-store routing.
+    """
+    monkeypatch.setenv("DEVCTL_SYSTEM_ROLES_STORE_PATH", str(tmp_path / "system_roles.seed.jsonl"))
+    monkeypatch.setenv("DEVCTL_CUSTOM_ROLES_STORE_PATH", str(tmp_path / "custom_roles.jsonl"))
+
+    result_system = subprocess.run(
+        [
+            sys.executable, "dev/scripts/devctl.py", "role", "create",
+            "--as-system",
+            "--role-id", "smoke_system_role",
+            "--base-tandem-role", "reviewer",
+            "--base-workstream", "architect",
+            "--display-name", "Smoke System Role",
+            "--description", "hermetic",
+            "--dry-run", "--format", "json",
+        ],
+        cwd=str(REPO_ROOT), capture_output=True, text=True, timeout=60,
+    )
+    payload_system = _json_module.loads(result_system.stdout)
+    target_system = str(payload_system.get("persistence_target_path") or "")
+    assert target_system.endswith("system_roles.seed.jsonl"), (
+        f"INVARIANT VIOLATED: --as-system target must end with 'system_roles.seed.jsonl'; "
+        f"got {target_system!r}"
+    )
+
+    result_custom = subprocess.run(
+        [
+            sys.executable, "dev/scripts/devctl.py", "role", "create",
+            "--role-id", "smoke_custom_role",
+            "--base-tandem-role", "implementer",
+            "--base-workstream", "implementer",
+            "--display-name", "Smoke Custom Role",
+            "--description", "hermetic",
+            "--dry-run", "--format", "json",
+        ],
+        cwd=str(REPO_ROOT), capture_output=True, text=True, timeout=60,
+    )
+    payload_custom = _json_module.loads(result_custom.stdout)
+    target_custom = str(payload_custom.get("persistence_target_path") or "")
+    assert target_custom.endswith("custom_roles.jsonl"), (
+        f"INVARIANT VIOLATED: without --as-system, target must end with 'custom_roles.jsonl'; "
+        f"got {target_custom!r}"
+    )
+
+
+def test_devctl_role_create_rejects_invalid_capability_class_with_typed_reason():
+    """Phase 0.5 — connectivity validation: unknown capability_class is rejected.
+
+    When the requested role references a capability_class that doesn't
+    exist in _ROLE_CAPABILITY_CLASSES (or its equivalent typed registry),
+    `devctl role create --dry-run` must reject with a typed reason
+    naming the missing capability — not write the row and not emit a
+    proof. RED today; GREEN once Phase 0.5 wires the
+    validate_role_connectivity() lookup.
+    """
+    result = subprocess.run(
+        [
+            sys.executable, "dev/scripts/devctl.py", "role", "create",
+            "--role-id", "smoke_bad_role",
+            "--base-tandem-role", "reviewer",
+            "--base-workstream", "this_workstream_does_not_exist",
+            "--display-name", "Smoke Bad Role",
+            "--description", "hermetic",
+            "--dry-run", "--format", "json",
+        ],
+        cwd=str(REPO_ROOT), capture_output=True, text=True, timeout=60,
+    )
+    payload = _json_module.loads(result.stdout)
+    assert payload.get("ok") is False, (
+        f"INVARIANT VIOLATED: invalid base_workstream should be rejected; got ok={payload.get('ok')!r}"
+    )
+    errors = payload.get("errors") or []
+    # The exact wording is up to the implementation; we just require it to
+    # name the failure as a typed connectivity issue.
+    matching = [e for e in errors if "workstream" in str(e).lower() or "unknown" in str(e).lower() or "not_found" in str(e).lower()]
+    assert matching, (
+        "INVARIANT VIOLATED: rejection must carry a typed reason naming the missing "
+        "capability / workstream. errors must mention 'workstream'/'unknown'/'not_found'.\n"
+        f"  errors: {errors!r}"
+    )
+

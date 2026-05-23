@@ -207,3 +207,44 @@ from what the test asserts (not from a transient guard number).
   a `FeatureProofReceipt(proven_passed)` whose `tests_run` lists at least
   one pytest node id from the matrix above and whose review/bypass refs
   resolve in the typed stores.
+
+## A37 amendment work (Phase 0 + Pre-0 + RED Phase 0.5)
+
+### Pre-0 — `develop ingest-plan` operator-amendment ingest
+
+| ID | What it asserts | Test file | Status |
+|---|---|---|---|
+| PRE-0.A | `develop ingest-plan --dry-run` with valid operator-amendment body + explicit `--plan-row-id` + `--source` + `--target-ref` accepts the source and returns `ok=True, reason=plan_rows_upserted_dry_run`. | `test_live_state_invariants.py::test_ingest_plan_accepts_operator_amendment_with_explicit_plan_row_id` | GREEN |
+| PRE-0.B | Same call WITHOUT `--plan-row-id` should auto-derive the row id from a `### A<N>. <title> (Operator Amendment <date>)` heading. Parser at `plan_intake_phase0.parse_plan_authority_sections` must learn the heading pattern. | `test_live_state_invariants.py::test_ingest_plan_auto_derives_row_id_from_amendment_heading` | XFAIL(strict) — visible ratchet, queued as Task #13 |
+
+**Real-life proof (Pre-0)**: live `develop ingest-plan --body-file <a37 text> --plan-row-id A37-TOPOLOGY-RETIREMENT-AMENDMENT-S1 ...` returned `ok=True, reason=plan_rows_upserted, derived_state_invalidation.status=accepted`. Row landed in `dev/state/plan_index.jsonl` (count 2142→2143). `content_hash: sha256:c009a17dc7e3f52ad9ced5489400c5523e791d0a0991f8c2d3c29eeecc7d000e`. Ingestion receipt in `dev/state/plan_ingestion_receipts.jsonl`. `check_active_plan_sync.py` ok=True post-ingest.
+
+### Phase 0 — Consolidated `SemanticTDDRole` typed contract
+
+| ID | What it asserts | Test file | Status |
+|---|---|---|---|
+| PHASE-0.2A | Legacy role ids `tdd_discovery`, `tdd_first_role`, `dogfood_test` resolve through `normalize_role_id()` to `"semantic_tdd"` (alias resolution lock-in). | `test_live_state_invariants.py::test_semantic_tdd_role_aliases_resolve_legacy_tdd_role_ids` | GREEN |
+| PHASE-0.2B | Same legacy role ids are NOT in `DEFAULT_ROLE_IDS` or `_ROLE_CAPABILITY_CLASSES` (full retirement target). Stays RED as visible debt until every callsite migrates and removal is safe. | `test_live_state_invariants.py::test_legacy_tdd_role_ids_must_not_remain_in_default_role_ids` | XFAIL(strict) — visible ratchet, future ratchet-down |
+| PHASE-0.PHASE-SHAPE | `SemanticTDDRoleSpec.phases` tuple matches the 9-step ritual phase ids (`discovery`, `red_first`, `code_apply`, `green_verify`, `reinforce`, `dogfood_proof`, `receipt`, `review`) documented in `live_state_semantic_tdd_plan.md` and `you-need-to-go-twinkly-lake.md`. | `test_live_state_invariants.py::test_semantic_tdd_role_spec_phases_match_documented_ritual` | GREEN |
+
+**Real-life proof (Phase 0)**: live `python3 -c "from dev.scripts.devctl.runtime.semantic_tdd_role import semantic_tdd_role_spec; ..."` returns the typed `SemanticTDDRoleSpec` with `role_id=semantic_tdd, capability_class=test, schema_version=1, contract_id=SemanticTDDRoleSpec, phase count=8`. `normalize_role_id("tdd_discovery")` returns `"semantic_tdd"` in live state (along with `tdd_first_role`, `dogfood_test`, `tdd_first`, `dogfooder` — all resolved correctly).
+
+### Phase 0.5 — `devctl role` CLI surface (RED, queued for next session)
+
+| ID | What it asserts | Test file | Status |
+|---|---|---|---|
+| PHASE-0.5.LISTED | `devctl role` subcommand is registered + appears in `devctl list` output (alphabetically wired into `commands/listing` COMMANDS tuple). | `test_live_state_invariants.py::test_devctl_role_subcommand_is_registered_and_listed` | RED — queued |
+| PHASE-0.5.RECEIPT | `devctl role create --dry-run` on a valid role emits a typed `RoleConnectivityProof` receipt with `contract_id="RoleConnectivityProof"` + `connectivity_ok=True`. | `test_live_state_invariants.py::test_devctl_role_create_emits_typed_role_connectivity_proof_receipt` | RED — queued |
+| PHASE-0.5.SEED | `devctl role create --as-system --dry-run` targets `system_roles.seed.jsonl` (via env var `DEVCTL_SYSTEM_ROLES_STORE_PATH` or REPO_ROOT default); without `--as-system` targets `custom_roles.jsonl` (via `DEVCTL_CUSTOM_ROLES_STORE_PATH` or REPO_ROOT default). Pattern matches the existing portable bypass-lifecycle store-path resolution. | `test_live_state_invariants.py::test_devctl_role_create_as_system_targets_seed_file` | RED — queued |
+| PHASE-0.5.REJECT | `devctl role create --dry-run` with an unknown `base_workstream_id` (or other unresolved typed reference) rejects with a typed reason naming the missing capability — does NOT write the row, does NOT emit a proof receipt. | `test_live_state_invariants.py::test_devctl_role_create_rejects_invalid_capability_class_with_typed_reason` | RED — queued |
+
+### Portability note (governance-pack adopter-safety)
+
+All path defaults follow the existing portable pattern documented in `peer_spawn.py:340-348` and `bypass_lifecycle_registry.py:_load_bypass_jsonl`: **env-var override + REPO_ROOT-relative default + filename as governance-pack convention**. No VoiceTerm literal is hardcoded into runtime decision paths.
+
+- Override env vars: `DEVCTL_SYSTEM_ROLES_STORE_PATH`, `DEVCTL_CUSTOM_ROLES_STORE_PATH`
+- Default locations: `REPO_ROOT/dev/state/system_roles.seed.jsonl` (tracked), `REPO_ROOT/dev/state/custom_roles.jsonl` (gitignored)
+- Repo-policy surface available for declarative override: `dev/config/devctl_repo_policy.json` already declares `develop_role_slash_adapters` (`template_path`, `output_path`); extending it with role-store-path keys is a future enhancement
+- Seed content is governance-pack-generic: `semantic_tdd`, `implementer`, `reviewer`, `observer`, `dashboard`, `architect`, `plan_steward`, etc. — no VoiceTerm-specific role IDs
+
+Connectivity-guard status after Phase 0 + Pre-0: `check_function_duplication` ok=True (0 violations), `check_orphan_files` ok=True (0 orphans), `check_contract_connectivity` ok=True, `check_active_plan_sync` ok=True. `check_contract_consumer_coverage_sweep` reports 4 EXPECTED violations on `SemanticTDDRoleSpec` + `SemanticTDDRolePhaseSpec` (no external readers/writers yet — Phase 0.5 CLI is the resolver).

@@ -867,6 +867,163 @@ evidence. A checkbox is only allowed to become `[x]` when its row has:
 
 Checkboxes without evidence are invalid and must be treated as unchecked.
 
+### A37. Consolidated Semantic-TDD Role + Role-Customization CLI + Slice C Topology Literal Retirement (Operator Amendment 2026-05-23)
+
+This amendment ships three things in order: (Phase 0) a consolidated typed
+`SemanticTDDRole` substrate replacing the fragmented
+`tdd_discovery`/`tdd_first_role`/`dogfood_test` roles, TDD-proven against
+its own ritual; (Phase 0.5) the queued `devctl role` CLI surface
+(MP377-TYPED-ROLE-MODE-CUSTOMIZATION-S1) that lets the operator create new
+typed roles + grant typed capabilities to them; then (Slice C) the
+topology literal retirement that depends on Phases 0 and 0.5 being GREEN.
+
+Phase 0 (TDD-the-TDD-role; precondition):
+- Define typed `SemanticTDDRoleSpec` dataclass in
+  `runtime/role_profile.py` (or `runtime/semantic_tdd_role.py`) with typed
+  phases (`discovery`, `red_first`, `code_apply`, `green_verify`,
+  `reinforce`, `dogfood_proof`, `receipt`, `review`),
+  `capability_class=TEST`, and
+  `deprecated_aliases=(tdd_discovery, tdd_first_role, dogfood_test)`.
+- Wire the three legacy role ids through `_ROLE_ID_ALIASES` so existing
+  references keep working during migration.
+- Extend `dev/active/live_state_semantic_tdd_plan.md` with the typed-role
+  spec section; the spec must match the documented ritual or a parity
+  invariant catches the drift.
+- Live-state invariants land in `test_live_state_invariants.py` using the
+  documented 2a/2b two-test split (current-safety quarantine GREEN;
+  target-architecture xfail-strict ratchet stays RED as visible debt).
+- Dogfood: execute Slice C.0 (TOPO-HUNT-BASELINE) under
+  `actor.role=semantic_tdd` to prove the typed role spec actually runs the
+  ritual it documents.
+
+Phase 0.5 (ship the `devctl role` CLI,
+MP377-TYPED-ROLE-MODE-CUSTOMIZATION-S1):
+- Substrate built (rev_pkt_3754: `CustomRoleDefinition`,
+  `RoleInstructionCard`, `RoleGuard`, `RoleCreationAction` + validator + 7
+  GREEN unit tests) but CLI surface never shipped despite rev_pkt_3753
+  answering the 6 design-review questions 11+ days ago.
+- S1a: `devctl role create / grant-capability / list / show` subcommand,
+  11-file wiring per the bypass-subcommand template, persistence to
+  `dev/state/custom_roles.jsonl` and
+  `dev/state/role_capability_grants.jsonl` via the existing
+  `append_json_mapping` helper.
+- S1b: `/role-create`, `/role-edit`, `/role-guard-add` slash adapters,
+  re-render `dev/templates/slash/develop/roles.md` from persisted typed
+  cards, `check_role_projection_drift.py` drift guard, and
+  `FeatureProofReceipt(proven_passed)` per role creation.
+- Q6 missing controls land as live-state invariants
+  (versioning/revocation, inheritance, scoped applicability, dry-run
+  validation, collision detection, projection drift, prompt-injection
+  resistance).
+- Dogfood: live `devctl role create --role-id topology_migration_steward
+  --base-tandem-role reviewer --base-workstream architect ...` writes a
+  real JSONL record; `devctl role show` round-trips; `devctl session
+  --role observer` surfaces the new role; `FeatureProofReceipt` with
+  pytest node id.
+- Plan rows advance: `MP377-TYPED-ROLE-MODE-CUSTOMIZATION-S1` queued →
+  in_progress → done; `MP377-ROLE-CUSTOMIZATION-PROJECTION-S1` queued →
+  done.
+
+Operator principle (binding across all three phases): any agent (claude,
+codex, cursor, future) can play any role (implementer, reviewer, observer,
+dashboard, plan_steward, tester, N+) in any number of concurrent sessions.
+Topology describes which roles are occupied, never agent counts. The
+labels `single_agent`, `dual_agent`, `active_dual_agent` conflate review
+policy, role assignment, live occupancy, operator access posture, and
+capability into one overloaded string — they are the root of nearly every
+authority-gate failure observed in real dogfood. Retirement is operator
+priority #1.
+
+Slice C authorizes execution of the retirement from
+`/Users/jguida941/.claude/plans/streamed-sprouting-pizza.md` (rev_pkt_3495
+architecture proposal + Slice C acceptance criteria) under the lane
+discipline of `dev/active/semantic_tdd_lane.md`.
+
+Execution plan: `/Users/jguida941/.claude/plans/you-need-to-go-twinkly-lake.md`
+
+Slice C acceptance criteria (verbatim from streamed-sprouting-pizza.md):
+1. Zero hardcoded `active_dual_agent` literals in fail-closed gates
+   (9 gates from rev_pkt_3373/3402)
+2. Zero hardcoded provider literals in authority paths (129 provider
+   literals inventory)
+3. All topology reads consult `SessionPosture` first; ad-hoc topology
+   computation removed from non-canonical surfaces
+4. `DEFAULT_PROVIDER_ROLE_MAP` becomes compatibility-only or removed from
+   runtime decisions per `ai_governance_platform.md:4630`
+5. `MP377-P0-ROLE-ROSTER-TOPOLOGY-S1` advances queued → in_progress
+6. Acceptance test: "agent coordination, topology, provider-agnosticism
+   verified green in one execution flow"
+
+Multi-agent coordination invariants (Slice E concerns threaded through C):
+- Peer visibility through `agent_sync` projection — every agent sees every
+  other agent in typed state
+- No overlapping write scopes —
+  `test_peer_write_leases_visible_to_mutating_actor.py` +
+  `test_no_overlapping_write_scopes_among_mutating_actors.py` stay GREEN
+  through every slice
+- Dispatch through `AgentDispatchRouter`; capability through
+  `actor_authorities` / `CapabilityGrantState`; never via provider
+  identity
+- Role flexibility: any agent holds any role per typed grants
+- Same typed state: codex and claude read SAME
+  `review_state["coordination_state"]` and SAME
+  `review_state["agent_sync"]`
+
+Execution ritual (per A25 + A26 + lane discipline) — every phase/slice
+runs:
+1. Connectivity sweep BEFORE (A25 guards + topology hardcode inventory +
+   multi-agent sync + active topology liveness)
+2. RED scenario test with plain-language file name; live-state invariants
+   land in `test_live_state_invariants.py` (canonical pattern, 2a/2b
+   split); per-feature behavior tests in `tests/scenarios/`
+3. Minimum-cut fix at named file:line sites — reuse typed substrate, no
+   workarounds
+4. GREEN-on-test
+5. A26 reinforcement layers (property / architecture / consumer /
+   differential / mutation / snapshot / dead-code / branch coverage,
+   slice-appropriate)
+6. Connectivity sweep AFTER — ratchet down, zero new violations
+7. DOGFOOD physical proof (file on disk + sha256 + typed receipt; lane
+   rule: GREEN-on-test is NOT GREEN)
+8. Matrix row in `dev/active/semantic_tdd_lane.md` with all evidence refs
+9. Plan-row advancement in `dev/state/plan_index.jsonl`
+
+Slice sequence (each follows the ritual above):
+- Phase 0 PHASE-0-CONSOLIDATE-TDD-ROLE — typed `SemanticTDDRoleSpec` +
+  alias wiring + live-state invariants + dogfood
+- Phase 0.5 PHASE-0-5-ROLE-CUSTOMIZATION-CLI — ship `devctl role` CLI
+  (S1a) + slash adapters + renderer + drift guard (S1b)
+- C.0 TOPO-HUNT-BASELINE — extend hardcoding hunt to assert raw literal
+  `single_agent` / `dual_agent` / `active_dual_agent` comparison must not
+  appear in non-enum runtime modules
+- C.1 REVIEWER-GATE-TYPED — retire `reviewer_gate_logic.py:27,52,57`
+- C.2 PUSH-AUTH-TYPED — retire `push_authorization.py:281` (function
+  rename) + `authority_snapshot_projection.py:67,150`
+- C.3 REVIEW-CHANNEL-TYPED — retire `collaboration_session_status.py`
+  (6 sites) + `follow_controller.py:192` +
+  `collaboration_registry.py:117`
+- C.4 CONTROL-TOPOLOGY-CUTOVER — retire `"single_agent"` from
+  `ObservedControlTopology.Literal` in `control_topology.py` + caller
+  migrations in `startup_context.py:487` and
+  `work_intake_coordination.py:52`
+- C.5 ROLE-FLIP-LIVE — multi-agent dogfood, 4 substeps (spawn-and-see,
+  write-lease, dispatch, role-flip)
+- C.6 MULTI-AGENT-DISPATCH-LIVE — two concurrent live agents, one
+  `AgentDispatchRoute`, one peer-visible write lease, two file artifacts
+
+Closure: all phases/slice rows GREEN with physical artifacts (file paths +
+sha256s + trace event ids); connectivity guards re-run final, all
+ratcheted DOWN from baseline; `FeatureProofReceipt(proven_passed)` for
+each slice with pytest node id; plan rows
+`MP377-TYPED-ROLE-MODE-CUSTOMIZATION-S1`,
+`MP377-ROLE-CUSTOMIZATION-PROJECTION-S1`,
+`MP377-P0-ROLE-ROSTER-TOPOLOGY-S1`,
+`MP377-P0-ROLE-MATRIX-ROSTER-S1`, `MP377-P0-T16`,
+`MP377-P0-TOPOLOGY-NEUTRAL-NEXT-S1` advance state.
+
+If Slice C.5.d (assign_role action) surfaces a Slice E gap, that becomes
+its own queued plan row, not a Slice C blocker.
+
 ### Jump Index
 
 | ID | Section | Purpose | Current status | Next command | Proof required |
