@@ -229,14 +229,23 @@ from what the test asserts (not from a transient guard number).
 
 **Real-life proof (Phase 0)**: live `python3 -c "from dev.scripts.devctl.runtime.semantic_tdd_role import semantic_tdd_role_spec; ..."` returns the typed `SemanticTDDRoleSpec` with `role_id=semantic_tdd, capability_class=test, schema_version=1, contract_id=SemanticTDDRoleSpec, phase count=8`. `normalize_role_id("tdd_discovery")` returns `"semantic_tdd"` in live state (along with `tdd_first_role`, `dogfood_test`, `tdd_first`, `dogfooder` — all resolved correctly).
 
-### Phase 0.5 — `devctl role` CLI surface (RED, queued for next session)
+### Phase 0.5 — `devctl role` CLI surface (MVP SHIPPED, all 4 RED → GREEN)
 
 | ID | What it asserts | Test file | Status |
 |---|---|---|---|
-| PHASE-0.5.LISTED | `devctl role` subcommand is registered + appears in `devctl list` output (alphabetically wired into `commands/listing` COMMANDS tuple). | `test_live_state_invariants.py::test_devctl_role_subcommand_is_registered_and_listed` | RED — queued |
-| PHASE-0.5.RECEIPT | `devctl role create --dry-run` on a valid role emits a typed `RoleConnectivityProof` receipt with `contract_id="RoleConnectivityProof"` + `connectivity_ok=True`. | `test_live_state_invariants.py::test_devctl_role_create_emits_typed_role_connectivity_proof_receipt` | RED — queued |
-| PHASE-0.5.SEED | `devctl role create --as-system --dry-run` targets `system_roles.seed.jsonl` (via env var `DEVCTL_SYSTEM_ROLES_STORE_PATH` or REPO_ROOT default); without `--as-system` targets `custom_roles.jsonl` (via `DEVCTL_CUSTOM_ROLES_STORE_PATH` or REPO_ROOT default). Pattern matches the existing portable bypass-lifecycle store-path resolution. | `test_live_state_invariants.py::test_devctl_role_create_as_system_targets_seed_file` | RED — queued |
-| PHASE-0.5.REJECT | `devctl role create --dry-run` with an unknown `base_workstream_id` (or other unresolved typed reference) rejects with a typed reason naming the missing capability — does NOT write the row, does NOT emit a proof receipt. | `test_live_state_invariants.py::test_devctl_role_create_rejects_invalid_capability_class_with_typed_reason` | RED — queued |
+| PHASE-0.5.LISTED | `devctl role` subcommand is registered + appears in `devctl list` output (alphabetically wired into `commands/listing` COMMANDS tuple). | `test_live_state_invariants.py::test_devctl_role_subcommand_is_registered_and_listed` | GREEN |
+| PHASE-0.5.RECEIPT | `devctl role create --dry-run` on a valid role emits a typed `RoleConnectivityProof` receipt with `contract_id="RoleConnectivityProof"` + `connectivity_ok=True`. | `test_live_state_invariants.py::test_devctl_role_create_emits_typed_role_connectivity_proof_receipt` | GREEN |
+| PHASE-0.5.SEED | `devctl role create --as-system --dry-run` targets `system_roles.seed.jsonl`; without `--as-system` targets `custom_roles.jsonl`. Defaults derive from typed `PathRoots().state` per `ProjectGovernance`; env-var overrides (`DEVCTL_SYSTEM_ROLES_STORE_PATH`, `DEVCTL_CUSTOM_ROLES_STORE_PATH`) reserved for hermetic tests. | `test_live_state_invariants.py::test_devctl_role_create_as_system_targets_seed_file` | GREEN |
+| PHASE-0.5.REJECT | `devctl role create --dry-run` with an unknown `base_workstream_id` rejects with a typed reason naming the missing reference — does NOT write the row, emits a `RoleConnectivityProof` with `connectivity_ok=False` + populated `errors`. | `test_live_state_invariants.py::test_devctl_role_create_rejects_invalid_capability_class_with_typed_reason` | GREEN |
+
+**Real-life proof (Phase 0.5)**: live `devctl role create --role-id topology_migration_steward --base-tandem-role reviewer --base-workstream architect --display-name "Topology Migration Steward" ...` (non-dry-run) returned `ok=True, connectivity_ok=True` and wrote a typed `CustomRoleDefinition` row to `dev/state/custom_roles.jsonl` (341 bytes). File observable on disk. 12-file wiring (per Agent 2's earlier audit) all in place: `cli_parser/role.py` + `commands/role/{__init__,command,create,grant_capability,list,show}.py` + `cli_parser/entrypoint.py` registration + `commands/listing/__init__.py` COMMANDS tuple + `runtime/role_customization.py` extended with `RoleConnectivityProof` dataclass.
+
+**Phase 0.5 consumer-coverage delta**: violations went from 4 → 1 after Phase 0.5 wiring. The CLI handlers consuming `CustomRoleDefinition`, `build_role_creation_action`, `RoleConnectivityProof`, and the persistence path resolved most of the unconsumed-contract debt from Phase 0.
+
+**Known MVP-scope limitations (tracked as enhancements, not blockers)**:
+- `show.py` reads only the in-code `_ROLE_CAPABILITY_CLASSES` dict, not the persisted JSONL store. A custom role created via the CLI is on disk but `devctl role show` reports it as not found. Follow-up: extend show.py to read seed + custom store files.
+- `grant_capability.py` is a stub returning `not_implemented_in_phase_0_5_mvp_grant_capability_stub`. Follow-up: ship typed `CapabilityGrantState` persistence + receipt.
+- S1b adapters (`/role-create`, `/role-edit`, `/role-guard-add` slash projections + `roles.md` re-renderer + drift guard) are deferred to a future slice; only S1a (CLI + persistence + tests + receipt) shipped.
 
 ### Phase 0.x — PathRoots `state` field (typed adopter-portable path)
 

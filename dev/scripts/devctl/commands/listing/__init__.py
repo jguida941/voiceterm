@@ -23,6 +23,7 @@ COMMANDS = [
     "push",
     "raw-git",
     "review-channel",
+    "role",
     "sync",
     "integrations-sync",
     "integrations-import",

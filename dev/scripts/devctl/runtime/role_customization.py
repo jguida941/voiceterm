@@ -15,11 +15,50 @@ CUSTOM_ROLE_DEFINITION_CONTRACT_ID = "CustomRoleDefinition"
 ROLE_INSTRUCTION_CARD_CONTRACT_ID = "RoleInstructionCard"
 ROLE_GUARD_CONTRACT_ID = "RoleGuard"
 ROLE_CREATION_ACTION_CONTRACT_ID = "RoleCreationAction"
+ROLE_CONNECTIVITY_PROOF_CONTRACT_ID = "RoleConnectivityProof"
 ROLE_CUSTOMIZATION_SCHEMA_VERSION = 1
 
 _ROLE_ID_RE = re.compile(r"[^a-z0-9_]+")
 _PROVIDER_SPECIFIC_COMMAND_MARKERS = ("claude-", "codex-", "cursor-")
 _ALLOWED_INSTRUCTION_KINDS = frozenset({"operator_rule"})
+
+
+@dataclass(frozen=True, slots=True)
+class RoleConnectivityProof:
+    """Typed receipt emitted by `devctl role create` (S1a CLI surface).
+
+    Captures the four Tier 1 lightweight connectivity-validation checks
+    that run inside the CLI: schema validity of the requested
+    `CustomRoleDefinition`, capability_class resolves in the registry,
+    referenced instruction-card / guard / workstream ids exist, and the
+    round-trip read-after-write through the persistence layer matches
+    the requested role. Portable across any adopter repo because the
+    proof carries no VoiceTerm literals; the `persistence_target_path`
+    field surfaces wherever the adopter's typed `PathRoots.state` (or
+    env-var override) resolved to.
+
+    NOT pytest. Tier 2 (the full TDD discipline) lives in the repo's
+    test suite; this receipt is what an adopter's CLI emits even when
+    they have no test infrastructure installed.
+    """
+
+    role_id: str
+    persistence_target_path: str
+    connectivity_ok: bool
+    schema_ok: bool
+    capability_class_ok: bool
+    workstream_ok: bool
+    round_trip_ok: bool
+    errors: tuple[str, ...] = ()
+    warnings: tuple[str, ...] = ()
+    schema_version: int = ROLE_CUSTOMIZATION_SCHEMA_VERSION
+    contract_id: str = ROLE_CONNECTIVITY_PROOF_CONTRACT_ID
+
+    def to_dict(self) -> dict[str, object]:
+        payload = asdict(self)
+        payload["errors"] = list(self.errors)
+        payload["warnings"] = list(self.warnings)
+        return payload
 
 
 @dataclass(frozen=True, slots=True)

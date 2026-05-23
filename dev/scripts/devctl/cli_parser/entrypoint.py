@@ -172,6 +172,8 @@ from .artifact_suppression import (
 from .artifact_suppression import read_only_command_suppresses_artifact_writes
 from .agent_supervise import add_agent_supervise_parser
 from .peer_spawn import add_peer_spawn_parser, add_peer_terminate_parser
+from .role import add_role_parser
+from ..commands.role import command as _role_command
 from .builders import add_standard_parsers
 from .exceptions import add_exceptions_parser
 from .python_tests import add_parser as add_python_tests_parser
@@ -289,6 +291,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_agent_supervise_parser(sub)
     add_peer_spawn_parser(sub)
     add_peer_terminate_parser(sub)
+    add_role_parser(sub)
     add_claude_loop_parser(sub)
     dogfood.add_parser(sub)
     monitor.add_parser(sub)
@@ -358,6 +361,7 @@ COMMAND_HANDLERS = {
     "agent-supervise": agent_supervise.run,
     "peer-spawn": peer_spawn_command.run_peer_spawn,
     "peer-terminate": peer_spawn_command.run_peer_terminate,
+    "role": _role_command.run,
     "bypass": bypass.run,
     "claude-loop": claude_loop.run,
     "dashboard": dashboard.run,

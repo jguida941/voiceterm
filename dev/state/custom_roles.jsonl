@@ -1,0 +1,1 @@
+{"active": true, "base_tandem_role": "reviewer", "base_workstream_id": "architect", "capabilities": [], "contract_id": "CustomRoleDefinition", "description": "", "display_name": "Topology Migration Steward", "guard_ids": [], "instruction_card_ids": [], "role_id": "topology_migration_steward", "schema_version": 1, "slash_command_refs": []}
