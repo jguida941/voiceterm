@@ -31,11 +31,11 @@ folded into the SYSTEM_MAP projection slice.)
 
 ### 5 Core Subsystems (engine-first)
 
-1. **Governance Engine** — portable typed runtime. 71 guards + 26 probes + `findings-priority` ranker + `governance-review` ledger. Contract chain: `ProjectGovernance → RepoPack → PlanRegistry → PlanTargetRef → WorkIntakePacket → CollaborationSession → TypedAction → ActionResult/RunRecord/Finding → ContextPack`. Coverage: 42% guards, 88% probes, 100% roles.
-2. **devctl Command Tree** — Python CLI orchestrator. Use the generated command
-   inventory below for the current count; top tier: `startup-context`,
-   `review-channel`, `session-resume`, `check`, `governance-review`,
-   `dashboard`, `findings-priority`, `system-map`.
+1. **Governance Engine** — portable typed runtime. 158 guards + 39 probes + `findings-priority` ranker + `governance-review` ledger, backed by 248 typed contracts in registry. Contract chain: `ProjectGovernance → RepoPack → PlanRegistry → PlanTargetRef → WorkIntakePacket → CollaborationSession → TypedAction → ActionResult/RunRecord/Finding → ContextPack`. Coverage: 42% guards, 88% probes, 100% roles. (Counts asserted current by A38.4 `test_system_map_*_count_matches_reality` invariants; probes counted via top-level `glob('probe_*.py')` across `dev/scripts/checks/` + `dev/scripts/coderabbit/`.)
+2. **devctl Command Tree** — Python CLI orchestrator. 107 commands at top level
+   (use the generated command inventory below for the full breakdown); top tier:
+   `startup-context`, `review-channel`, `session-resume`, `check`,
+   `governance-review`, `dashboard`, `findings-priority`, `system-map`.
 3. **Review Channel** — typed packet protocol for dual-agent collaboration. 5 dataclasses → `event_projection_assembly.py` → typed snapshots consumed by `startup-context` / `session-resume` / `review-channel status`.
 4. **Dashboard + Operator Console** — `dashboard.py` (+ `phone-status` / `mobile-status`) renders typed review state. Operator Console = PyQt6, ~23.5k LOC in `app/operator_console/`.
 5. **VoiceTerm Product Shell (ONE adopter example)** — Rust binary `rust/src/bin/voiceterm/main.rs` demonstrates voice-driven AI CLI interaction atop the governance engine. Mic → Whisper STT → keystroke injection → HUD overlay. Other adopters plug their own product shell — the engine is the portable part.
@@ -627,7 +627,7 @@ full semantic encoding is Phase 2-3.
 
 **Authority doc:** `ZGRAPH_RESEARCH_EVIDENCE.md` (repo root) — Phase 1-6 roadmap, industry validation (6.8x-49x token reductions), 100+ integration points.
 
-**Live graph (per `context-graph --mode bootstrap` today):** 2973 source files, 71 guards, 26 probes, 4 plans, 77076 edges.
+**Live graph (per `context-graph --mode bootstrap` today):** 2630 source files, 158 guards, 39 probes, 4 plans, 77076 edges. (Source-file count from `find dev/scripts/devctl -name '*.py' | wc -l`; guard/probe counts match the A38.4 invariants in §0.5. Edge count is a snapshot label, not re-verified by this slice — see §scope-out drift note.)
 
 ---
 

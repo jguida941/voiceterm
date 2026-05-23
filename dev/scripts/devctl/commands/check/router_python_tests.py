@@ -298,6 +298,22 @@ _DEVCTL_TEST_TARGETS: tuple[tuple[str, tuple[str, ...]], ...] = (
         ("dev/scripts/devctl/tests/scenarios/test_feature_proof_receipt_proven_passed_carries_node_id.py",),
     ),
     (
+        "dev/scripts/devctl/tests/scenarios/test_receipt_steward_substrate.py",
+        ("dev/scripts/devctl/tests/scenarios/test_receipt_steward_substrate.py",),
+    ),
+    (
+        "dev/scripts/devctl/runtime/receipt_steward_role.py",
+        ("dev/scripts/devctl/tests/scenarios/test_receipt_steward_substrate.py",),
+    ),
+    (
+        "dev/scripts/devctl/tests/scenarios/test_semantic_tdd_cadence_substrate.py",
+        ("dev/scripts/devctl/tests/scenarios/test_semantic_tdd_cadence_substrate.py",),
+    ),
+    (
+        "dev/scripts/devctl/runtime/semantic_tdd_cadence.py",
+        ("dev/scripts/devctl/tests/scenarios/test_semantic_tdd_cadence_substrate.py",),
+    ),
+    (
         "dev/scripts/devctl/tests/scenarios/test_peer_spawn_returns_typed_receipt.py",
         ("dev/scripts/devctl/tests/scenarios/test_peer_spawn_returns_typed_receipt.py",),
     ),

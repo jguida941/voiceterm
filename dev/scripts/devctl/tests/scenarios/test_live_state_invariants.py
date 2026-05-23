@@ -3073,7 +3073,6 @@ def _count_contracts_in_registry() -> int:
     return sum(1 for _ in target.read_text(encoding="utf-8").splitlines() if _.strip())
 
 
-@pytest.mark.xfail(strict=True, reason="A38.4 — SYSTEM_MAP.md inventory claim stale: parsed 71 guards from doc, actual is 158. Ratchets to GREEN once A38.4 S1.B fixes the doc.")
 def test_system_map_guard_count_matches_reality():
     """A38.4 invariant — SYSTEM_MAP guard count must match filesystem.
 
@@ -3100,7 +3099,6 @@ def test_system_map_guard_count_matches_reality():
     )
 
 
-@pytest.mark.xfail(strict=True, reason="A38.4 — SYSTEM_MAP.md inventory claim stale: parsed 26 probes from doc, actual is 80. Probes are no longer in dev/scripts/probes/ but mixed across checks/ and coderabbit/. Ratchets to GREEN once A38.4 S1.B fixes the doc.")
 def test_system_map_probe_count_matches_reality():
     """A38.4 invariant — SYSTEM_MAP probe count must match filesystem.
 
@@ -3126,7 +3124,6 @@ def test_system_map_probe_count_matches_reality():
     )
 
 
-@pytest.mark.xfail(strict=True, reason="A38.4 — SYSTEM_MAP.md inventory claim stale: parsed 84-85 commands from doc, actual is 107. Ratchets to GREEN once A38.4 S1.B fixes the doc.")
 def test_system_map_devctl_command_count_within_tolerance():
     """A38.4 invariant — SYSTEM_MAP devctl command count within ±2 of reality.
 
@@ -3151,7 +3148,6 @@ def test_system_map_devctl_command_count_within_tolerance():
     )
 
 
-@pytest.mark.xfail(strict=True, reason="A38.4 — SYSTEM_MAP.md lacks a clean 'N typed contracts in registry' claim; current regex matches the unrelated 'first 12 contracts plus required authority contracts' partial-render line. Ratchets to GREEN once A38.4 S1.B adds an explicit total-contract-count sentence with the actual number (248).")
 def test_system_map_contract_registry_count_matches():
     """A38.4 invariant — SYSTEM_MAP contract count must match registry.
 

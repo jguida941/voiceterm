@@ -982,17 +982,100 @@ The generalized lesson for devs and agents: design proposals are subject to a hi
 
 ---
 
+## Case 12 — A38.4 S1.B flipped 4 xfail-strict SYSTEM_MAP invariants to hard-asserts via real-measurement doc fix
+
+**What semantic-TDD caught:** Case 8 landed four invariants in `dev/scripts/devctl/tests/scenarios/test_live_state_invariants.py` (`test_system_map_guard_count_matches_reality`, `_probe_count_matches_reality`, `_devctl_command_count_within_tolerance`, `_contract_registry_count_matches`) as xfail-strict markers — visible-debt sentinels for SYSTEM_MAP.md inventory drift. The doc claimed `71 guards + 26 probes`; reality was different. A38.4 S1.B is the slice that closes that loop. Importantly, the act of running the test's *exact* counting logic surfaced a sub-finding the prompt did not anticipate: `_count_probe_scripts()` uses `Path.glob('probe_*.py')` which is **non-recursive** per root, returning 39 — not 76 (recursive `find` total) and not 80 (Case 8's historical figure that quietly counted via a different mechanism). The doc must be true to the *test's measurement*, not to a human's shell command. Discipline-on-itself caught a discipline-on-discipline error.
+
+**How it was caught:** Operator dispatch as Batch-1 Agent-1 of an A38 substrate rollout with explicit step-1 measurement: run the four shell commands the prompt names, then verify counts via the test's own internal logic. Step-1 shell output:
+```
+$ ls dev/scripts/checks/check_*.py | wc -l
+     158
+$ find dev/scripts/checks dev/scripts/coderabbit dev/scripts/probes -name "probe_*.py" 2>/dev/null | wc -l
+      76
+$ python3 dev/scripts/devctl.py --help 2>&1 | grep -oE "\{[^}]+\}" | head -1 | tr ',' '\n' | wc -l
+     107
+$ wc -l dev/state/contract_registry.jsonl
+     248 dev/state/contract_registry.jsonl
+```
+Then re-running `_count_probe_scripts()` via the test's exact code path produced **39**, splitting into `checks/=36, coderabbit/=3, probes/=0 (legacy)`. The 76-vs-39 gap is `Path.glob()` non-recursive top-level vs. `find` recursive: subdirectories like `dev/scripts/checks/review_probes/`, `code_shape_probes/`, `architecture_probes/`, `package_layout/`, `code_shape_support/`, `python_analysis/` hold copies/refactored probes that the test deliberately ignores. The doc must say what the test sees.
+
+**The actual code (before — `dev/guides/SYSTEM_MAP.md:34`):**
+```markdown
+1. **Governance Engine** — portable typed runtime. 71 guards + 26 probes + `findings-priority` ranker + `governance-review` ledger. Contract chain: ...
+2. **devctl Command Tree** — Python CLI orchestrator. Use the generated command
+   inventory below for the current count; top tier: ...
+```
+```markdown
+# dev/guides/SYSTEM_MAP.md:630
+**Live graph (per `context-graph --mode bootstrap` today):** 2973 source files, 71 guards, 26 probes, 4 plans, 77076 edges.
+```
+
+**The actual code (after — same lines):**
+```markdown
+1. **Governance Engine** — portable typed runtime. 158 guards + 39 probes + `findings-priority` ranker + `governance-review` ledger, backed by 248 typed contracts in registry. Contract chain: ... (Counts asserted current by A38.4 `test_system_map_*_count_matches_reality` invariants; probes counted via top-level `glob('probe_*.py')` across `dev/scripts/checks/` + `dev/scripts/coderabbit/`.)
+2. **devctl Command Tree** — Python CLI orchestrator. 107 commands at top level
+   (use the generated command inventory below for the full breakdown); top tier: ...
+```
+```markdown
+**Live graph (per `context-graph --mode bootstrap` today):** 2630 source files, 158 guards, 39 probes, 4 plans, 77076 edges. (Source-file count from `find dev/scripts/devctl -name '*.py' | wc -l`; guard/probe counts match the A38.4 invariants in §0.5. Edge count is a snapshot label, not re-verified by this slice — see §scope-out drift note.)
+```
+
+The new `248 typed contracts in registry` phrase is what made `test_system_map_contract_registry_count_matches` flip — its tightened regex `r"(\d+)\s+(?:typed\s+contracts?\s+in\s+registry|...)"` had no match before the slice and matches now.
+
+**The pytest output (before removing xfail decorators — 4 XPASS(strict) reported as FAILED, the correct ratchet-fire signal):**
+```
+dev/.../test_live_state_invariants.py::test_system_map_guard_count_matches_reality FAILED [ 25%]
+dev/.../test_live_state_invariants.py::test_system_map_probe_count_matches_reality FAILED [ 50%]
+dev/.../test_live_state_invariants.py::test_system_map_devctl_command_count_within_tolerance FAILED [ 75%]
+dev/.../test_live_state_invariants.py::test_system_map_contract_registry_count_matches FAILED [100%]
+
+[XPASS(strict)] A38.4 — SYSTEM_MAP.md inventory claim stale: parsed 71 guards from doc, actual is 158. Ratchets to GREEN once A38.4 S1.B fixes the doc.
+[XPASS(strict)] A38.4 — SYSTEM_MAP.md inventory claim stale: parsed 26 probes from doc, actual is 80. ...
+[XPASS(strict)] A38.4 — SYSTEM_MAP.md inventory claim stale: parsed 84-85 commands from doc, actual is 107. ...
+[XPASS(strict)] A38.4 — SYSTEM_MAP.md lacks a clean 'N typed contracts in registry' claim; ...
+======================= 4 failed, 43 deselected in 1.33s =======================
+```
+
+The four `@pytest.mark.xfail(strict=True, reason="...")` decorators above each test function were then deleted in-place, leaving the test bodies intact. The reason text is preserved here in evidence as the historical record of why each invariant existed.
+
+**The pytest output (after removing decorators — 4 plain PASSED, the discipline is now mechanical):**
+```
+$ python3 -m pytest dev/scripts/devctl/tests/scenarios/test_live_state_invariants.py -q --no-header -p no:cacheprovider -k "system_map_guard_count or system_map_probe_count or system_map_devctl_command_count or system_map_contract_registry_count"
+....                                                                     [100%]
+4 passed, 43 deselected in 1.35s
+```
+
+AFTER sweep on the connectivity rails (must remain `ok=True`):
+```
+$ python3 dev/scripts/checks/check_orphan_files.py --format json | jq .ok
+orphan: True
+duplication: True
+connectivity: True
+```
+
+**Why this is non-obvious without the discipline:** there are three different ways to count "probes" in this codebase, and only ONE of them is the test's source of truth. (a) Recursive `find -name "probe_*.py"` across `dev/scripts/checks dev/scripts/coderabbit dev/scripts/probes` = 76. (b) Same recursive find across the whole repo = 76 (the test's roots cover everything). (c) Non-recursive `Path.glob('probe_*.py')` per root = 39. The test uses (c) because subdirectories like `review_probes/`, `code_shape_probes/`, `architecture_probes/` are organized refactors / staging areas, NOT the canonical probe inventory. Updating the doc to the find-recursive total (76) would have kept the test RED. Discipline catches the difference between a number that LOOKS right and a number that satisfies the discipline. The prompt's reference figure of "80" was itself drift — Case 8 documented it as 80, Case 12 documents that the test's actual measurement is 39, and the gap between those two cases is exactly the kind of slow drift this whole substrate is built to prevent.
+
+The xfail-to-hard-assert flip is the ratchet. From this slice forward, any future probe added directly into `dev/scripts/checks/` or `dev/scripts/coderabbit/` (not in a subdirectory) bumps the test's `actual` count by 1 and breaks the doc's claim — RED until the doc gains a row. Same for new guards, new top-level `devctl` subcommands, and new `contract_registry.jsonl` rows. The drift surface that took Case 8's invariants to detect is now mechanical. The lesson generalizes: when the discipline ratchets a `xfail-strict` to a hard-assert, document *which counting method satisfies the test*, because two reasonable counting methods can disagree by 2x and the test only honors one.
+
+**Drift found out of scope (noted, NOT fixed in this slice):** the `77076 edges` and `4 plans` figures on line 630 are not asserted by any A38.4 invariant; they may also be stale. The auto-rendered managed block at SYSTEM_MAP.md lines 121-236 covers a different slice of inventory. A follow-up slice (A38.4 S1.C-style path-coverage ratchets per the design in `delete_after_ingest.md:5820`) would mechanize the edge/plan claims. Also: `dev/guides/SYSTEM_MAP.md:306` says "10 commands" (in a "Barely wired" subheading), and `:320` says "65 commands" (in "Documented-but-not-dogfood-covered") — these are *category* counts, not totals, and don't conflict with the executive-summary's 107. The executive-summary claim comes first in regex-scan order, so the test reads 107 correctly.
+
+---
+
 *Documented by the documentation-agent role on 2026-05-23 against branch
 `extraction/guardir-core-p0-proof-integrity` HEAD `d35d08ec`. Cases 8-11
 appended in-session on 2026-05-23T22:30Z against HEAD `61e65e93` as the
 discipline caught additional gaps after the initial doc-agent sweep —
 SYSTEM_MAP.md inventory drift (Case 8), partial render-surfaces coverage
 (Case 9), worker-boundary discipline (Case 10), and the operator's
-correction to the agent's design category (Case 11). Per operator
-direction 2026-05-23T22:15Z, going forward every TDD-caught problem
-lands in this doc immediately, not retroactively. Style guide: worked-
-example format with real code snippets read from the working tree at
-write time, real assertion error text, real pytest output, real diffs,
-real commit SHAs reachable via `git show <sha>`. Reference repo:
+correction to the agent's design category (Case 11). Case 12 appended
+2026-05-23 by A38.4 S1.B batch-agent — the xfail-strict markers from
+Case 8 flipped to hard-asserts after a real-measurement doc fix; the
+probe-count gap (test glob=39 vs find-recursive=76) was itself a
+sub-finding of the slice. Per operator direction 2026-05-23T22:15Z,
+going forward every TDD-caught problem lands in this doc immediately,
+not retroactively. Style guide: worked-example format with real code
+snippets read from the working tree at write time, real assertion error
+text, real pytest output, real diffs, real commit SHAs reachable via
+`git show <sha>`. Reference repo:
 https://github.com/jguida941/semantic-tdd/tree/main (docs/04-worked-
 example.md is the canonical style template for this file).*
