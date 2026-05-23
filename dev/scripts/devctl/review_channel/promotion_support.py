@@ -84,6 +84,8 @@ def instruction_needs_plan_promotion(instruction: str) -> bool:
 
 def validate_promotion_ready(snapshot: BridgeSnapshot) -> list[str]:
     """Return fail-closed bridge-state errors before promoting the next item."""
+    if not isinstance(snapshot, BridgeSnapshot):
+        raise TypeError("validate_promotion_ready requires a BridgeSnapshot")
     errors: list[str] = []
     current_verdict = snapshot.sections.get("Current Verdict", "").strip().lower()
     open_findings = snapshot.sections.get("Open Findings", "").strip().lower()

@@ -28,7 +28,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 import re
-from typing import TYPE_CHECKING, Any, Literal, cast
+from typing import TYPE_CHECKING, Any, Literal, Protocol, cast
 
 from .topology_authority_facts import live_implementer_provider
 
@@ -36,13 +36,15 @@ if TYPE_CHECKING:
     from .review_state_models import ReviewState
     from .startup_push_models import PushDecisionState
 
-# v4.55 continuation (rev_pkt_4788): legacy implementer-owner literal.
-# Surfaces using this constant are migration-only fallbacks; the typed
-# `live_implementer_provider(collaboration)` from topology_authority_facts
-# is the runtime authority. When typed collaboration is supplied and a
-# live `coding_agent` role_assignment is present, the typed provider wins
-# over this default.
-_LEGACY_IMPLEMENTER_OWNER_DEFAULT = "claude"
+
+class _DictSerializable(Protocol):
+    def to_dict(self) -> Mapping[str, Any]: ...
+
+
+# Provider identity is not startup-repair authority. Known implementer-owned
+# startup repairs fall back to the role placeholder until typed collaboration
+# names a live `coding_agent` provider.
+_IMPLEMENTER_OWNER_ROLE = "implementer"
 
 # Acceptable blocker sources. Ordered by severity so that the first
 # source that fires wins when multiple conditions are true at once.
@@ -62,7 +64,7 @@ _STARTUP_AUTHORITY_REPAIR_DIRECTIVES: dict[
     str, tuple[str, str, str, str, str]
 ] = {
     "import_index_atomicity": (
-        _LEGACY_IMPLEMENTER_OWNER_DEFAULT,
+        _IMPLEMENTER_OWNER_ROLE,
         "dev/state/import_index.jsonl",
         "import_index_atomicity_violation",
         # v4.43.3 (rev_pkt_4718): the prior repair command
@@ -78,7 +80,7 @@ _STARTUP_AUTHORITY_REPAIR_DIRECTIVES: dict[
         "",
     ),
     "startup_authority_failed": (
-        _LEGACY_IMPLEMENTER_OWNER_DEFAULT,
+        _IMPLEMENTER_OWNER_ROLE,
         "dev/scripts/devctl/runtime/startup_authority.py",
         "startup_authority_failed",
         (
@@ -88,7 +90,7 @@ _STARTUP_AUTHORITY_REPAIR_DIRECTIVES: dict[
         "",
     ),
     "checkpoint_required": (
-        _LEGACY_IMPLEMENTER_OWNER_DEFAULT,
+        _IMPLEMENTER_OWNER_ROLE,
         "dev/scripts/devctl/runtime/agent_loop_decision_builder.py",
         "checkpoint_required",
         (
@@ -122,18 +124,16 @@ def _resolve_startup_authority_repair(
     blocker. Exactly one of ``repair_command`` or ``stop_anchor`` is non-empty.
 
     v4.55 continuation (rev_pkt_4788): when typed `collaboration` is
-    supplied AND the resolved directive's owner is the legacy
-    implementer default (``_LEGACY_IMPLEMENTER_OWNER_DEFAULT``), the
-    typed ``live_implementer_provider`` overrides the literal. The
-    legacy default remains the back-compat fallback for callers that
-    do not yet thread typed collaboration through.
+    supplied AND the resolved directive's owner is the implementer role
+    placeholder, the typed ``live_implementer_provider`` overrides it.
+    Without typed collaboration, the owner remains a role, not a provider.
     """
     owner, target, reason, repair_command, stop_anchor = (
         _STARTUP_AUTHORITY_REPAIR_DIRECTIVES.get(
             startup_kind, _DEFAULT_STARTUP_AUTHORITY_REPAIR
         )
     )
-    if owner == _LEGACY_IMPLEMENTER_OWNER_DEFAULT and collaboration is not None:
+    if owner == _IMPLEMENTER_OWNER_ROLE and collaboration is not None:
         typed_owner = live_implementer_provider(collaboration)
         if typed_owner:
             owner = typed_owner
@@ -310,15 +310,12 @@ def startup_authority_blocker_kind(startup_authority: object) -> str:
 def _mapping(value: object) -> Mapping[str, Any]:
     if isinstance(value, Mapping):
         return cast(Mapping[str, Any], value)
-    to_dict = getattr(value, "to_dict", None)
-    if callable(to_dict):
-        try:
-            payload = to_dict()
-        except (TypeError, ValueError):
-            return {}
-        if isinstance(payload, Mapping):
-            return cast(Mapping[str, Any], payload)
+    try:
+        payload = cast(_DictSerializable, value).to_dict()
+    except (AttributeError, TypeError, ValueError):
         return {}
+    if isinstance(payload, Mapping):
+        return cast(Mapping[str, Any], payload)
     return {}
 
 

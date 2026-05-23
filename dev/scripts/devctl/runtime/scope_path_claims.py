@@ -40,4 +40,26 @@ def path_matches_scope_claim(path: str, scope_paths: Iterable[str]) -> bool:
     return False
 
 
-__all__ = ["extract_scope_paths", "normalize_scope_path", "path_matches_scope_claim"]
+def paths_overlap(left: str, right: str) -> bool:
+    """Return True when two scope paths overlap by prefix containment.
+
+    Two paths overlap when they are equal after trailing-slash normalization
+    or one is a strict directory ancestor of the other. Empty inputs never
+    overlap. Callers may pass already-normalized values; this helper is
+    idempotent under repeated ``rstrip("/")``.
+    """
+    if not left or not right:
+        return False
+    left_n = left.rstrip("/")
+    right_n = right.rstrip("/")
+    if left_n == right_n:
+        return True
+    return left_n.startswith(f"{right_n}/") or right_n.startswith(f"{left_n}/")
+
+
+__all__ = [
+    "extract_scope_paths",
+    "normalize_scope_path",
+    "path_matches_scope_claim",
+    "paths_overlap",
+]

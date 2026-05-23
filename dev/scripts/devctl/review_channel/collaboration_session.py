@@ -7,15 +7,17 @@ from pathlib import Path
 
 from ..runtime.agent_session_outcome import projected_unresolved_session_outcomes
 from ..runtime.review_state_models import (
-    CollaborationPeerReviewState,
     CollaborationSessionState,
     ReviewCurrentSessionState,
 )
-from ..runtime.reviewer_mode_authority_contract import (
-    ReviewerModeAuthorityState,
-    resolve_reviewer_mode_authority,
-)
+from ..runtime.role_profile import role_capability_classes
 from . import collaboration_session_local_reviewer as _local_reviewer
+from .collaboration_session_build import (
+    ReviewerModeSelection,
+    current_slice_for_session,
+    peer_review_state,
+    reviewer_mode_selection,
+)
 from .collaboration_session_actor_authority import (
     ActorAuthorityBuildInputs,
 )
@@ -40,7 +42,6 @@ from .collaboration_session_roster import (
     _build_role_assignments,
 )
 from .collaboration_session_status import (
-    _agent_for_role,
     _build_arbitration,
     _build_ready_gates,
     _build_restart_state,
@@ -79,30 +80,18 @@ def build_collaboration_session(
         session_records=session_records,
         observed_at_utc=timestamp,
     )
-    reviewer_mode = _text(bridge_liveness.get("reviewer_mode")) or "tools_only"
-    # Resolve effective_mode through typed authority contract instead of
-    # silently overwriting reviewer_mode with bridge_liveness.effective_reviewer_mode.
-    # The contract pins effective_mode to declared_mode unless the transition
-    # carries typed evidence refs (handshake/launch/bypass receipts).
-    _reviewer_mode_evidence_refs = tuple(
-        ref
-        for ref in (
-            _text(bridge_liveness.get("reviewer_mode_authority_ref")),
-            _text(bridge_liveness.get("reviewer_mode_transition_ref")),
-            _text(bridge_liveness.get("handshake_ref")),
-            _text(bridge_liveness.get("launch_authority_ref")),
-        )
-        if ref
+    reviewer_mode = reviewer_mode_selection(
+        bridge_liveness,
+        timestamp=timestamp,
     )
-    _reviewer_mode_authority: ReviewerModeAuthorityState = (
-        resolve_reviewer_mode_authority(
-            reviewer_mode,
-            _text(bridge_liveness.get("effective_reviewer_mode")) or reviewer_mode,
-            evidence_refs=_reviewer_mode_evidence_refs,
-            observed_at_utc=timestamp,
+    # Typed contract boundary: reviewer_mode_selection must return the
+    # ReviewerModeSelection contract so downstream lanes cannot drift to a
+    # raw mapping shape.
+    if not isinstance(reviewer_mode, ReviewerModeSelection):
+        raise TypeError(
+            "reviewer_mode_selection must return ReviewerModeSelection contract"
         )
-    )
-    effective_mode = _reviewer_mode_authority.effective_mode.value
+    effective_mode = reviewer_mode.effective_mode
     participants = _build_participants(
         session_records,
         remote_attachments=remote_attachments,
@@ -125,30 +114,18 @@ def build_collaboration_session(
     participants, role_assignments = promote_packet_active_implementer_presence(
         participants=participants,
         role_assignments=role_assignments,
+        reviewer_mode=effective_mode,
         session_output_root=session_output_root,
         utcnow=_utcnow,
         provider_packet_activity_is_fresh=_provider_packet_activity_is_fresh,
     )
     delegated_work = _build_delegated_work(session_records)
-    peer_review = CollaborationPeerReviewState(
-        current_instruction=current_session.current_instruction,
-        current_instruction_revision=current_session.current_instruction_revision,
-        open_findings=current_session.open_findings,
-        implementer_status=current_session.implementer_status,
-        implementer_ack=current_session.implementer_ack,
-        implementer_ack_state=current_session.implementer_ack_state,
-        implementer_state_hash=current_session.implementer_state_hash,
-        last_reviewed_scope=current_session.last_reviewed_scope,
-    )
-    current_slice = (
-        current_session.current_instruction or current_session.last_reviewed_scope
-    )
     ownership = build_collaboration_ownership(
         repo_root=repo_root,
         current_session=current_session,
         participants=participants,
         delegated_work=delegated_work,
-        reviewer_mode=reviewer_mode,
+        reviewer_mode=reviewer_mode.reviewer_mode,
         effective_mode=effective_mode,
     )
     (
@@ -176,17 +153,17 @@ def build_collaboration_session(
         ),
         reviewer_mode=effective_mode,
         operator_mode=_operator_mode(attention),
-        lead_agent=_agent_for_role(role_assignments, "lead_agent"),
-        review_agent=_agent_for_role(role_assignments, "review_agent"),
-        coding_agent=_agent_for_role(role_assignments, "coding_agent"),
-        current_slice=current_slice,
-        peer_review=peer_review,
+        lead_agent="",
+        review_agent="",
+        coding_agent="",
+        current_slice=current_slice_for_session(current_session),
+        peer_review=peer_review_state(current_session),
         arbitration=_build_arbitration(attention),
         restart=_build_restart_state(
             participants=participants,
             delegated_work=delegated_work,
             bridge_liveness=bridge_liveness,
-            reviewer_mode=reviewer_mode,
+            reviewer_mode=reviewer_mode.reviewer_mode,
             effective_mode=effective_mode,
             current_session=current_session,
         ),
@@ -278,7 +255,10 @@ def _collaboration_owner_fields(
 ) -> tuple[object, ...]:
     mutation_owner = _remote_control_mutation_owner(
         participants=participants,
-    ) or _agent_for_role(role_assignments, "coding_agent")
+    ) or _agent_for_role_capability(
+        role_assignments,
+        {"implementation", "mutation"},
+    )
     verification_owner = _verification_owner(
         role_assignments=role_assignments,
         mutation_owner=mutation_owner,
@@ -287,7 +267,7 @@ def _collaboration_owner_fields(
         agent_id=verification_owner,
         participants=participants,
         role_assignments=role_assignments,
-        preferred_role_ids=("review_agent", "operator_agent"),
+        preferred_role_ids=(),
     )
     watcher_owner = _watcher_owner(
         participants=participants,
@@ -335,6 +315,20 @@ def _remote_control_mutation_owner(*, participants: object) -> str:
             _text(getattr(participant, "agent_id", ""))
             or _text(getattr(participant, "provider", ""))
         )
+    return ""
+
+
+def _agent_for_role_capability(
+    role_assignments: object,
+    capability_classes: set[str],
+) -> str:
+    for assignment in role_assignments:
+        agent_id = _text(getattr(assignment, "agent_id", ""))
+        if not agent_id:
+            continue
+        role_id = _text(getattr(assignment, "role_id", ""))
+        if set(role_capability_classes(role_id)) & capability_classes:
+            return agent_id
     return ""
 
 

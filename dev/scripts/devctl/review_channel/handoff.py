@@ -24,7 +24,7 @@ from pathlib import Path
 
 from ..common import display_path
 from ..markdown_sections import parse_markdown_sections as extract_bridge_sections
-from ..runtime.role_profile import role_for_provider
+from ..runtime.role_profile import normalize_role_id
 from ..time_utils import utc_timestamp
 from .ack_contract import extract_implementer_ack_revision
 from .bridge_heading_aliases import bridge_section_text
@@ -413,11 +413,22 @@ def build_handoff_resume_state(
                 ),
                 "required_section": expected_rollover_ack_section(provider=provider),
                 "observed": False,
-                "role": str(role_for_provider(provider)),
+                "role": _launch_ack_role(provider, lane_assignments or []),
             }
             for provider in ROLLOVER_ACK_PREFIX
         },
     }
+
+
+def _launch_ack_role(provider: str, lane_assignments: list[dict[str, str]]) -> str:
+    normalized_provider = str(provider or "").strip().lower()
+    for lane in lane_assignments:
+        if str(lane.get("provider") or "").strip().lower() != normalized_provider:
+            continue
+        role = normalize_role_id(lane.get("role"))
+        if role:
+            return role
+    return "unbound"
 
 
 def expected_rollover_ack_line(*, provider: str, rollover_id: str) -> str:

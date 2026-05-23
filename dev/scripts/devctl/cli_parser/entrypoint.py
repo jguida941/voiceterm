@@ -34,6 +34,7 @@ from ..commands import (
     discover,
     docs_check,
     failure_cleanup,
+    ground_truth_probe,
     guard_run,
     homebrew,
     integrations_import,
@@ -53,6 +54,7 @@ from ..commands import (
     path_audit,
     path_rewrite,
     phone_status,
+    plan_execution_projection,
     probe_report,
     process_audit,
     process_cleanup,
@@ -104,6 +106,7 @@ from ..commands.governance import (
     startup_context as governance_startup_context,
 )
 from ..commands.runtime import agent_supervise
+from ..commands.runtime import peer_spawn as peer_spawn_command
 from ..commands.reporting import claude_loop, dogfood, findings_priority, progress_status
 from ..commands.vcs import commit as vcs_commit, push
 from ..config import (
@@ -168,6 +171,7 @@ from .artifact_suppression import (
 )
 from .artifact_suppression import read_only_command_suppresses_artifact_writes
 from .agent_supervise import add_agent_supervise_parser
+from .peer_spawn import add_peer_spawn_parser, add_peer_terminate_parser
 from .builders import add_standard_parsers
 from .exceptions import add_exceptions_parser
 from .python_tests import add_parser as add_python_tests_parser
@@ -197,6 +201,8 @@ READ_ONLY_COMMANDS: frozenset[str] = frozenset({
     "claude-loop",
     "agent-loop",
     "agent-supervise",
+    "peer-spawn",
+    "peer-terminate",
     "discover",
     "findings-priority",
     "graph-walk",
@@ -204,6 +210,10 @@ READ_ONLY_COMMANDS: frozenset[str] = frozenset({
     "list",
     "rollout-tail",
     "progress-status",
+    "render-current-row-projection",
+    "current-row-proof-step",
+    "current-row-proof-dogfood",
+    "current-row-proof-receipt",
 })
 
 
@@ -277,12 +287,16 @@ def build_parser() -> argparse.ArgumentParser:
     _add_dashboard_parser(sub)
     add_agent_loop_parser(sub)
     add_agent_supervise_parser(sub)
+    add_peer_spawn_parser(sub)
+    add_peer_terminate_parser(sub)
     add_claude_loop_parser(sub)
     dogfood.add_parser(sub)
     monitor.add_parser(sub)
     auto_mode_status.add_parser(sub)
     discover.add_parser(sub)
     view.add_parser(sub)
+    ground_truth_probe.add_parser(sub)
+    plan_execution_projection.add_parser(sub)
     return parser
 
 
@@ -342,6 +356,8 @@ COMMAND_HANDLERS = {
     "check-router": check_router.run,
     "agent-loop": claude_loop.run,
     "agent-supervise": agent_supervise.run,
+    "peer-spawn": peer_spawn_command.run_peer_spawn,
+    "peer-terminate": peer_spawn_command.run_peer_terminate,
     "bypass": bypass.run,
     "claude-loop": claude_loop.run,
     "dashboard": dashboard.run,
@@ -372,6 +388,10 @@ COMMAND_HANDLERS = {
     "report": report.run,
     "findings-priority": findings_priority.run,
     "progress-status": progress_status.run,
+    "render-current-row-projection": plan_execution_projection.run,
+    "current-row-proof-step": plan_execution_projection.run,
+    "current-row-proof-dogfood": plan_execution_projection.run,
+    "current-row-proof-receipt": plan_execution_projection.run,
     "triage": triage.run,
     "data-science": data_science.run,
     "develop": development.run,
@@ -436,6 +456,7 @@ COMMAND_HANDLERS = {
     "install-git-hooks": governance_install_git_hooks.run,
     "discover": discover.run,
     "view": view.run,
+    "ground-truth-probe": ground_truth_probe.run,
 }
 
 

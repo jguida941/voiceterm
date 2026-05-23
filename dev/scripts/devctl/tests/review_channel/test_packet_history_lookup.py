@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -452,6 +453,193 @@ def test_show_observation_uses_actor_route_not_packet_target_route(tmp_path) -> 
     assert report["control_decision_obedience"]["ok"] is True
 
 
+def test_show_blocks_packet_body_when_actor_route_mismatches_packet_route(
+    tmp_path,
+) -> None:
+    review_channel_path, artifact_paths = _seed_packet_event_state(
+        tmp_path,
+        target_role="implementer",
+        target_session_id="claude-implementer-session",
+    )
+    _write_latest_control_decision(
+        tmp_path,
+        packet_id="rev_pkt_100",
+        body_open_required=True,
+        actor_id="claude",
+        actor_role="dashboard",
+        session_id="claude-dashboard-session",
+    )
+    before = _event_count(artifact_paths)
+
+    report, exit_code = _run_event_action(
+        args=_show_args(
+            action="show",
+            actor="claude",
+            actor_role="dashboard",
+            session_id="claude-dashboard-session",
+            target_role="dashboard",
+            target_session_id="claude-dashboard-session",
+        ),
+        repo_root=tmp_path,
+        paths={
+            "review_channel_path": review_channel_path,
+            "artifact_paths": artifact_paths,
+        },
+    )
+
+    assert exit_code == 1
+    assert "packet_route_scope_mismatch" in report["errors"]
+    assert report["packet"] is None
+    assert report["packets"] == []
+    assert "Codex must open this body before continuing." not in json.dumps(report)
+    assert _event_count(artifact_paths) == before
+
+
+def test_ingest_blocks_when_actor_route_mismatches_packet_route(tmp_path) -> None:
+    review_channel_path, artifact_paths = _seed_packet_event_state(
+        tmp_path,
+        target_role="implementer",
+        target_session_id="claude-implementer-session",
+    )
+    _write_latest_control_decision(
+        tmp_path,
+        packet_id="rev_pkt_100",
+        body_open_required=True,
+        actor_id="claude",
+        actor_role="implementer",
+        session_id="claude-implementer-session",
+    )
+    _run_event_action(
+        args=_show_args(
+            action="show",
+            actor="claude",
+            actor_role="implementer",
+            session_id="claude-implementer-session",
+            target_role="implementer",
+            target_session_id="claude-implementer-session",
+        ),
+        repo_root=tmp_path,
+        paths={
+            "review_channel_path": review_channel_path,
+            "artifact_paths": artifact_paths,
+        },
+    )
+    _write_latest_control_decision(
+        tmp_path,
+        packet_id="rev_pkt_100",
+        semantic_ingestion_required=True,
+        actor_id="claude",
+        actor_role="dashboard",
+        session_id="claude-dashboard-session",
+    )
+    before = _event_count(artifact_paths)
+
+    report, exit_code = _run_event_action(
+        args=_show_args(
+            action="ingest",
+            actor="claude",
+            actor_role="dashboard",
+            session_id="claude-dashboard-session",
+            semantic_action_item=[_semantic_action_item_json("rev_pkt_100")],
+            target_role="dashboard",
+            target_session_id="claude-dashboard-session",
+        ),
+        repo_root=tmp_path,
+        paths={
+            "review_channel_path": review_channel_path,
+            "artifact_paths": artifact_paths,
+        },
+    )
+
+    assert exit_code == 1
+    assert "packet_route_scope_mismatch" in report["errors"]
+    assert _event_count(artifact_paths) == before
+
+
+def test_absorb_blocks_when_actor_route_mismatches_packet_route(tmp_path) -> None:
+    review_channel_path, artifact_paths = _seed_packet_event_state(
+        tmp_path,
+        target_role="implementer",
+        target_session_id="claude-implementer-session",
+    )
+    _write_latest_control_decision(
+        tmp_path,
+        packet_id="rev_pkt_100",
+        body_open_required=True,
+        actor_id="claude",
+        actor_role="implementer",
+        session_id="claude-implementer-session",
+    )
+    _run_event_action(
+        args=_show_args(
+            action="show",
+            actor="claude",
+            actor_role="implementer",
+            session_id="claude-implementer-session",
+            target_role="implementer",
+            target_session_id="claude-implementer-session",
+        ),
+        repo_root=tmp_path,
+        paths={
+            "review_channel_path": review_channel_path,
+            "artifact_paths": artifact_paths,
+        },
+    )
+    _write_latest_control_decision(
+        tmp_path,
+        packet_id="rev_pkt_100",
+        semantic_ingestion_required=True,
+        actor_id="claude",
+        actor_role="implementer",
+        session_id="claude-implementer-session",
+    )
+    _run_event_action(
+        args=_show_args(
+            action="ingest",
+            actor="claude",
+            actor_role="implementer",
+            session_id="claude-implementer-session",
+            semantic_action_item=[_semantic_action_item_json("rev_pkt_100")],
+            target_role="implementer",
+            target_session_id="claude-implementer-session",
+        ),
+        repo_root=tmp_path,
+        paths={
+            "review_channel_path": review_channel_path,
+            "artifact_paths": artifact_paths,
+        },
+    )
+    _write_latest_control_decision(
+        tmp_path,
+        packet_id="rev_pkt_100",
+        absorption_required=True,
+        actor_id="claude",
+        actor_role="dashboard",
+        session_id="claude-dashboard-session",
+    )
+    before = _event_count(artifact_paths)
+
+    report, exit_code = _run_event_action(
+        args=_show_args(
+            action="absorb",
+            actor="claude",
+            actor_role="dashboard",
+            session_id="claude-dashboard-session",
+            target_role="dashboard",
+            target_session_id="claude-dashboard-session",
+        ),
+        repo_root=tmp_path,
+        paths={
+            "review_channel_path": review_channel_path,
+            "artifact_paths": artifact_paths,
+        },
+    )
+
+    assert exit_code == 1
+    assert "packet_route_scope_mismatch" in report["errors"]
+    assert _event_count(artifact_paths) == before
+
+
 def test_show_blocks_before_body_disclosure_without_control_decision(tmp_path) -> None:
     review_channel_path, artifact_paths = _seed_packet_event_state(tmp_path)
     before = _event_count(artifact_paths)
@@ -745,6 +933,183 @@ def test_allowed_action_request_post_appends_attempted_action_receipt(tmp_path) 
     assert _event_count(artifact_paths) == before + 3
 
 
+def test_non_runtime_implementer_handoff_action_request_passes_with_typed_route(
+    tmp_path,
+) -> None:
+    review_channel_path, artifact_paths = _seed_packet_event_state(tmp_path)
+    _write_agent_mind(tmp_path, agent="codex", session_id="session-a")
+    _write_latest_control_decision(
+        tmp_path,
+        packet_id="rev_pkt_100",
+        allowed_actions=["review-channel.post_action_request"],
+    )
+    before = _event_count(artifact_paths)
+    args = _post_args(
+        kind="action_request",
+        summary="Typed implementer handoff",
+        body="Implement the role-lane guard under the current plan row.",
+        requested_action="implementer_handoff",
+        target_kind="plan",
+        target_ref="MP-GUARDIR-V4-PHASE-0-6-E-CURRENT-PLAN-AUTHORITY-S1",
+        target_role="implementer",
+        target_session_id="claude-implementer-session",
+        from_agent="codex",
+        to_agent="claude",
+    )
+
+    report, exit_code = _run_event_action(
+        args=args,
+        repo_root=tmp_path,
+        paths={
+            "review_channel_path": review_channel_path,
+            "artifact_paths": artifact_paths,
+        },
+    )
+
+    assert exit_code == 0
+    assert report["event"]["event_type"] == "packet_posted"
+    assert report["packet"]["kind"] == "action_request"
+    assert report["packet"]["requested_action"] == "implementer_handoff"
+    assert report["packet"]["target_kind"] == "plan"
+    assert report["packet"]["target_ref"] == (
+        "MP-GUARDIR-V4-PHASE-0-6-E-CURRENT-PLAN-AUTHORITY-S1"
+    )
+    assert report["packet"]["target_role"] == "implementer"
+    assert report["packet"]["target_session_id"] == "claude-implementer-session"
+    assert report["control_decision_obedience"]["ok"] is True
+    assert _event_count(artifact_paths) == before + 2
+
+
+def test_non_runtime_implementer_handoff_is_provider_neutral_claude_to_codex(
+    tmp_path,
+) -> None:
+    review_channel_path, artifact_paths = _seed_packet_event_state(tmp_path)
+    _write_agent_mind(tmp_path, agent="claude", session_id="claude-review-session")
+    _write_latest_control_decision(
+        tmp_path,
+        packet_id="rev_pkt_100",
+        actor_id="claude",
+        actor_role="reviewer",
+        session_id="claude-review-session",
+        allowed_actions=["review-channel.post_action_request"],
+    )
+    before = _event_count(artifact_paths)
+    args = _post_args(
+        actor="claude",
+        actor_role="reviewer",
+        session_id="claude-review-session",
+        kind="action_request",
+        summary="Typed implementer handoff",
+        body="Implement the role-lane guard under the current plan row.",
+        requested_action="implementer_handoff",
+        target_kind="plan",
+        target_ref="MP-GUARDIR-V4-PHASE-0-6-E-CURRENT-PLAN-AUTHORITY-S1",
+        target_role="implementer",
+        from_agent="claude",
+        to_agent="codex",
+    )
+
+    report, exit_code = _run_event_action(
+        args=args,
+        repo_root=tmp_path,
+        paths={
+            "review_channel_path": review_channel_path,
+            "artifact_paths": artifact_paths,
+        },
+    )
+
+    assert exit_code == 0
+    assert report["event"]["event_type"] == "packet_posted"
+    assert report["packet"]["from_agent"] == "claude"
+    assert report["packet"]["to_agent"] == "codex"
+    assert report["packet"]["actor_role"] == "reviewer"
+    assert report["packet"]["target_role"] == "implementer"
+    assert report["control_decision_obedience"]["ok"] is True
+    assert _event_count(artifact_paths) == before + 2
+
+
+def test_non_runtime_implementer_handoff_rejects_implementer_source_role(
+    tmp_path,
+) -> None:
+    review_channel_path, artifact_paths = _seed_packet_event_state(tmp_path)
+    _write_agent_mind(tmp_path, agent="codex", session_id="codex-implementer-session")
+    _write_latest_control_decision(
+        tmp_path,
+        packet_id="rev_pkt_100",
+        actor_id="codex",
+        actor_role="implementer",
+        session_id="codex-implementer-session",
+        allowed_actions=["review-channel.post_action_request"],
+    )
+    before = _event_count(artifact_paths)
+    args = _post_args(
+        actor="codex",
+        actor_role="implementer",
+        session_id="codex-implementer-session",
+        kind="action_request",
+        summary="Typed implementer handoff",
+        body="Implementer role cannot self-route implementer handoff.",
+        requested_action="implementer_handoff",
+        target_kind="plan",
+        target_ref="MP-GUARDIR-V4-PHASE-0-6-E-CURRENT-PLAN-AUTHORITY-S1",
+        target_role="implementer",
+        from_agent="codex",
+        to_agent="claude",
+    )
+
+    report, exit_code = _run_event_action(
+        args=args,
+        repo_root=tmp_path,
+        paths={
+            "review_channel_path": review_channel_path,
+            "artifact_paths": artifact_paths,
+        },
+    )
+
+    assert exit_code == 1
+    assert "control_decision_obedience_failed" in report["errors"]
+    assert report["control_decision_obedience"]["ok"] is False
+    assert _event_count(artifact_paths) == before
+
+
+def test_non_runtime_implementer_handoff_without_allowed_action_blocks(
+    tmp_path,
+) -> None:
+    review_channel_path, artifact_paths = _seed_packet_event_state(tmp_path)
+    _write_latest_control_decision(
+        tmp_path,
+        packet_id="rev_pkt_100",
+        allowed_actions=["review-channel.post_finding"],
+    )
+    before = _event_count(artifact_paths)
+    args = _post_args(
+        kind="action_request",
+        summary="Typed implementer handoff",
+        body="Implement the role-lane guard under the current plan row.",
+        requested_action="implementer_handoff",
+        target_kind="plan",
+        target_ref="MP-GUARDIR-V4-PHASE-0-6-E-CURRENT-PLAN-AUTHORITY-S1",
+        target_role="implementer",
+        target_session_id="claude-implementer-session",
+        from_agent="codex",
+        to_agent="claude",
+    )
+
+    report, exit_code = _run_event_action(
+        args=args,
+        repo_root=tmp_path,
+        paths={
+            "review_channel_path": review_channel_path,
+            "artifact_paths": artifact_paths,
+        },
+    )
+
+    assert exit_code == 1
+    assert "control_decision_obedience_failed" in report["errors"]
+    assert report["control_decision_obedience"]["ok"] is False
+    assert _event_count(artifact_paths) == before
+
+
 def test_allowed_task_progress_post_appends_attempted_action_receipt(tmp_path) -> None:
     review_channel_path, artifact_paths = _seed_packet_event_state(tmp_path)
     _write_latest_control_decision(
@@ -834,6 +1199,317 @@ def test_remote_lane_task_progress_accepts_explicit_control_decision(tmp_path) -
     assert attempted["session_id"] == "codex-review-session"
     assert attempted["argv"][attempted["argv"].index("--target-role") + 1] == (
         "implementer"
+    )
+    assert _event_count(artifact_paths) == before + 2
+
+
+def test_claude_task_progress_can_reply_to_continuation_anchor_without_post_decision(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    _isolate_runtime_session_roots(monkeypatch, tmp_path)
+    review_channel_path = tmp_path / "review_channel.md"
+    review_channel_path.write_text("", encoding="utf-8")
+    artifact_root = tmp_path / "dev/reports/review_channel"
+    event_log_path = artifact_root / "events" / "trace.ndjson"
+    artifact_paths = ReviewChannelArtifactPaths(
+        artifact_root=str(artifact_root),
+        event_log_path=str(event_log_path),
+        state_path=str(artifact_root / "state/latest.json"),
+        projections_root=str(artifact_root / "projections/latest"),
+    )
+    _write_agent_mind(tmp_path, agent="codex", session_id="codex-session")
+    _write_agent_mind(tmp_path, agent="claude", session_id="claude-session")
+    append_event(
+        event_log_path,
+        {
+            "event_type": "packet_posted",
+            "timestamp_utc": "2026-05-22T16:14:48Z",
+            "project_id": "test-project",
+            "session_id": "codex-session",
+            "trace_id": "trace-test",
+            "plan_id": "MP-355",
+            "packet_id": "rev_pkt_4829",
+            "from_agent": "codex",
+            "to_agent": "claude",
+            "kind": "continuation_anchor",
+            "summary": "Communication route proof",
+            "body": "Claude should reply with task_progress.",
+            "status": "pending",
+            "target_kind": "plan",
+            "target_ref": "plan:MP-GUARDIR-V4-PHASE-0-6-E-CURRENT-PLAN-AUTHORITY-S1",
+            "target_role": "implementer",
+            "target_session_id": "claude-session",
+            "expires_at_utc": "2999-01-01T00:00:00Z",
+        },
+        existing_events=[],
+    )
+    before = _event_count(artifact_paths)
+    args = _post_args(
+        actor="claude",
+        actor_role="implementer",
+        session_id="claude-session",
+        from_agent="claude",
+        to_agent="codex",
+        kind="task_progress",
+        summary="Communication route proof received",
+        body="Claude received rev_pkt_4829 and is replying from the implementer session.",
+        target_kind="plan",
+        target_ref="plan:MP-GUARDIR-V4-PHASE-0-6-E-CURRENT-PLAN-AUTHORITY-S1",
+        target_role="reviewer",
+        target_session_id="codex-session",
+        evidence_ref=["packet:rev_pkt_4829"],
+        parent_packet_id="rev_pkt_4829",
+    )
+
+    report, exit_code = _run_event_action(
+        args=args,
+        repo_root=tmp_path,
+        paths={
+            "review_channel_path": review_channel_path,
+            "artifact_paths": artifact_paths,
+        },
+    )
+
+    assert exit_code == 0, (
+        report.get("errors"),
+        report.get("control_decision_obedience"),
+    )
+    assert report["event"]["event_type"] == "packet_posted"
+    assert report["packet"]["kind"] == "task_progress"
+    assert report["packet"]["from_agent"] == "claude"
+    assert report["packet"]["to_agent"] == "codex"
+    assert report["control_decision_obedience"]["ok"] is True
+    assert report["control_decision_obedience"]["cascade_lifecycle_post_authority"] is True
+    assert _event_count(artifact_paths) == before + 2
+
+
+def test_claude_task_progress_can_reply_to_action_request_without_post_decision(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    _isolate_runtime_session_roots(monkeypatch, tmp_path)
+    review_channel_path = tmp_path / "review_channel.md"
+    review_channel_path.write_text("", encoding="utf-8")
+    artifact_root = tmp_path / "dev/reports/review_channel"
+    event_log_path = artifact_root / "events" / "trace.ndjson"
+    artifact_paths = ReviewChannelArtifactPaths(
+        artifact_root=str(artifact_root),
+        event_log_path=str(event_log_path),
+        state_path=str(artifact_root / "state/latest.json"),
+        projections_root=str(artifact_root / "projections/latest"),
+    )
+    _write_agent_mind(tmp_path, agent="codex", session_id="codex-session")
+    _write_agent_mind(tmp_path, agent="claude", session_id="claude-session")
+    append_event(
+        event_log_path,
+        {
+            "event_type": "packet_posted",
+            "timestamp_utc": "2026-05-22T19:06:23Z",
+            "project_id": "test-project",
+            "session_id": "codex-session",
+            "trace_id": "trace-test",
+            "plan_id": "MP-355",
+            "packet_id": "rev_pkt_4841",
+            "from_agent": "codex",
+            "to_agent": "claude",
+            "kind": "action_request",
+            "requested_action": "implementer_handoff",
+            "summary": "G23 action request",
+            "body": "Claude should reply with task_progress.",
+            "status": "pending",
+            "target_kind": "plan",
+            "target_ref": "plan:MP-GUARDIR-V4-PHASE-0-6-E-CURRENT-PLAN-AUTHORITY-S1",
+            "target_role": "implementer",
+            "target_session_id": "claude-session",
+            "expires_at_utc": "2999-01-01T00:00:00Z",
+        },
+        existing_events=[],
+    )
+    before = _event_count(artifact_paths)
+    args = _post_args(
+        actor="claude",
+        actor_role="implementer",
+        session_id="claude-session",
+        from_agent="claude",
+        to_agent="codex",
+        kind="task_progress",
+        summary="G23 action request received",
+        body="Claude received rev_pkt_4841 and is replying from the implementer session.",
+        target_kind="plan",
+        target_ref="plan:MP-GUARDIR-V4-PHASE-0-6-E-CURRENT-PLAN-AUTHORITY-S1",
+        target_role="reviewer",
+        target_session_id="codex-session",
+        evidence_ref=["packet:rev_pkt_4841"],
+        parent_packet_id="rev_pkt_4841",
+    )
+
+    report, exit_code = _run_event_action(
+        args=args,
+        repo_root=tmp_path,
+        paths={
+            "review_channel_path": review_channel_path,
+            "artifact_paths": artifact_paths,
+        },
+    )
+
+    assert exit_code == 0, (
+        report.get("errors"),
+        report.get("control_decision_obedience"),
+    )
+    assert report["event"]["event_type"] == "packet_posted"
+    assert report["packet"]["kind"] == "task_progress"
+    assert report["packet"]["from_agent"] == "claude"
+    assert report["packet"]["to_agent"] == "codex"
+    assert report["control_decision_obedience"]["ok"] is True
+    assert report["control_decision_obedience"]["cascade_lifecycle_post_authority"] is True
+    assert _event_count(artifact_paths) == before + 2
+
+
+def test_scoped_body_open_can_observe_newer_packet_during_prior_ingestion_gate(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    _isolate_runtime_session_roots(monkeypatch, tmp_path)
+    review_channel_path, artifact_paths = _seed_packet_event_state(
+        tmp_path,
+        target_role="implementer",
+        target_session_id="claude-session",
+        target_ref="plan:MP-GUARDIR-V4-PHASE-0-6-E-CURRENT-PLAN-AUTHORITY-S1",
+    )
+    event_log_path = Path(artifact_paths.event_log_path)
+    append_event(
+        event_log_path,
+        {
+            "event_type": "packet_posted",
+            "timestamp_utc": "2026-05-22T19:19:56Z",
+            "project_id": "test-project",
+            "session_id": "codex-session",
+            "trace_id": "trace-test-newer",
+            "plan_id": "MP-355",
+            "packet_id": "rev_pkt_4844",
+            "from_agent": "codex",
+            "to_agent": "claude",
+            "kind": "action_request",
+            "requested_action": "implementer_handoff",
+            "summary": "G23 correction",
+            "body": "Claude must be able to open this newer scoped packet.",
+            "status": "pending",
+            "target_kind": "plan",
+            "target_ref": "plan:MP-GUARDIR-V4-PHASE-0-6-E-CURRENT-PLAN-AUTHORITY-S1",
+            "target_role": "implementer",
+            "target_session_id": "claude-session",
+            "expires_at_utc": "2999-01-01T00:00:00Z",
+        },
+        existing_events=[],
+    )
+    _write_latest_control_decision(
+        tmp_path,
+        packet_id="rev_pkt_100",
+        semantic_ingestion_required=True,
+        actor_id="claude",
+        actor_role="implementer",
+        session_id="claude-session",
+        allowed_actions=["review-channel.ingest"],
+    )
+    before = _event_count(artifact_paths)
+    args = _show_args(
+        packet_id="rev_pkt_4844",
+        actor="claude",
+        actor_role="implementer",
+        session_id="claude-session",
+        target_role="implementer",
+        target_session_id="claude-session",
+    )
+
+    report, exit_code = _run_event_action(
+        args=args,
+        repo_root=tmp_path,
+        paths={
+            "review_channel_path": review_channel_path,
+            "artifact_paths": artifact_paths,
+        },
+    )
+
+    assert exit_code == 0, (
+        report.get("errors"),
+        report.get("control_decision_obedience"),
+    )
+    assert report["event"]["event_type"] == PACKET_BODY_OBSERVATION_EVENT_TYPE
+    assert report["event"]["packet_id"] == "rev_pkt_4844"
+    assert report["event"]["body_observed_by"] == "claude"
+    assert report["control_decision_obedience"]["ok"] is True
+    assert (
+        report["control_decision_obedience"]["scoped_packet_body_open_authority"]
+        is True
+    )
+    assert _event_count(artifact_paths) == before + 1
+
+
+def test_live_agent_post_stamps_agent_mind_session_before_control_gate(tmp_path) -> None:
+    """Current-row communication proof: fallback post sessions must resolve to
+    the live AgentMind session before ControlDecisionObeyedGuard runs.
+    """
+    review_channel_path, artifact_paths = _seed_packet_event_state(tmp_path)
+    live_session_id = "codex-live-session"
+    agent_mind_path = tmp_path / "dev/reports/agent_minds/codex_latest.json"
+    agent_mind_path.parent.mkdir(parents=True, exist_ok=True)
+    agent_mind_path.write_text(
+        json.dumps(
+            {
+                "contract_id": "AgentMindSlice",
+                "agent_provider": "codex",
+                "session_id": live_session_id,
+                "last_cursor": "2026-05-22T15:58:00Z",
+            }
+        ),
+        encoding="utf-8",
+    )
+    _write_latest_control_decision(
+        tmp_path,
+        actor_id="codex",
+        actor_role="reviewer",
+        session_id=live_session_id,
+        allowed_actions=["review-channel.post_continuation_anchor"],
+        packet_id="rev_pkt_100",
+    )
+    before = _event_count(artifact_paths)
+    args = _post_args(
+        kind="continuation_anchor",
+        summary="Keep current-row communication alive",
+        body="Continue until Codex and Claude can exchange typed packets.",
+        actor="codex",
+        actor_role="reviewer",
+        session_id="local-review",
+        from_agent="codex",
+        to_agent="claude",
+        target_kind="plan",
+        target_ref="plan:MP-GUARDIR-V4-PHASE-0-6-E-CURRENT-PLAN-AUTHORITY-S1",
+        target_role="implementer",
+        anchor_scope="plan",
+        expires_in_minutes=480,
+    )
+
+    report, exit_code = _run_event_action(
+        args=args,
+        repo_root=tmp_path,
+        paths={
+            "review_channel_path": review_channel_path,
+            "artifact_paths": artifact_paths,
+        },
+    )
+
+    assert exit_code == 0
+    assert report["packet"]["kind"] == "continuation_anchor"
+    assert report["packet"]["from_agent"] == "codex"
+    assert report["packet"]["to_agent"] == "claude"
+    assert report["event"]["session_id"] == live_session_id
+    gate = report["control_decision_obedience"]
+    assert gate["ok"] is True
+    attempted = gate["attempted_action_receipt"]
+    assert attempted["session_id"] == live_session_id
+    assert attempted["argv"][attempted["argv"].index("--session-id") + 1] == (
+        live_session_id
     )
     assert _event_count(artifact_paths) == before + 2
 
@@ -1302,6 +1978,87 @@ def test_absorb_blocks_plan_affecting_rows_without_plan_evidence(tmp_path) -> No
     assert _event_count(artifact_paths) == before
 
 
+def test_absorb_accepts_inserted_packet_plan_binding_as_plan_evidence(tmp_path) -> None:
+    review_channel_path, artifact_paths = _seed_packet_event_state(
+        tmp_path,
+        target_ref="plan:MP-TEST",
+    )
+    append_event(
+        Path(artifact_paths.event_log_path),
+        {
+            "event_type": "packet_creation_binding_recorded",
+            "timestamp_utc": "2026-05-11T01:00:01Z",
+            "packet_id": "rev_pkt_100",
+            "packet_creation_binding": {
+                "status": "inserted",
+                "binding_target_kind": "plan_row_evidence",
+            },
+        },
+        existing_events=[],
+    )
+    _write_latest_control_decision(
+        tmp_path,
+        packet_id="rev_pkt_100",
+        body_open_required=True,
+    )
+    _run_event_action(
+        args=_show_args(action="show", actor="codex"),
+        repo_root=tmp_path,
+        paths={
+            "review_channel_path": review_channel_path,
+            "artifact_paths": artifact_paths,
+        },
+    )
+    _write_latest_control_decision(
+        tmp_path,
+        packet_id="rev_pkt_100",
+        semantic_ingestion_required=True,
+    )
+    _run_event_action(
+        args=_show_args(
+            action="ingest",
+            actor="codex",
+            semantic_action_item=[
+                json.dumps(
+                    {
+                        "action_item_id": "rev_pkt_100:plan",
+                        "kind": "task_progress",
+                        "disposition": "accepted",
+                        "target_ref": "plan://MP-TEST",
+                        "slice_ref": "plan://MP-TEST",
+                        "packet_ref": "packet:rev_pkt_100",
+                        "reason": "plan-bound collaboration progress",
+                        "evidence_refs": ["packet:rev_pkt_100#body_observed"],
+                    },
+                    sort_keys=True,
+                )
+            ],
+        ),
+        repo_root=tmp_path,
+        paths={
+            "review_channel_path": review_channel_path,
+            "artifact_paths": artifact_paths,
+        },
+    )
+    _write_latest_control_decision(
+        tmp_path,
+        packet_id="rev_pkt_100",
+        absorption_required=True,
+    )
+
+    report, exit_code = _run_event_action(
+        args=_show_args(action="absorb", actor="codex"),
+        repo_root=tmp_path,
+        paths={
+            "review_channel_path": review_channel_path,
+            "artifact_paths": artifact_paths,
+        },
+    )
+
+    assert exit_code == 0
+    assert report["event"]["event_type"] == PACKET_ABSORPTION_EVENT_TYPE
+
+
 def _show_args(**overrides: object) -> SimpleNamespace:
     args = {
         "action": "show",
@@ -1386,6 +2143,11 @@ def _post_args(**overrides: object) -> SimpleNamespace:
 
 def _seed_packet_event_state(
     tmp_path,
+    *,
+    target_ref: str = "",
+    target_role: str = "",
+    target_session_id: str = "",
+    anchor_scope: str = "",
 ) -> tuple[object, ReviewChannelArtifactPaths]:
     review_channel_path = tmp_path / "review_channel.md"
     review_channel_path.write_text("", encoding="utf-8")
@@ -1397,9 +2159,7 @@ def _seed_packet_event_state(
         state_path=str(tmp_path / "review_state.json"),
         projections_root=str(tmp_path / "projections"),
     )
-    append_event(
-        event_log_path,
-        {
+    packet_event = {
             "event_type": "packet_posted",
             "timestamp_utc": "2026-05-11T01:00:00Z",
             "project_id": "test-project",
@@ -1414,7 +2174,19 @@ def _seed_packet_event_state(
             "body": "Codex must open this body before continuing.",
             "status": "pending",
             "expires_at_utc": "2999-01-01T00:00:00Z",
-        },
+        }
+    if target_role:
+        packet_event["target_role"] = target_role
+    if target_session_id:
+        packet_event["target_session_id"] = target_session_id
+    if target_ref:
+        packet_event["target_kind"] = "plan"
+        packet_event["target_ref"] = target_ref
+    if anchor_scope:
+        packet_event["anchor_scope"] = anchor_scope
+    append_event(
+        event_log_path,
+        packet_event,
         existing_events=[],
     )
     return review_channel_path, artifact_paths
@@ -1533,6 +2305,41 @@ def _event_count(artifact_paths: ReviewChannelArtifactPaths) -> int:
             for line in open(path, encoding="utf-8").read().splitlines()
             if line.strip()
         ]
+    )
+
+
+def _isolate_runtime_session_roots(monkeypatch, tmp_path) -> None:
+    """Keep route-resolution tests independent from the operator's live sessions."""
+
+    from dev.scripts.devctl.review_channel import agent_work_board_projection
+
+    codex_root = tmp_path / "runtime_sessions/codex"
+    claude_root = tmp_path / "runtime_sessions/claude"
+    codex_root.mkdir(parents=True, exist_ok=True)
+    claude_root.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setattr(agent_work_board_projection, "CODEX_SESSIONS_ROOT", codex_root)
+    monkeypatch.setattr(
+        agent_work_board_projection,
+        "CLAUDE_PROJECTS_ROOT",
+        claude_root,
+    )
+
+
+def _write_agent_mind(tmp_path, *, agent: str, session_id: str) -> None:
+    projection_dir = tmp_path / "dev/reports/agent_minds"
+    projection_dir.mkdir(parents=True, exist_ok=True)
+    (projection_dir / f"{agent}_latest.json").write_text(
+        json.dumps(
+            {
+                "contract_id": "AgentMindSlice",
+                "schema_version": 1,
+                "agent_provider": agent,
+                "session_id": session_id,
+                "last_cursor": "2026-05-21T00:00:00Z",
+                "session_path": f"/fake/sessions/{agent}-{session_id}.jsonl",
+            }
+        ),
+        encoding="utf-8",
     )
 
 

@@ -5,10 +5,14 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 from ..runtime.review_state_models import CollaborationSessionState
+from ..runtime.role_profile import normalize_role_id, role_capability_classes
 
-_ROLE_FIELDS = {
-    "coding_agent": "coding_agent",
-    "review_agent": "review_agent",
+
+_DEPRECATED_ROLE_REPLACEMENTS = {
+    "lead_agent": "orchestrator",
+    "review_agent": "architecture_review",
+    "coding_agent": "implementation",
+    "operator_agent": "operator",
 }
 
 
@@ -21,7 +25,8 @@ def collaboration_provider(
     """Return the provider assigned to one collaboration role."""
     if collaboration is None:
         return default
-    direct_provider = _direct_role_provider(collaboration, role_id=role_id)
+    normalized_role_id = _normalize_role_id(role_id)
+    direct_provider = _direct_role_provider(collaboration, role_id=normalized_role_id)
     if direct_provider:
         return direct_provider
     assignments = (
@@ -36,7 +41,47 @@ def collaboration_provider(
         else:
             assignment_role_id = assignment.role_id
             provider = _normalized_provider(assignment.provider)
-        if assignment_role_id == role_id and provider:
+        if _normalize_role_id(assignment_role_id) == normalized_role_id and provider:
+            return provider
+    return default
+
+
+def collaboration_provider_for_capability(
+    collaboration: CollaborationSessionState | Mapping[str, object] | None,
+    *,
+    capability_classes: set[str],
+    default: str = "",
+) -> str:
+    """Return the first provider assigned to a role with the requested capability."""
+    if collaboration is None:
+        return default
+    assignments = (
+        collaboration.get("role_assignments")
+        if isinstance(collaboration, Mapping)
+        else getattr(collaboration, "role_assignments", ())
+    )
+    for assignment in assignments or ():
+        if isinstance(assignment, Mapping):
+            assignment_role_id = _normalize_role_id(assignment.get("role_id"))
+            provider = _normalized_provider(assignment.get("provider"))
+        else:
+            assignment_role_id = _normalize_role_id(assignment.role_id)
+            provider = _normalized_provider(assignment.provider)
+        if provider and set(role_capability_classes(assignment_role_id)) & capability_classes:
+            return provider
+    participants = (
+        collaboration.get("participants")
+        if isinstance(collaboration, Mapping)
+        else getattr(collaboration, "participants", ())
+    )
+    for participant in participants or ():
+        if isinstance(participant, Mapping):
+            role_id = _normalize_role_id(participant.get("role"))
+            provider = _normalized_provider(participant.get("provider"))
+        else:
+            role_id = _normalize_role_id(participant.role)
+            provider = _normalized_provider(participant.provider)
+        if provider and set(role_capability_classes(role_id)) & capability_classes:
             return provider
     return default
 
@@ -47,8 +92,8 @@ def coding_provider_from_review_state(
     """Return the coding-agent provider from one review-state payload."""
     return _role_provider_from_review_state(
         review_state,
-        role_id="coding_agent",
-        default="claude",
+        role_id="implementation",
+        default="",
     )
 
 
@@ -58,8 +103,8 @@ def reviewer_provider_from_review_state(
     """Return the reviewer provider from one review-state payload."""
     return _role_provider_from_review_state(
         review_state,
-        role_id="review_agent",
-        default="codex",
+        role_id="architecture_review",
+        default="",
     )
 
 
@@ -68,8 +113,8 @@ def coding_provider_from_report(report: Mapping[str, object]) -> str:
     collaboration = report.get("collaboration")
     provider = collaboration_provider(
         collaboration if isinstance(collaboration, Mapping) else None,
-        role_id="coding_agent",
-        default="claude",
+        role_id="implementation",
+        default="",
     )
     bridge_liveness = report.get("bridge_liveness")
     if isinstance(bridge_liveness, Mapping):
@@ -104,10 +149,15 @@ def _direct_role_provider(
     *,
     role_id: str,
 ) -> str:
-    field_name = _ROLE_FIELDS.get(role_id, role_id)
+    field_name = role_id
     if isinstance(collaboration, Mapping):
         return _normalized_provider(collaboration.get(field_name))
     return _normalized_provider(getattr(collaboration, field_name, ""))
+
+
+def _normalize_role_id(value: object) -> str:
+    role_id = normalize_role_id(value)
+    return _DEPRECATED_ROLE_REPLACEMENTS.get(role_id, role_id)
 
 
 def _normalized_provider(value: object) -> str:

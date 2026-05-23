@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Iterator, Mapping
+from dataclasses import dataclass
 
-from ..runtime.packet_transport_expiry import packet_transport_expired
+from ..runtime.packet_transport_expiry import (
+    DURABLE_INTENT_PACKET_KINDS,
+    packet_transport_expired,
+)
 from ..runtime.packet_absorption_resolution import absorption_resolves_packet_pressure
 from .pending_packet_approval_resolution import (
     approval_resolution_key,
@@ -24,9 +28,35 @@ _ACK_ABSORPTION_REQUIRED_KINDS = {
 }
 
 
+@dataclass(frozen=True, slots=True)
+class PendingPacketPartition:
+    """Structured live/stale split with tuple-unpacking compatibility."""
+
+    live: list[object]
+    stale: list[object]
+
+    @property
+    def expired(self) -> list[object]:
+        return self.stale
+
+    def __iter__(self) -> Iterator[list[object]]:
+        yield self.live
+        yield self.stale
+
+    def __getitem__(self, index: int) -> list[object]:
+        if index == 0:
+            return self.live
+        if index == 1:
+            return self.stale
+        raise IndexError(index)
+
+    def __len__(self) -> int:
+        return 2
+
+
 def partition_live_pending_packets(
     packets: Iterable[object],
-) -> tuple[list[object], list[object]]:
+) -> PendingPacketPartition:
     """Split packets into live pending work and stale/history rows.
 
     Only runtime-transport packets can become stale because a TTL elapsed.
@@ -57,11 +87,17 @@ def partition_live_pending_packets(
             and approval_resolution_key(packet) in resolved_approval_keys
         ):
             continue
-        if isinstance(packet, Mapping) and packet_transport_expired(packet):
+        if isinstance(packet, Mapping) and _packet_expired_for_live_queue(packet):
             stale_packets.append(packet)
             continue
         live_packets.append(packet)
-    return live_packets, stale_packets
+    return PendingPacketPartition(live=live_packets, stale=stale_packets)
+
+
+def _packet_expired_for_live_queue(packet: Mapping[str, object]) -> bool:
+    if str(packet.get("kind") or "").strip() in DURABLE_INTENT_PACKET_KINDS:
+        return False
+    return packet_transport_expired(packet)
 
 
 def _live_queue_status(packet: object) -> bool:

@@ -14,6 +14,8 @@ _POST_ACTION_BY_KIND = (
     ("task_progress", "review-channel.post_task_progress"),
     ("task_produced:artifact", "review-channel.post_evidence"),
     ("task_blocked", "review-channel.post_task_blocked"),
+    ("plan_gap_review", "review-channel.post_plan_gap_review"),
+    ("plan_patch_review", "review-channel.post_plan_patch_review"),
     ("review_accepted", "review-channel.post_review_accepted"),
     ("review_failed", "review-channel.post_review_failed"),
 )

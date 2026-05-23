@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from ..runtime.role_profile import role_for_provider
+from ..runtime.role_profile import normalize_role_id
 from .event_models import ReviewAgentRow, ReviewPacketRow
 
 _ROLE_JOB_STATE: dict[str, str] = {
@@ -38,8 +38,9 @@ def hydrate_provider_job_state(
     pending_counts: dict[str, int],
 ) -> None:
     for provider in provider_state:
-        role = role_for_provider(provider)
-        active_label = _ROLE_JOB_STATE.get(role.value, "waiting")
+        role_value = str(provider_state[provider].get("role") or "").strip()
+        role_value = role_value or "unbound"
+        active_label = _ROLE_JOB_STATE.get(role_value, "waiting")
         provider_state[provider].setdefault(
             "job_state",
             active_label if pending_counts.get(provider, 0) else "assigned",
@@ -76,7 +77,7 @@ def build_agent_rows(
         _agent_row(
             agent_id=agent_id,
             display_name=agent_id.title(),
-            role=str(role_for_provider(agent_id)),
+            role="unbound",
             pending=bool(agent_id in pending_targets),
             latest_packet=latest_packet_by_target[agent_id],
             latest_timestamp=latest_timestamp,
@@ -86,9 +87,14 @@ def build_agent_rows(
 
 
 def initial_provider_state(lanes: list | None) -> dict[str, dict[str, object]]:
-    providers = {str(lane.provider) for lane in (lanes or []) if getattr(lane, "provider", "")}
-    providers.update({"codex", "claude", "operator"})
-    return {provider: {} for provider in sorted(providers)}
+    state: dict[str, dict[str, object]] = {}
+    for lane in lanes or []:
+        provider = str(getattr(lane, "provider", "") or "").strip()
+        if not provider:
+            continue
+        role = normalize_role_id(getattr(lane, "role", ""))
+        state[provider] = {"role": role or "unbound"}
+    return {provider: state[provider] for provider in sorted(state)}
 
 
 def legacy_agent_ids(
@@ -105,22 +111,16 @@ def legacy_agent_ids(
             provider = str(packet.get(field) or "").strip()
             if is_runtime_provider(provider) and provider not in ordered:
                 ordered.append(provider)
-    for provider in ("codex", "claude", "operator"):
-        if provider not in ordered:
-            ordered.append(provider)
     return tuple(ordered)
 
 
 def is_runtime_provider(provider: str) -> bool:
-    return provider in {"codex", "claude", "cursor", "operator", "human"}
+    normalized = str(provider or "").strip().lower()
+    return bool(normalized) and normalized not in {"system", "runtime"}
 
 
 def _agent_capabilities(agent_id: str) -> list[str]:
-    if agent_id == "codex":
-        return ["review", "planning", "coordination"]
-    if agent_id == "operator":
-        return ["approval", "dispatch", "triage"]
-    return ["implementation", "fixes", "handoff"]
+    return ["typed-role-required"]
 
 
 def _agent_row(
@@ -132,7 +132,7 @@ def _agent_row(
     latest_packet: ReviewPacketRow | dict[str, object] | None,
     latest_timestamp: str,
 ) -> ReviewAgentRow:
-    role_label = str(role_for_provider(agent_id))
+    role_label = role or "unbound"
     active_label = _ROLE_JOB_STATE.get(role_label, "waiting")
     if pending:
         job_status = active_label

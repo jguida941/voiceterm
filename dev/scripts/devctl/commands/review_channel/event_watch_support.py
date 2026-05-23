@@ -63,6 +63,7 @@ def load_target_packets(
         target_session_id=_target_session_id(context.args),
         status=effective_status_filter,
         limit=context.args.limit,
+        include_stale=bool(getattr(context.args, "include_stale", False)),
     )
     if _mark_targeted_action_request_observation(
         args=context.args,

@@ -1,5 +1,17 @@
 {
   "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "timeout": 10,
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/dev/scripts/checks/check_role_lane_mutation_authority.py\" --mode pre_mutation --tool-input-stdin --live-state-path \"$CLAUDE_PROJECT_DIR/dev/reports/review_channel/state/latest.json\" --format md"
+          }
+        ]
+      }
+    ],
     "UserPromptExpansion": [
       {
         "matcher": "remote-control",

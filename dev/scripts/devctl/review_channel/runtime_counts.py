@@ -4,9 +4,20 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
+from ..runtime.role_profile import role_capability_classes
+from ..runtime.role_topology import resolve_role_topology
 from ..runtime.runtime_count_roles import (
     participant_role_provider_ids,
     provider_has_only_non_tandem_presence,
+)
+
+
+_REVIEW_CAPABILITY_CLASSES = frozenset(
+    {"review", "test", "architecture", "governance", "research", "intake"}
+)
+_IMPLEMENTATION_CAPABILITY_CLASSES = frozenset({"implementation", "mutation"})
+_ACTIVE_CONDUCTOR_CAPABILITY_CLASSES = (
+    _REVIEW_CAPABILITY_CLASSES | _IMPLEMENTATION_CAPABILITY_CLASSES
 )
 
 
@@ -108,15 +119,7 @@ def _active_conductor_count(
 
 
 def _bridge_live_role_totals(bridge: Mapping[str, object]) -> dict[str, int]:
-    codex_live = _coalesce_bool(None, bridge.get("codex_conductor_active"))
-    claude_live = _coalesce_bool(None, bridge.get("claude_conductor_active"))
-    if codex_live is not None or claude_live is not None:
-        return {
-            "live_participants_total": int(bool(codex_live)) + int(bool(claude_live)),
-            "live_reviewer_total": int(bool(codex_live)),
-            "live_implementer_total": int(bool(claude_live)),
-        }
-
+    topology = resolve_role_topology(bridge, include_runtime_presence=True)
     providers = bridge.get("active_conductor_providers")
     if isinstance(providers, (list, tuple)):
         normalized = [
@@ -126,16 +129,14 @@ def _bridge_live_role_totals(bridge: Mapping[str, object]) -> dict[str, int]:
         ]
         return {
             "live_participants_total": len(normalized),
-            "live_reviewer_total": sum(1 for provider in normalized if provider == "codex"),
-            "live_implementer_total": sum(
-                1 for provider in normalized if provider == "claude"
-            ),
+            "live_reviewer_total": len(topology.live_reviewer_providers),
+            "live_implementer_total": len(topology.live_implementer_providers),
         }
 
     return {
-        "live_participants_total": 0,
-        "live_reviewer_total": 0,
-        "live_implementer_total": 0,
+        "live_participants_total": len(topology.active_providers),
+        "live_reviewer_total": len(topology.live_reviewer_providers),
+        "live_implementer_total": len(topology.live_implementer_providers),
     }
 
 
@@ -168,7 +169,8 @@ def _live_provider_ids(
 ) -> tuple[str, ...]:
     providers: list[str] = []
     for row in live_participants:
-        if _text(row.get("role")) not in {"reviewer", "implementer"}:
+        role_classes = set(role_capability_classes(_text(row.get("role"))))
+        if not role_classes & _ACTIVE_CONDUCTOR_CAPABILITY_CLASSES:
             continue
         provider = _text(row.get("provider") or row.get("agent_id"))
         if provider and provider not in providers:
@@ -181,25 +183,27 @@ def _live_role_totals(
     role_assignments: list[Mapping[str, object]],
     live_participants: list[Mapping[str, object]],
 ) -> dict[str, int | bool]:
-    reviewer_ids: list[str] = []
-    implementer_ids: list[str] = []
-    for row in role_assignments:
-        if not _bool(row.get("live")):
-            continue
-        provider = _text(row.get("provider") or row.get("agent_id"))
-        if not provider:
-            continue
-        if provider_has_only_non_tandem_presence(
+    eligible_role_assignments = [
+        row
+        for row in role_assignments
+        if _bool(row.get("live"))
+        and not provider_has_only_non_tandem_presence(
             live_participants,
-            provider,
+            _text(row.get("provider") or row.get("agent_id")),
             text_fn=_text,
-        ):
-            continue
-        role_id = _text(row.get("role_id"))
-        if role_id == "review_agent" and provider not in reviewer_ids:
-            reviewer_ids.append(provider)
-        elif role_id == "coding_agent" and provider not in implementer_ids:
-            implementer_ids.append(provider)
+        )
+    ]
+    topology = resolve_role_topology(
+        {
+            "collaboration": {
+                "role_assignments": eligible_role_assignments,
+                "participants": live_participants,
+            }
+        },
+        include_runtime_presence=True,
+    )
+    reviewer_ids = list(topology.live_reviewer_providers)
+    implementer_ids = list(topology.live_implementer_providers)
     if not reviewer_ids:
         reviewer_ids.extend(
             participant_role_provider_ids(

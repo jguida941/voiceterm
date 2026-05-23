@@ -56,6 +56,16 @@ _GUARD_CHECKS: Final[tuple[str, ...]] = (
     check_script_shell_command("current_plan_authority"),
     check_script_shell_command("role_lane_mutation_authority"),
     check_script_shell_command("pre_commit_guard_coverage"),
+    check_script_shell_command("slice_finishes_or_reverts"),
+    check_script_shell_command("orphan_files"),
+    check_script_shell_command("feature_completion"),
+    check_script_shell_command("plan_row_must_advance"),
+    check_script_shell_command("no_ingestion_churn_without_advancement"),
+    check_script_shell_command("receipt_schema_validation"),
+    check_script_shell_command("receipt_store_has_active_consumer"),
+    check_script_shell_command("receipt_store_coverage_sweep"),
+    check_script_shell_command("every_applied_row_has_closure_receipt"),
+    check_script_shell_command("receipt_commit_anchor_refs"),
     check_script_shell_command("system_picture_freshness"),
     check_script_shell_command("multi_agent_sync"),
     check_script_shell_command("agents_bundle_render"),
@@ -157,6 +167,7 @@ _SHARED_GOVERNANCE_CHECKS: Final[tuple[str, ...]] = (
     check_script_shell_command("feature_has_proof_receipt", "--require-proven-passed"),
     check_script_shell_command("push_complete_proof"),
     check_script_shell_command("no_projection_proof_misuse"),
+    check_script_shell_command("no_prose_authority_promotion"),
     check_script_shell_command("non_trivial_output_proof"),
     check_script_shell_command("role_review_completed"),
     check_script_shell_command("contract_registry_composite_key_uniqueness"),
@@ -174,6 +185,7 @@ _SHARED_GOVERNANCE_CHECKS: Final[tuple[str, ...]] = (
     check_script_shell_command("platform_layer_boundaries"),
     check_script_shell_command("platform_contract_closure"),
     check_script_shell_command("contract_connectivity"),
+    check_script_shell_command("contract_consumer_coverage_sweep"),
     check_script_shell_command("systemmap_covers_contract_registry"),
     check_script_shell_command("typed_enum_connectivity"),
     check_script_shell_command("platform_contract_sync"),
@@ -203,6 +215,30 @@ _SHARED_GOVERNANCE_CHECKS: Final[tuple[str, ...]] = (
 _ORCHESTRATE_COMMANDS: Final[tuple[str, ...]] = (
     "python3 dev/scripts/devctl.py orchestrate-status --format md",
     "python3 dev/scripts/devctl.py orchestrate-watch --stale-minutes 120 --format md",
+)
+
+# GuardIR v4 governance-repair guards: role-fanout, write-lease, packet-hygiene,
+# and lifecycle guards that enforce typed-lane and multi-actor coordination
+# discipline. Grouped together so the v4 repair scope is wired through one
+# bundle entry and one quality-routing layer.
+_GUARDIR_V4_GOVERNANCE_REPAIR_CHECKS: Final[tuple[str, ...]] = (
+    check_script_shell_command("action_request_expiry_refresh"),
+    check_script_shell_command("child_actor_scope"),
+    check_script_shell_command("continuation_anchor_enforcement"),
+    check_script_shell_command("loose_chat_to_typed_lane"),
+    check_script_shell_command("multi_actor_merge_conflict"),
+    check_script_shell_command("packet_body_observation_route"),
+    check_script_shell_command("packet_hygiene_enforcement"),
+    check_script_shell_command("patch_submission_merge_gate"),
+    check_script_shell_command("peer_lease_visibility"),
+    check_script_shell_command("reviewer_result_transition"),
+    check_script_shell_command("role_cardinality_bounds"),
+    check_script_shell_command("role_delegation_authority"),
+    check_script_shell_command("role_round_closure"),
+    check_script_shell_command("shared_round_state_observed"),
+    check_script_shell_command("subagent_no_commit_push"),
+    check_script_shell_command("typed_agent_spawn_authority"),
+    check_script_shell_command("write_lease_conflicts"),
 )
 
 # Host-side cleanup/audit step for repo-related stale/orphan process trees.
@@ -254,6 +290,16 @@ _BUNDLE_SPECS: Final[tuple[BundleSpec, ...]] = (
         "sed -n '1,220p' dev/active/INDEX.md",
         "python3 dev/scripts/devctl.py list",
         "find . -maxdepth 1 -type f -name '--*'",
+        ),
+    ),
+    BundleSpec(
+        "bundle.current-row-proof",
+        (
+        check_script_shell_command("staging_source_ingested", "--source", "delete_after_ingest.md"),
+        check_script_shell_command("active_topology_liveness"),
+        check_script_shell_command("provider_pre_tool_hook_coverage"),
+        check_script_shell_command("current_row_proof_bundle", "--enforce-projection-sync"),
+        "python3 dev/scripts/devctl.py render-current-row-projection --write",
         ),
     ),
     BundleSpec(
@@ -333,6 +379,10 @@ _BUNDLE_SPECS: Final[tuple[BundleSpec, ...]] = (
         *_POST_PUSH_GUARD_CHECKS[1:],
         _HOST_PROCESS_HYGIENE_COMMAND,
         ),
+    ),
+    BundleSpec(
+        "bundle.guardir_v4_governance_repair",
+        _GUARDIR_V4_GOVERNANCE_REPAIR_CHECKS,
     ),
 )
 

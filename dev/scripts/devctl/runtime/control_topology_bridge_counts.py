@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
+from .role_topology import resolve_role_topology
 from .session_liveness_counts import (
     live_session_provider_count,
     live_session_role_counts,
@@ -38,33 +39,34 @@ def active_conductor_count(
 
 
 def bridge_role_counts(bridge: Mapping[str, object]) -> dict[str, int]:
-    """Return live reviewer/implementer counts from bridge liveness."""
+    """Return live reviewer/implementer counts from bridge liveness.
+
+    Role assignment is resolved through ``resolve_role_topology`` so reviewer
+    and implementer totals come from typed role evidence (session liveness
+    signals, collaboration role_assignments, capability-class fallback), never
+    from a hardcoded ``provider == "codex"`` / ``provider == "claude"`` map.
+    Provider names are adapter identities; role authority is typed state.
+    """
     signal_counts = live_session_role_counts(
         bridge.get("session_liveness_signals") or bridge.get("participant_liveness")
     )
     if signal_counts is not None:
         return signal_counts
+    topology = resolve_role_topology(bridge)
+    counts = topology.role_counts()
+    if (
+        counts["live_participants_total"]
+        or counts["live_reviewer_total"]
+        or counts["live_implementer_total"]
+    ):
+        return counts
     codex_live = bool_or_none(bridge.get("codex_conductor_active"))
     claude_live = bool_or_none(bridge.get("claude_conductor_active"))
     if codex_live is not None or claude_live is not None:
         return {
             "live_participants_total": int(bool(codex_live)) + int(bool(claude_live)),
-            "live_reviewer_total": int(bool(codex_live)),
-            "live_implementer_total": int(bool(claude_live)),
-        }
-    providers = bridge.get("active_conductor_providers")
-    if isinstance(providers, (list, tuple)):
-        normalized = [
-            str(provider).strip().lower()
-            for provider in providers
-            if str(provider).strip()
-        ]
-        return {
-            "live_participants_total": len(normalized),
-            "live_reviewer_total": sum(1 for provider in normalized if provider == "codex"),
-            "live_implementer_total": sum(
-                1 for provider in normalized if provider == "claude"
-            ),
+            "live_reviewer_total": 0,
+            "live_implementer_total": 0,
         }
     return {
         "live_participants_total": 0,

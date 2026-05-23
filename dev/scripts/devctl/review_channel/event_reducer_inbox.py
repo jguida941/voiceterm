@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 from ..runtime.review_packet_inbox_liveness import is_expired_unresolved
 
 from .event_models import event_id_rank
@@ -12,6 +14,13 @@ from .packet_text_fields import clean_optional_text
 from .timestamp_parse import parse_utc_value as _parse_utc
 
 
+# A19 stale-packet hygiene window (delete_after_ingest.md lines 1746-1830).
+# Pending packets older than this without an explicit --include-stale opt-in
+# are filtered from the default inbox view per amendment requirement that
+# "default lane view reflects only actionable items."
+A19_DEFAULT_HYGIENE_WINDOW_SECONDS = 24 * 60 * 60
+
+
 def filter_inbox_packets(
     review_state: dict[str, object],
     *,
@@ -20,18 +29,33 @@ def filter_inbox_packets(
     target_session_id: str | None = None,
     status: str | None = None,
     limit: int | None = None,
+    include_stale: bool = False,
+    hygiene_window_seconds: int = A19_DEFAULT_HYGIENE_WINDOW_SECONDS,
+    now_utc: datetime | None = None,
 ) -> list[dict[str, object]]:
     """Filter the reduced packet list into one target/status inbox view.
 
     When filtering by status=pending, expired packets are excluded so the
     inbox matches pending_total, per-agent counts, and derived_next_instruction.
+
+    Per A19 (delete_after_ingest.md lines 1746-1830), when ``include_stale``
+    is ``False`` (the default), pending packets older than
+    ``hygiene_window_seconds`` are also filtered out so the default lane
+    view reflects only actionable items. Pass ``--include-stale`` on the
+    CLI to surface the full backlog.
     """
     packets = review_state.get("packets")
     if not isinstance(packets, list):
         return []
     filtered = []
     packet_iter = (
-        _inbox_pending_packets(packets, target=target)
+        _inbox_pending_packets(
+            packets,
+            target=target,
+            include_stale=include_stale,
+            hygiene_window_seconds=hygiene_window_seconds,
+            now_utc=now_utc,
+        )
         if status == "pending"
         else (packet for packet in packets if isinstance(packet, dict))
     )
@@ -145,6 +169,9 @@ def _inbox_pending_packets(
     packets: object,
     *,
     target: str | None,
+    include_stale: bool = False,
+    hygiene_window_seconds: int = A19_DEFAULT_HYGIENE_WINDOW_SECONDS,
+    now_utc: datetime | None = None,
 ) -> tuple[dict[str, object], ...]:
     """Return route-scoped live pending packets, freshest first.
 
@@ -154,12 +181,25 @@ def _inbox_pending_packets(
     `live_pending_packets` itself preserves insertion order (audit
     determinism); freshness ordering is layered on at the inbox boundary
     so other consumers retain insertion order.
+
+    A19 (delete_after_ingest.md 1746-1830): when ``include_stale`` is
+    False, also filter out pending packets whose ``posted_at`` is older
+    than ``hygiene_window_seconds``. This implements the amendment's
+    requirement that "default lane view reflects only actionable items"
+    without dropping the underlying packet rows (they are still visible
+    with ``--include-stale``).
     """
     packet_rows = tuple(packet for packet in packets if isinstance(packet, dict))
     live_rows = tuple(
         packet for packet in live_pending_packets(packet_rows)
         if isinstance(packet, dict)
     )
+    if not include_stale:
+        live_rows = _drop_packets_past_hygiene_window(
+            live_rows,
+            hygiene_window_seconds=hygiene_window_seconds,
+            now_utc=now_utc,
+        )
     live_ids = {
         str(packet.get("packet_id") or "").strip()
         for packet in live_rows
@@ -172,8 +212,47 @@ def _inbox_pending_packets(
         if str(packet.get("packet_id") or "").strip() not in live_ids
         and _route_scoped_actor_packet_still_requires_read(packet, target=target)
     )
+    if not include_stale:
+        routed_rows = _drop_packets_past_hygiene_window(
+            routed_rows,
+            hygiene_window_seconds=hygiene_window_seconds,
+            now_utc=now_utc,
+        )
     combined = (*live_rows, *routed_rows)
     return _sort_inbox_packets_freshest_first(combined)
+
+
+def _drop_packets_past_hygiene_window(
+    packets: tuple[dict[str, object], ...],
+    *,
+    hygiene_window_seconds: int,
+    now_utc: datetime | None,
+) -> tuple[dict[str, object], ...]:
+    """Return packets posted within ``hygiene_window_seconds`` of now.
+
+    Packets with missing or unparseable ``posted_at`` are kept (we cannot
+    prove staleness without a timestamp, and dropping them would hide
+    legitimate work). Negative ages also fall through unchanged.
+    """
+    if hygiene_window_seconds <= 0:
+        return packets
+    now = now_utc if now_utc is not None else datetime.now(tz=timezone.utc)
+    kept: list[dict[str, object]] = []
+    for packet in packets:
+        raw_posted = str(packet.get("posted_at") or "").strip()
+        if not raw_posted:
+            kept.append(packet)
+            continue
+        posted_at = _parse_utc(raw_posted)
+        if posted_at is None:
+            kept.append(packet)
+            continue
+        if posted_at.tzinfo is None:
+            posted_at = posted_at.replace(tzinfo=timezone.utc)
+        age_seconds = (now - posted_at).total_seconds()
+        if age_seconds < 0 or age_seconds <= hygiene_window_seconds:
+            kept.append(packet)
+    return tuple(kept)
 
 
 def _sort_inbox_packets_freshest_first(

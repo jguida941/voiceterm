@@ -20,6 +20,9 @@ from dev.scripts.devctl.commands.review_channel.event_action_support import (
 from dev.scripts.devctl.commands.review_channel.event_handler import (
     _review_channel_lifecycle_gate,
 )
+from dev.scripts.devctl.commands.review_channel.event_control_decision_fallback import (
+    should_prefer_dashboard_control_decision,
+)
 from dev.scripts.devctl.review_channel.bridge_runtime_state import BridgeStateContext
 from dev.scripts.devctl.review_channel.launch_authority_ordering import (
     evaluate_launch_bypass_authority,
@@ -355,32 +358,46 @@ def test_operator_authored_post_reaches_post_path_before_obedience_gate(
     )
 
 
-def _orchestrator_post_args(*, kind: str, from_agent: str = "codex") -> SimpleNamespace:
+def _orchestrator_post_args(
+    *,
+    kind: str,
+    from_agent: str = "codex",
+    role: str = "reviewer",
+    actor_role: str = "reviewer",
+    target_role: str = "implementer",
+    target_ref: str = "plan:MP-GUARDIR-V4-PHASE-0-6-E-CURRENT-PLAN-AUTHORITY-S1",
+    allowed_actions: list[str] | None = None,
+) -> SimpleNamespace:
     return SimpleNamespace(
         action="post",
         kind=kind,
         from_agent=from_agent,
         to_agent="claude",
-        role="reviewer",
-        actor_role="reviewer",
-        session_id="codex-session",
+        role=role,
+        actor_role=actor_role,
+        session_id=f"{from_agent}-session",
+        target_kind="plan",
+        target_ref=target_ref,
+        target_role=target_role,
+        target_session_id="implementer-session",
         control_decision_payload={
             "contract_id": "AgentLoopDecision",
             "source_snapshot_id": "snapshot-orchestrator",
-            "actor_id": "codex",
-            "actor_role": "reviewer",
-            "session_id": "codex-session",
+            "actor_id": from_agent,
+            "actor_role": actor_role,
+            "session_id": f"{from_agent}-session",
             "decision": "wait",
             "may_mutate": False,
             "can_run_next_command": False,
+            "allowed_actions": allowed_actions or [],
         },
     )
 
 
-def test_orchestrator_codex_task_started_reaches_post_path_before_obedience_gate(
+def test_task_started_without_typed_allowed_action_does_not_bypass_obedience_gate(
     tmp_path: Path,
 ) -> None:
-    """Codex orchestrator (TandemRole.REVIEWER) may post task_started without AgentLoopDecision (role-flip rev_pkt_4488)."""
+    """Reviewer/orchestrator role text alone does not authorize packet writes."""
     args = _orchestrator_post_args(kind="task_started")
     context = EventActionContext(
         args=args,
@@ -392,18 +409,20 @@ def test_orchestrator_codex_task_started_reaches_post_path_before_obedience_gate
 
     gate = _review_channel_lifecycle_gate(args=args, context=context)
 
-    assert gate["ok"] is True
-    assert gate["orchestrator_source_authority"] is True
-    assert gate["authority_ordering"] == (
-        "orchestrator_source_before_control_decision_obedience"
-    )
+    assert gate["ok"] is False
+    assert gate.get("role_lane_post_authority") is not True
+    assert gate.get("orchestrator_source_authority") is not True
 
 
-def test_orchestrator_codex_finding_reaches_post_path_before_obedience_gate(
+def test_task_started_with_typed_allowed_action_passes_obedience_gate(
     tmp_path: Path,
 ) -> None:
-    """Codex orchestrator may post finding (evidence) without AgentLoopDecision."""
-    args = _orchestrator_post_args(kind="finding")
+    """Typed control decision authority, not provider identity, authorizes handoff transport."""
+    args = _orchestrator_post_args(
+        kind="task_started",
+        from_agent="reviewer_agent",
+        allowed_actions=["review-channel.post_task_started"],
+    )
     context = EventActionContext(
         args=args,
         repo_root=tmp_path,
@@ -415,14 +434,70 @@ def test_orchestrator_codex_finding_reaches_post_path_before_obedience_gate(
     gate = _review_channel_lifecycle_gate(args=args, context=context)
 
     assert gate["ok"] is True
-    assert gate["orchestrator_source_authority"] is True
+    assert gate.get("role_lane_post_authority") is not True
+    assert gate.get("orchestrator_source_authority") is not True
 
 
-def test_non_orchestrator_claude_task_started_falls_through_to_obedience_gate(
+def test_task_progress_post_prefers_dashboard_decision_when_projection_is_stale() -> None:
+    args = _orchestrator_post_args(kind="task_progress")
+
+    assert should_prefer_dashboard_control_decision(
+        args=args,
+        projected_decision={
+            "contract_id": "AgentLoopDecision",
+            "active_packet_id": "rev_pkt_4847",
+            "allowed_actions": [],
+        },
+        dashboard_decision={
+            "contract_id": "AgentLoopDecision",
+            "active_packet_id": "rev_pkt_4847",
+            "allowed_actions": ["review-channel.post_task_progress"],
+        },
+        attempted_argv=(
+            "python3",
+            "dev/scripts/devctl.py",
+            "review-channel",
+            "--action",
+            "post",
+            "--kind",
+            "task_progress",
+        ),
+    ) is True
+
+
+def test_task_progress_post_keeps_projected_decision_when_it_already_allows() -> None:
+    args = _orchestrator_post_args(kind="task_progress")
+
+    assert should_prefer_dashboard_control_decision(
+        args=args,
+        projected_decision={
+            "contract_id": "AgentLoopDecision",
+            "allowed_actions": ["review-channel.post_task_progress"],
+        },
+        dashboard_decision={
+            "contract_id": "AgentLoopDecision",
+            "allowed_actions": ["review-channel.post_task_progress"],
+        },
+        attempted_argv=(
+            "python3",
+            "dev/scripts/devctl.py",
+            "review-channel",
+            "--action",
+            "post",
+            "--kind",
+            "task_progress",
+        ),
+    ) is False
+
+
+def test_finding_with_typed_allowed_action_passes_obedience_gate(
     tmp_path: Path,
 ) -> None:
-    """Non-orchestrator (claude) task_started without decision is NOT exempted - gate proceeds normally."""
-    args = _orchestrator_post_args(kind="task_started", from_agent="claude")
+    """Finding evidence also routes through explicit controller allowed_actions."""
+    args = _orchestrator_post_args(
+        kind="finding",
+        allowed_actions=["review-channel.post_finding"],
+    )
     context = EventActionContext(
         args=args,
         repo_root=tmp_path,
@@ -433,19 +508,40 @@ def test_non_orchestrator_claude_task_started_falls_through_to_obedience_gate(
 
     gate = _review_channel_lifecycle_gate(args=args, context=context)
 
-    # Falls through to ControlDecisionObeyedGuard - no orchestrator bypass
-    assert "orchestrator_source_authority" not in gate or (
-        gate.get("orchestrator_source_authority") is not True
+    assert gate["ok"] is True
+
+
+def test_non_reviewer_task_started_falls_through_to_obedience_gate(
+    tmp_path: Path,
+) -> None:
+    """Implementer lanes cannot self-authorize reviewer/orchestrator task starts."""
+    args = _orchestrator_post_args(
+        kind="task_started",
+        from_agent="claude",
+        role="implementer",
+        actor_role="implementer",
     )
+    context = EventActionContext(
+        args=args,
+        repo_root=tmp_path,
+        review_channel_path=tmp_path / "dev/active/review_channel.md",
+        artifact_paths=None,
+        build_event_report_fn=None,
+    )
+
+    gate = _review_channel_lifecycle_gate(args=args, context=context)
+
+    assert gate.get("role_lane_post_authority") is not True
+    assert gate["ok"] is False
 
 
 def test_orchestrator_authority_strict_scope_rejects_non_post_kinds(
     tmp_path: Path,
 ) -> None:
-    """Codex/reviewer cannot use orchestrator authority for kinds outside {task_started, finding}.
+    """Reviewer/orchestrator cannot use role text as authority for closure kinds.
 
     Anti-sprawl per rev_pkt_4488 directive: do NOT weaken VCS/edit gates.
-    Strict scope is review-channel POST + only task_started/finding kinds.
+    Closure packets must route through normal control-decision authority.
     """
     args = _orchestrator_post_args(kind="task_produced")  # not in orchestrator-authorized kinds
     context = EventActionContext(

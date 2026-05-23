@@ -48,6 +48,52 @@ def test_session_liveness_signal_family_classifies_all_states() -> None:
     )
 
 
+def test_session_liveness_uses_typed_role_signal_not_provider_defaults() -> None:
+    signals = build_session_liveness_signals(
+        bridge_liveness={
+            "publisher_running": True,
+            "reviewer_supervisor_running": True,
+            "session_liveness_signals": [
+                {"provider": "claude", "role": "reviewer", "state": "alive"},
+                {"provider": "codex", "role": "implementer", "state": "alive"},
+            ],
+            "active_conductor_providers": ["claude", "codex"],
+            "last_reviewer_poll_age_seconds": 120,
+        },
+        active_providers=[],
+    )
+
+    by_provider = {signal.provider: signal for signal in signals}
+    assert by_provider["claude"].role == "reviewer"
+    assert by_provider["claude"].poll_age_seconds == 120
+    assert by_provider["codex"].role == "implementer"
+    assert by_provider["codex"].poll_age_seconds is None
+
+
+def test_session_liveness_uses_role_assignments_as_typed_authority() -> None:
+    signals = build_session_liveness_signals(
+        bridge_liveness={
+            "publisher_running": True,
+            "reviewer_supervisor_running": True,
+            "active_conductor_providers": ["claude", "codex"],
+            "collaboration": {
+                "role_assignments": [
+                    {"provider": "claude", "role_id": "review_agent", "live": True},
+                    {"provider": "codex", "role_id": "coding_agent", "live": True},
+                ]
+            },
+            "last_reviewer_poll_age_seconds": 15,
+        },
+        active_providers=[],
+    )
+
+    by_provider = {signal.provider: signal for signal in signals}
+    assert by_provider["claude"].role == "reviewer"
+    assert by_provider["claude"].poll_age_seconds == 15
+    assert by_provider["codex"].role == "implementer"
+    assert by_provider["codex"].poll_age_seconds is None
+
+
 def test_startup_counts_prefer_session_liveness_signals() -> None:
     bridge = {
         "codex_conductor_active": False,

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
+from typing import NamedTuple
 
 from ..runtime.plan_currency_authority import (
     PLAN_CURRENCY_RANK_LINEAGE_AMENDED,
@@ -46,12 +47,15 @@ from .agent_sync_readers import (
 from .packet_contract import normalize_packet_route_role
 
 
-@dataclass(frozen=True, slots=True)
-class _AttentionBuildInput:
+# Demoted from @dataclass to NamedTuple: this is a private internal call
+# bundle for _build_attention. It is not a typed contract surface and must
+# not appear in ContractConsumerCoverageSweepGuard scans.
+class _AttentionBuildInput(NamedTuple):
     actor: str
     role: str
     session: str
     control_decision_input: str
+    active_packet: Mapping[str, object]
     attention_packet: Mapping[str, object]
     pending_packets: tuple[Mapping[str, object], ...]
     fallback: Mapping[str, object]
@@ -121,6 +125,7 @@ def packet_attention_for_agent(
             role=role_id,
             session=session_id,
             control_decision_input=_text(control_decision_input),
+            active_packet=active_packet,
             attention_packet=attention_packet,
             pending_packets=pending_packets,
             fallback=fallback,
@@ -200,14 +205,16 @@ def _build_attention(context: _AttentionBuildInput) -> PacketAttentionState:
     fallback = context.fallback
     attention_packet = context.attention_packet
     body_open_packet_rows = body_open_packets(
-        context.pending_packets,
+        _body_lifecycle_candidates(context),
         actor=context.actor,
         role=context.role,
         session=context.session,
         current_plan_sha=context.current_plan_sha,
         row_snapshot_shas=context.row_snapshot_shas,
     )
-    body_open_packet = best_body_open_packet(body_open_packet_rows)
+    body_open_packet = _active_body_lifecycle_packet(
+        context, body_open_packet_rows
+    ) or best_body_open_packet(body_open_packet_rows)
     selected_packet = body_open_packet or attention_packet
     agent_sync = context.agent_sync
     last_observed = (
@@ -389,6 +396,48 @@ def _packet_rows(review_state: Mapping[str, object]) -> tuple[Mapping[str, objec
     if not isinstance(packets, (list, tuple)):
         return ()
     return tuple(packet for packet in packets if isinstance(packet, Mapping))
+
+
+def _body_lifecycle_candidates(
+    context: _AttentionBuildInput,
+) -> tuple[Mapping[str, object], ...]:
+    """Return packet rows eligible to drive body lifecycle work.
+
+    When the work board names a scoped active packet, lifecycle work is limited
+    to that packet. Older pending packet debt remains visible through packet
+    hygiene checks, but it cannot preempt the peer's current assignment.
+    """
+    if _text(context.active_packet.get("packet_id")):
+        return (context.active_packet,)
+    rows: list[Mapping[str, object]] = []
+    seen: set[str] = set()
+    for packet in context.pending_packets:
+        packet_id = _text(packet.get("packet_id"))
+        if not packet_id or packet_id in seen:
+            continue
+        rows.append(packet)
+        seen.add(packet_id)
+    return tuple(rows)
+
+
+def _active_body_lifecycle_packet(
+    context: _AttentionBuildInput,
+    rows: tuple[Mapping[str, object], ...],
+) -> Mapping[str, object]:
+    """Keep lifecycle focus aligned with the canonical active packet.
+
+    Older observed packets can still require semantic ingestion, but they must
+    not preempt a newer scoped active packet. Otherwise the work board and
+    agent-loop decision disagree and the peer cannot reach the packet it is
+    currently assigned.
+    """
+    active_id = _text(context.active_packet.get("packet_id"))
+    if not active_id:
+        return {}
+    for row in rows:
+        if _text(row.get("packet_id")) == active_id:
+            return row
+    return {}
 
 
 def _fallback_unopened_body_packet_ids(

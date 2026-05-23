@@ -4,25 +4,30 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
+from .agent_work_board_roles import build_runtime_role_index
+
 
 def refresh_preserved_work_board_runtime_identity(
     work_board: object,
     *,
     collaboration: object,
 ) -> object:
-    """Keep event-owned rows but refresh workspace identity from live session state."""
+    """Keep event-owned rows but refresh identity from typed collaboration state."""
     if not isinstance(work_board, Mapping):
         return work_board
     rows = work_board.get("rows")
     if not isinstance(rows, list):
         return work_board
     participants = _participants_by_actor_and_role(collaboration)
-    if not participants:
+    if not participants and not isinstance(collaboration, Mapping):
         return work_board
+    role_index = build_runtime_role_index(
+        collaboration if isinstance(collaboration, Mapping) else {}
+    )
     updated_rows: list[object] = []
     changed = False
     for row in rows:
-        updated, row_changed = _refreshed_work_row(row, participants)
+        updated, row_changed = _refreshed_work_row(row, participants, role_index)
         changed = changed or row_changed
         updated_rows.append(updated)
     if not changed:
@@ -35,6 +40,7 @@ def refresh_preserved_work_board_runtime_identity(
 def _refreshed_work_row(
     row: object,
     participants: dict[tuple[str, str], Mapping[str, object]],
+    role_index: object,
 ) -> tuple[object, bool]:
     if not isinstance(row, Mapping):
         return row, False
@@ -42,6 +48,7 @@ def _refreshed_work_row(
     if participant is None:
         return row, False
     updated = dict(row)
+    _refresh_role_identity(updated, participant, role_index)
     workspace_root = _text(participant.get("workspace_root"))
     worktree = _text(participant.get("worktree")) or workspace_root
     branch = _text(participant.get("branch"))
@@ -55,6 +62,39 @@ def _refreshed_work_row(
     ):
         updated["path_scope"] = [workspace_root]
     return updated, updated != dict(row)
+
+
+def _refresh_role_identity(
+    row: dict[str, object],
+    participant: Mapping[str, object],
+    role_index: object,
+) -> None:
+    """Refresh stale preserved rows without reauthorizing helper sidecars."""
+    if _text(row.get("role_source")) == "helper_session_demotion":
+        return
+    actor = _text(row.get("actor_id")) or _text(row.get("provider"))
+    if not actor:
+        return
+    provider = _text(row.get("provider")) or _text(participant.get("provider")) or actor
+    declared_role = (
+        _text(participant.get("role"))
+        or _text(row.get("declared_role"))
+        or _text(row.get("role"))
+    )
+    resolution = role_index.resolve(
+        actor_id=actor,
+        provider=provider,
+        declared_role=declared_role,
+    )
+    if not resolution.role:
+        return
+    row["role"] = resolution.role
+    row["declared_role"] = resolution.declared_role
+    row["authority_role"] = resolution.authority_role
+    row["role_source"] = resolution.role_source
+    row["role_scope"] = resolution.role_scope
+    row["mutation_mode"] = resolution.mutation_mode
+    row["granted_capabilities"] = list(resolution.granted_capabilities)
 
 
 def _participants_by_actor_and_role(

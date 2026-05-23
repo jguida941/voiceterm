@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 
 from ..approval_mode import DEFAULT_APPROVAL_MODE
 from ..runtime.devctl_interpreter import devctl_interpreter
-from ..runtime.role_profile import normalize_tandem_role, role_for_provider
+from ..runtime.role_profile import normalize_role_id
 from .ack_contract import packet_ack_is_transport_lifecycle_line
 
 # Resolve via the shared helper so the rendered token always begins with
@@ -65,7 +65,7 @@ def build_conductor_prompt(
     session_resume_packet: "SessionCachePacket | None" = None,
 ) -> str:
     """Render the initial conductor prompt for Codex or Claude."""
-    resolved_role = (normalize_tandem_role(role) or role_for_provider(provider)).value
+    resolved_role = normalize_role_id(role)
     resolved_workspace_root = (
         workspace_root.resolve() if workspace_root is not None else repo_root.resolve()
     )

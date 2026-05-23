@@ -160,10 +160,20 @@ def test_packet_route_resolution_scoped_role_must_resolve_to_one_fresh_session()
     assert resolved.target.target_session_id == "s2"
 
 
-def test_packet_route_resolution_session_id_wins_when_role_label_drifted() -> None:
+def test_packet_route_resolution_session_id_fills_missing_role_from_fresh_session() -> None:
     resolved = resolve_packet_post_route_scope(
-        _request(target_role="dashboard", target_session_id="s1"),
+        _request(target_session_id="s1"),
         review_state=_state(_row(role="implementer", session_id="s1")),
+    )
+
+    assert resolved.target.target_role == "implementer"
+    assert resolved.target.target_session_id == "s1"
+
+
+def test_packet_route_resolution_preserves_explicit_role_with_session_scope() -> None:
+    resolved = resolve_packet_post_route_scope(
+        _request(target_role="implementer", target_session_id="s1"),
+        review_state=_state(_row(role="dashboard", session_id="s1")),
     )
 
     assert resolved.target.target_role == "implementer"

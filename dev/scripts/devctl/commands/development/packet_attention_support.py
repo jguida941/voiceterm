@@ -53,6 +53,9 @@ def durable_row_id_for_packet(
     row_ids = {row.row_id for row in rows}
     for row in rows:
         if packet_text and packet_text in packet_ids_from_plan_row(row):
+            binding_target_row_id = _packet_binding_target_row_id(rows, row)
+            if binding_target_row_id:
+                return binding_target_row_id
             return row.row_id
     receipt_row_id = str(
         (durable_row_id_by_packet or {}).get(packet_text) or ""
@@ -167,6 +170,20 @@ def live_pending_packet_ids(
         ):
             packet_ids.append(packet_id)
     return tuple(dict.fromkeys(packet_ids))
+
+
+def packet_matches_fresh_route(
+    packet: Mapping[str, object],
+    *,
+    actor: str,
+    review_state: Mapping[str, object],
+) -> bool:
+    """Return True when a scoped packet can be acted on by the actor route."""
+    return _packet_matches_fresh_delivery_route(
+        packet,
+        actor=str(actor or "").strip().lower(),
+        review_state=review_state,
+    )
 
 
 def _packet_visible_for_delivery_attention(packet: Mapping[str, object]) -> bool:
@@ -378,6 +395,25 @@ def _row_refs(row: PlanRow) -> set[str]:
     return refs
 
 
+def _packet_binding_target_row_id(rows: tuple[PlanRow, ...], row: PlanRow) -> str:
+    if not _is_packet_binding_row(row):
+        return ""
+    owner_rows = tuple(
+        candidate
+        for candidate in rows
+        if candidate.row_id != row.row_id and not _is_packet_binding_row(candidate)
+    )
+    return _row_id_for_ref(
+        owner_rows,
+        str(row.target_ref or "").strip(),
+        allow_row_id=True,
+    )
+
+
+def _is_packet_binding_row(row: PlanRow) -> bool:
+    return row.row_kind == "packet_binding" or row.row_id.startswith("PKT-BIND-")
+
+
 def _normalize_plan_row_ref(ref: str) -> str:
     value = str(ref or "").strip()
     for prefix in ("plan:", "row:"):
@@ -397,6 +433,7 @@ __all__ = [
     "live_pending_packet_ids",
     "packet_attention_satisfied_by_ingestion",
     "packet_attention_summary",
+    "packet_matches_fresh_route",
     "pending_actionable_packet_ids",
     "required_command_for_record",
     "wake_reason_for_packet",

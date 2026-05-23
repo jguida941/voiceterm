@@ -5233,6 +5233,145 @@ def test_packet_attention_ignores_delivery_for_dead_target_route() -> None:
     assert attention.pending_delivery_packet_ids == ()
 
 
+def test_packet_attention_ignores_actionable_for_mismatched_target_route() -> None:
+    review_state = {
+        "agent_work_board": {
+            "rows": [
+                {
+                    "actor_id": "claude",
+                    "role": "implementer",
+                    "session_id": "live-implementer-session",
+                    "status": "polling",
+                    "confidence_class": "derived_typed_event",
+                }
+            ]
+        },
+        "packet_inbox": {
+            "agents": [
+                {
+                    "agent": "claude",
+                    "attention_status": "wake_required",
+                    "wake_reason": "urgent_attention",
+                    "pending_actionable_packet_ids": [
+                        "rev_pkt_dashboard",
+                        "rev_pkt_implementer",
+                    ],
+                    "required_command": (
+                        "python3 dev/scripts/devctl.py review-channel "
+                        "--action inbox --target claude --actor claude "
+                        "--status pending --terminal none --format md"
+                    ),
+                }
+            ]
+        },
+        "packets": [
+            {
+                "packet_id": "rev_pkt_dashboard",
+                "from_agent": "operator",
+                "to_agent": "claude",
+                "kind": "plan_gap_review",
+                "status": "pending",
+                "attention_urgency": "urgent",
+                "target_role": "dashboard",
+                "target_session_id": "live-implementer-session",
+                "expires_at_utc": "2999-01-01T00:00:00Z",
+            },
+            {
+                "packet_id": "rev_pkt_implementer",
+                "from_agent": "codex",
+                "to_agent": "claude",
+                "kind": "task_progress",
+                "status": "pending",
+                "attention_urgency": "urgent",
+                "target_role": "implementer",
+                "target_session_id": "live-implementer-session",
+                "expires_at_utc": "2999-01-01T00:00:00Z",
+            },
+        ],
+    }
+
+    attention = packet_attention_from_review_state(
+        review_state,
+        rows=(),
+        agent="claude",
+    )
+
+    assert attention.attention_required is True
+    assert attention.latest_attention_packet_id == "rev_pkt_implementer"
+    assert attention.pending_actionable_packet_ids == ("rev_pkt_implementer",)
+
+
+def test_packet_attention_skips_non_current_actionable_for_current_row_packet() -> None:
+    current_row = PlanRow(
+        row_id="MP-CURRENT",
+        title="Current row",
+        status="in_progress",
+        sdlc_stage=SDLCStage.IMPL,
+        target_ref="plan:current-work",
+        source_doc_path="delete_after_ingest.md",
+    )
+    packet_binding = PlanRow(
+        row_id="PKT-BIND-REV-PKT-CURRENT",
+        title="Packet binding",
+        status="evidence",
+        sdlc_stage=SDLCStage.SPEC,
+        row_kind="packet_binding",
+        sourced_from_packets=("rev_pkt_9001",),
+        target_ref="plan:MP-CURRENT",
+    )
+    review_state = {
+        "agent_work_board": {
+            "rows": [
+                {
+                    "actor_id": "claude",
+                    "role": "implementer",
+                    "session_id": "live-implementer-session",
+                    "status": "polling",
+                    "confidence_class": "derived_typed_event",
+                }
+            ]
+        },
+        "packets": [
+            {
+                "packet_id": "rev_pkt_9000",
+                "from_agent": "operator",
+                "to_agent": "claude",
+                "kind": "action_request",
+                "status": "pending",
+                "attention_urgency": "urgent",
+                "target_role": "implementer",
+                "target_ref": "plan:MP-FUTURE",
+                "expires_at_utc": "2999-01-01T00:00:00Z",
+            },
+            {
+                "packet_id": "rev_pkt_9001",
+                "from_agent": "codex",
+                "to_agent": "claude",
+                "kind": "continuation_anchor",
+                "status": "pending",
+                "attention_urgency": "urgent",
+                "target_role": "implementer",
+                "target_session_id": "live-implementer-session",
+                "target_ref": "plan:MP-CURRENT",
+                "expires_at_utc": "2999-01-01T00:00:00Z",
+                "metadata": {"transport_expiry_explicit": True},
+            },
+        ],
+    }
+
+    attention = packet_attention_from_review_state(
+        review_state,
+        rows=(current_row, packet_binding),
+        agent="claude",
+    )
+
+    assert attention.attention_required is True
+    assert attention.latest_attention_packet_id == "rev_pkt_9001"
+    assert attention.pending_actionable_packet_ids == ()
+    assert attention.pending_delivery_packet_ids == ("rev_pkt_9001",)
+    assert attention.durable_plan_row_id == "MP-CURRENT"
+
+
 def test_packet_attention_ignores_lifecycle_review_acceptance_delivery() -> None:
     review_state = {
         "packets": [

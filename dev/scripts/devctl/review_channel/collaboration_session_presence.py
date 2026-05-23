@@ -10,9 +10,8 @@ from ..runtime.review_state_models import (
     CollaborationParticipantState,
     CollaborationRoleAssignmentState,
 )
-from ..runtime.role_profile import TandemRole, default_provider_for_role
+from ..runtime.role_profile import role_capability_classes
 from . import collaboration_session_local_reviewer as _local_reviewer
-from .collaboration_session_status import _agent_for_role
 
 
 def promote_local_reviewer_presence(
@@ -34,12 +33,17 @@ def promote_local_reviewer_presence(
         discover_latest_session=discover_latest_session,
         local_reviewer_activity_is_fresh=local_reviewer_activity_is_fresh,
     )
-    reviewer_provider = (
-        _agent_for_role(role_assignments, "review_agent")
-        or default_provider_for_role(TandemRole.REVIEWER)
-    )
+    reviewer_provider = _provider_for_capability(
+        role_assignments,
+        {"review", "architecture", "governance", "research", "test", "intake"},
+    ) or _text(bridge_liveness.get("reviewer_activity_provider"))
     if not reviewer_provider:
         return participants, role_assignments
+    reviewer_role = _role_for_provider(
+        role_assignments,
+        reviewer_provider,
+        {"review", "architecture", "governance", "research", "test", "intake"},
+    ) or "architecture_review"
     if not _local_reviewer.local_reviewer_turn_is_live(
         bridge_liveness=bridge_liveness,
         reviewer_mode=reviewer_mode,
@@ -64,7 +68,7 @@ def promote_local_reviewer_presence(
             break
         updated_participants[index] = replace(
             participant,
-            role=participant.role or TandemRole.REVIEWER.value,
+            role=participant.role or reviewer_role,
             session_name=participant.session_name or session_name,
             live=True,
             status="live",
@@ -84,7 +88,7 @@ def promote_local_reviewer_presence(
                 agent_id=reviewer_provider,
                 provider=reviewer_provider,
                 display_name=reviewer_provider.title(),
-                role=TandemRole.REVIEWER.value,
+                role=reviewer_role,
                 session_name=session_name,
                 live=True,
                 status="live",
@@ -97,12 +101,19 @@ def promote_local_reviewer_presence(
         )
 
     updated_assignments = list(role_assignments)
+    single_agent_mode = reviewer_mode == "single_agent"
     for index, assignment in enumerate(updated_assignments):
         if assignment.provider != reviewer_provider:
             continue
-        if assignment.role_id not in {"lead_agent", "review_agent"} and not (
-            reviewer_mode == "single_agent" and assignment.role_id == "coding_agent"
-        ):
+        review_lane = _role_has_capability(
+            assignment.role_id,
+            {"review", "architecture", "governance", "research", "test", "intake"},
+        )
+        single_agent_coding_lane = single_agent_mode and _role_has_capability(
+            assignment.role_id,
+            {"implementation", "mutation"},
+        )
+        if not review_lane and not single_agent_coding_lane:
             continue
         if assignment.live:
             continue
@@ -120,6 +131,7 @@ def promote_packet_active_implementer_presence(
     *,
     participants: tuple[CollaborationParticipantState, ...],
     role_assignments: tuple[CollaborationRoleAssignmentState, ...],
+    reviewer_mode: str,
     session_output_root: Path | None,
     utcnow: Callable[[], object],
     provider_packet_activity_is_fresh: Callable[..., bool],
@@ -127,10 +139,13 @@ def promote_packet_active_implementer_presence(
     tuple[CollaborationParticipantState, ...],
     tuple[CollaborationRoleAssignmentState, ...],
 ]:
+    if reviewer_mode == "single_agent":
+        return participants, role_assignments
     implementer_providers = tuple(
         assignment.provider
         for assignment in role_assignments
-        if assignment.role_id == "coding_agent" and assignment.provider
+        if assignment.provider
+        and _role_has_capability(assignment.role_id, {"implementation", "mutation"})
     )
     if not implementer_providers or session_output_root is None:
         return participants, role_assignments
@@ -170,8 +185,11 @@ def promote_packet_active_implementer_presence(
     updated_assignments = list(role_assignments)
     for index, assignment in enumerate(updated_assignments):
         if (
-            assignment.role_id != "coding_agent"
-            or assignment.provider not in active_providers
+            assignment.provider not in active_providers
+            or not _role_has_capability(
+                assignment.role_id,
+                {"implementation", "mutation"},
+            )
             or assignment.live
         ):
             continue
@@ -199,3 +217,32 @@ def _sync_local_reviewer_test_hooks(
 
 def _text(value: object) -> str:
     return str(value or "").strip()
+
+
+def _provider_for_capability(
+    role_assignments: tuple[CollaborationRoleAssignmentState, ...],
+    capability_classes: set[str],
+) -> str:
+    for assignment in role_assignments:
+        if not assignment.provider:
+            continue
+        if _role_has_capability(assignment.role_id, capability_classes):
+            return assignment.provider
+    return ""
+
+
+def _role_for_provider(
+    role_assignments: tuple[CollaborationRoleAssignmentState, ...],
+    provider: str,
+    capability_classes: set[str],
+) -> str:
+    for assignment in role_assignments:
+        if assignment.provider != provider:
+            continue
+        if _role_has_capability(assignment.role_id, capability_classes):
+            return assignment.role_id
+    return ""
+
+
+def _role_has_capability(role_id: str, capability_classes: set[str]) -> bool:
+    return bool(set(role_capability_classes(role_id)) & capability_classes)

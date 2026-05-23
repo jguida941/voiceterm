@@ -11,6 +11,9 @@ from dev.scripts.devctl.runtime.value_coercion import (
 from dev.scripts.devctl.review_channel.packet_body_observation import (
     packet_body_observed_by,
 )
+from dev.scripts.devctl.review_channel.packet_loop_attention import (
+    packet_requires_runtime_attention,
+)
 from dev.scripts.devctl.review_channel.agent_loop_decision_queue_targets import (
     _normalize_role,
 )
@@ -47,12 +50,18 @@ def instruction_authority_mismatch_errors(
     )
     if (
         active_packets
-        and queue_packet
-        and queue_packet not in active_packets
-        and not _packet_is_communication_only(queue_packet_record)
-        and not _active_focus_is_communication_only(
-            active_rows,
-            active_packets,
+            and queue_packet
+            and queue_packet not in active_packets
+            and not _packet_is_communication_only(queue_packet_record)
+            and _packet_requires_runtime_attention(
+                queue_packet_record,
+                actor=queue_actor,
+                role=queue_scope[0],
+                session=queue_scope[1],
+            )
+            and not _active_focus_is_communication_only(
+                active_rows,
+                active_packets,
             packet_index,
         )
         and not _body_open_subqueue_matches(
@@ -107,6 +116,12 @@ def _packet_inbox_mismatch_errors(
             and inbox_packet
             and inbox_packet not in active_packets
             and not _packet_is_communication_only(inbox_packet_record)
+            and _packet_requires_runtime_attention(
+                inbox_packet_record,
+                actor=actor,
+                role=role,
+                session=session,
+            )
             and not _active_focus_is_communication_only(
                 active_rows,
                 active_packets,
@@ -342,6 +357,23 @@ def _observation_row_matches_scope(
         coerce_text(row.get("body_observed_event_id"))
         or coerce_text(row.get("body_observed_at_utc"))
         or coerce_text(row.get("body_observed_by"))
+    )
+
+
+def _packet_requires_runtime_attention(
+    packet: Mapping[str, object] | None,
+    *,
+    actor: str,
+    role: str,
+    session: str,
+) -> bool:
+    if packet is None:
+        return True
+    return packet_requires_runtime_attention(
+        packet,
+        actor=actor,
+        role=role,
+        session=session,
     )
 
 

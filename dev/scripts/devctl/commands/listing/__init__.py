@@ -29,6 +29,7 @@ COMMANDS = [
     "release",
     "release-gates",
     "ship",
+    "ground-truth-probe",
     "release-notes",
     "relaunch-loop",
     "remote-control",

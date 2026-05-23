@@ -59,6 +59,22 @@ def run_sync_status_action(*, args, bundle) -> tuple[dict, int]:
         agents_block=agents_block,
         target_agent=target_agent,
     )
+    # Emit the past-expiry warning from the SAME stale count the queue
+    # surface reports, so the two cannot diverge per A19/A35 invariant
+    # test_stale_packet_count_must_match_past_expiry_warning. The earlier
+    # warning emission in event_reducer.py was removed for the same
+    # reason - it used a global stale count that disagreed with the
+    # per-scope projection.
+    stale_count_for_warning = int(queue.get("stale_packet_count") or 0)
+    state_warnings = list(bundle.review_state.get("warnings") or [])
+    _PAST_EXPIRY_WARNING = (
+        "One or more pending runtime-transport review packets are "
+        "past their expiry timestamp."
+    )
+    state_warnings = [w for w in state_warnings if w != _PAST_EXPIRY_WARNING]
+    if stale_count_for_warning > 0:
+        state_warnings.append(_PAST_EXPIRY_WARNING)
+    bundle.review_state["warnings"] = state_warnings
     if target_agent:
         agents_block = {target_agent: agents_block.get(target_agent, {})}
 

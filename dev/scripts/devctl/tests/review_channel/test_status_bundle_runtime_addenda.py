@@ -136,6 +136,10 @@ def test_status_bundle_refreshes_preserved_work_board_runtime_identity() -> None
                 {
                     "actor_id": "claude",
                     "role": "dashboard",
+                    "declared_role": "implementer",
+                    "role_source": "legacy_preserved_projection",
+                    "role_scope": "session",
+                    "mutation_mode": "read_only",
                     "session_id": "s-claude",
                     "worktree_identity": "",
                     "branch": "",
@@ -154,6 +158,11 @@ def test_status_bundle_refreshes_preserved_work_board_runtime_identity() -> None
     assert row["worktree_identity"] == "/repo/worktree"
     assert row["branch"] == "feature/live"
     assert row["path_scope"] == ["/repo/worktree"]
+    assert row["role"] == "implementer"
+    assert row["declared_role"] == "implementer"
+    assert row["role_source"] == "declared_role_without_mutation_authority"
+    assert row["role_scope"] == "session"
+    assert row["mutation_mode"] == "read_only"
 
 
 def test_status_report_refreshes_work_board_runtime_identity() -> None:
@@ -179,6 +188,10 @@ def test_status_report_refreshes_work_board_runtime_identity() -> None:
                 {
                     "actor_id": "claude",
                     "role": "dashboard",
+                    "declared_role": "implementer",
+                    "role_source": "legacy_preserved_projection",
+                    "role_scope": "session",
+                    "mutation_mode": "read_only",
                     "session_id": "s-claude",
                     "worktree_identity": "",
                     "branch": "",
@@ -195,6 +208,11 @@ def test_status_report_refreshes_work_board_runtime_identity() -> None:
     assert row["worktree_identity"] == "/repo/worktree"
     assert row["branch"] == "feature/live"
     assert row["path_scope"] == ["/repo/worktree"]
+    assert row["role"] == "implementer"
+    assert row["declared_role"] == "implementer"
+    assert row["role_source"] == "declared_role_without_mutation_authority"
+    assert row["role_scope"] == "session"
+    assert row["mutation_mode"] == "read_only"
     assert report["agent_loop_decisions"][0]["actor_id"] == "claude"
 
 

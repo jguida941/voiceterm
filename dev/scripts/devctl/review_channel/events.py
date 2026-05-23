@@ -69,6 +69,8 @@ def post_packet(
     request: PacketPostRequest,
 ) -> tuple[ReviewChannelEventBundle, dict[str, object]]:
     """Append one packet_posted event and refresh the reduced state."""
+    if not isinstance(request, PacketPostRequest):
+        raise TypeError("post_packet requires a typed PacketPostRequest")
 
     # Load existing state or fall back to raw event log
     existing_bundle = _load_existing_bundle(
@@ -146,6 +148,8 @@ def post_packet(
         "causation_id": request.causation_id,
         "run_id": request.run_id,
         "event_type": "packet_posted",
+        "actor": request.actor or request.from_agent,
+        "actor_role": request.actor_role,
         "from_agent": request.from_agent,
         "to_agent": request.to_agent,
         "kind": request.kind,
@@ -206,6 +210,8 @@ def transition_packet(
     request: PacketTransitionRequest,
 ) -> tuple[ReviewChannelEventBundle, dict[str, object]]:
     """Append one packet transition event and refresh the reduced state."""
+    if not isinstance(request, PacketTransitionRequest):
+        raise TypeError("transition_packet requires a typed PacketTransitionRequest")
 
     # Validate the requested action verb
     if request.action not in TRANSITION_EVENT_TYPES:

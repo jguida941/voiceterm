@@ -17,6 +17,7 @@ RUNTIME_ACTION_REQUEST_ACTIONS = {
 }
 PIPELINE_ACTION_REQUEST_ACTIONS = {"commit", "push"}
 STAGE_PIPELINE_ACTION_REQUEST_ACTIONS = {"stage_commit_pipeline"}
+COLLABORATION_HANDOFF_ACTION_REQUEST_ACTIONS = {"implementer_handoff"}
 
 
 def validate_action_request_target_fields(
@@ -84,6 +85,13 @@ def _validate_non_runtime_action_request(
     resource_target_values_present: bool,
     validate_optional_plan_intent_fields,
 ) -> None:
+    if action in COLLABORATION_HANDOFF_ACTION_REQUEST_ACTIONS:
+        _validate_implementer_handoff_action_request(
+            target=target,
+            runtime_approval=runtime_approval,
+            guard_bundle_evidence=guard_bundle_evidence,
+        )
+        return
     if (
         resource_target_values_present
         or runtime_approval.has_values()
@@ -102,6 +110,39 @@ def _validate_non_runtime_action_request(
             "packet for unscoped guidance."
         )
     validate_optional_plan_intent_fields(target)
+
+
+def _validate_implementer_handoff_action_request(
+    *,
+    target,
+    runtime_approval: PacketRuntimeApprovalFields,
+    guard_bundle_evidence: PacketGuardBundleEvidenceFields,
+) -> None:
+    if runtime_approval.has_values() or guard_bundle_evidence.has_values():
+        raise ValueError(
+            "Runtime guard fields are not valid on implementer_handoff "
+            "action_request packets."
+        )
+    if target.target_kind != "plan" or not target.target_ref:
+        raise ValueError(
+            "implementer_handoff action_request packets require --target-kind plan "
+            "and --target-ref."
+        )
+    if (
+        target.target_revision
+        or target.anchor_refs
+        or target.intake_ref
+        or target.mutation_op
+    ):
+        raise ValueError(
+            "Plan mutation fields are not valid on implementer_handoff "
+            "action_request packets."
+        )
+    if target.target_role != "implementer":
+        raise ValueError(
+            "implementer_handoff action_request packets require "
+            "--target-role implementer."
+        )
 
 
 def _validate_stage_pipeline_action_request(

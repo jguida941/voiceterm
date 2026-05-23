@@ -7,6 +7,7 @@ from dataclasses import asdict, dataclass
 
 from ..review_channel.agent_packet_attention import packet_attention_for_agent
 from ..review_channel.packet_contract import normalize_packet_route_role
+from .action_routing import build_agent_lane_decision
 from .agent_loop_checkpoint_repair import checkpoint_repair_next_action_for_review_state
 from .agent_loop_decision_grants import (
     action_routing_decision,
@@ -80,6 +81,8 @@ def build_agent_loop_context_impl(inputs: AgentLoopContextBuildInput):
         review_state=inputs.review_state,
         dashboard=inputs.dashboard,
     )
+    if not action_routing:
+        action_routing = _fallback_action_routing_for_role(role)
     grants = granted_capabilities_for_actor(
         review_state=inputs.review_state,
         dashboard=inputs.dashboard,
@@ -205,3 +208,35 @@ def _normalize_repair_command_runnable(
     if not repair_command:
         return False
     return coerce_bool(raw_value)
+
+
+_COORDINATION_FALLBACK_ROLES = frozenset(
+    {
+        "reviewer",
+        "orchestrator",
+        "plan_steward",
+        "architecture_review",
+        "duplicate_scope_guard",
+        "dogfood_test",
+        "governance_receipt",
+        "watcher",
+        "codex_research",
+        "observer",
+        "dashboard",
+    }
+)
+
+
+def _fallback_action_routing_for_role(role: str) -> dict[str, object]:
+    normalized = _text(role).lower().replace("-", "_").replace(" ", "_")
+    if normalized not in _COORDINATION_FALLBACK_ROLES:
+        return {}
+    lane_role = "dashboard" if normalized in {"dashboard", "observer", "watcher"} else "reviewer"
+    lane = build_agent_lane_decision(caller_role=lane_role)
+    return {
+        "contract_id": "ActionRoutingDecision",
+        "source_command": "agent-loop.default-role-lane",
+        "allowed_actions": list(lane.permissions),
+        "blocked_actions": list(lane.blocked_permissions),
+        "agent_lane": lane.to_dict(),
+    }

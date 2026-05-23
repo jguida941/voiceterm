@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+from ..runtime.action_contracts import ProviderAdapter, WorkflowAdapter
+
 from .contracts import ContractField, ContractSpec
 
 
 ADAPTER_CONTRACTS: tuple[ContractSpec, ...] = (
     ContractSpec(
-        contract_id="ProviderAdapter",
+        contract_id=ProviderAdapter.__name__,
         owner_layer="governance_adapters",
         purpose=(
             "Abstracts provider-specific launch/status/fix behavior so loops "
@@ -29,7 +31,7 @@ ADAPTER_CONTRACTS: tuple[ContractSpec, ...] = (
         startup_surface_tokens=("provider_id", "capabilities", "launch_mode"),
     ),
     ContractSpec(
-        contract_id="WorkflowAdapter",
+        contract_id=WorkflowAdapter.__name__,
         owner_layer="governance_adapters",
         purpose=(
             "Abstracts CI/workflow execution so Ralph, mutation, and "

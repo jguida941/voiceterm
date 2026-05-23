@@ -346,6 +346,14 @@ def _critical_finding_preemption_slice(
             continue
         linked_row = active_by_target.get(finding.primary_file)
         if linked_row is not None:
+            if (
+                current_plan_row is not None
+                and linked_row.row_id != current_plan_row.row_id
+            ):
+                # A critical finding linked to some other active row remains
+                # backlog evidence. It cannot pivot away from the current
+                # executable PlanRow without a typed graph-valid pivot receipt.
+                continue
             return DevelopmentNextSlice(
                 slice_id=linked_row.row_id,
                 source=linked_row.source_doc_path or DEFAULT_MASTER_PLAN_STORE_REL,

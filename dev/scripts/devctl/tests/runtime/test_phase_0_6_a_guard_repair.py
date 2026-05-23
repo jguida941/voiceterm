@@ -51,11 +51,14 @@ _TARGET_REF = "dev/scripts/devctl/commands/review_channel/event_handler.py"
 
 # Parent for claude->codex closures (default direction).
 # claude(implementer) responds to codex(reviewer)'s task_started.
+# AntiDumbass amendment: from_agent_role is a typed packet field, replacing the
+# legacy provider->role dict lookup in _cascade_lifecycle_post_authority.
 _PARENT_TASK_STARTED = {
     "packet_id": "rev_pkt_4652",
     "kind": "task_started",
     "status": "pending",
     "from_agent": "codex",
+    "from_agent_role": "reviewer",
     "to_agent": "claude",
     "session_id": _CODEX_SESSION,
     "target_session_id": _CLAUDE_SESSION,
@@ -71,6 +74,7 @@ _PARENT_TASK_PRODUCED = {
     "kind": "task_produced",
     "status": "pending",
     "from_agent": "claude",
+    "from_agent_role": "implementer",
     "to_agent": "codex",
     "session_id": _CLAUDE_SESSION,
     "target_session_id": _CODEX_SESSION,
@@ -683,6 +687,7 @@ def test_task_progress_can_answer_review_failed_parent() -> None:
         "kind": "review_failed",
         "status": "pending",
         "from_agent": "codex",
+        "from_agent_role": "reviewer",
         "to_agent": "claude",
         "session_id": _CODEX_SESSION,
         "target_session_id": _CLAUDE_SESSION,
@@ -695,6 +700,46 @@ def test_task_progress_can_answer_review_failed_parent() -> None:
         evidence_ref=("packet:rev_pkt_4659",),
     )
     assert _cascade_lifecycle_post_authority(args, parent_resolver=resolver) is True
+
+
+def test_task_progress_can_answer_continuation_anchor_parent() -> None:
+    """Current-row communication repair: a typed progress reply can answer an anchor.
+
+    A continuation anchor is not implementation output and must not be closable by
+    task_produced/review_accepted. It can, however, be the parent for a scoped
+    task_progress/task_blocked packet so Claude and Codex can prove live
+    bidirectional packet communication without broadening mutation authority.
+    """
+
+    parent_anchor = {
+        "packet_id": "rev_pkt_4829",
+        "kind": "continuation_anchor",
+        "status": "pending",
+        "from_agent": "codex",
+        "from_agent_role": "reviewer",
+        "to_agent": "claude",
+        "session_id": _CODEX_SESSION,
+        "target_session_id": _CLAUDE_SESSION,
+        "target_role": "implementer",
+        "target_ref": "plan:MP-GUARDIR-V4-PHASE-0-6-E-CURRENT-PLAN-AUTHORITY-S1",
+    }
+    resolver = _resolver(parent_anchor, packet_id="rev_pkt_4829")
+    args = _args(
+        kind="task_progress",
+        target_ref="plan:MP-GUARDIR-V4-PHASE-0-6-E-CURRENT-PLAN-AUTHORITY-S1",
+        evidence_ref=("packet:rev_pkt_4829",),
+        parent_packet_id="rev_pkt_4829",
+    )
+
+    assert _cascade_lifecycle_post_authority(args, parent_resolver=resolver) is True
+
+
+def test_task_produced_still_cannot_answer_continuation_anchor_parent() -> None:
+    parent_anchor = dict(_PARENT_TASK_STARTED)
+    parent_anchor["kind"] = "continuation_anchor"
+    resolver = _resolver(parent_anchor, packet_id="rev_pkt_4652")
+
+    assert _cascade_lifecycle_post_authority(_args(), parent_resolver=resolver) is False
 
 
 def test_review_accepted_over_task_progress_parent_is_rejected() -> None:
@@ -710,6 +755,7 @@ def test_review_accepted_over_task_progress_parent_is_rejected() -> None:
         "kind": "task_progress",
         "status": "pending",
         "from_agent": "claude",
+        "from_agent_role": "implementer",
         "to_agent": "codex",
         "session_id": _CLAUDE_SESSION,
         "target_session_id": _CODEX_SESSION,
@@ -735,6 +781,7 @@ def test_review_failed_over_task_progress_parent_is_accepted() -> None:
         "kind": "task_progress",
         "status": "pending",
         "from_agent": "claude",
+        "from_agent_role": "implementer",
         "to_agent": "codex",
         "session_id": _CLAUDE_SESSION,
         "target_session_id": _CODEX_SESSION,
@@ -756,6 +803,7 @@ def test_task_produced_can_answer_review_failed_parent() -> None:
         "kind": "review_failed",
         "status": "pending",
         "from_agent": "codex",
+        "from_agent_role": "reviewer",
         "to_agent": "claude",
         "session_id": _CODEX_SESSION,
         "target_session_id": _CLAUDE_SESSION,

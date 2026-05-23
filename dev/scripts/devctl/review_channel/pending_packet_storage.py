@@ -99,6 +99,11 @@ def load_pending_packet_queue(
         artifact_root=repo_root / config.review_artifact_root_rel,
     )
     pending_packets, stale_packets = partition_live_pending_packets(hydrated_packets)
+    pending_packets = [
+        packet
+        for packet in pending_packets
+        if not _is_acked_action_request_control_packet(packet)
+    ]
     control_packets = [
         dict(packet)
         for packet in hydrated_packets
@@ -249,6 +254,13 @@ def _is_recovery_control_packet(packet: Mapping[str, object]) -> bool:
         str(packet.get("kind") or "").strip() == "action_request"
         and str(packet.get("lifecycle_current_state") or "").strip()
         in {"failed", "apply_pending_after_execution"}
+    )
+
+
+def _is_acked_action_request_control_packet(packet: Mapping[str, object]) -> bool:
+    return (
+        str(packet.get("kind") or "").strip() == "action_request"
+        and str(packet.get("status") or "").strip() == "acked"
     )
 
 

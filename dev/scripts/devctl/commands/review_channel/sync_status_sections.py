@@ -47,6 +47,9 @@ def coordination_section(coordination: dict[str, object]) -> dict[str, object]:
         "coordination_topology": str(
             coordination.get("coordination_topology") or "unknown"
         ),
+        "legacy_topology_label": str(
+            coordination.get("legacy_topology_label") or ""
+        ),
         "authority_mode": str(coordination.get("authority_mode") or "unknown"),
         "recovery_eligibility": str(
             coordination.get("recovery_eligibility") or "unknown"

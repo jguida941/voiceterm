@@ -11,7 +11,7 @@ import json
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from ..runtime.role_profile import normalize_tandem_role, role_for_provider
+from ..runtime.role_profile import normalize_role_id
 
 if TYPE_CHECKING:
     from ..commands.governance.session_resume_support import SessionCachePacket
@@ -25,7 +25,7 @@ def build_session_resume_preamble(
     session_resume_packet: "SessionCachePacket | None" = None,
 ) -> str:
     """Build a session-resume JSON preamble for reviewer or implementer prompts."""
-    resolved_role = (normalize_tandem_role(role) or role_for_provider(provider)).value
+    resolved_role = normalize_role_id(role)
     packet = session_resume_packet or _try_build_session_resume(
         repo_root,
         role=resolved_role,

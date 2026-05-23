@@ -22,6 +22,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from dev.scripts.devctl.runtime.control_decision_obedience import (  # noqa: E402
+    ControlDecisionObedienceReport,
     evaluate_control_decision_obedience,
     extract_decision_and_attempted_actions,
 )
@@ -43,11 +44,18 @@ def build_report(
     else:
         payload = {}
     decision, actions = extract_decision_and_attempted_actions(payload)
-    report = evaluate_control_decision_obedience(
+    report_contract = evaluate_control_decision_obedience(
         decision=decision,
         attempted_actions=actions,
         allow_empty=allow_empty,
-    ).to_dict()
+    )
+    # Typed contract boundary: the evaluator must return the typed
+    # ControlDecisionObedienceReport before projection downstream.
+    if not isinstance(report_contract, ControlDecisionObedienceReport):
+        raise TypeError(
+            "evaluate_control_decision_obedience must return ControlDecisionObedienceReport"
+        )
+    report = report_contract.to_dict()
     report["command"] = "check_control_decision_obeyed"
     report["timestamp"] = utc_timestamp()
     return report

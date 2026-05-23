@@ -210,6 +210,8 @@ def packet_requires_runtime_attention(
     session: str = "",
 ) -> bool:
     """Return whether one pending packet should keep an agent-loop awake."""
+    if _parked_non_scheduler_plan_packet(packet):
+        return False
     if packet_absorbed(packet) and absorption_resolves_packet_pressure(packet):
         return False
     if packet_absorption_required(packet, actor=actor, role=role, session=session):
@@ -253,3 +255,21 @@ def packet_durable_ingestion_succeeded(packet: Mapping[str, object]) -> bool:
 
 def _command_lane_packet(packet: Mapping[str, object]) -> bool:
     return coerce_text(packet.get("kind")) in _COMMAND_LANE_KINDS
+
+
+def _parked_non_scheduler_plan_packet(packet: Mapping[str, object]) -> bool:
+    """Return True for packets captured as future-row evidence only."""
+    for key in ("durable_binding", "packet_creation_binding"):
+        binding = packet.get(key)
+        if not isinstance(binding, Mapping):
+            continue
+        routing = binding.get("plan_packet_routing")
+        if not isinstance(routing, Mapping):
+            continue
+        if bool(routing.get("scheduler_eligible")):
+            continue
+        classification = coerce_text(routing.get("classification"))
+        target_status = coerce_text(routing.get("target_plan_row_status"))
+        if classification == "future_row_note" and target_status in {"queued", "deferred"}:
+            return True
+    return False

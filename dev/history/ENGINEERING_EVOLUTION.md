@@ -4,7 +4,7 @@
 
 **Status:** Draft v4 (historical design and process record)
 **Audience:** users and developers
-**Last Updated:** 2026-05-19
+**Last Updated:** 2026-05-22
 
 ## At a Glance
 
@@ -36,6 +36,33 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [Quick Read (2 min)](#quick-read-2-min)
 - [User Path (5 min)](#user-path-5-min)
 - [Developer Path (15 min)](#developer-path-15-min)
+
+### 2026-05-22 - Current-row proof state replaces staging markdown checklists
+
+The GuardIR v4 current-row repair exposed a proof-authority drift: an operator
+staging file could be used as a long-lived checklist even though the same file
+identified typed PlanRows, source snapshots, ingestion receipts, guard output,
+dogfood results, packet evidence, final-gate output, and feature proof receipts
+as durable authority.
+
+Change: current-row proof mode now assembles `CurrentRowProofMode` from typed
+stores and managed outputs, renders `dev/reports/plan_execution/current_row.md`
+as a generated projection, and checks projection drift through
+`check_current_row_proof_bundle.py --enforce-projection-sync`. Guard results are
+recorded with `current-row-proof-step`, dogfood is recorded with
+`current-row-proof-dogfood`, `current-row-proof-receipt` emits the
+`FeatureProofReceipt` only from existing guard proof plus an exact pytest node
+id, and `check_staging_source_ingested.py` remains the small source-integrity
+guard for `delete_after_ingest.md`.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/current_row_proof_bundle.py`
+- `dev/scripts/checks/check_current_row_proof_bundle.py`
+- `dev/scripts/checks/check_staging_source_ingested.py`
+- `dev/scripts/devctl/commands/plan_execution_projection.py`
+- `dev/scripts/devctl/tests/checks/test_check_current_row_proof_bundle.py`
+- `dev/scripts/devctl/tests/checks/test_check_staging_source_ingested.py`
 
 ### 2026-05-21 - Maintained-doc prose stops claiming durable authority
 

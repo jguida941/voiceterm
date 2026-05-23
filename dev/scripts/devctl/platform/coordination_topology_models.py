@@ -67,7 +67,7 @@ class CoordinationTopologySnapshot:
 
     schema_version: int = COORDINATION_TOPOLOGY_SCHEMA_VERSION
     contract_id: str = COORDINATION_TOPOLOGY_CONTRACT_ID
-    collaboration_topology: str = "single_agent"
+    collaboration_topology: str = "typed_role_topology_unresolved"
     authority_mode: str = "self_directed"
     work_ownership_mode: str = "exclusive_slice"
     sync_cadence_mode: str = "continuous"
@@ -84,7 +84,7 @@ class CoordinationTopologySnapshot:
     live_delegated_worker_count: int = 0
     fanout_posture: str = "conductor_only"
     fanout_safe: bool = False
-    recommended_topology: str = "single_agent"
+    recommended_topology: str = "typed_role_topology_unresolved"
     resync_posture: str = "idle"
     resync_required: bool = False
     resync_reason: str = ""
@@ -112,4 +112,3 @@ class CoordinationTopologySnapshot:
         ]
         payload["ready_gates"] = [row.to_dict() for row in self.ready_gates]
         return payload
-

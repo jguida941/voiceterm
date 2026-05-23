@@ -1,4 +1,4 @@
-# GuardIR v4.55.1 Unified Ingestable Plan
+# GuardIR v4.56 Unified Ingestable Plan
 
 ## Summary
 
@@ -10,7 +10,7 @@ sessions do not need chat history to continue.
 Canonical path:
 `dev/audits/plan_intake/2026-05-20-guardir-lifecycle-recovery-ci-proof-bridge-v4.md`
 
-Plan revision id: `guardir-v4.55.1-2026-05-21`
+Plan revision id: `guardir-v4.56-2026-05-21`
 
 ## Source History
 
@@ -654,6 +654,14 @@ Plan revision id: `guardir-v4.55.1-2026-05-21`
   emit a typed migration/debt blocker rather than surfacing that label
   as an active mode. The "generated compatibility aliases" phrasing from
   v4.55 is hereby retired; v4.55 acceptance reads as corrected above.
+- Applies the v4.56 current-plan authority staging amendment from
+  `delete_after_ingest.md` while keeping that file as operator staging
+  evidence only until typed ingestion succeeds. The amendment keeps
+  `MP-GUARDIR-V4-PHASE-0-6-E-CURRENT-PLAN-AUTHORITY-S1` narrow: close
+  current-plan authority, event-queue PlanRow context, final-gate parity,
+  PKT-BIND non-executability, concrete `FeatureProofReceipt` proof, and
+  check-router visibility. System-wide guard/profile/retention/explainer
+  work is cross-indexed to owner rows and must not expand this slice.
 
 ## Required Existing-Row Composition Anchors
 
@@ -4714,6 +4722,368 @@ evidence created by that work stream.
    or blocked permissions may consume a registered adapter over the shared
    classifier, but it must not stay on a separate token list for `next_action`
    while ignoring destructive `next_command` values.
+
+## v4.56 Current-Plan Authority Operator Amendment
+
+This section is the durable plan-source amendment for
+`MP-GUARDIR-V4-PHASE-0-6-E-CURRENT-PLAN-AUTHORITY-S1`. The operator staging
+backup is `delete_after_ingest.md`; it remains a temporary reference until this
+amendment is ingested through typed receipts, then it must be deleted. Agents
+must not cite the staging file as durable authority.
+
+Canonical repo/branch for this row:
+`jguida941/guardir@extraction/guardir-core-p0-proof-integrity`. Do not apply
+this row to `feature/governance-quality-sweep` unless a typed migration receipt
+maps the work back to this extraction branch.
+
+### Scope Partition
+
+Blocking for this row:
+
+- `dev/scripts/checks/check_current_plan_authority.py`.
+- Check-router wiring for that guard.
+- Current-plan dogfood scenario at
+  `dev/scripts/devctl/tests/scenarios/test_current_plan_authority_dogfood.py`.
+- Cached-hammock multi-agent dogfood: Codex exercises reviewer/orchestrator
+  authority and Claude is addressed through the implementer/peer lane by typed
+  review-channel packets, not chat prose. Both lanes must see the same
+  CurrentPlanAuthority row, and neither lane may be asked to execute the other
+  actor's command without typed proxy authority.
+- Final-gate and continuation parity with current-plan authority.
+- `PKT-BIND-*` non-executable invariant, including legacy queued PKT-BIND rows.
+- Event-queue PlanRow-context invariant: raw packets cannot outrank executable
+  PlanRows when `plan_rows` are omitted or empty.
+- Typed `CurrentPlanAuthority` handoff into final/continuation gates instead of
+  passing only a row-id string.
+- `FeatureProofReceipt(real_life_test_status=proven_passed)` with an exact
+  pytest node id selected by the receipt builder.
+
+Related but not blocking for this row:
+
+- VoiceTerm repo-pack cleanup.
+- Instruction-surface usability and role-aware routing.
+- Guard/profile tiering and `.guardir.toml` onboarding.
+- Flowchart archival and freshness/navigation guards.
+- Archive retention policy.
+- MP-377 parent-anchor decision.
+- Code-smell projection cleanup.
+- CI/background governance.
+
+Deferred unless promoted by a typed reducer:
+
+- Phase 1 proof-integrity.
+- `GitMutationProofReceipt` store creation.
+- Bridge retirement.
+- Phase 6 topology refactor.
+- Full docs/archive cleanup.
+- Broad guard-suite rewrite.
+- `src/guardir` package migration.
+
+### Cached-Hammock Multi-Agent Dogfood Requirement
+
+This row composes with
+`dev/audits/plan_intake/2026-05-18-cached-hammock-role-audit.md`, not as a new
+scope expansion but as the required self-test shape for the current-plan guard.
+
+Relevant cached-hammock anchors:
+
+- Priority 6: `CognitiveRoleFleet` defines the 8 cognitive roles:
+  orchestrator, watcher, codex_research, implementation,
+  architecture_review, duplicate_scope_guard, dogfood_test, and
+  governance_receipt.
+- P58.5: the role model is N agents x M roles. Provider names such as Codex or
+  Claude are not durable role authority; role/session/capability grants are.
+- Later cached-hammock round findings: the Claude/Codex loop can overproduce
+  packets, miss peer packets, repeat stale findings, or emit false-positive
+  proof/role receipts unless each round has typed stop/go conditions, packet
+  observation proof, and a synthesis/receipt duty.
+
+Current-row acceptance impact:
+
+- Codex lane must act as reviewer/orchestrator/plan-steward for this row unless
+  typed authority grants a narrower edit-only patch. Codex records guard
+  results, verifies dogfood output, and posts typed findings/progress instead
+  of treating chat as lifecycle state.
+- Claude lane must be addressed through review-channel typed packets with
+  `target_role=implementer` or the active typed peer role. Loose operator/chat
+  text is not a valid handoff.
+- While Claude codes, cached-hammock roles must actively inspect the work. They
+  are not labels. The implementation lane reports the code delta; the
+  orchestrator keeps the row/stop-go state coherent; architecture_review checks
+  composition; duplicate_scope_guard checks existing contracts and guards before
+  new surfaces are added; dogfood_test runs the devctl scenario; and
+  governance_receipt verifies receipts, evidence refs, guard outputs, and
+  proof-chain completeness.
+- Each role pass must emit or cite an answer to three questions: what issue was
+  caught, whether it should become a guard/test/receipt consumer/role update,
+  and whether it exposes a speed/noise/determinism improvement opportunity.
+- Repeated role findings must be converted into typed follow-up: a guard
+  candidate linked to an owner row, a role-instruction improvement, a
+  check-router/profile improvement, a performance improvement, or a typed
+  irrelevant/stale disposition with evidence.
+- The dogfood scenario must prove at least these cached-hammock obligations are
+  represented or explicitly deferred to their owner rows: orchestrator,
+  implementation, architecture_review, duplicate_scope_guard, dogfood_test, and
+  governance_receipt. Watcher and codex_research may be cited through existing
+  `develop next` campaign or agent-mind evidence until first-class
+  `CognitiveRoleFleetAssignment` lands.
+- Before closure, Codex must post or consume at least one typed Claude packet
+  for this row. Evidence must name packet id, actor, role or target-role,
+  session when available, plan ref, source hash, and guard/dogfood output.
+- A `FeatureProofReceipt(proven_passed)` for this row must cite the
+  multi-agent dogfood evidence: current-plan guard result, `develop next` for
+  Codex, `develop next` for Claude or a role-scoped Claude inbox packet, and
+  the exact pytest node id for the dogfood scenario.
+- Current-row closure must include at least one typed Claude/Codex packet
+  exchange where Claude's implementer lane is instructed to use the role checks
+  while coding and Codex consumes or reviews the result. A pending unread
+  peer packet for this row blocks closure; it is not background noise.
+
+Do not implement full P6/P58.5 in this row. Do prove this row is using the
+existing typed collaboration loop, and cross-index missing first-class
+role-fleet pieces to their owner rows instead of leaving them as prose.
+
+### Current Row Acceptance Additions
+
+The current row is not green until the system proves all of the following:
+
+- `CurrentPlanAuthority` is the scheduler authority. Packets, findings,
+  projections, flowcharts, archived rows, and final-gate pressure cannot outrank
+  the executable PlanRow unless a typed, graph-valid pivot exists.
+- `event_projection_queue` fails closed or returns non-executable diagnostics
+  when a live caller omits `plan_rows` while `dev/state/plan_index.jsonl`
+  contains executable rows.
+- `develop next` cannot return packet ids, `PKT-BIND-*` rows, stale/future/
+  unbound packets, or unlinked finding pressure as current work while an
+  executable current PlanRow exists.
+- The final-response gate cannot use a packet id or raw packet-attention id as
+  `continuation_goal` while an executable current PlanRow exists.
+- `applied`, `completed`, `closed`, `archived`, and tombstone rows cannot
+  re-enter scheduler authority unless a typed reopen receipt exists.
+- `CurrentPlanAuthority` diagnostics are visible in `develop next` and final
+  gate outputs.
+- A resolver unit test alone is not closure. Closure requires a real devctl
+  dogfood scenario plus a `FeatureProofReceipt` with `proven_passed` and the
+  exact scenario pytest node id.
+
+### Verified Live Gaps To Guard
+
+These facts are live acceptance inputs for this row and must be re-checked at
+implementation time:
+
+- `packet_creation_binding_plan.py` creates new `PKT-BIND-*` rows as
+  `status="evidence"` and `row_kind="packet_binding"`, but legacy
+  `PKT-BIND-*` rows in `dev/state/plan_index.jsonl` still have executable
+  looking states and must be excluded by selector/guard logic.
+- `event_projection_queue.py` still accepts omitted/empty `plan_rows`; that
+  branch must not select raw packets when executable PlanRows exist.
+- `next_slice.py` has competing packet-attention, authority-affecting packet,
+  orchestration blocker, finding-preemption, active-row, and packet-fallback
+  lanes. The current-plan resolver must sit before these can become execution
+  authority.
+- `current_plan_authority.py` already contains resolver pieces, leaf selection,
+  PKT-BIND exclusion, and bound/unbound packet partitioning, but that is not
+  enough until event queue, final gate, dogfood, check-router, and receipt proof
+  compose with it.
+- `plan_packet_routing.py` already classifies packets as same-row blocker,
+  upstream change, future-row note, stale/unbound communication, or plan
+  amendment. Scheduler eligibility must use that classification and require
+  current-row targeting when executable PlanRows exist.
+- `FeatureProofReceipt.__post_init__` does not by itself require a concrete
+  pytest node id for `real_life_test_status="proven_passed"`. The output-proof
+  path can check richer proof, but real-test enforcement is not mandatory at
+  every receipt boundary today.
+- `final_response_gate.py` accepts `current_plan_row_id: str` rather than a
+  typed `CurrentPlanAuthority` object. It must not decide packet-bound versus
+  unbound authority from a string alone.
+- `REVIEW_SNAPSHOT.md` is projection evidence with stale VoiceTerm identity and
+  old remote state, not clean authority.
+- `dev/active/INDEX.md` correctly says `dev/state/plan_index.jsonl` is the
+  canonical PlanRow registry; active docs are navigation/projection surfaces.
+
+### System-Wide Composition Audit Inventory
+
+The operator supplied the following 8-subsystem audit. Treat these as reported
+state requiring verification during their owner slices. They are not all current
+row blockers, but every item must be either fixed, proven irrelevant, or linked
+to an owner row with a guard.
+
+Plan lifecycle:
+
+- Shipped contracts: `PlanRow`, `PlanSourceSnapshot`,
+  `PlanIntentIngestionReceipt`, `PlanRowClosureReceipt`, `PlanRegistry`,
+  `PlanTargetRef`, `PlanRevisionRefreshRequired`, `CurrentPlanAuthority`,
+  `PlanCurrencyContext`, `IngestionProvenance`.
+- Spec-only contracts: `PlanAmendmentReceipt`, `RetentionPolicy`,
+  `ArchivalReceipt`.
+- Reported state sizes: `plan_index.jsonl` 2,082 rows / 2.6 MB,
+  `plan_source_snapshots.jsonl` 766 rows / 18 MB,
+  `plan_ingestion_receipts.jsonl` 388 rows / 5.8 MB,
+  `plan_row_closure_receipts.jsonl` 23 receipts for 2,082 rows.
+- Reported gap: most rows have no closure proof; role-review enforcement is
+  opt-in through `enforce_role_review_gate=True`; `plan_amendment_receipts.jsonl`
+  is absent on disk.
+
+Dogfood/proof:
+
+- Reported artifacts: 149 FeatureProofReceipt JSON files, 4,004 dogfood runs,
+  36 ground-truth probe receipts.
+- Reported bug: `FeatureProofReceipt.__post_init__` validates status membership
+  and counts but not a concrete pytest node id for `proven_passed`.
+- Reported gaps: PlanRows lack reverse proof indexes, no guard requires every
+  applied/completed row to have a matching `proven_passed` FeatureProofReceipt,
+  and commit does not verify dogfood ran.
+
+Packet/review channel:
+
+- Shipped packet contracts: `PacketCreationBindingEvent`,
+  `PacketAbsorptionReceipt`, `PacketSemanticIngestionReceipt`,
+  `PacketSemanticActionItem`, `PacketCarryForwardDebt`.
+- Reported state size: `events.jsonl` around 99 MB / 85k lines and
+  `latest.json` around 48 MB.
+- Reported gaps: stale packets can stay forever unless manually archived or
+  expired, and carry-forward debt does not auto-resolve.
+
+Receipt/proof chain:
+
+- Reported contracts/stores: 67 receipt type classes and 18 receipt-shaped
+  JSONL stores.
+- Longest intended chain:
+  `PlanRow -> PlanIntentIngestionReceipt -> ValidationReceipt -> CommitReceipt
+  -> GitMutationProofReceipt -> RoleReviewReceipt -> PlanRowClosureReceipt ->
+  FeatureProofReceipt`.
+- Reported breaks: FeatureProofReceipt loses CommitReceipt ancestry, role
+  review is optional, and PushReport has no field naming the
+  GitMutationProofReceipt that proves the push.
+- Reported orphan stores with writers but no scheduler/packet consumer include
+  `governed_exception_lifecycles.jsonl`, `bypass_lifecycles.jsonl`,
+  `artifact_receipts.jsonl`, `baseline_authority_inventories.jsonl`,
+  `plan_ingestion_receipts.jsonl`, and `plan_row_closure_receipts.jsonl`.
+
+Role/authority:
+
+- Shipped contracts include `RoleProfile`, `TandemProfile`,
+  `CollaborationSessionState`, `ActorAuthorityState`, `CapabilityGrantState`,
+  `ReviewerMode`, `SessionPosture`, `BypassLifecycle`,
+  `AgentLoopOperatorOverride`, `ConductorCapabilityState`, and `PlanRow`.
+- Reported gap: PlanRow has no durable `role_provenance`, `owner_role`, or
+  `assigned_role`; role-to-row accountability is session-scoped and lost when
+  packets archive.
+- Reported gap: mutation/verification owners in CollaborationSessionState are
+  string agent ids rather than typed foreign-key references.
+
+Guards/check-router:
+
+- Reported count drift: one audit counted 148 guards, earlier estimates counted
+  122. The guard coverage work must compute this from the current checkout.
+- Reported distribution: plan lifecycle, receipt integrity, packet-plan
+  binding, minimal role coverage, VoiceTerm/identity, build/test/lint, and
+  architecture/governance checks.
+- Reported gaps: no meta-guard validates PlanRow completeness/proof path, and
+  helper-session delegation, role-aware routing, instruction-surface usability,
+  and proof-carrying PlanRow are under-guarded.
+
+Boot/session/agent mind:
+
+- StartupContext shows reviewer gate, push decision, work intake, packet intent
+  anchors, plan iteration session, quality signals, blockers, runtime truth,
+  session posture, and coordination state.
+- Reported gaps: boot does not show queued row count, stalled rows, dangling
+  refs, or plan-graph health; `AgentMindSlice` is a provider trace projection,
+  not a typed-state derivative; startup-context and `develop next` can read
+  typed state independently without reconciliation.
+
+Composition seams:
+
+- PlanRow to FeatureProofReceipt is weak unless proof refs are mandatory.
+- PlanRow to DogfoodRun is severed without typed linkage.
+- Packet to PlanRow is asymmetric when resolution is deferred to query time.
+- CommitReceipt to PlanRowClosureReceipt is strong but opt-in if role review is
+  disabled.
+- RoleAssignment to PlanRow ownership is broken when roles bind to packets but
+  not rows.
+- CurrentPlanAuthority to FeatureProofReceipt is unlinked unless in-progress
+  rows require proof-of-work evidence.
+
+### Contract Guard Coverage - Borrow-Checker Layer
+
+Every typed contract must have guard coverage in four dimensions:
+
+- Field invariants: what the dataclass/schema guarantees internally.
+- Composition obligations: what other contracts must reference back to it.
+- Lifecycle transitions: which status/state changes are valid.
+- Consumer obligations: which readers must consume each receipt/store that a
+  writer emits.
+
+The audit artifact for this methodology is
+`dev/state/contract_guard_coverage.jsonl`. Do not create it inside this current
+row unless a typed reducer promotes the minimum needed subset. The broader work
+belongs under the guard-coverage owner row or a newly ingested
+`MP-GUARDIR-V4-PHASE-0-7-CONTRACT-GUARD-COVERAGE-S1`.
+
+Highest-leverage missing guards to cross-index:
+
+- `check_feature_proof_requires_pytest_node_id.py`.
+- `check_every_applied_row_has_closure_receipt.py`.
+- `check_plan_row_role_provenance_resolved.py`.
+- `check_plan_row_proof_path_resolves.py`.
+- `check_closure_requires_terminal_role_review.py`.
+- `check_applied_row_has_dogfood_run.py`.
+- `check_push_report_has_git_mutation_proof_ref.py`.
+- `check_packet_target_ref_resolves_at_intake.py`.
+- `check_startup_context_includes_plan_health.py`.
+- `check_events_log_within_retention_bounds.py`.
+- `check_guard_router_coverage.py`.
+- `check_plan_reference_integrity.py`.
+- `check_receipt_store_has_active_consumer.py`.
+- `check_runtime_dispatch_exhaustive.py`.
+- `check_current_plan_authority_gate_enforced.py`.
+- `check_authority_only_imports.py`.
+
+For this current row, only the subset needed to prove current-plan authority is
+blocking: concrete FeatureProofReceipt pytest-node proof, current-plan gate
+enforcement, event-queue PlanRow context, packet target-ref resolution at the
+current-row seam, PKT-BIND non-executability, and check-router visibility for
+`check_current_plan_authority.py`.
+
+### Guard Profiles And Operator UX Cross-Index
+
+The deterministic guard UX must be profile-based, not AI-decided:
+
+- `devctl init` writes a committed repo policy such as `.guardir.toml`.
+- The profile selects mandatory/recommended/opt-in guard tiers.
+- Per-guard overrides are explicit and diffable.
+- Pre-commit runs the mandatory tier.
+- CI/background governance runs the broader scheduled suite and writes receipts.
+- `devctl explain --guard <name>` explains guard purpose and remediation from
+  typed guide/projection inputs.
+- AI may ask, explain, and stage suggestions, but the operator commits policy.
+
+This is not current-row blocking. Cross-index it to the existing quality preset,
+`ResolvedQualityPolicy`, check-router, P111 AssistantGuideMode /
+PlatformGuideProjection, and P134 PlatformGuideFreshnessGuard owner rows.
+
+### Code-Smell Projection Rule
+
+Code-smell files such as `codesmells.md` and generated smell probes are
+projection surfaces over typed findings, PlanRows, receipts, and guards. Any
+code-smell item must be one of:
+
+- Proven fixed by guard/test/receipt evidence.
+- Proven irrelevant by typed terminal receipt or owner-row disposition.
+- Linked to a specific PlanRow that owns the fix.
+
+A hand-maintained markdown smell list is not authority and must not become a
+parallel backlog.
+
+### Flowchart Disposition
+
+`System_Connection_Flowchart.md` is architecture-audit evidence only. Reference
+it, hash it, and either archive it under `dev/audits/architecture/` or register
+it as a managed generated surface. It is useful for duplicate-system,
+disconnected-island, adopter-seam, and state-write authority audits. It is not
+valid authority for PlanRow selection, continuation goals, final gate, packet
+priority, role/session assignment, proof of closure, or mutation authority.
 
 ## Phase 0.6.E Closure
 

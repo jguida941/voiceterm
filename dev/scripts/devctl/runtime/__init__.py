@@ -76,6 +76,8 @@ from .control_decision_obedience import (
     CONTROL_DECISION_OBEYED_SCHEMA_VERSION,
     ControlDecisionObedienceReport,
     ControlDecisionObedienceViolation,
+    MissingDecisionRefreshHint,
+    StaleControllerDecisionBlocker,
     evaluate_control_decision_obedience,
     extract_decision_and_attempted_actions,
 )

@@ -42,6 +42,7 @@ def build_session_row(
     confidence_override: str = "",
     parent_agent_id: str = "",
     participant: Mapping[str, object] | None = None,
+    default_plan_row_id: str = "",
 ) -> AgentWorkBoardRow:
     barrier_ids = barrier_index.get(lane_id, [])
     attention_packet_id = _select_current_active_packet_id(
@@ -101,7 +102,10 @@ def build_session_row(
         active_packet_id=attention_packet_id,
         attention_packet_id=attention_packet_id,
         executing_packet_id=executing_packet_id,
-        plan_row_id=plan_row_for(packet_id=attention_packet_id, packet_rows=packet_rows),
+        plan_row_id=(
+            plan_row_for(packet_id=attention_packet_id, packet_rows=packet_rows)
+            or default_plan_row_id
+        ),
         path_scope=path_scope,
         worktree_identity=worktree,
         branch=branch,

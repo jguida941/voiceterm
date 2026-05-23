@@ -20,6 +20,7 @@ from ...runtime.lifetime_bypass_mode import (
     bypass_receipt_from_mapping,
 )
 from ..development.packet_attention import review_state_payload
+from . import peer_spawn as _peer_spawn_command
 
 
 def add_parser(sub) -> None:
@@ -44,6 +45,17 @@ def add_parser(sub) -> None:
         help="Launch the authorized replacement agent when supervision gates pass",
     )
     parser.add_argument(
+        "--new-spawn",
+        action="store_true",
+        default=False,
+        help=(
+            "Treat this as a fresh peer spawn rather than a dead-process "
+            "recovery. With --execute, runs the canonical peer-spawn driver "
+            "directly under the supplied BypassReceipt without requiring a "
+            "stale rollout or dead PID."
+        ),
+    )
+    parser.add_argument(
         "--staleness-threshold-seconds",
         "--threshold-seconds",
         dest="staleness_threshold_seconds",
@@ -58,6 +70,11 @@ def add_parser(sub) -> None:
 
 
 def run(args: Any) -> int:
+    new_spawn = bool(getattr(args, "new_spawn", False))
+    execute = bool(getattr(args, "execute", False))
+    bypass_receipt = _load_bypass_receipt(args)
+    if new_spawn and execute:
+        return _run_new_spawn(args, bypass_receipt=bypass_receipt)
     report = evaluate_agent_supervision(
         AgentSuperviseInput(
             actor=getattr(args, "actor", "codex"),
@@ -68,13 +85,13 @@ def run(args: Any) -> int:
             session_path=_path_or_none(getattr(args, "session_path", "")),
             sessions_root=_path_or_none(getattr(args, "sessions_root", "")),
             review_state=_load_review_state(getattr(args, "review_state_path", "")),
-            bypass_receipt=_load_bypass_receipt(args),
+            bypass_receipt=bypass_receipt,
             staleness_threshold_seconds=int(
                 getattr(args, "staleness_threshold_seconds", 900) or 900
             ),
         )
     )
-    if bool(getattr(args, "execute", False)):
+    if execute:
         report = execute_agent_supervision_spawn(report)
     payload = report.to_dict()
     output = json.dumps(payload, indent=2, sort_keys=True)
@@ -98,6 +115,57 @@ def run(args: Any) -> int:
     if bool(getattr(args, "execute", False)):
         return _execute_exit_code(report.launch_result)
     return 0
+
+
+def _run_new_spawn(args: Any, *, bypass_receipt: BypassReceipt | None) -> int:
+    """Forward a fresh peer spawn to the canonical peer-spawn driver.
+
+    `--new-spawn` is the operator-approved path for spawning a brand new peer
+    without first observing a dead/stale process. The gating is the active
+    BypassReceipt and operator authorization; freshness checks are skipped.
+    """
+    from ...runtime.peer_spawn import compose_peer_spawn
+
+    launch_adapter = (
+        None
+        if bool(getattr(args, "dry_run", False))
+        else _peer_spawn_command._build_canonical_launch_adapter()
+    )
+    report = compose_peer_spawn(
+        provider=str(getattr(args, "provider", "") or "codex"),
+        role=str(getattr(args, "role", "") or "implementer"),
+        bypass_receipt=bypass_receipt,
+        row_id=str(getattr(args, "session_id", "") or ""),
+        actor=str(getattr(args, "actor", "") or "operator"),
+        reason="agent-supervise --new-spawn",
+        interaction_mode="remote_control",
+        headless=True,
+        launch_callable=launch_adapter,
+    )
+    payload = report.to_dict()
+    output = json.dumps(payload, indent=2, sort_keys=True)
+    if getattr(args, "format", "md") != "json":
+        output = "\n".join(
+            [
+                "# devctl agent-supervise --new-spawn",
+                "",
+                f"- ok: {report.ok}",
+                f"- trace_path: {report.trace_path}",
+                "",
+                "Canonical command: `python3 dev/scripts/devctl.py peer-spawn "
+                f"--provider {getattr(args, 'provider', 'codex')} "
+                f"--role {getattr(args, 'role', 'implementer')} "
+                "--bypass-receipt-id <id> --format json`",
+            ]
+        )
+    emit_output(
+        output,
+        output_path=getattr(args, "output", None),
+        pipe_command=getattr(args, "pipe_command", None),
+        pipe_args=getattr(args, "pipe_args", None),
+        writer=write_output,
+    )
+    return 0 if report.ok else 1
 
 
 def _load_review_state(path: str) -> dict[str, object]:

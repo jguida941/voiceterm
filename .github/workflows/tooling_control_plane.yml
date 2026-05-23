@@ -424,6 +424,9 @@ jobs:
       - name: Run projection proof-misuse guard
         run: python3 dev/scripts/checks/check_no_projection_proof_misuse.py
 
+      - name: Run prose authority-promotion guard
+        run: python3 dev/scripts/checks/check_no_prose_authority_promotion.py
+
       - name: Run non-trivial output proof guard
         run: python3 dev/scripts/checks/check_non_trivial_output_proof.py
 
@@ -484,6 +487,9 @@ jobs:
 
       - name: Run contract-connectivity guard
         run: python3 dev/scripts/checks/check_contract_connectivity.py
+
+      - name: Run contract-consumer coverage sweep guard
+        run: python3 dev/scripts/checks/check_contract_consumer_coverage_sweep.py
 
       - name: Run SYSTEM_MAP contract-registry coverage guard
         run: python3 dev/scripts/checks/check_systemmap_covers_contract_registry.py
@@ -586,6 +592,45 @@ jobs:
 
       - name: Run active-plan sync guard
         run: python3 dev/scripts/checks/check_active_plan_sync.py
+
+      - name: Run current-plan authority guard
+        run: python3 dev/scripts/checks/check_current_plan_authority.py
+
+      - name: Run role-lane mutation authority guard
+        run: python3 dev/scripts/checks/check_role_lane_mutation_authority.py
+
+      - name: Run pre-commit guard coverage guard
+        run: python3 dev/scripts/checks/check_pre_commit_guard_coverage.py
+
+      - name: Run slice finishes-or-reverts guard
+        run: python3 dev/scripts/checks/check_slice_finishes_or_reverts.py
+
+      - name: Run orphan-files guard
+        run: python3 dev/scripts/checks/check_orphan_files.py
+
+      - name: Run feature-completion guard
+        run: python3 dev/scripts/checks/check_feature_completion.py
+
+      - name: Run plan-row advancement guard
+        run: python3 dev/scripts/checks/check_plan_row_must_advance.py
+
+      - name: Run ingestion-churn advancement guard
+        run: python3 dev/scripts/checks/check_no_ingestion_churn_without_advancement.py
+
+      - name: Run receipt schema-validation guard
+        run: python3 dev/scripts/checks/check_receipt_schema_validation.py
+
+      - name: Run receipt-store active-consumer guard
+        run: python3 dev/scripts/checks/check_receipt_store_has_active_consumer.py
+
+      - name: Run receipt-store coverage sweep guard
+        run: python3 dev/scripts/checks/check_receipt_store_coverage_sweep.py
+
+      - name: Run applied-row closure-receipt guard
+        run: python3 dev/scripts/checks/check_every_applied_row_has_closure_receipt.py
+
+      - name: Run receipt commit-anchor refs guard
+        run: python3 dev/scripts/checks/check_receipt_commit_anchor_refs.py
 
       - name: Run system-picture freshness guard
         run: python3 dev/scripts/checks/check_system_picture_freshness.py

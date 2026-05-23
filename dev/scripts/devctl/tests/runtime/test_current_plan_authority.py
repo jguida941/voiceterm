@@ -19,6 +19,7 @@ def _plan_row(
     anchor_refs: tuple[str, ...] = (),
     target_ref: str = "",
     source_doc_path: str = "dev/active/MASTER_PLAN.md",
+    observed_at_utc: str = "2026-05-20T00:00:00Z",
 ) -> SimpleNamespace:
     """Build a SimpleNamespace mirror of the runtime PlanRow shape used
     by `next_slice._has_active_child`. Tests assert on `anchor_refs` +
@@ -34,6 +35,7 @@ def _plan_row(
         source_doc_path=source_doc_path,
         work_evidence_ids=(),
         title=row_id,
+        provenance={"observed_at_utc": observed_at_utc},
     )
 
 
@@ -80,6 +82,34 @@ def test_in_progress_row_wins_over_queued_and_partitions_packets() -> None:
     assert authority.plan_row_status == "in_progress"
     assert authority.plan_bound_packet_ids == ("rev_pkt_4788",)
     assert authority.unbound_packet_ids == ("rev_pkt_4698", "rev_pkt_4789")
+
+
+def test_latest_typed_in_progress_row_wins_over_stale_in_progress_rows() -> None:
+    """Multiple in-progress leaves are common in the live plan index.
+
+    CurrentPlanAuthority must not select the first stale row in JSONL order.
+    The active row is the latest typed in-progress row after plan-ingest
+    provenance updates the durable PlanRow.
+    """
+    rows = (
+        _plan_row(
+            "GUARDIR-EXTRACTION-MASTER-PLAN-2026-05-18-S1",
+            status="in_progress",
+            observed_at_utc="2026-05-18T12:00:00Z",
+        ),
+        _plan_row(
+            "MP-GUARDIR-V4-PHASE-0-6-E-CURRENT-PLAN-AUTHORITY-S1",
+            status="in_progress",
+            observed_at_utc="2026-05-21T20:00:00Z",
+        ),
+    )
+
+    authority = resolve_current_plan_authority(rows)
+
+    assert (
+        authority.plan_row_id
+        == "MP-GUARDIR-V4-PHASE-0-6-E-CURRENT-PLAN-AUTHORITY-S1"
+    )
 
 
 def test_queued_leaf_selected_when_no_in_progress_row_exists() -> None:

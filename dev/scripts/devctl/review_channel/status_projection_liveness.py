@@ -6,9 +6,7 @@ from collections.abc import Mapping
 from pathlib import Path
 
 from ..runtime.role_profile import (
-    TandemRole,
-    default_provider_for_role,
-    normalize_tandem_role,
+    role_capability_classes,
 )
 from ..runtime.session_liveness_builder import (
     build_session_liveness_signals,
@@ -217,11 +215,7 @@ def _single_agent_local_reviewer_provider(
     ).strip()
     if reviewer_mode != "single_agent":
         return None
-    reviewer_provider = (
-        capability_provider(bridge_liveness, "reviewer_capability")
-        or str(bridge_liveness.get("review_agent") or "").strip().lower()
-        or default_provider_for_role(TandemRole.REVIEWER)
-    )
+    reviewer_provider = capability_provider(bridge_liveness, "reviewer_capability")
     if not reviewer_provider:
         return None
     sync_local_reviewer_activity_hooks()
@@ -250,10 +244,10 @@ def _single_agent_remote_control_providers(
         output_root=output_root,
         active_only=True,
     ):
-        if (
-            normalize_tandem_role(getattr(attachment, "role", ""))
-            == TandemRole.OPERATOR
-        ):
+        if set(role_capability_classes(getattr(attachment, "role", ""))) & {
+            "control",
+            "observe",
+        }:
             continue
         provider = str(attachment.provider or "").strip().lower()
         if provider and provider not in providers:

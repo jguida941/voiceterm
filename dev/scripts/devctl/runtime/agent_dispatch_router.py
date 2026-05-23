@@ -15,6 +15,7 @@ from .agent_dispatch_router_models import (
     AgentDispatchSessionNode,
     AgentDispatchWorkFocus,
 )
+from .scope_path_claims import paths_overlap as _paths_overlap
 from .value_coercion import coerce_mapping as _mapping
 from .value_coercion import coerce_text as _text
 
@@ -819,14 +820,6 @@ def _normalize_scope_path(value: object) -> str:
     if not text:
         return ""
     return text.rstrip("/")
-
-
-def _paths_overlap(left: str, right: str) -> bool:
-    if not left or not right:
-        return False
-    if left == right:
-        return True
-    return left.startswith(f"{right}/") or right.startswith(f"{left}/")
 
 
 def _scope_rejections(

@@ -21,12 +21,25 @@ from collections.abc import Mapping
 from typing import Literal, TypedDict
 
 
-CoordinationTopology = Literal[
+#: Role-based coordination topology is a free-form string of the shape
+#: ``typed_role_topology[role:provider,provider;role:provider]`` (per
+#: ``runtime/role_topology.py:typed_role_topology_label``) or
+#: ``"unknown"`` when no live roles can be resolved. The previous
+#: agent-count Literal ("multi_agent_active" / "single_agent_active" /
+#: "no_active_agents") is retained in ``legacy_topology_label`` as
+#: migration-debt evidence per the AntiDumbass amendment and the typed
+#: inventory at ``dev/state/topology_hardcode_inventory.jsonl``.
+CoordinationTopology = str
+
+#: Deprecated agent-counting topology labels. Listed for downstream
+#: consumers that need to recognize legacy values arriving via
+#: ``legacy_topology_label`` for compatibility windows. NEVER emit one
+#: of these as the canonical ``coordination_topology`` value.
+DEPRECATED_AGENT_COUNTING_TOPOLOGY_LABELS = frozenset({
     "multi_agent_active",
     "single_agent_active",
     "no_active_agents",
-    "unknown",
-]
+})
 
 
 AuthorityMode = Literal[
@@ -63,11 +76,19 @@ class CoordinationStateProjection(TypedDict):
     ``review_state["coordination_state"]``. Composes with the v1.2 typed
     coordination graph (rev_pkt_2278) which will fan out into the full
     9-row-type structure once landed.
+
+    Schema v2 (2026-05-23): ``coordination_topology`` is now role-based
+    vocabulary (``typed_role_topology[reviewer:claude;implementer:codex]``
+    or ``"unknown"``). The previous agent-count Literal is retained in
+    ``legacy_topology_label`` for migration audit only. Authority
+    decisions MUST NOT branch on ``legacy_topology_label``; they MUST
+    read role/session-typed state.
     """
 
     schema_version: int
     contract_id: str
     coordination_topology: CoordinationTopology
+    legacy_topology_label: str
     authority_mode: AuthorityMode
     recovery_eligibility: RecoveryEligibility
     observed_runtime: ObservedRuntime
@@ -110,8 +131,11 @@ def build_coordination_state_projection(
     active_actor_count = len(active_runtime_providers) + len(active_operator_channels)
     work_board_counts = _row_counts(rows)
 
-    coordination_topology = _derive_coordination_topology(
+    legacy_topology_label = _derive_legacy_topology_label(
         active_actor_count=active_actor_count,
+        rows=rows,
+    )
+    coordination_topology = _derive_role_based_coordination_topology(
         rows=rows,
     )
     authority_mode = _derive_authority_mode(
@@ -135,17 +159,24 @@ def build_coordination_state_projection(
     legacy_authority_label = legacy_reviewer_mode or "unknown"
 
     notes: list[str] = []
-    if coordination_topology == "multi_agent_active" and legacy_reviewer_mode == "single_agent":
+    if legacy_topology_label == "multi_agent_active" and legacy_reviewer_mode == "single_agent":
         notes.append(
             "legacy_reviewer_mode='single_agent' is authority/review-gate "
             "vocabulary; observed runtime is multi_agent_active per "
             "agent_work_board.rows. Do NOT use single_agent as topology."
         )
+    if legacy_topology_label in DEPRECATED_AGENT_COUNTING_TOPOLOGY_LABELS:
+        notes.append(
+            f"migration_debt: legacy_topology_label={legacy_topology_label!r} is "
+            "an agent-counting label retained for migration audit only. "
+            "Read coordination_topology (role-based) for authority decisions."
+        )
 
     return CoordinationStateProjection(
-        schema_version=1,
+        schema_version=2,
         contract_id="CoordinationStateProjection",
         coordination_topology=coordination_topology,
+        legacy_topology_label=legacy_topology_label,
         authority_mode=authority_mode,
         recovery_eligibility=recovery_eligibility,
         observed_runtime=observed_runtime,
@@ -231,11 +262,58 @@ def _row_counts(rows: list) -> dict[str, int]:
     }
 
 
-def _derive_coordination_topology(
+_LIVE_ROW_STATUSES = frozenset({"working", "polling", "blocked"})
+
+
+def _derive_role_based_coordination_topology(*, rows: list) -> str:
+    """Build a role-based coordination topology label from work_board rows.
+
+    Format: ``typed_role_topology[role1:providerA,providerB;role2:providerC]``.
+    Roles and providers are sorted for determinism. Returns ``"unknown"``
+    when no live (role, provider) pairs can be resolved, per the
+    fail-closed rule in rev_pkt_2298.
+
+    Role membership is NOT gated by a hardcoded whitelist. The repo
+    defines 25+ typed role ids in ``runtime/role_profile.py`` (implementer,
+    reviewer, architect, researcher, tester, dogfood_test, tdd_first_role,
+    tdd_discovery, plan_steward, orchestrator, observer, dashboard,
+    watcher, duplicate_scope_guard, operator, ...). Any role that appears
+    in a live work_board row counts; the projection does not invent its
+    own membership rule. If a role appears in the work_board, it is by
+    definition a coordination participant for that emission.
+
+    This is the role-based replacement for the deprecated agent-counting
+    ``CoordinationTopology`` Literal. Authority decisions MUST read this
+    field; the agent-counting label is now exposed only via
+    ``legacy_topology_label`` for migration audit.
+    """
+    role_to_providers: dict[str, set[str]] = {}
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        if str(row.get("status") or "") not in _LIVE_ROW_STATUSES:
+            continue
+        role = str(row.get("role") or "").strip().lower()
+        if not role:
+            continue
+        provider = str(row.get("provider") or "").strip()
+        if not provider:
+            continue
+        role_to_providers.setdefault(role, set()).add(provider)
+    if not role_to_providers:
+        return "unknown"
+    chunks = [
+        f"{role}:{','.join(sorted(role_to_providers[role]))}"
+        for role in sorted(role_to_providers)
+    ]
+    return "typed_role_topology[" + ";".join(chunks) + "]"
+
+
+def _derive_legacy_topology_label(
     *,
     active_actor_count: int,
     rows: list,
-) -> CoordinationTopology:
+) -> str:
     """Per rev_pkt_2298: fail-closed to 'unknown' when no rows."""
     if not rows:
         return "unknown"

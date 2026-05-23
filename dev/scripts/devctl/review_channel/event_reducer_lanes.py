@@ -5,14 +5,22 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from .core import load_text, parse_lane_assignments
+from .core import LaneAssignment, load_text, parse_lane_assignments
 
 
-def load_lane_assignments(review_channel_path: Path) -> list:
+def load_lane_assignments(review_channel_path: Path) -> list[LaneAssignment]:
     """Load lane assignments from the active review-channel markdown."""
     if not review_channel_path.exists():
         return []
-    return parse_lane_assignments(load_text(review_channel_path))
+    lanes = parse_lane_assignments(load_text(review_channel_path))
+    # Typed contract boundary: parse_lane_assignments returns LaneAssignment
+    # rows; surface a clear failure if a parser regression returns raw shapes.
+    for lane in lanes:
+        if not isinstance(lane, LaneAssignment):
+            raise TypeError(
+                "parse_lane_assignments must return LaneAssignment rows"
+            )
+    return lanes
 
 
 def load_prior_projection_review_state(

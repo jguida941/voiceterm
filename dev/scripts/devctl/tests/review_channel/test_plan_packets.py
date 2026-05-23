@@ -205,6 +205,45 @@ class ReviewChannelPlanPacketTests(unittest.TestCase):
             valid_agent_ids=("codex", "claude"),
         )
 
+    def test_implementer_handoff_action_request_requires_plan_route_scope(self) -> None:
+        validate_post_request(
+            PacketPostRequest(
+                from_agent="codex",
+                to_agent="claude",
+                kind="action_request",
+                summary="Scoped implementer handoff",
+                body="Implement the bounded current-row guard.",
+                requested_action="implementer_handoff",
+                target=PacketTargetFields.from_values(
+                    target_kind="plan",
+                    target_ref="MP-GUARDIR-V4-PHASE-0-6-E-CURRENT-PLAN-AUTHORITY-S1",
+                    target_role="implementer",
+                ),
+            ),
+            valid_agent_ids=("codex", "claude"),
+        )
+
+    def test_implementer_handoff_action_request_rejects_missing_plan_target(self) -> None:
+        with self.assertRaisesRegex(
+            ValueError,
+            "implementer_handoff action_request packets require --target-kind plan",
+        ):
+            validate_post_request(
+                PacketPostRequest(
+                    from_agent="codex",
+                    to_agent="claude",
+                    kind="action_request",
+                    summary="Route-scoped but rowless handoff",
+                    body="Implement without a plan target.",
+                    requested_action="implementer_handoff",
+                    target=PacketTargetFields.from_values(
+                        target_role="implementer",
+                        target_session_id="session-claude",
+                    ),
+                ),
+                valid_agent_ids=("codex", "claude"),
+            )
+
     def test_non_runtime_action_request_rejects_unscoped_posts(self) -> None:
         with self.assertRaisesRegex(
             ValueError,

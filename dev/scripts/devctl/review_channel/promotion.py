@@ -137,17 +137,24 @@ def promote_bridge_instruction(
         errors = validate_promotion_ready(snapshot)
         if errors:
             raise ValueError("; ".join(errors))
+        context = InstructionRewriteContext(
+            repo_root=repo_root,
+            bridge_path=bridge_path,
+            reviewer_mode=snapshot.metadata.get("reviewer_mode"),
+            reason="next-plan-item",
+            expected_instruction_revision=expected_instruction_revision,
+            expected_implementer_state_hash=expected_implementer_state_hash,
+        )
+        # Typed contract boundary: the rewriter must receive an
+        # InstructionRewriteContext; raw mapping fallback is not accepted.
+        if not isinstance(context, InstructionRewriteContext):
+            raise TypeError(
+                "InstructionRewriteContext required for next-plan-item rewrite"
+            )
         return rewrite_instruction_and_metadata(
             bridge_text=bridge_text,
             instruction=candidate.instruction,
-            context=InstructionRewriteContext(
-                repo_root=repo_root,
-                bridge_path=bridge_path,
-                reviewer_mode=snapshot.metadata.get("reviewer_mode"),
-                reason="next-plan-item",
-                expected_instruction_revision=expected_instruction_revision,
-                expected_implementer_state_hash=expected_implementer_state_hash,
-            ),
+            context=context,
         )
 
     rewrite_bridge_markdown(bridge_path, transform=transform)

@@ -24,11 +24,20 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
 from dataclasses import asdict, dataclass
+from typing import Protocol
 
 from .packet_carry_forward_sources import packet_ids_from_plan_row
 
 CURRENT_PLAN_AUTHORITY_CONTRACT_ID = "CurrentPlanAuthority"
 CURRENT_PLAN_AUTHORITY_SCHEMA_VERSION = 1
+
+
+class _RowWithProvenance(Protocol):
+    provenance: object
+
+
+class _ProvenanceWithObservedAt(Protocol):
+    observed_at_utc: object
 
 
 @dataclass(frozen=True, slots=True)
@@ -173,21 +182,37 @@ def _select_executable_row(rows: tuple[object, ...]) -> object | None:
         for row in non_pkt_bind_active
         if not _has_active_child(row, non_pkt_bind_active)
     )
-    for row in leaves:
-        if _row_attr(row, "status") == "in_progress":
-            return row
-    for row in leaves:
-        if _row_attr(row, "status") == "queued":
-            return row
+    selected = _latest_row_with_status(leaves, "in_progress")
+    if selected is not None:
+        return selected
+    selected = _latest_row_with_status(leaves, "queued")
+    if selected is not None:
+        return selected
     # Fallback to any active row (non-PKT-BIND first; matches
     # next_slice fallback ordering at lines 99-102).
-    for row in non_pkt_bind_active:
-        if _row_attr(row, "status") == "in_progress":
-            return row
-    for row in non_pkt_bind_active:
-        if _row_attr(row, "status") == "queued":
-            return row
-    return None
+    selected = _latest_row_with_status(non_pkt_bind_active, "in_progress")
+    if selected is not None:
+        return selected
+    return _latest_row_with_status(non_pkt_bind_active, "queued")
+
+
+def _latest_row_with_status(rows: tuple[object, ...], status: str) -> object | None:
+    """Return the newest typed row with ``status`` while preserving old tie order.
+
+    Live plan_index state contains multiple stale ``in_progress`` leaves. JSONL
+    order is not authority; the latest typed plan-ingest provenance is the
+    durable freshness signal until the dependency graph gets richer sequencing.
+    """
+    selected: object | None = None
+    selected_observed_at = ""
+    for row in rows:
+        if _row_attr(row, "status") != status:
+            continue
+        observed_at = _row_observed_at_utc(row)
+        if selected is None or observed_at > selected_observed_at:
+            selected = row
+            selected_observed_at = observed_at
+    return selected
 
 
 def _has_active_child(row: object, rows: tuple[object, ...]) -> bool:
@@ -238,6 +263,24 @@ def _row_seq(row: object, attr: str) -> set[str]:
     if not isinstance(value, (list, tuple, set, frozenset)):
         return set()
     return {str(item).strip() for item in value if str(item).strip()}
+
+
+def _row_observed_at_utc(row: Mapping[str, object] | _RowWithProvenance) -> str:
+    if isinstance(row, Mapping):
+        provenance = row.get("provenance", {})
+    else:
+        try:
+            provenance = row.provenance
+        except AttributeError:
+            provenance = {}
+    if isinstance(provenance, Mapping):
+        value = provenance.get("observed_at_utc", "")
+    else:
+        try:
+            value = provenance.observed_at_utc
+        except AttributeError:
+            value = ""
+    return str(value or "").strip()
 
 
 def _packet_id(packet: Mapping[str, object]) -> str:

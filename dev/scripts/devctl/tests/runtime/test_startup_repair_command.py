@@ -47,7 +47,7 @@ def test_startup_authority_failed_carries_typed_repair_command() -> None:
         push_action="govern_then_push",
     )
     assert snapshot.blocker_source == "startup_authority"
-    assert snapshot.blocker_owner == "claude"
+    assert snapshot.blocker_owner == "implementer"
     assert snapshot.blocker_target == "dev/scripts/devctl/runtime/startup_authority.py"
     assert snapshot.blocker_reason == "startup_authority_failed"
     assert "devctl.py session" in snapshot.repair_command
@@ -592,22 +592,24 @@ def test_v4555_typed_collaboration_overrides_legacy_claude_owner_literal() -> No
     )
 
 
-def test_v4555_no_collaboration_preserves_legacy_claude_owner() -> None:
-    """v4.55 continuation back-compat: when collaboration is None
-    (caller has not yet been typed-threaded), the legacy "claude"
-    literal remains the owner so existing callers don't regress.
+def test_v4555_no_collaboration_falls_back_to_role_owner_not_provider() -> None:
+    """Provider identity is not repair authority.
+
+    When collaboration has not been typed-threaded, the blocker names the
+    implementer role rather than a concrete provider. A live typed
+    ``coding_agent`` still overrides this role placeholder.
     """
     owner, _target, _reason, _command, _stop = _resolve_startup_authority_repair(
         "checkpoint_required",
     )
-    assert owner == "claude"
+    assert owner == "implementer"
 
 
-def test_v4555_typed_collaboration_without_coding_agent_falls_back_to_claude() -> None:
+def test_v4555_typed_collaboration_without_coding_agent_falls_back_to_role_owner() -> None:
     """v4.55 continuation: when typed collaboration carries no live
     `coding_agent` role_assignment (e.g. only a `review_agent` is
-    live), the legacy fallback applies. Empty typed lookup does NOT
-    blow away the directive's default owner.
+    live), the role placeholder applies. Empty typed lookup does NOT
+    invent a provider owner.
     """
     typed_collaboration = {
         "role_assignments": [
@@ -623,4 +625,4 @@ def test_v4555_typed_collaboration_without_coding_agent_falls_back_to_claude() -
         "checkpoint_required",
         collaboration=typed_collaboration,
     )
-    assert owner == "claude"
+    assert owner == "implementer"

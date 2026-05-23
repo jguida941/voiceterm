@@ -15,11 +15,11 @@ from dev.scripts.devctl.runtime.relaunch_loop_models import (
 def test_slice_closure_event_normalizes_actor_and_target() -> None:
     event = build_slice_closure_event(
         SliceClosureInput(
-            emitter_actor="claude",
+            emitter_actor="claude_implementer",
             plan_ref="MP-377",
             closed_slice_id="slice-a",
             next_slice_id="slice-b",
-            next_owner_actor="codex",
+            next_owner_actor="codex_reviewer",
             next_intent="review",
             evidence_packet_ids=("rev_pkt_2975",),
             emitted_at_utc="2026-05-04T16:40:00Z",
@@ -35,11 +35,11 @@ def test_slice_closure_event_normalizes_actor_and_target() -> None:
 def test_relaunch_trigger_is_queued_for_cross_actor_slice() -> None:
     event = build_slice_closure_event(
         SliceClosureInput(
-            emitter_actor="claude",
+            emitter_actor="claude_implementer",
             plan_ref="MP-377",
             closed_slice_id="slice-a",
             next_slice_id="slice-b",
-            next_owner_actor="codex",
+            next_owner_actor="codex_reviewer",
             next_intent="review",
             evidence_packet_ids=("rev_pkt_2975",),
             emitted_at_utc="2026-05-04T16:40:00Z",
@@ -65,11 +65,11 @@ def test_relaunch_trigger_is_queued_for_cross_actor_slice() -> None:
 def test_relaunch_trigger_skips_same_actor_next_slice() -> None:
     event = build_slice_closure_event(
         SliceClosureInput(
-            emitter_actor="codex",
+            emitter_actor="codex_reviewer",
             plan_ref="MP-377",
             closed_slice_id="slice-a",
             next_slice_id="slice-b",
-            next_owner_actor="codex",
+            next_owner_actor="codex_reviewer",
             next_intent="continue review",
             emitted_at_utc="2026-05-04T16:40:00Z",
         ),
@@ -80,6 +80,36 @@ def test_relaunch_trigger_skips_same_actor_next_slice() -> None:
     assert trigger is None
     assert quota is None
     assert reason == "same_actor_next_slice"
+
+
+def test_relaunch_loop_preserves_flipped_typed_actor_roles() -> None:
+    event = build_slice_closure_event(
+        SliceClosureInput(
+            emitter_actor="claude_reviewer",
+            plan_ref="MP-377",
+            closed_slice_id="slice-a",
+            next_slice_id="slice-b",
+            next_owner_actor="codex_implementer",
+            next_intent="implement",
+            evidence_packet_ids=("rev_pkt_2975",),
+            emitted_at_utc="2026-05-04T16:40:00Z",
+        ),
+    )
+
+    trigger, quota, reason = build_relaunch_trigger(
+        RelaunchTriggerInput(
+            event=event,
+            queued_at_utc="2026-05-04T16:41:00Z",
+        ),
+    )
+
+    assert event.emitter_actor == "claude_reviewer"
+    assert event.next_slice_target.owner_actor == "codex_implementer"
+    assert quota is None
+    assert reason == "queued"
+    assert trigger is not None
+    assert trigger.target_actor == "codex_implementer"
+    assert trigger.launch_command.role == "implementer"
 
 
 def test_relaunch_trigger_deduplicates_parent_and_target() -> None:

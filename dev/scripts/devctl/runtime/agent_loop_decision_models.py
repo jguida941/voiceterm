@@ -90,6 +90,20 @@ class AgentLoopDecision:
     source_latest_event_id: str = ""
     source_snapshot_id: str = ""
 
+    def __post_init__(self) -> None:
+        if self.safe_to_continue or self.operator_override.edit_allowed:
+            return
+        if "implementation.edit" not in self.allowed_actions:
+            return
+        allowed = tuple(
+            action for action in self.allowed_actions if action != "implementation.edit"
+        )
+        blocked = self.blocked_actions
+        if "implementation.edit" not in blocked:
+            blocked = (*blocked, "implementation.edit")
+        object.__setattr__(self, "allowed_actions", allowed)
+        object.__setattr__(self, "blocked_actions", blocked)
+
     def to_dict(self) -> dict[str, object]:
         return {
             "contract_id": self.contract_id,

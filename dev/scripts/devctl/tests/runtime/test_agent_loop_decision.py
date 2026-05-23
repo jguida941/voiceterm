@@ -184,6 +184,68 @@ def test_blocker_action_prefers_typed_startup_authority_next_action() -> None:
     assert required_action == "repair_startup_authority"
 
 
+def test_startup_repair_with_active_packet_allows_status_reply_only() -> None:
+    review_state = _state(
+        _packet(
+            packet_id="rev_pkt_status",
+            from_agent="codex",
+            to_agent="claude",
+            body="",
+            latest_event_id="rev_evt_101",
+            target_role="implementer",
+            target_session_id="claude-impl",
+            target_ref="plan://MP-377",
+        )
+    )
+    review_state["agent_work_board"] = {
+        "rows": [
+            {
+                "actor_id": "claude",
+                "role": "implementer",
+                "session_id": "claude-impl",
+                "active_packet_id": "rev_pkt_status",
+                "attention_packet_id": "rev_pkt_status",
+                "source_event_id": "rev_evt_101",
+                "mutation_mode": "read_only",
+                "granted_capabilities": [],
+            }
+        ]
+    }
+    review_state["action_routing"] = {
+        "allowed_actions": [],
+        "blocked_actions": ["implementation.edit", "vcs.stage", "vcs.commit"],
+        "agent_lane": {"edit_gate": {"edit_allowed": False}},
+    }
+
+    decision = build_agent_loop_decision(
+        review_state=review_state,
+        dashboard={
+            "control_plane": {
+                "top_blocker": "startup authority: import_index_atomicity",
+                "next_action": (
+                    f"{STARTUP_AUTHORITY_NEXT_ACTION_PREFIX}import_index_atomicity"
+                ),
+            }
+        },
+        actor_id="claude",
+        actor_role="implementer",
+        session_id="claude-impl",
+    )
+
+    assert decision.loop_state == "blocked"
+    assert decision.required_action == "repair_startup_authority"
+    assert decision.active_packet_id == "rev_pkt_status"
+    assert decision.may_mutate is False
+    assert "review-channel.post_task_progress" in decision.allowed_actions
+    assert "review-channel.post_task_blocked" in decision.allowed_actions
+    assert "implementation.edit" not in decision.allowed_actions
+    assert "vcs.stage" not in decision.allowed_actions
+    assert "vcs.commit" not in decision.allowed_actions
+    assert "implementation.edit" in decision.blocked_actions
+    assert "vcs.stage" in decision.blocked_actions
+    assert "vcs.commit" in decision.blocked_actions
+
+
 def test_dashboard_loop_observes_legacy_unscoped_packet_without_claiming_work() -> None:
     decision = build_agent_loop_decision(
         review_state=_state(_packet(packet_id="rev_pkt_1")),
@@ -1700,6 +1762,21 @@ def test_mutation_authority_respects_action_routing_blocks() -> None:
     assert decision.blocked_actions == ("implementation.edit", "vcs.stage")
 
 
+def test_reviewer_decision_defaults_to_coordination_post_actions_without_projection() -> None:
+    decision = build_agent_loop_decision(
+        review_state=_state(),
+        dashboard={"now": {}},
+        actor_id="claude",
+        actor_role="reviewer",
+        session_id="claude-review-session",
+    )
+
+    assert "review-channel.post_action_request" in decision.allowed_actions
+    assert "review-channel.post_finding" in decision.allowed_actions
+    assert "implementation.edit" not in decision.allowed_actions
+    assert "implementation.edit" in decision.blocked_actions
+
+
 def test_executing_packet_continues_current_execution() -> None:
     review_state = _state(
         _packet(
@@ -2798,6 +2875,117 @@ def test_completed_handoff_pivots_when_new_packet_needs_attention() -> None:
     assert decision.latest_inbox_event_id == "rev_evt_101"
     assert decision.last_observed_event_id == "rev_evt_100"
     assert decision.loop_mode == "continue_to_goal"
+
+
+def test_active_packet_preempts_stale_semantic_ingestion_backlog() -> None:
+    old_packet = _packet(
+        packet_id="rev_pkt_old",
+        body="Old packet was observed but never semantically ingested.",
+        latest_event_id="rev_evt_100",
+        target_role="implementer",
+        target_session_id="s1",
+    )
+    old_packet["body_observation_events"] = [
+        {
+            "body_observed_by": "claude",
+            "body_observed_role": "implementer",
+            "body_observed_session_id": "s1",
+            "body_digest": packet_body_digest(old_packet),
+        }
+    ]
+    new_packet = _packet(
+        packet_id="rev_pkt_new",
+        body="Newer correction packet is the scoped active work.",
+        latest_event_id="rev_evt_110",
+        target_role="implementer",
+        target_session_id="s1",
+    )
+    review_state = _state(old_packet, new_packet)
+    review_state["agent_work_board"] = {
+        "rows": [
+            {
+                "actor_id": "claude",
+                "role": "implementer",
+                "session_id": "s1",
+                "active_packet_id": "rev_pkt_new",
+                "attention_packet_id": "rev_pkt_new",
+                "source_event_id": "rev_evt_110",
+            }
+        ]
+    }
+
+    decision = build_agent_loop_decision(
+        review_state=review_state,
+        dashboard={"now": {}},
+        actor_id="claude",
+        actor_role="implementer",
+        session_id="s1",
+    )
+
+    assert decision.required_action == "open_packet_body"
+    assert decision.reason_code == "packet_body_open_required"
+    assert decision.active_packet_id == "rev_pkt_new"
+    assert decision.attention_packet_id == "rev_pkt_new"
+    assert decision.body_open_packet_id == "rev_pkt_new"
+    assert decision.semantic_ingestion_packet_id == ""
+    assert "--action show --packet-id rev_pkt_new" in decision.next_command
+
+
+def test_durable_active_packet_still_preempts_stale_semantic_backlog() -> None:
+    old_packet = _packet(
+        packet_id="rev_pkt_old",
+        body="Old packet was observed but never semantically ingested.",
+        latest_event_id="rev_evt_100",
+        target_role="implementer",
+        target_session_id="s1",
+    )
+    old_packet["body_observation_events"] = [
+        {
+            "body_observed_by": "claude",
+            "body_observed_role": "implementer",
+            "body_observed_session_id": "s1",
+            "body_digest": packet_body_digest(old_packet),
+        }
+    ]
+    new_packet = _packet(
+        packet_id="rev_pkt_new",
+        body="Newer correction packet is already bound as typed plan evidence.",
+        latest_event_id="rev_evt_110",
+        target_role="implementer",
+        target_session_id="s1",
+    )
+    new_packet["durable_binding"] = {
+        "contract_id": "PacketCreationBinding",
+        "status": "inserted",
+        "binding_target_kind": "plan_row_evidence",
+    }
+    review_state = _state(old_packet, new_packet)
+    review_state["agent_work_board"] = {
+        "rows": [
+            {
+                "actor_id": "claude",
+                "role": "implementer",
+                "session_id": "s1",
+                "active_packet_id": "rev_pkt_new",
+                "attention_packet_id": "rev_pkt_new",
+                "source_event_id": "rev_evt_110",
+            }
+        ]
+    }
+
+    decision = build_agent_loop_decision(
+        review_state=review_state,
+        dashboard={"now": {}},
+        actor_id="claude",
+        actor_role="implementer",
+        session_id="s1",
+    )
+
+    assert decision.required_action == "execute_active_packet"
+    assert decision.active_packet_id == "rev_pkt_new"
+    assert decision.attention_packet_id == "rev_pkt_new"
+    assert decision.body_open_packet_id == ""
+    assert decision.semantic_ingestion_packet_id == ""
 
 
 def test_completed_handoff_cannot_stop_with_unobserved_packet_attention() -> None:

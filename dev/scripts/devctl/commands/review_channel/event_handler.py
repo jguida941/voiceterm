@@ -8,13 +8,18 @@ file-size soft limit.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
+from functools import partial
 import json
 import re
 import time
 from types import SimpleNamespace
 
-from ...runtime.control_decision_artifacts import load_control_decision_payload
+from ...runtime.control_decision_artifacts import (
+    control_decision_payload_from_mapping,
+    load_control_decision_payload,
+)
 from ...runtime.control_decision_obedience import (
     build_attempted_action_receipt,
     evaluate_control_decision_obedience,
@@ -28,6 +33,7 @@ from ...review_channel.events import (
     load_or_refresh_event_bundle,
     refresh_event_bundle,
 )
+from ...review_channel.event_store import DEFAULT_REVIEW_CHANNEL_SESSION_ID
 from ...review_channel.follow_stream import (
     build_follow_completion_report,
     build_follow_output_error_report,
@@ -37,6 +43,7 @@ from ...review_channel.follow_stream import (
 )
 from ...review_channel.pending_packets import reconcile_review_state_packet_queue
 from ...review_channel.packet_body_observation import record_packet_body_observation
+from ...review_channel.packet_route_scope import packet_route_matches_scope
 from ...review_channel.agent_packet_attention import packet_attention_for_agent
 from ...review_channel.packet_semantic_ingestion import record_packet_semantic_ingestion
 from ...review_channel.packet_absorption import record_packet_absorption
@@ -76,6 +83,10 @@ from .event_attempted_action_scope import (
     review_channel_attempted_command as _review_channel_attempted_command,
 )
 from .event_ack_freshness_action import run_check_ack_freshness_action
+from .event_control_decision_fallback import (
+    dashboard_backed_control_decision_payload as _dashboard_backed_control_decision_payload,
+    should_prefer_dashboard_control_decision as _should_prefer_dashboard_control_decision,
+)
 from .event_handler_side_effects import (
     run_implementer_ack_with_bridge_sync,
     run_post_action_with_side_effects,
@@ -96,6 +107,7 @@ def _build_event_report(
     *,
     args,
     bundle,
+    repo_root: Path | None = None,
     packet: dict[str, object] | None = None,
     event: dict[str, object] | None = None,
     packets: list[dict[str, object]] | None = None,
@@ -125,7 +137,12 @@ def _build_event_report(
             bundle.review_state,
             history_limit=history_limit,
         ).to_dict()
-    queue = queue_for_event_report(args=args, bundle=bundle, packets=packets)
+    queue = queue_for_event_report(
+        args=args,
+        bundle=bundle,
+        packets=packets,
+        repo_root=repo_root,
+    )
     report = {
         "command": "review-channel",
         "timestamp": utc_timestamp(),
@@ -185,6 +202,7 @@ def _run_event_action(
     paths: dict[str, object],
 ) -> tuple[dict, int]:
     """Execute an event-backed review-channel action (post, inbox, watch, ack, etc.)."""
+    _stamp_live_actor_session_for_post(args, repo_root=repo_root)
     review_channel_path = paths["review_channel_path"]
     artifact_paths = paths["artifact_paths"]
     assert isinstance(review_channel_path, Path)
@@ -193,7 +211,7 @@ def _run_event_action(
         repo_root=repo_root,
         review_channel_path=review_channel_path,
         artifact_paths=artifact_paths,
-        build_event_report_fn=_build_event_report,
+        build_event_report_fn=partial(_build_event_report, repo_root=repo_root),
     )
     if args.action == "watch" and getattr(args, "follow", False):
         return _run_watch_follow(
@@ -269,7 +287,7 @@ def _run_event_action(
             artifact_paths=artifact_paths,
         )
         if args.action == "status":
-            return _build_event_report(args=args, bundle=bundle)
+            return _build_event_report(args=args, bundle=bundle, repo_root=repo_root)
         return run_sync_status_action(args=args, bundle=bundle)
     bundle = load_or_refresh_event_bundle(
         repo_root=repo_root,
@@ -286,7 +304,11 @@ def _run_loaded_bundle_action(
     bundle,
 ) -> tuple[dict, int]:
     if args.action == "status":
-        return _build_event_report(args=args, bundle=bundle)
+        return _build_event_report(
+            args=args,
+            bundle=bundle,
+            repo_root=context.repo_root,
+        )
     if args.action == "inbox":
         return run_inbox_like_action(context=context, bundle=bundle)
     if args.action == "operator-inbox":
@@ -342,10 +364,17 @@ def _run_loaded_bundle_action(
             and len(packets) == 1
             and not artifact_writes_suppressed()
         ):
+            if not _packet_matches_action_route(packets[0], args):
+                return _packet_route_scope_mismatch_report(
+                    context=context,
+                    args=args,
+                    bundle=bundle,
+                )
             gate = _review_channel_lifecycle_gate(
                 args=args,
                 context=context,
                 packet_id=str(packets[0].get("packet_id") or ""),
+                packet=packets[0],
             )
             if not gate["ok"]:
                 return _blocked_obedience_event_report(
@@ -489,6 +518,12 @@ def _run_semantic_ingest_action(
             reason="packet_semantic_ingestion_packet_not_found",
             warning=f"review-channel ingest could not resolve packet {packet_id}",
         )
+    if not _packet_matches_action_route(packets[0], args):
+        return _packet_route_scope_mismatch_report(
+            context=context,
+            args=args,
+            bundle=bundle,
+        )
     gate = _review_channel_lifecycle_gate(
         args=args,
         context=context,
@@ -599,6 +634,12 @@ def _run_packet_absorb_action(
             reason="packet_absorption_packet_not_found",
             warning=f"review-channel absorb could not resolve packet {packet_id}",
         )
+    if not _packet_matches_action_route(packets[0], args):
+        return _packet_route_scope_mismatch_report(
+            context=context,
+            args=args,
+            bundle=bundle,
+        )
     gate = _review_channel_lifecycle_gate(
         args=args,
         context=context,
@@ -652,21 +693,58 @@ def _run_packet_absorb_action(
     return report, exit_code
 
 
+_LIVE_POST_AGENT_PEERS: frozenset[str] = frozenset({"claude", "codex"})
+_FALLBACK_POST_SESSION_IDS: frozenset[str] = frozenset(
+    {"", DEFAULT_REVIEW_CHANNEL_SESSION_ID}
+)
+
+
+def _stamp_live_actor_session_for_post(args, *, repo_root: Path) -> None:
+    """Stamp live-agent posts with the provider's current AgentMind session.
+
+    The review-channel CLI uses ``local-review`` as a default session id. That
+    is fine for operator-proxied writes, but live-agent writes need the real
+    session id before ``ControlDecisionObeyedGuard`` runs so the guard can load
+    the matching ``AgentLoopDecision``.
+    """
+
+    if coerce_string(getattr(args, "action", "")).strip() != "post":
+        return
+    actor = _action_actor(args)
+    if actor not in _LIVE_POST_AGENT_PEERS:
+        return
+    current_session = coerce_string(getattr(args, "session_id", "")).strip()
+    if current_session not in _FALLBACK_POST_SESSION_IDS:
+        return
+    try:
+        from .event_post_action import resolve_live_actor_session
+
+        live_session = resolve_live_actor_session(actor, repo_root)["session_id"]
+    except (ImportError, KeyError, TypeError):  # pragma: no cover
+        live_session = ""
+    if live_session:
+        setattr(args, "session_id", live_session)
+
+
 def _review_channel_lifecycle_gate(
     *,
     args,
     context: EventActionContext,
     packet_id: str = "",
+    packet: Mapping[str, object] | None = None,
 ) -> dict[str, object]:
     """Run the controller-decision obedience gate before event-store writes."""
     decision_args = _control_decision_args(args)
-    decision = load_control_decision_payload(
-        decision_args,
-        repo_root=context.repo_root,
-    )
     subject_actor = _action_actor(args)
     subject_role = _action_role(args)
     subject_session_id = _action_session_id(args)
+    decision = _fresh_control_decision_payload(
+        args=decision_args,
+        context=context,
+        actor=subject_actor,
+        role=subject_role,
+        session_id=subject_session_id,
+    )
     executor_actor = _executor_actor(args, fallback_actor=subject_actor)
     executor_role = _executor_role(
         args,
@@ -736,14 +814,6 @@ def _review_channel_lifecycle_gate(
             "authority_ordering": "operator_source_before_control_decision_obedience",
             "attempted_action_receipt": attempted,
         }
-    if _orchestrator_post_authority(args):
-        return {
-            "ok": True,
-            "contract_id": "ControlDecisionObeyedGuard",
-            "orchestrator_source_authority": True,
-            "authority_ordering": "orchestrator_source_before_control_decision_obedience",
-            "attempted_action_receipt": attempted,
-        }
     if _cascade_lifecycle_read_authority(args):
         return {
             "ok": True,
@@ -758,6 +828,14 @@ def _review_channel_lifecycle_gate(
             "contract_id": "ControlDecisionObeyedGuard",
             "cascade_lifecycle_post_authority": True,
             "authority_ordering": "cascade_lifecycle_post_before_control_decision_obedience",
+            "attempted_action_receipt": attempted,
+        }
+    if _scoped_packet_body_open_authority(args, packet=packet):
+        return {
+            "ok": True,
+            "contract_id": "ControlDecisionObeyedGuard",
+            "scoped_packet_body_open_authority": True,
+            "authority_ordering": "scoped_packet_body_open_before_control_decision_obedience",
             "attempted_action_receipt": attempted,
         }
     if not decision and _allow_missing_control_decision_for_test(
@@ -777,6 +855,110 @@ def _review_channel_lifecycle_gate(
     report["attempted_action_receipt"] = attempted
     report["command"] = "review-channel.control_decision_obedience"
     return report
+
+
+def _fresh_control_decision_payload(
+    *,
+    args,
+    context: EventActionContext,
+    actor: str,
+    role: str,
+    session_id: str,
+) -> dict[str, object]:
+    if getattr(args, "control_decision_payload", None) or getattr(
+        args,
+        "control_decision_input",
+        "",
+    ):
+        return load_control_decision_payload(args, repo_root=context.repo_root)
+    bundle = load_or_refresh_event_bundle(
+        repo_root=context.repo_root,
+        review_channel_path=context.review_channel_path,
+        artifact_paths=context.artifact_paths,
+    )
+    decision = control_decision_payload_from_mapping(
+        bundle.review_state,
+        actor=actor,
+        role=role,
+        session_id=session_id,
+    )
+    dashboard_decision = _dashboard_backed_control_decision_payload(
+        args=args,
+        repo_root=context.repo_root,
+        review_state=bundle.review_state,
+        actor=actor,
+        role=role,
+        session_id=session_id,
+        attempted_argv=_review_channel_attempted_argv(args),
+    )
+    if _should_prefer_dashboard_control_decision(
+        args=args,
+        projected_decision=decision,
+        dashboard_decision=dashboard_decision,
+        attempted_argv=_review_channel_attempted_argv(args),
+    ):
+        return dashboard_decision
+    if decision:
+        return decision
+    if dashboard_decision:
+        return dashboard_decision
+    on_disk = _control_decision_from_disk(
+        repo_root=context.repo_root,
+        actor=actor,
+        role=role,
+        session_id=session_id,
+    )
+    if on_disk:
+        return on_disk
+    return load_control_decision_payload(args, repo_root=context.repo_root)
+
+
+def _control_decision_from_disk(
+    *,
+    repo_root,
+    actor: str,
+    role: str,
+    session_id: str,
+) -> dict[str, object]:
+    """Look for a previously-written control-decision artifact for this
+    actor/role/session and return its payload.
+
+    The post route writes scoped decision payloads under
+    ``dev/reports/review_channel/control_decisions/<event_dir>/<actor>-
+    <role>-<session>.json`` whenever a control decision fires. When the
+    caller does not pass ``--control-decision-input`` and the in-memory
+    projection has no decision either, this fallback lets the route
+    pick up the most recent on-disk record for the same actor instead
+    of failing with the generic ``no_control_decision_input``.
+    """
+    import json
+    from pathlib import Path
+
+    if not (actor and role and session_id):
+        return {}
+    root = Path(repo_root) / "dev" / "reports" / "review_channel" / "control_decisions"
+    if not root.is_dir():
+        return {}
+    expected = f"{actor}-{role}-{session_id}.json"
+    event_dirs: list[tuple[int, Path]] = []
+    for entry in root.iterdir():
+        if not entry.is_dir() or not entry.name.startswith("rev_evt_"):
+            continue
+        try:
+            event_dirs.append((int(entry.name.split("_")[-1]), entry))
+        except ValueError:
+            continue
+    for _, event_dir in sorted(event_dirs, reverse=True):
+        candidate = event_dir / expected
+        if not candidate.is_file():
+            continue
+        try:
+            payload = json.loads(candidate.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if isinstance(payload, dict):
+            return payload
+    return {}
 
 
 def _latest_observed_event_id(context) -> str:
@@ -837,11 +1019,6 @@ def _operator_post_authority(args) -> bool:
     )
 
 
-_ORCHESTRATOR_AUTHORIZED_POST_KINDS: frozenset[str] = frozenset(
-    {"task_started", "finding"}
-)
-
-
 _CASCADE_LIFECYCLE_AUTHORIZED_POSTS: frozenset[tuple[str, str]] = frozenset(
     {
         ("claude", "task_produced"),
@@ -866,10 +1043,70 @@ _CASCADE_PEER_REVERSAL: frozenset[tuple[str, str]] = frozenset(
 _CASCADE_PARENT_PACKET_RE = re.compile(r"^packet:rev_pkt_\d+$")
 
 
-_CASCADE_AGENT_ROLES: dict[str, str] = {
-    "claude": "implementer",
-    "codex": "reviewer",
-}
+def _resolve_role_from_session_state(
+    parent_packet: Mapping[str, object],
+    *,
+    repo_root: Path | None = None,
+) -> str:
+    """Resolve the role for ``parent_packet.from_agent`` from typed session state.
+
+    Reads ``CollaborationSessionState.role_assignments`` for the parent packet's
+    ``session_id`` and returns the typed ``role_id`` for the assignment whose
+    provider/agent matches ``parent_packet.from_agent``. Falls back to the
+    parent packet's typed ``from_agent_role`` field if the session state cannot
+    be located. Never derives a role from a provider-to-role dict literal.
+
+    Returns "" when no typed role assignment can be resolved; callers must then
+    skip strict role validation rather than fall back to a hardcoded mapping.
+    """
+    parent_from = str(parent_packet.get("from_agent") or "").strip()
+    if not parent_from:
+        return ""
+    parent_session_id = str(parent_packet.get("session_id") or "").strip()
+    # Prefer typed live session_state lookup when a repo_root is available.
+    if repo_root is not None and parent_session_id:
+        try:
+            from ...runtime.review_state_locator import (
+                load_review_state_payload,
+            )
+            from ...runtime.review_state_parser import review_state_from_payload
+        except ImportError:  # pragma: no cover - import fail-closed
+            payload = None
+            review_state_from_payload = None  # type: ignore[assignment]
+        else:
+            try:
+                payload = load_review_state_payload(repo_root)
+            except (OSError, ValueError, json.JSONDecodeError):  # pragma: no cover - loader fail-closed
+                payload = None
+        if payload is not None and review_state_from_payload is not None:
+            try:
+                review_state = review_state_from_payload(payload)
+                collaboration = getattr(review_state, "collaboration", None)
+                role_assignments = getattr(collaboration, "role_assignments", ()) or ()
+                for assignment in role_assignments:
+                    assignment_session = str(
+                        getattr(assignment, "session_name", "") or ""
+                    ).strip()
+                    if (
+                        assignment_session
+                        and assignment_session != parent_session_id
+                    ):
+                        continue
+                    provider = str(getattr(assignment, "provider", "") or "").strip()
+                    agent_id = str(getattr(assignment, "agent_id", "") or "").strip()
+                    if provider == parent_from or agent_id == parent_from:
+                        role_id = str(getattr(assignment, "role_id", "") or "").strip()
+                        if role_id:
+                            return role_id
+            except (AttributeError, TypeError, ValueError, KeyError):  # pragma: no cover - parser fail-closed
+                pass
+    # Fallback: trust the parent packet's typed from_agent_role field if the
+    # packet contract publishes one. This is a typed packet field, not a
+    # provider-derived dict literal.
+    typed_from_role = str(parent_packet.get("from_agent_role") or "").strip()
+    if typed_from_role:
+        return typed_from_role
+    return ""
 
 
 _CASCADE_PARENT_STALE_STATUSES: frozenset[str] = frozenset(
@@ -880,10 +1117,25 @@ _CASCADE_PARENT_STALE_STATUSES: frozenset[str] = frozenset(
 _CASCADE_CLOSURE_PARENT_KINDS: dict[str, frozenset[str]] = {
     "task_produced": frozenset({"task_started", "review_failed", "task_progress"}),
     "task_progress": frozenset(
-        {"task_started", "task_produced", "task_progress", "task_blocked", "review_failed"}
+        {
+            "action_request",
+            "continuation_anchor",
+            "task_started",
+            "task_produced",
+            "task_progress",
+            "task_blocked",
+            "review_failed",
+        }
     ),
     "task_blocked": frozenset(
-        {"task_started", "task_produced", "task_progress", "review_failed"}
+        {
+            "action_request",
+            "continuation_anchor",
+            "task_started",
+            "task_produced",
+            "task_progress",
+            "review_failed",
+        }
     ),
     "review_accepted": frozenset({"task_produced"}),
     "review_failed": frozenset({"task_produced", "task_progress"}),
@@ -891,7 +1143,7 @@ _CASCADE_CLOSURE_PARENT_KINDS: dict[str, frozenset[str]] = {
 
 
 _CASCADE_LIFECYCLE_READ_ACTIONS: frozenset[str] = frozenset(
-    {"show", "inbox", "operator-inbox", "status", "history", "sync-status"}
+    {"inbox", "operator-inbox", "status", "history", "sync-status"}
 )
 
 
@@ -929,11 +1181,11 @@ def _resolve_cascade_live_session_id(
 def _cascade_lifecycle_read_authority(args) -> bool:
     """Read-action bypass for show/inbox/status: reads cannot mutate state.
 
-    ControlDecisionObeyedGuard is a write-side authority gate. Read actions cannot
-    mutate the event log or projections, so blocking them on stale-decision state
-    would starve reviewers of the visibility they need to write valid closures
-    (rev_pkt_4659 noted ``--action show rev_pkt_4655`` being blocked after a
-    sibling finding posted).
+    ControlDecisionObeyedGuard is a write-side authority gate. Pure read actions
+    cannot mutate the event log or projections, so blocking them on
+    stale-decision state would starve reviewers of visibility. ``show`` is not
+    included here because actor-scoped body disclosure records a body observation
+    event and must carry typed control-decision authority.
     """
     action = coerce_string(getattr(args, "action", "")).strip()
     return action in _CASCADE_LIFECYCLE_READ_ACTIONS
@@ -1080,7 +1332,10 @@ def _cascade_lifecycle_post_authority(
             return False
         if live_session_id != parent_session_id:
             return False
-    expected_target_role = _CASCADE_AGENT_ROLES.get(parent_from, "")
+    expected_target_role = _resolve_role_from_session_state(
+        parent,
+        repo_root=repo_root,
+    )
     if expected_target_role and target_role != expected_target_role:
         return False
     target_ref = coerce_string(getattr(args, "target_ref", "")).strip()
@@ -1090,28 +1345,46 @@ def _cascade_lifecycle_post_authority(
     return True
 
 
-def _orchestrator_post_authority(args) -> bool:
-    """Codex orchestrator (TandemRole.REVIEWER) may post task_started/finding directly.
+def _scoped_packet_body_open_authority(
+    args,
+    *,
+    packet: Mapping[str, object] | None,
+) -> bool:
+    """Permit a live target actor to record body observation for its packet.
 
-    Role-flip narrow exemption: codex as CognitiveRole.ORCHESTRATOR + TandemRole.REVIEWER
-    issues task_started directives and finding evidence packets without first chaining
-    through ``develop next`` for an AgentLoopDecision. Until CognitiveRoleFleetAssignment
-    lands, accept codex-source by typed actor identity.
-
-    Strict scope: only ``review-channel --action post`` + only ``--kind`` in
-    {task_started, finding}. Does NOT bypass VCS/edit/raw-git/commit/push gates or
-    any other lifecycle mutation. Operator-source authority remains unchanged.
+    Body observation is the first proof step in the packet lifecycle. When a
+    prior control decision says the same actor still owes semantic ingestion,
+    the actor must still be able to open a newer packet that is explicitly
+    addressed to the same actor/role/session. This does not grant broad read or
+    mutation authority; it only covers ``review-channel show`` with exact typed
+    route scope.
     """
-    if coerce_string(getattr(args, "action", "")).strip() != "post":
+
+    if coerce_string(getattr(args, "action", "")).strip() != "show":
         return False
-    if (
-        coerce_string(getattr(args, "kind", "")).strip()
-        not in _ORCHESTRATOR_AUTHORIZED_POST_KINDS
-    ):
+    if packet is None:
         return False
-    return (
-        coerce_string(getattr(args, "from_agent", "")).strip() == "codex"
-    )
+    packet_id = coerce_string(packet.get("packet_id")).strip()
+    body = coerce_string(packet.get("body")).strip()
+    if not packet_id or not body:
+        return False
+    packet_status = coerce_string(packet.get("status")).strip()
+    if packet_status in _CASCADE_PARENT_STALE_STATUSES:
+        return False
+    actor = _action_actor(args)
+    role = _action_role(args)
+    session_id = _action_session_id(args)
+    if not (actor and role and session_id):
+        return False
+    if actor != coerce_string(packet.get("to_agent")).strip():
+        return False
+    if actor == coerce_string(packet.get("from_agent")).strip():
+        return False
+    if role != coerce_string(packet.get("target_role")).strip():
+        return False
+    if session_id != coerce_string(packet.get("target_session_id")).strip():
+        return False
+    return True
 
 
 def _control_decision_args(args) -> SimpleNamespace:
@@ -1124,6 +1397,35 @@ def _control_decision_args(args) -> SimpleNamespace:
 
 def _allow_missing_control_decision_for_test(*, args, repo_root: Path) -> bool:
     return bool(getattr(args, "allow_missing_control_decision_for_test", False))
+
+
+def _packet_matches_action_route(packet: dict[str, object], args) -> bool:
+    return packet_route_matches_scope(
+        packet,
+        target_role=_action_role(args),
+        target_session_id=_action_session_id(args),
+    )
+
+
+def _packet_route_scope_mismatch_report(
+    *,
+    context: EventActionContext,
+    args,
+    bundle,
+) -> tuple[dict, int]:
+    return _blocked_event_report(
+        context=context,
+        args=args,
+        bundle=bundle,
+        reason="packet_route_scope_mismatch",
+        warning=(
+            "review-channel packet route does not match the actor role/session; "
+            "body observation, semantic ingestion, and absorption require typed "
+            "route authority"
+        ),
+        packet=None,
+        packets=[],
+    )
 
 
 def _semantic_action_item_rows_from_args(args) -> tuple[list[dict[str, object]], str]:

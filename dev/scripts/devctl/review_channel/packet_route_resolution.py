@@ -54,10 +54,7 @@ def resolve_packet_post_route_scope(
                 f"{request.to_agent} session: {request.target.target_session_id}"
             )
         resolved = session_matches[0]
-        role = str(resolved.get("actor_role") or "").strip() or _resolved_role(
-            request.target.target_role,
-            resolved,
-        )
+        role = _resolved_role(request.target.target_role, resolved)
         return _replace_route_scope(
             request,
             target_role=role,

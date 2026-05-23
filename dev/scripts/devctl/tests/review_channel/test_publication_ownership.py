@@ -23,7 +23,10 @@ class TestResolvePublicationOwner(unittest.TestCase):
     """Test topology-to-owner resolution for all topologies."""
 
     def test_remote_control_gives_implementer(self):
-        decision = resolve_publication_owner(interaction_mode="remote_control")
+        decision = resolve_publication_owner(
+            interaction_mode="remote_control",
+            implementer_provider="claude",
+        )
         self.assertEqual(decision.owner, OWNER_IMPLEMENTER)
         self.assertIn("remote_control", decision.reason)
 
@@ -31,6 +34,7 @@ class TestResolvePublicationOwner(unittest.TestCase):
         decision = resolve_publication_owner(
             interaction_mode="local_terminal",
             topology="single_implementer_single_reviewer",
+            reviewer_provider="codex",
         )
         self.assertEqual(decision.owner, OWNER_REVIEWER)
 
@@ -59,6 +63,7 @@ class TestResolvePublicationOwner(unittest.TestCase):
         decision = resolve_publication_owner(
             interaction_mode="local_terminal",
             topology="implementer_without_reviewer",
+            implementer_provider="claude",
         )
         self.assertEqual(decision.owner, OWNER_IMPLEMENTER)
 
@@ -70,12 +75,16 @@ class TestResolvePublicationOwner(unittest.TestCase):
         )
         self.assertEqual(decision.owner_provider, "cursor")
 
-    def test_default_providers_from_role_system(self):
+    def test_missing_provider_blocks_instead_of_defaulting_provider(self):
         decision = resolve_publication_owner(interaction_mode="remote_control")
-        self.assertEqual(decision.owner_provider, "claude")
+        self.assertEqual(decision.owner, OWNER_BLOCKED)
+        self.assertEqual(decision.owner_provider, "")
 
     def test_serialization(self):
-        decision = resolve_publication_owner(interaction_mode="remote_control")
+        decision = resolve_publication_owner(
+            interaction_mode="remote_control",
+            implementer_provider="claude",
+        )
         d = decision.to_dict()
         self.assertIsInstance(d, dict)
         self.assertEqual(d["owner"], OWNER_IMPLEMENTER)
@@ -91,7 +100,9 @@ class TestBuildImplementerPublicationRequest(unittest.TestCase):
             reason="remote_control",
         )
         packet = build_implementer_publication_request(
-            decision, approved_head_sha="abc123def456",
+            decision,
+            approved_head_sha="abc123def456",
+            reviewer_provider="codex",
         )
         self.assertIsNotNone(packet)
         self.assertEqual(packet["kind"], "action_request")

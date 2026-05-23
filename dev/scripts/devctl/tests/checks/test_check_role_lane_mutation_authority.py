@@ -1,9 +1,12 @@
 import json
 import sys
+from pathlib import Path
 
 from dev.scripts.checks import check_role_lane_mutation_authority as role_guard
 from dev.scripts.checks.check_role_lane_mutation_authority import (
     ROLE_LANE_MUTATION_REASON,
+    SAFE_TO_CONTINUE_FALSE_REASON,
+    UNSAFE_CONTINUE_WITH_EDIT_GRANT_REASON,
     build_report,
 )
 
@@ -48,6 +51,21 @@ def _reasons(report: dict[str, object]) -> set[str]:
         for violation in report["violations"]
         if isinstance(violation, dict)
     }
+
+
+def test_claude_pre_tool_hook_runs_role_lane_guard() -> None:
+    settings = json.loads(Path(".claude/settings.json").read_text(encoding="utf-8"))
+    pre_tool_hooks = settings["hooks"]["PreToolUse"]
+    commands = [
+        hook["command"]
+        for entry in pre_tool_hooks
+        if entry.get("matcher") == "Edit|Write|MultiEdit"
+        for hook in entry.get("hooks", [])
+    ]
+
+    assert any("check_role_lane_mutation_authority.py" in command for command in commands)
+    assert any("--mode pre_mutation" in command for command in commands)
+    assert any("--tool-input-stdin" in command for command in commands)
 
 
 def test_reviewer_mutation_without_typed_authority_fails() -> None:
@@ -749,6 +767,193 @@ def test_pre_mutation_mode_blocks_reviewer_edit_against_live_dirty_diff(
     assert ROLE_LANE_MUTATION_REASON in _reasons(report)
 
 
+def test_target_file_pre_mutation_blocks_reviewer_before_worktree_changes(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    state_path = tmp_path / "latest.json"
+    state_path.write_text(
+        json.dumps(
+            {
+                "agent_loop_decision": _decision(
+                    actor_id="claude",
+                    actor_role="reviewer",
+                    session_id="claude-reviewer-session",
+                )
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        role_guard,
+        "_git_worktree_mutations",
+        lambda repo_root: [
+            {
+                "path": "dev/scripts/devctl/runtime/unrelated.py",
+                "change_status": "M",
+                "source": "git_status",
+            }
+        ],
+    )
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "check_role_lane_mutation_authority.py",
+            "--mode",
+            "pre_mutation",
+            "--target-file",
+            "dev/scripts/devctl/runtime/current_plan_authority.py",
+            "--live-state-path",
+            str(state_path),
+            "--format",
+            "json",
+        ],
+    )
+
+    exit_code = role_guard.main()
+    report = json.loads(capsys.readouterr().out)
+
+    assert exit_code != 0
+    assert report["ok"] is False
+    assert report["mutating_action_count"] == 1
+    assert report["violations"][0]["detail"].strip().endswith(
+        "dev/scripts/devctl/runtime/current_plan_authority.py"
+    )
+    assert "unrelated.py" not in json.dumps(report)
+    assert ROLE_LANE_MUTATION_REASON in _reasons(report)
+
+
+def test_target_file_pre_mutation_allows_reviewer_with_typed_lease(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    state_path = tmp_path / "latest.json"
+    state_path.write_text(
+        json.dumps(
+            {
+                "agent_loop_decision": _decision(
+                    actor_id="claude",
+                    actor_role="reviewer",
+                    session_id="claude-reviewer-session",
+                    may_mutate=True,
+                    mutation_mode="live_tree",
+                    work_scope_lease_id="lease-claude-current-row",
+                    allowed_actions=["implementation.edit"],
+                )
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(role_guard, "_git_worktree_mutations", lambda repo_root: [])
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "check_role_lane_mutation_authority.py",
+            "--mode",
+            "pre_mutation",
+            "--target-file",
+            "dev/scripts/devctl/runtime/current_plan_authority.py",
+            "--live-state-path",
+            str(state_path),
+            "--format",
+            "json",
+        ],
+    )
+
+    exit_code = role_guard.main()
+    report = json.loads(capsys.readouterr().out)
+
+    assert exit_code == 0
+    assert report["ok"] is True
+    assert report["mutating_action_count"] == 1
+
+
+def test_tool_input_stdin_blocks_reviewer_edit_before_file_changes(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    state_path = tmp_path / "latest.json"
+    state_path.write_text(
+        json.dumps(
+            {
+                "agent_loop_decision": _decision(
+                    actor_id="claude",
+                    actor_role="reviewer",
+                    session_id="claude-reviewer-session",
+                )
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr("sys.stdin", type("Input", (), {"read": lambda self: json.dumps({
+        "tool_name": "Edit",
+        "tool_input": {
+            "file_path": "dev/scripts/devctl/runtime/current_plan_authority.py"
+        },
+    })})())
+    monkeypatch.setattr(role_guard, "_git_worktree_mutations", lambda repo_root: [])
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "check_role_lane_mutation_authority.py",
+            "--mode",
+            "pre_mutation",
+            "--tool-input-stdin",
+            "--live-state-path",
+            str(state_path),
+            "--format",
+            "json",
+        ],
+    )
+
+    exit_code = role_guard.main()
+    report = json.loads(capsys.readouterr().out)
+
+    assert exit_code != 0
+    assert report["ok"] is False
+    assert ROLE_LANE_MUTATION_REASON in _reasons(report)
+
+
+def test_tool_input_stdin_without_file_path_fails_closed(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    state_path = tmp_path / "latest.json"
+    state_path.write_text(json.dumps({"agent_loop_decision": _decision()}), encoding="utf-8")
+    monkeypatch.setattr("sys.stdin", type("Input", (), {"read": lambda self: json.dumps({
+        "tool_name": "Edit",
+        "tool_input": {},
+    })})())
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "check_role_lane_mutation_authority.py",
+            "--mode",
+            "pre_mutation",
+            "--tool-input-stdin",
+            "--live-state-path",
+            str(state_path),
+            "--format",
+            "json",
+        ],
+    )
+
+    exit_code = role_guard.main()
+    report = json.loads(capsys.readouterr().out)
+
+    assert exit_code != 0
+    assert report["ok"] is False
+    assert "pre_tool_target_file_missing" in _reasons(report)
+
+
 def test_worktree_mutation_with_typed_lease_passes_for_reviewer() -> None:
     report = build_report(
         report_override={
@@ -798,3 +1003,151 @@ def test_worktree_mutation_with_typed_implementer_authority_passes() -> None:
 
     assert report["ok"] is True
     assert report["mutating_action_count"] == 1
+
+
+# ---------------------------------------------------------------------------
+# Invariant H: ``AgentLoopDecision`` must NOT carry a mutation grant in
+# ``allowed_actions`` simultaneously with ``safe_to_continue=False`` unless an
+# active scoped operator override (or BypassReceipt-derived override) covers
+# the lane. Captured in ``delete_after_ingest.md`` lines 1562-1569.
+#
+# The typed ``AgentLoopDecision`` model strips ``implementation.edit`` in
+# ``__post_init__`` when this contradiction is set in-memory, but raw fixture/
+# projection/dashboard JSON can still carry the contradictory shape. The guard
+# fails closed with ``unsafe_continue_with_edit_grant`` so the contradiction
+# cannot smuggle past the model.
+# ---------------------------------------------------------------------------
+
+
+def test_invariant_h_unsafe_continue_with_edit_grant_in_allowed_actions_fails() -> None:
+    report = build_report(
+        report_override={
+            "agent_loop_decision": _decision(
+                actor_id="codex",
+                actor_role="implementer",
+                session_id="codex-implementer-session",
+                safe_to_continue=False,
+                may_mutate=False,
+                # Contradiction: raw payload carries the mutation grant
+                # while safe_to_continue=False and no override is active.
+                allowed_actions=["implementation.edit"],
+            ),
+            "attempted_action": _action(
+                actor="codex",
+                role="implementer",
+                session_id="codex-implementer-session",
+            ),
+        }
+    )
+
+    assert report["ok"] is False
+    reasons = _reasons(report)
+    assert UNSAFE_CONTINUE_WITH_EDIT_GRANT_REASON in reasons
+    # The pre-existing per-action safe_to_continue gate must still fire on
+    # the same payload — both reasons are emitted so reviewers see the
+    # structural contradiction AND the per-action denial.
+    assert SAFE_TO_CONTINUE_FALSE_REASON in reasons
+
+
+def test_invariant_h_safe_to_continue_false_with_scoped_override_passes() -> None:
+    """When ``safe_to_continue=False`` BUT a scoped, active operator
+    override (or BypassReceipt-derived override) explicitly allows the
+    edit lane, the new contradiction rule must not fire.
+    """
+    report = build_report(
+        report_override={
+            "agent_loop_decision": _decision(
+                actor_id="codex",
+                actor_role="implementer",
+                session_id="codex-implementer-session",
+                safe_to_continue=False,
+                may_mutate=True,
+                allowed_actions=["implementation.edit"],
+                operator_override={
+                    "requested": True,
+                    "active": True,
+                    "state": "active",
+                    "scope": "edit-only",
+                    "target_ref": (
+                        "MP-GUARDIR-V4-PHASE-0-6-E-CURRENT-PLAN-AUTHORITY-S1"
+                    ),
+                    "allowed_actions": ["implementation.edit"],
+                },
+                mutation_mode="live_tree",
+                work_scope_lease_id="lease-codex-edit-only",
+            ),
+            "attempted_action": _action(
+                actor="codex",
+                role="implementer",
+                session_id="codex-implementer-session",
+            ),
+        }
+    )
+
+    assert report["ok"] is True
+    assert UNSAFE_CONTINUE_WITH_EDIT_GRANT_REASON not in _reasons(report)
+    assert SAFE_TO_CONTINUE_FALSE_REASON not in _reasons(report)
+
+
+def test_invariant_h_safe_to_continue_false_with_non_mutation_grant_does_not_fire() -> None:
+    """``safe_to_continue=False`` paired with a non-mutation grant
+    (e.g. ``review-channel.show``) must not trigger Invariant H — only
+    mutation-action grants in allowed_actions are contradictory with
+    ``safe_to_continue=False``.
+    """
+    report = build_report(
+        report_override={
+            "agent_loop_decision": _decision(
+                actor_id="codex",
+                actor_role="reviewer",
+                session_id="codex-reviewer-session",
+                safe_to_continue=False,
+                may_mutate=False,
+                allowed_actions=["review-channel.show"],
+            ),
+            "attempted_action": _action(
+                action_kind="review-channel.show",
+                command=(
+                    "python3 dev/scripts/devctl.py review-channel "
+                    "--action show --packet-id rev_pkt_4839"
+                ),
+                actor="codex",
+                role="reviewer",
+                session_id="codex-reviewer-session",
+                mutates=False,
+                writes_state=False,
+                executes_command=True,
+            ),
+        }
+    )
+
+    assert UNSAFE_CONTINUE_WITH_EDIT_GRANT_REASON not in _reasons(report)
+
+
+def test_invariant_h_worktree_mutation_against_contradictory_decision_fails() -> None:
+    """Live worktree mutation against a contradictory decision (``
+    safe_to_continue=False`` + ``implementation.edit`` in allowed_actions)
+    must surface ``unsafe_continue_with_edit_grant`` so the structural
+    contradiction is visible even before an attempted action is logged.
+    """
+    report = build_report(
+        report_override={
+            "agent_loop_decision": _decision(
+                actor_id="codex",
+                actor_role="implementer",
+                session_id="codex-implementer-session",
+                safe_to_continue=False,
+                may_mutate=False,
+                allowed_actions=["implementation.edit"],
+            ),
+            "worktree_mutations": [
+                {
+                    "path": "dev/scripts/devctl/runtime/agent_loop_decision_builder.py",
+                    "change_status": "M",
+                }
+            ],
+        }
+    )
+
+    assert report["ok"] is False
+    assert UNSAFE_CONTINUE_WITH_EDIT_GRANT_REASON in _reasons(report)

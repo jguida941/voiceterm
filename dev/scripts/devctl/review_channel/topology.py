@@ -13,11 +13,8 @@ from ..runtime.review_state_models import (
     CollaborationSessionState,
 )
 from ..runtime.role_profile import (
-    TandemRole,
-    build_default_tandem_profile,
-    default_provider_for_role,
-    normalize_tandem_role,
-    role_for_provider,
+    normalize_role_id,
+    role_capability_classes,
 )
 from .core import LaneAssignment
 
@@ -86,42 +83,20 @@ def build_runtime_agent_registry(
         provider_state=normalized_state,
         active_conductor_providers=active_conductor_providers,
     )
-    reviewer_provider = _first_provider_for_role(
-        providers,
-        lane_role_map,
-        TandemRole.REVIEWER,
-        default=default_provider_for_role(TandemRole.REVIEWER),
-    )
-    implementer_providers = tuple(
-        provider
-        for provider in providers
-        if _provider_role(provider, lane_role_map) == TandemRole.IMPLEMENTER
-    ) or (default_provider_for_role(TandemRole.IMPLEMENTER),)
-    operator_provider = _first_provider_for_role(
-        providers,
-        lane_role_map,
-        TandemRole.OPERATOR,
-        default=default_provider_for_role(TandemRole.OPERATOR),
-    )
-    profile = build_default_tandem_profile(
-        reviewer_provider=reviewer_provider,
-        implementer_providers=implementer_providers,
-        operator_provider=operator_provider,
-    )
     agents = tuple(
-            _registry_entry(
-                provider=role_profile.provider,
-                role=role_profile.role,
-                display_name=role_profile.display_name,
-                plan_id=context.plan_id,
-                timestamp=context.timestamp,
-                provider_state=normalized_state.get(role_profile.provider, {}),
-            )
-        for role_profile in (
-            profile.reviewer,
-            *profile.implementers,
-            profile.operator,
+        _registry_entry(
+            provider=provider,
+            role=(
+                _provider_role(provider, lane_role_map)
+                or _provider_state_role(normalized_state.get(provider, {}))
+                or "unbound"
+            ),
+            display_name=provider.title(),
+            plan_id=context.plan_id,
+            timestamp=context.timestamp,
+            provider_state=normalized_state.get(provider, {}),
         )
+        for provider in providers
     )
     return AgentRegistryState(
         timestamp=context.timestamp,
@@ -160,7 +135,7 @@ def build_planned_topology(
     providers = tuple(
         PlannedTopologyProviderState(
             provider=provider,
-            role=_provider_role(provider, provider_roles).value,
+            role=_provider_role(provider, provider_roles) or "unbound",
             planned_lane_count=provider_counts[provider],
             requested_worker_budget=budgets.get(provider),
         )
@@ -181,7 +156,7 @@ def build_planned_topology(
 def _runtime_provider_order(
     *,
     lanes: Sequence[LaneAssignment],
-    lane_role_map: Mapping[str, TandemRole],
+    lane_role_map: Mapping[str, str],
     provider_state: Mapping[str, Mapping[str, object]],
     active_conductor_providers: Sequence[str],
 ) -> tuple[str, ...]:
@@ -193,21 +168,6 @@ def _runtime_provider_order(
     for provider, state in provider_state.items():
         if _provider_has_signal(state):
             _append_provider(ordered, provider)
-    if not any(
-        _provider_role(provider, lane_role_map) == TandemRole.REVIEWER
-        for provider in ordered
-    ):
-        ordered.insert(0, default_provider_for_role(TandemRole.REVIEWER))
-    if not any(
-        _provider_role(provider, lane_role_map) == TandemRole.IMPLEMENTER
-        for provider in ordered
-    ):
-        ordered.append(default_provider_for_role(TandemRole.IMPLEMENTER))
-    if not any(
-        _provider_role(provider, lane_role_map) == TandemRole.OPERATOR
-        for provider in ordered
-    ):
-        ordered.append(default_provider_for_role(TandemRole.OPERATOR))
     return tuple(ordered)
 
 
@@ -230,22 +190,6 @@ def _provider_has_signal(state: Mapping[str, object]) -> bool:
         )
     )
 
-
-def _first_provider_for_role(
-    providers: Sequence[str],
-    lane_role_map: Mapping[str, TandemRole],
-    role: TandemRole,
-    *,
-    default: str,
-) -> str:
-    return next(
-        (
-            provider
-            for provider in providers
-            if _provider_role(provider, lane_role_map) == role
-        ),
-        default,
-    )
 
 def _registry_entry(
     *,
@@ -278,23 +222,24 @@ def _registry_entry(
 
 
 def _default_lane_title(role: str) -> str:
-    if role == TandemRole.REVIEWER.value:
+    role_classes = set(role_capability_classes(role))
+    if role_classes & {"review", "test", "architecture", "governance", "research", "intake"}:
         return "Reviewer"
-    if role == TandemRole.IMPLEMENTER.value:
+    if role_classes & {"implementation", "mutation"}:
         return "Implementer"
-    if role == TandemRole.OPERATOR.value:
+    if role_classes & {"control", "observe"}:
         return "Approver"
     return role.title()
 
 
 def _default_job_state(role: str) -> str:
-    if role == TandemRole.OPERATOR.value:
+    if set(role_capability_classes(role)) & {"control", "observe"}:
         return "idle"
     return "inactive"
 
 
 def _default_script_profile(role: str) -> str:
-    if role == TandemRole.OPERATOR.value:
+    if set(role_capability_classes(role)) & {"control", "observe"}:
         return ""
     return "markdown-bridge-conductor"
 
@@ -305,31 +250,34 @@ def _normalize_provider(provider: str) -> str:
 
 def _provider_role_map_from_lanes(
     lanes: Sequence[LaneAssignment],
-) -> dict[str, TandemRole]:
-    role_map: dict[str, TandemRole] = {}
+) -> dict[str, str]:
+    role_map: dict[str, str] = {}
     for lane in lanes:
         provider = _normalize_provider(lane.provider)
         if not provider:
             continue
-        lane_role = normalize_tandem_role(getattr(lane, "role", ""))
-        if lane_role is None:
+        lane_role = normalize_role_id(getattr(lane, "role", ""))
+        if not lane_role:
             continue
-        existing = role_map.get(provider)
-        if existing is not None and existing != lane_role:
-            raise ValueError(
-                f"Provider `{provider}` has conflicting planned lane roles: "
-                f"`{existing.value}` vs `{lane_role.value}`."
-            )
-        role_map[provider] = lane_role
+        role_map.setdefault(provider, lane_role)
     return role_map
 
 
 def _provider_role(
     provider: str,
-    lane_role_map: Mapping[str, TandemRole],
-) -> TandemRole:
+    lane_role_map: Mapping[str, str],
+) -> str:
     normalized = _normalize_provider(provider)
-    return lane_role_map.get(normalized, role_for_provider(normalized))
+    return lane_role_map.get(normalized, "")
+
+
+def _provider_state_role(provider_state: Mapping[str, object]) -> str:
+    return normalize_role_id(
+        provider_state.get("role")
+        or provider_state.get("role_id")
+        or provider_state.get("lane")
+        or provider_state.get("current_job")
+    )
 
 
 def _string(value: object) -> str:

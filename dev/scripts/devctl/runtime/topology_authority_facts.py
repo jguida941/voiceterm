@@ -20,6 +20,15 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
+from .role_profile import normalize_role_id, role_capability_classes
+
+
+_REVIEW_CAPABILITY_CLASSES = frozenset(
+    {"review", "test", "architecture", "governance", "research", "intake"}
+)
+_IMPLEMENTATION_CAPABILITY_CLASSES = frozenset({"implementation", "mutation"})
+_CONTROL_CAPABILITY_CLASSES = frozenset({"control", "observe"})
+
 
 def live_reviewer_present(
     collaboration: Mapping[str, object] | None,
@@ -37,7 +46,10 @@ def live_reviewer_present(
     or non-typed collaboration mapping yields False even when the
     legacy label says otherwise.
     """
-    return _live_role_count(collaboration, role_id="review_agent") > 0
+    return _live_capability_count(
+        collaboration,
+        capability_classes=_REVIEW_CAPABILITY_CLASSES,
+    ) > 0
 
 
 def live_implementer_present(
@@ -48,7 +60,10 @@ def live_implementer_present(
     """Typed companion to `live_reviewer_present` for the implementer
     lane. Same rule: typed `role_assignments` wins; legacy labels are
     diagnostic only."""
-    return _live_role_count(collaboration, role_id="coding_agent") > 0
+    return _live_capability_count(
+        collaboration,
+        capability_classes=_IMPLEMENTATION_CAPABILITY_CLASSES,
+    ) > 0
 
 
 def live_implementer_provider(
@@ -70,7 +85,10 @@ def live_implementer_provider(
     Provider names are returned lowercased and stripped to match the
     canonical actor-id casing used across review-channel posts.
     """
-    return _live_role_provider(collaboration, role_id="coding_agent")
+    return _live_capability_provider(
+        collaboration,
+        capability_classes=_IMPLEMENTATION_CAPABILITY_CLASSES,
+    )
 
 
 def live_reviewer_provider(
@@ -82,7 +100,46 @@ def live_reviewer_provider(
     lane. Same v4.55 contract: returns the live `review_agent`
     provider, or empty string when no typed reviewer is live.
     """
-    return _live_role_provider(collaboration, role_id="review_agent")
+    return _live_capability_provider(
+        collaboration,
+        capability_classes=_REVIEW_CAPABILITY_CLASSES,
+    )
+
+
+def live_provider_has_role(
+    collaboration: Mapping[str, object] | None,
+    *,
+    role_id: str,
+    provider: str,
+) -> bool:
+    """Return whether one provider/actor has the requested live typed role.
+
+    Presence of some other actor in the role is not authority for the current
+    actor. The comparison accepts either provider or agent_id because runtime
+    surfaces use both identifiers as actor keys.
+    """
+    normalized_provider = _normalize_actor(provider)
+    normalized_role = _normalize_role_id(role_id)
+    if not normalized_provider or not normalized_role:
+        return False
+    requested_classes = _role_request_capability_classes(normalized_role)
+    for row in _live_role_rows(collaboration, role_id=normalized_role):
+        if normalized_provider in {
+            _normalize_actor(row.get("provider")),
+            _normalize_actor(row.get("agent_id")),
+        }:
+            return True
+    if requested_classes:
+        for row in _live_capability_rows(
+            collaboration,
+            capability_classes=requested_classes,
+        ):
+            if normalized_provider in {
+                _normalize_actor(row.get("provider")),
+                _normalize_actor(row.get("agent_id")),
+            }:
+                return True
+    return False
 
 
 def typed_collaboration_from_review_state(
@@ -122,61 +179,117 @@ def legacy_label_is_authority_evidence_only(label: str) -> bool:
     }
 
 
-def _live_role_count(
+def _live_capability_count(
     collaboration: Mapping[str, object] | None,
     *,
-    role_id: str,
+    capability_classes: frozenset[str],
 ) -> int:
-    return len(_live_role_providers(collaboration, role_id=role_id))
+    return len(
+        {
+            provider
+            for row in _live_capability_rows(
+                collaboration,
+                capability_classes=capability_classes,
+            )
+            if (provider := _row_provider(row))
+        }
+    )
 
 
-def _live_role_provider(
+def _live_capability_provider(
     collaboration: Mapping[str, object] | None,
     *,
-    role_id: str,
+    capability_classes: frozenset[str],
 ) -> str:
-    """Return one live provider name for ``role_id``, or empty string.
-
-    When multiple providers hold the role, the first stable-ordered
-    provider is returned (sorted lowercased). Empty string means no
-    live typed assignment exists for that role — caller falls back to
-    legacy default.
-    """
-    providers = _live_role_providers(collaboration, role_id=role_id)
+    providers = {
+        provider
+        for row in _live_capability_rows(
+            collaboration,
+            capability_classes=capability_classes,
+        )
+        if (provider := _row_provider(row))
+    }
     if not providers:
         return ""
     return sorted(providers)[0]
 
 
-def _live_role_providers(
+def _live_role_rows(
     collaboration: Mapping[str, object] | None,
     *,
     role_id: str,
-) -> set[str]:
+) -> tuple[Mapping[str, object], ...]:
     if not isinstance(collaboration, Mapping):
-        return set()
+        return ()
     rows = collaboration.get("role_assignments")
     if not isinstance(rows, (list, tuple)):
-        return set()
-    providers: set[str] = set()
+        return ()
+    matched: list[Mapping[str, object]] = []
+    normalized_role = _normalize_role_id(role_id)
     for row in rows:
         if not isinstance(row, Mapping):
             continue
         if not _truthy(row.get("live")):
             continue
-        actual_role = (row.get("role_id") or "").strip().lower() if isinstance(row.get("role_id"), str) else ""
-        if actual_role != role_id:
+        if _normalize_role_id(row.get("role_id") or row.get("role")) != normalized_role:
             continue
-        provider = ""
-        for key in ("provider", "agent_id"):
-            value = row.get(key)
-            if isinstance(value, str) and value.strip():
-                provider = value.strip().lower()
-                break
-        if not provider:
+        matched.append(row)
+    return tuple(matched)
+
+
+def _live_capability_rows(
+    collaboration: Mapping[str, object] | None,
+    *,
+    capability_classes: frozenset[str],
+) -> tuple[Mapping[str, object], ...]:
+    if not isinstance(collaboration, Mapping):
+        return ()
+    rows = collaboration.get("role_assignments")
+    if not isinstance(rows, (list, tuple)):
+        return ()
+    matched: list[Mapping[str, object]] = []
+    for row in rows:
+        if not isinstance(row, Mapping):
             continue
-        providers.add(provider)
-    return providers
+        if not _truthy(row.get("live")):
+            continue
+        role_id = _normalize_role_id(row.get("role_id") or row.get("role"))
+        if set(role_capability_classes(role_id)) & capability_classes:
+            matched.append(row)
+    return tuple(matched)
+
+
+def _row_provider(row: Mapping[str, object]) -> str:
+    for key in ("provider", "agent_id"):
+        value = row.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip().lower()
+    return ""
+
+
+def _role_request_capability_classes(role_id: str) -> frozenset[str]:
+    if role_id in {"lead_agent", "review_agent"}:
+        return _REVIEW_CAPABILITY_CLASSES
+    if role_id == "coding_agent":
+        return _IMPLEMENTATION_CAPABILITY_CLASSES
+    if role_id == "operator_agent":
+        return _CONTROL_CAPABILITY_CLASSES
+    classes = frozenset(role_capability_classes(role_id))
+    return classes
+
+
+def _normalize_actor(value: object) -> str:
+    return str(value or "").strip().lower()
+
+
+def _normalize_role_id(value: object) -> str:
+    normalized = normalize_role_id(value)
+    return {
+        "lead_agent": "orchestrator",
+        "review_agent": "architecture_review",
+        "coding_agent": "implementation",
+        "operator_agent": "operator",
+    }.get(normalized, normalized)
 
 
 def _truthy(value: object) -> bool:
@@ -193,6 +306,7 @@ __all__ = [
     "legacy_label_is_authority_evidence_only",
     "live_implementer_present",
     "live_implementer_provider",
+    "live_provider_has_role",
     "live_reviewer_present",
     "live_reviewer_provider",
     "typed_collaboration_from_review_state",

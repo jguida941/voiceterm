@@ -10,8 +10,8 @@ from ..runtime.conductor_capability import (
     build_conductor_capability_state,
 )
 from ..runtime.review_state_models import ReviewerRuntimeContract
-from ..runtime.role_profile import TandemRole, default_provider_for_role
-from .collaboration_provider import collaboration_provider
+from ..runtime.role_profile import TandemRole
+from .collaboration_provider import collaboration_provider_for_capability
 from .current_session_projection import current_session_mapping
 from .peer_liveness import resolve_reported_reviewer_mode
 
@@ -76,15 +76,20 @@ def build_event_bridge_state_projection(
             reviewer_runtime=reviewer_runtime,
         )
     )
-    reviewer_provider = _collaboration_provider(
+    reviewer_provider = collaboration_provider_for_capability(
         collaboration,
-        role_id="review_agent",
-        default=default_provider_for_role(TandemRole.REVIEWER),
+        capability_classes={
+            "review",
+            "test",
+            "architecture",
+            "governance",
+            "research",
+            "intake",
+        },
     )
-    implementer_provider = _collaboration_provider(
+    implementer_provider = collaboration_provider_for_capability(
         collaboration,
-        role_id="coding_agent",
-        default=default_provider_for_role(TandemRole.IMPLEMENTER),
+        capability_classes={"implementation", "mutation"},
     )
     bridge_state["reviewer_capability"] = asdict(
         build_conductor_capability_state(
@@ -237,15 +242,6 @@ def _session_bridge_fields(
             else False
         ),
     }
-
-
-def _collaboration_provider(
-    collaboration: Mapping[str, object],
-    *,
-    role_id: str,
-    default: str,
-) -> str:
-    return collaboration_provider(collaboration, role_id=role_id, default=default)
 
 
 def _mapping(value: object) -> Mapping[str, object]:

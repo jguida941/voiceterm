@@ -399,6 +399,7 @@ def _apply_runtime_route_projections(
                 (review_state.get("agent_sync") or {}).get("projection_refresh_seq") or 0
             ),
             refreshed_at_utc=str(review_state.get("timestamp") or ""),
+            default_plan_row_id=_active_plan_row_id_fallback(),
         )
     )
     review_state = apply_work_board_session_posture(review_state)
@@ -467,6 +468,42 @@ def _read_plan_rows_for_projection(repo_root) -> tuple[object, ...]:
         return read_plan_rows_jsonl(repo_root / DEFAULT_MASTER_PLAN_STORE_REL)
     except (OSError, ValueError):
         return ()
+
+
+def _active_plan_row_id_fallback() -> str:
+    """Read the typed plan ledger and return the row_id of the most
+    recent in_progress row, or "" if none. Used as a default plan_row_id
+    for work_board rows when no attention packet binds the actor to a
+    specific plan target.
+    """
+    import json
+    import pathlib
+    here = pathlib.Path(__file__).resolve()
+    repo = here.parents[4]
+    path = repo / "dev" / "state" / "plan_index.jsonl"
+    if not path.exists():
+        return ""
+    in_progress: list[tuple[int, str]] = []
+    try:
+        for i, line in enumerate(path.read_text(encoding="utf-8").splitlines()):
+            if not line.strip():
+                continue
+            try:
+                row = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if str(row.get("status") or "").strip().lower() != "in_progress":
+                continue
+            row_id = str(row.get("row_id") or "").strip()
+            if not row_id:
+                continue
+            in_progress.append((i, row_id))
+    except OSError:
+        return ""
+    if not in_progress:
+        return ""
+    in_progress.sort(reverse=True)
+    return in_progress[0][1]
 
 
 def _resolve_current_session(

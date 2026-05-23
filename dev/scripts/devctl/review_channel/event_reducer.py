@@ -64,6 +64,7 @@ from .daemon_reducer import (
     reduce_daemon_event,
 )
 from .agent_session_outcome_events import AGENT_SESSION_OUTCOME_EVENT_TYPES
+from .agent_spawn_events import AGENT_SPAWN_EVENT_TYPES
 from .reviewer_authority_events import REVIEWER_AUTHORITY_EVENT_TYPES
 from .implementer_ack_events import IMPLEMENTER_AUTHORITY_EVENT_TYPES
 from .packet_lifecycle import ACTION_REQUEST_LIFECYCLE_EVENT_TYPES
@@ -448,6 +449,10 @@ def reduce_events(
             latest_timestamp = _event_timestamp(event, latest_timestamp)
             continue
 
+        if event_type in AGENT_SPAWN_EVENT_TYPES:
+            latest_timestamp = _event_timestamp(event, latest_timestamp)
+            continue
+
         if (
             event_type in REVIEWER_AUTHORITY_EVENT_TYPES
             or event_type in IMPLEMENTER_AUTHORITY_EVENT_TYPES
@@ -484,10 +489,12 @@ def reduce_events(
         record_provider_packet_state(provider_state, event, packet_id)
 
     packet_rows, pending_counts, stale_packet_count = summarize_packets(packets_by_id)
-    if stale_packet_count:
-        warnings.append(
-            "One or more pending runtime-transport review packets are past their expiry timestamp."
-        )
+    # NOTE: the past-expiry warning used to be emitted here based on this
+    # global stale_packet_count, but it disagreed with the queue projection
+    # at sync_status_queue.py which recomputes the count after further
+    # projection. The warning is now emitted alongside the queue's own
+    # stale_packet_count computation so the two surfaces cannot diverge.
+    # See test_stale_packet_count_must_match_past_expiry_warning.
 
     hydrate_provider_job_state(provider_state, pending_counts)
     registry_state = build_runtime_agent_registry(

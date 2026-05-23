@@ -138,6 +138,15 @@ def _with_pending_agent_loop_projection(
         return payload
 
     existing = agent_loop_decision_rows(payload)
+    projected = agent_loop_decisions_for_work_board(
+        review_state=payload,
+        work_board=work_board,
+    )
+    existing, refreshed_lifecycle = _refresh_superseded_lifecycle_decisions(
+        existing,
+        projected=projected,
+        work_board=work_board,
+    )
     existing, repaired_existing = _repair_existing_pending_decisions(
         existing,
         agents=agents,
@@ -145,10 +154,6 @@ def _with_pending_agent_loop_projection(
         work_board=work_board,
     )
     seen = {_decision_key(row) for row in existing if _decision_key(row)}
-    projected = agent_loop_decisions_for_work_board(
-        review_state=payload,
-        work_board=work_board,
-    )
     missing = [
         row
         for row in projected
@@ -156,7 +161,7 @@ def _with_pending_agent_loop_projection(
         and _decision_key(row)
         and _decision_key(row) not in seen
     ]
-    if not missing and not repaired_existing:
+    if not missing and not repaired_existing and not refreshed_lifecycle:
         return payload
 
     updated: dict[str, object] = dict(payload)
@@ -164,6 +169,105 @@ def _with_pending_agent_loop_projection(
     updated = apply_agent_sync_session_attention_disambiguation(updated)
     updated = apply_scoped_attention_to_ambiguous_packet_attention(updated)
     return updated
+
+
+def _refresh_superseded_lifecycle_decisions(
+    existing: list[Mapping[str, object]],
+    *,
+    projected: list[Mapping[str, object]],
+    work_board: Mapping[str, object],
+) -> tuple[list[Mapping[str, object]], bool]:
+    """Replace stale packet-lifecycle rows when active work has advanced.
+
+    The persisted review-state projection can lag a code/read-model repair by
+    one write. Preserve normal bad rows so drift still fails closed, but allow
+    a stale body-open/semantic/absorption row to be refreshed when the
+    recomputed canonical decision agrees with the typed work-board focus.
+    """
+    if not existing or not projected:
+        return existing, False
+
+    projected_by_key = {
+        _decision_key(row): row
+        for row in projected
+        if _decision_key(row)
+    }
+    work_focus = _work_board_focus_by_key(work_board)
+    refreshed: list[Mapping[str, object]] = []
+    changed = False
+    for row in existing:
+        key = _decision_key(row)
+        candidate = projected_by_key.get(key)
+        if (
+            key
+            and candidate is not None
+            and _packet_lifecycle_row(row)
+            and _decision_focus_differs(row, work_focus.get(key, {}))
+            and _decision_matches_focus(candidate, work_focus.get(key, {}))
+        ):
+            replacement = dict(candidate)
+            replacement["projection_repaired_from_active_packet_focus"] = True
+            refreshed.append(replacement)
+            changed = True
+            continue
+        refreshed.append(row)
+    return refreshed, changed
+
+
+def _work_board_focus_by_key(
+    work_board: Mapping[str, object],
+) -> dict[tuple[str, str, str], dict[str, str]]:
+    rows = work_board.get("rows")
+    if not isinstance(rows, list):
+        return {}
+    focus: dict[tuple[str, str, str], dict[str, str]] = {}
+    for row in rows:
+        if not isinstance(row, Mapping):
+            continue
+        key = (
+            str(row.get("actor_id") or "").strip(),
+            str(row.get("role") or "").strip(),
+            str(row.get("session_id") or "").strip(),
+        )
+        if not key[0]:
+            continue
+        focus[key] = {
+            "active_packet_id": str(row.get("active_packet_id") or "").strip(),
+            "attention_packet_id": str(row.get("attention_packet_id") or "").strip(),
+        }
+    return focus
+
+
+def _packet_lifecycle_row(row: Mapping[str, object]) -> bool:
+    return str(row.get("required_action") or "").strip() in {
+        "open_packet_body",
+        "ingest_packet_semantics",
+        "absorb_packet",
+    } or str(row.get("reason_code") or "").strip() in {
+        "packet_body_open_required",
+        "packet_semantic_ingestion_required",
+        "packet_absorption_required",
+    }
+
+
+def _decision_focus_differs(
+    row: Mapping[str, object],
+    focus: Mapping[str, str],
+) -> bool:
+    return any(
+        focus.get(field) and str(row.get(field) or "").strip() != focus[field]
+        for field in ("active_packet_id", "attention_packet_id")
+    )
+
+
+def _decision_matches_focus(
+    row: Mapping[str, object],
+    focus: Mapping[str, str],
+) -> bool:
+    return all(
+        not focus.get(field) or str(row.get(field) or "").strip() == focus[field]
+        for field in ("active_packet_id", "attention_packet_id")
+    )
 
 
 def _repair_existing_pending_decisions(

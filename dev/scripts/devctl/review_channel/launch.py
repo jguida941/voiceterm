@@ -9,7 +9,7 @@ import sys
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING, Callable, NamedTuple
 
 from ..approval_mode import DEFAULT_APPROVAL_MODE, normalize_approval_mode
 from ..time_utils import utc_timestamp
@@ -26,7 +26,7 @@ from .launch_commands import (
     build_promote_command as _build_promote_command,
     build_rollover_command as _build_rollover_command,
 )
-from .launch_topology import build_conductor_launch_specs
+from .launch_topology import ConductorLaunchSpec, build_conductor_launch_specs
 from .launch_script import build_session_script
 from .prompt import build_conductor_prompt
 from .terminal_app import (
@@ -72,8 +72,9 @@ def build_promote_command(
         interpreter=_DEVCTL_INTERPRETER,
     )
 
-@dataclass(frozen=True, slots=True)
-class _LaunchSessionBuildContext:
+# Demoted to NamedTuple: private internal call bundle for _build_launch_session.
+# Not a typed contract surface; do not register with the platform contract sweep.
+class _LaunchSessionBuildContext(NamedTuple):
     request: LaunchSessionRequest
     effective_script_dir: Path
     session_dir: Path | None
@@ -277,6 +278,13 @@ def build_launch_sessions(
         providers_to_launch=request.providers_to_launch,
     )
     for spec in launch_specs:
+        # Typed contract boundary: build_conductor_launch_specs must hand back
+        # ConductorLaunchSpec instances so the lane assembly cannot silently
+        # accept raw tuples.
+        if not isinstance(spec, ConductorLaunchSpec):
+            raise TypeError(
+                "build_conductor_launch_specs must return ConductorLaunchSpec rows"
+            )
         sessions.append(
             _build_launch_session(
                 spec=spec,

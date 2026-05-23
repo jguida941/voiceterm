@@ -57,7 +57,9 @@ def build_final_parts(
         packet_attention=core.packet_attention,
         orchestration=core.orchestration,
         next_slice_id=core.next_slice.slice_id,
+        current_plan_authority=core.current_plan_authority,
         current_plan_row_id=current_plan_row_id,
+        repo_root=REPO_ROOT,
     )
     status = status_for_report(blockers=blockers, continuation=continuation)
     summary = summary_for_action(

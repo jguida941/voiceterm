@@ -82,6 +82,10 @@ def build_reviewer_turn_authority(
     typed_review_state: Mapping[str, object] | None = None,
 ) -> ReviewerTurnAuthority:
     """Build the shared reviewer-turn projection from typed review state."""
+    if not isinstance(snapshot, BridgeSnapshot):
+        raise TypeError("build_reviewer_turn_authority requires BridgeSnapshot")
+    if not isinstance(bridge_liveness, BridgeLiveness):
+        raise TypeError("build_reviewer_turn_authority requires BridgeLiveness")
     review_state = (
         review_state_from_payload(typed_review_state or {})
         if typed_review_state

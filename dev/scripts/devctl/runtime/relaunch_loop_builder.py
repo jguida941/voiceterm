@@ -23,6 +23,8 @@ from .relaunch_loop_models import (
 
 def build_slice_closure_event(inputs: SliceClosureInput) -> SliceClosureEvent:
     """Build a stable SliceClosureEvent from bounded CLI/runtime inputs."""
+    if not isinstance(inputs, SliceClosureInput):
+        raise TypeError("build_slice_closure_event requires SliceClosureInput")
     emitted = inputs.emitted_at_utc or utc_now()
     target = SliceTarget(
         slice_id=inputs.next_slice_id,
@@ -64,6 +66,8 @@ def build_relaunch_trigger(
     inputs: RelaunchTriggerInput,
 ) -> tuple[AgentRelaunchTrigger | None, RelaunchQuotaExceeded | None, str]:
     """Convert one closure event into a queue trigger or fail-closed receipt."""
+    if not isinstance(inputs, RelaunchTriggerInput):
+        raise TypeError("build_relaunch_trigger requires RelaunchTriggerInput")
     event = inputs.event
     target_actor = event.next_slice_target.owner_actor
     if not target_actor or target_actor == event.emitter_actor:

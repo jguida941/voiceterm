@@ -32,6 +32,13 @@ def render_bridge_md(
     lines.append(f"- ok: {report['ok']}")
     append_top_level_error_lines(lines, report)
     lines.append(f"- action: {report.get('action')}")
+    if str(report.get("action") or "") == "launch":
+        lines.append(
+            "- canonical_command_hint: `devctl peer-spawn --provider <codex|claude> "
+            "--role <implementer|reviewer> --bypass-receipt-id <id> --row-id <id>` "
+            "is the one repo-owned entry point for peer launch; this surface "
+            "still composes the same launch path under the hood."
+        )
     lines.append(f"- execution_mode: {report.get('execution_mode')}")
     lines.append(f"- terminal: {report.get('terminal')}")
     lines.append(

@@ -15,6 +15,68 @@ from .value_coercion import coerce_bool, coerce_int, coerce_text as _text
 CONTINUE_TO_GOAL_ACTION = "continue_to_goal"
 SCOPED_IMPLEMENTATION_EDIT_ACTION = "continue_scoped_implementation_edit"
 
+#: A17 G29 reducer fix: when the controller produces a packet-attention
+#: lifecycle decision (open_packet_body / ingest_packet_semantics /
+#: absorb_packet), the actor needs the corresponding narrow review-channel
+#: action permission in ``allowed_actions`` so the obedience guard recognizes
+#: the controller-supplied ``next_command`` as authorized. The grant is
+#: explicitly narrow — it does NOT add implementation.edit, vcs.stage,
+#: vcs.commit, or any cross-provider spoofing capability.
+_PACKET_LIFECYCLE_NARROW_ALLOWED_ACTIONS: Mapping[str, str] = {
+    "open_packet_body": "review-channel.show",
+    "ingest_packet_semantics": "review-channel.ingest",
+    "absorb_packet": "review-channel.absorb",
+}
+_PACKET_STATUS_NARROW_ALLOWED_ACTIONS = (
+    "review-channel.post_task_progress",
+    "review-channel.post_task_blocked",
+)
+
+
+def _packet_lifecycle_narrow_allowed_action(required_action: str) -> str:
+    """Return the narrow allowed-action name for a packet-attention lifecycle
+    required_action, or empty string if not applicable.
+    """
+    return _PACKET_LIFECYCLE_NARROW_ALLOWED_ACTIONS.get(required_action, "")
+
+
+def _augment_allowed_actions_with_narrow_grant(
+    base_actions: tuple[str, ...] | list[str],
+    narrow_action: str,
+) -> tuple[str, ...]:
+    """Append ``narrow_action`` to ``base_actions`` if not already present.
+
+    Returns a deduplicated tuple. Empty ``narrow_action`` is a no-op so the
+    helper can be called unconditionally on any decision.
+    """
+    base = tuple(base_actions)
+    if not narrow_action or narrow_action in base:
+        return base
+    return base + (narrow_action,)
+
+
+def _augment_allowed_actions_with_narrow_grants(
+    base_actions: tuple[str, ...] | list[str],
+    narrow_actions: tuple[str, ...],
+) -> tuple[str, ...]:
+    result = tuple(base_actions)
+    for action in narrow_actions:
+        result = _augment_allowed_actions_with_narrow_grant(result, action)
+    return result
+
+
+def _packet_status_narrow_allowed_actions(
+    *,
+    required_action: str,
+    active_packet_id: str,
+    attention_packet_id: str,
+) -> tuple[str, ...]:
+    if required_action != "repair_startup_authority":
+        return ()
+    if not (active_packet_id or attention_packet_id):
+        return ()
+    return _PACKET_STATUS_NARROW_ALLOWED_ACTIONS
+
 
 def decision(
     ctx: AgentLoopContext,
@@ -127,10 +189,24 @@ def decision(
         reason=reason,
         next_command=next_command,
         next_action=ctx.next_action,
-        top_blocker=ctx.top_blocker,
+        # When loop_state is 'blocked' but ctx didn't surface a typed
+        # blocker, derive top_blocker / blocker_reason from required_action
+        # so the decision names what is blocking. Silent block is the
+        # contradiction caught by test_blocked_loop_state_must_name_top_blocker:
+        # a reading agent cannot diagnose loop_state='blocked' when
+        # top_blocker='inactive' and blocker_reason=''.
+        top_blocker=(
+            ctx.top_blocker
+            if (ctx.top_blocker and ctx.top_blocker != "inactive")
+            else (required_action if loop_state == "blocked" and required_action else ctx.top_blocker)
+        ),
         blocker_owner=ctx.blocker_owner,
         blocker_target=ctx.blocker_target,
-        blocker_reason=ctx.blocker_reason,
+        blocker_reason=(
+            ctx.blocker_reason
+            if ctx.blocker_reason
+            else (required_action if loop_state == "blocked" and required_action else ctx.blocker_reason)
+        ),
         repair_command=ctx.repair_command,
         stop_anchor=ctx.stop_anchor,
         repair_command_runnable=ctx.repair_command_runnable,
@@ -164,7 +240,17 @@ def decision(
         absorption_required=coerce_bool(ctx.attention.get("absorption_required")),
         absorption_packet_id=_text(ctx.attention.get("absorption_packet_id")),
         absorption_reason=_text(ctx.attention.get("absorption_reason")),
-        allowed_actions=ctx.allowed_actions,
+        allowed_actions=_augment_allowed_actions_with_narrow_grants(
+            _augment_allowed_actions_with_narrow_grant(
+                ctx.allowed_actions,
+                _packet_lifecycle_narrow_allowed_action(required_action),
+            ),
+            _packet_status_narrow_allowed_actions(
+                required_action=required_action,
+                active_packet_id=active_packet_id,
+                attention_packet_id=attention_packet_id,
+            ),
+        ),
         blocked_actions=ctx.blocked_actions,
         granted_capabilities=ctx.granted_capabilities,
         operator_override=ctx.operator_override,

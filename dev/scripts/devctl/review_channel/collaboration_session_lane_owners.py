@@ -7,7 +7,7 @@ from ..runtime.review_state_models import (
     CollaborationParticipantState,
     CollaborationRoleAssignmentState,
 )
-from .collaboration_session_status import _agent_for_role
+from ..runtime.role_profile import role_capability_classes
 
 _WATCHER_CAPTURE_MODES = frozenset(
     {"packet-activity", "packet-watch", "remote-control"}
@@ -33,7 +33,10 @@ def watcher_owner(
     mutation_owner: str,
     verification_owner: str,
 ) -> str:
-    operator_owner = _agent_for_role(role_assignments, "operator_agent")
+    operator_owner = _first_assignment_for_capability(
+        role_assignments,
+        {"control", "observe"},
+    )
     candidates: list[str] = []
     if operator_owner:
         candidates.append(operator_owner)
@@ -101,3 +104,15 @@ def owner_status(
 
 def same_agent(left: str, right: str) -> bool:
     return bool(left and right and left.strip().lower() == right.strip().lower())
+
+
+def _first_assignment_for_capability(
+    role_assignments: tuple[CollaborationRoleAssignmentState, ...],
+    capability_classes: set[str],
+) -> str:
+    for assignment in role_assignments:
+        if not assignment.agent_id:
+            continue
+        if set(role_capability_classes(assignment.role_id)) & capability_classes:
+            return assignment.agent_id
+    return ""

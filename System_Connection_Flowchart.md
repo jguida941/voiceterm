@@ -14,6 +14,8 @@
 > - **§13 Platform ↔ Adopter Seam** explicitly enumerates every place voiceterm is hard-wired into the platform (must move to repo-pack as part of extraction).
 > - **§14 State Write Authority Audit** answers "for any JSONL/JSON state file, who is allowed to write it?" — this is the "single source of truth" enforcement table.
 
+> **Authority/load-order warning (2026-05-21).** This file is a deep architecture audit, not first-load agent authority. Agents must boot through typed session/startup authority and `develop next` before reading this file. Use `dev/guides/SYSTEM_MAP.md` for current navigation; use this flowchart only for duplicate-system cleanup, disconnected-island investigation, platform/adopter seam work, and state-write authority audit. This file should be archived under `dev/audits/architecture/` or registered as a managed generated surface with a freshness guard; until then, treat line citations as stale unless re-verified.
+
 ---
 
 ## §1. The Five-Layer Model
@@ -506,7 +508,10 @@ flowchart LR
 
 ### 8.3 Bridge
 
-- `bridge.md` at repo root is **projection only** (rule 4 of bridge.md itself: "treat AGENTS.md/MASTER_PLAN.md as canonical").
+- `bridge.md` at repo root is **projection only**. Older bridge wording may say to treat
+  `AGENTS.md` / `MASTER_PLAN.md` as canonical; current authority is typed state,
+  contracts, receipts, guards, and repo-pack policy, with those markdown files as
+  projections or trackers.
 - `dev/scripts/remote-bridge-loop.sh`, `dev/scripts/remote_bridge_prompt.md`, `dev/scripts/workflow_bridge/`, `dev/scripts/workflow_bridge/shell.py` — bridge tooling.
 - Generation: `commands/review_channel_bridge_render*.py` (3 files) and `commands/review_channel/bridge_render*/` (subdir) — note possible parallel paths (§11/D-BridgeRender).
 
@@ -525,13 +530,14 @@ flowchart LR
 
 ## §9. Plan / state / receipts / MasterPlan / anchors
 
-`dev/state/` and `dev/active/` — durable typed work-state authority.
+`dev/state/` is durable typed work-state authority. `dev/active/` is maintained
+tracker/navigation projection over that typed state.
 
 ### 9.1 The state files
 
 | File | Canonical writer | Canonical readers |
 |---|---|---|
-| `dev/state/plan_index.jsonl` | parse from `MASTER_PLAN.md` via `runtime/master_plan_contract.py:19` (`DEFAULT_MASTER_PLAN_STORE_REL`) | `probe_typed_authority_provenance.py:331`, `work_intake_routing.py`, `runtime/project_governance_plan_parse.py`, `commands/development/orchestration_models.py` |
+| `dev/state/plan_index.jsonl` | typed PlanRow store; tracker projections such as `MASTER_PLAN.md` may be parsed/rendered around it via `runtime/master_plan_contract.py:19` (`DEFAULT_MASTER_PLAN_STORE_REL`) | `probe_typed_authority_provenance.py:331`, `work_intake_routing.py`, `runtime/project_governance_plan_parse.py`, `commands/development/orchestration_models.py` |
 | `dev/state/plan_ingestion_receipts.jsonl` | `runtime/plan_intent_ingestion.py:78` `append_plan_intent_ingestion_receipt()` | `commands/development/orchestration_models.py`, governance validators |
 | `dev/state/plan_source_snapshots.jsonl` | `runtime/plan_source_retention_store.py` (append) | `runtime/plan_source_retention.py` validators |
 | `dev/state/ground_truth_probe_receipts.jsonl` | `runtime/ground_truth_probe_receipt.py:42` (`GroundTruthProbeRunReceipt`) | architecture probe gate, design pass validation |
@@ -541,8 +547,9 @@ flowchart LR
 
 ### 9.2 Active-plan registry
 
-- **`dev/active/INDEX.md`** is the canonical registry; agents read it first.
-- **`dev/active/MASTER_PLAN.md`** is the canonical execution tracker (role=`tracker`, authority=`canonical`).
+- **`dev/state/plan_index.jsonl`** is the canonical PlanRow registry.
+- **`dev/active/INDEX.md`** is a maintained pointer/projection over typed plan state; agents use it for navigation.
+- **`dev/active/MASTER_PLAN.md`** is a maintained tracker projection over `dev/state/plan_index.jsonl`, not durable execution authority.
 - **`dev/active/ai_governance_platform.md`** is the only main active plan for MP-377 (the umbrella platform-extraction work).
 - **`PlanRegistry`** (typed, `runtime/project_governance_contract.py:164–177`) is parsed from INDEX.md + MASTER_PLAN.md metadata. Each `PlanRegistryEntry` carries `(path, role, authority, scope, when_agents_read, session_resume)`.
 - **Sync guard**: `dev/scripts/checks/check_active_plan_sync.py:74–92` validates `REQUIRED_REGISTRY_ROWS`.
@@ -1285,11 +1292,48 @@ Spot-checks passed:
 
 The document can now be fed to AI as agent context. It will not produce parallel systems if it consults §2 (canonical authority spine), §6 (CLI surface), §11 (consolidation backlog), and §13 (adopter seam) before recommending new code paths.
 
+### Swarm 5 — 2026-05-21 verification pass ✅ Complete
+
+**Scope**: 4 parallel Explore agents re-verified §11 / §12 / §13 / §14 claims against current HEAD (`fda73137` / `7a7afa85`). Repo `codex-voice`, branch `feature/governance-quality-sweep`. Goal: catch what the cascade has changed since 2026-05-10 (11 days, 40+ commits in `dev/scripts/devctl/`).
+
+**RESOLVED by cascade (claims no longer apply):**
+
+- **D-PlanIndexMultiWriter** — flowchart's "No central lock or transaction guard" is **FALSE as of 2026-05-21**. The cascade added `dev/scripts/devctl/runtime/plan_index_authority.py` with `write_plan_index_rows()` + `upsert_plan_index_row()` + locked read-modify-write via `transform_json_mappings()` (lines 78–83). `master_plan_store.write_plan_rows_jsonl()` and `upsert_plan_row_jsonl()` now delegate to the authority wrapper. Concurrent-write risk **mitigated**. Status: **RESOLVED**.
+- **D-AgentLoopRowsTwoReads** — **REFUTED** on re-verification. Two `agent_loop_rows()` functions still exist (`orchestration_agent_loop_rows.py:12` and `peer_mind_sessions.py:29`) but they are called from **independent code paths**, not both from `report.build_report()` in one report. Each reads `agent_loop_decisions` once in its own context. Flowchart's "duplicate hydration" claim was wrong. Status: **REFUTED**.
+- **I-GovernedExceptionStoreUnknownWriter** — file `dev/state/governed_exception_lifecycles.jsonl` now **EXISTS** (61 lines). Cascade added writers in `commands/raw_git.py`, `commands/governance/close_raw_git_exceptions.py`, and others. Status: **RESOLVED**.
+- **I-RemoteControlInvocations** — file `dev/state/remote_control/invocations.jsonl` now **EXISTS** (339 lines). In-repo writer found in `dev/scripts/devctl/baseline_inventory.py`. Architectural-seam concern (out-of-repo writer) no longer accurate. Status: **RESOLVED**.
+- **I-GovernanceGraph** — `governance_graph/__init__.py` now 79 bytes (with docstring), not the 40-byte empty file claimed. Still no non-test imports; remains an island but no longer "empty." Status: **REFINED**.
+
+**CONFIRMED TRUE (architecturally; line numbers shifted):**
+
+- D-DevelopNext: all 7 derivers still present. Line shifts: `report.py` `build_report()` at line **59** (was 52); entrypoint registrations at **411 / 399 / 397** (were 389 / 377 / 375). Inner derivers: `select_next_slice` at `next_slice.py:20–94` (was 14–67); `next_required_command` at `continuation_commands.py:12–48`; `_next_step_command` at `report.py:418–426` (was 424–432).
+- D-Topology: still 2 reducers. `campaign_report()` now at `campaign.py:55–150` (was 76–99); `runtime_snapshot_from_review_state()` at `runtime_snapshot.py:15–61` (was 38–44).
+- D-PacketAuthorityDualInjection: still 3 checks. Now at `next_slice.py:40–50`, `attention_commands.py:15–19` (unchanged), `report.py:111–169` + `report.py:134–145` (was 197–199).
+- D-ContinuationFiveGates: still 5 gates. Now at `continuation.py:121–143` (was 74–82). `packet_pressure` classifier at `continuation_commands.py:58–86`.
+- D-FindingIngest: both bypasses still TRUE. `dogfood.py:268` → `dogfood_log.py:155` (direct). `governance/review.py:42` → `finding_backlog.py:217` (direct, no dogfood persist).
+- §13 platform↔adopter seam: `VOICETERM_EXTENSION_BUNDLE` at `extension_bundle_defaults.py:12–64` (was line 13) still **CRITICAL**. `cleanup_orphaned_voiceterm_test_binaries()` at `process_sweep.py:17` still TRUE. **73 voiceterm refs in platform code outside `repo_packs/`** (310 total, 73 non-test); new specifics surfaced: `surface_definitions.py:102–104` (`service_id="voiceterm_daemon"`), `metric_writers.py:11–12`, `collect_dev_logs.py:205–206`.
+- §14 state-write audit: writers for `plan_index.jsonl`, `plan_ingestion_receipts.jsonl`, `plan_source_snapshots.jsonl`, `latest_push_report.json` all confirmed at current paths.
+
+**STALE (cosmetic only, line-number refresh needed):**
+
+- 8 of 12 line-number citations in §11 D-* entries are off by 1–60 lines due to cascade churn.
+- Some `voice-server/`, `voice-client/`, `crates/` directories don't exist at repo root.
+
+**NEW gaps (not previously in flowchart):**
+
+- **No freshness guard exists for this flowchart.** Searched `dev/scripts/checks/`, `.github/workflows/`, `dev/scripts/devctl/` — zero references to `System_Connection_Flowchart`. The 11-day staleness (and 40+ commits) is the direct consequence. Recommend `check_system_connection_flowchart_freshness.py` that fails when files mapped by the flowchart change without a corresponding flowchart update receipt.
+- `MP-377` canonical anchor row does NOT exist in `plan_index.jsonl` — only `MP377-*` variants (281 rows). 785 rows reference `target_ref: "plan:MP-377"` but the target is unresolvable. Any MP-377-based parentage guard needs a synthetic anchor row created first.
+- `devctl render-surfaces` is present in the current checkout (`add_render_surfaces_parser(sub)` and `COMMAND_HANDLERS["render-surfaces"]`). If a local run reports it missing, treat that as checkout/import drift, not as an absent subcommand.
+
+**Convergence delta**: this pass shifted 5 §11/§12 findings to RESOLVED/REFUTED status and added 3 new gap items. Document remains ~98% architecturally accurate; line-number refresh and the freshness guard are the load-bearing follow-ups.
+
 ---
 
 ## §17. Provenance
 
 - Generated by 8-agent parallel Explore swarm against repo `codex-voice` at HEAD `25d5c79e` on branch `feature/governance-quality-sweep`, 2026-05-10.
+- Re-verified by 4-agent Explore swarm at HEAD `fda73137` / `7a7afa85`, 2026-05-21 (Swarm 5).
 - Read-only research; no code modified.
 - Sources of truth consulted: `devctl system-map`, `devctl system-picture`, `devctl platform-contracts`, `dev/active/INDEX.md`, `AGENTS.md`, `CLAUDE.md`, direct file reads with line citations.
 - This document is **not** a typed surface. It is a meta-projection intended to be readable both by humans and as agent context. To make any of these findings authoritative, file them as typed packets / plan rows / typed contracts; this map is a roadmap, not policy.
+- **Freshness gap**: this doc has no guard enforcing updates when the system changes. Until `check_system_connection_flowchart_freshness.py` exists, treat any line-number citation older than ~7 days as STALE and verify before acting.

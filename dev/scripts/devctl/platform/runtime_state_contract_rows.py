@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from ..runtime.control_state import ControlState
 from .contracts import ContractField, ContractSpec
 from .runtime_state_contract_rows_development import DEVELOPMENT_STATE_CONTRACTS
 from .runtime_state_contract_rows_governed_exceptions import (
@@ -512,7 +513,7 @@ RUNTIME_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
         ),
     ),
     ContractSpec(
-        contract_id="ControlState",
+        contract_id=ControlState.__name__,
         owner_layer="governance_runtime",
         purpose=(
             "Machine-readable status snapshot for runs, queue state, "

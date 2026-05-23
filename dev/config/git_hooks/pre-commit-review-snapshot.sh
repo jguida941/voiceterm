@@ -82,6 +82,76 @@ if ! PYTHONDONTWRITEBYTECODE=1 \
     exit 1
 fi
 
+if ! PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONPATH="$REPO_ROOT/dev/scripts${PYTHONPATH:+:$PYTHONPATH}" \
+    "$DEVCTL_PYTHON" dev/scripts/checks/check_current_plan_authority.py --format md; then
+    echo "[pre-commit hook] current-plan authority failed; commit is blocked." >&2
+    exit 1
+fi
+
+if ! PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONPATH="$REPO_ROOT/dev/scripts${PYTHONPATH:+:$PYTHONPATH}" \
+    "$DEVCTL_PYTHON" dev/scripts/checks/check_orphan_files.py --format md; then
+    echo "[pre-commit hook] orphan-file guard failed; commit is blocked." >&2
+    exit 1
+fi
+
+if ! PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONPATH="$REPO_ROOT/dev/scripts${PYTHONPATH:+:$PYTHONPATH}" \
+    "$DEVCTL_PYTHON" dev/scripts/checks/check_feature_completion.py --format md; then
+    echo "[pre-commit hook] feature-completion guard failed; commit is blocked." >&2
+    exit 1
+fi
+
+if ! PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONPATH="$REPO_ROOT/dev/scripts${PYTHONPATH:+:$PYTHONPATH}" \
+    "$DEVCTL_PYTHON" dev/scripts/checks/check_plan_row_must_advance.py --format md; then
+    echo "[pre-commit hook] plan-row advancement guard failed; commit is blocked." >&2
+    exit 1
+fi
+
+if ! PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONPATH="$REPO_ROOT/dev/scripts${PYTHONPATH:+:$PYTHONPATH}" \
+    "$DEVCTL_PYTHON" dev/scripts/checks/check_no_ingestion_churn_without_advancement.py --format md; then
+    echo "[pre-commit hook] ingestion-churn guard failed; commit is blocked." >&2
+    exit 1
+fi
+
+if ! PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONPATH="$REPO_ROOT/dev/scripts${PYTHONPATH:+:$PYTHONPATH}" \
+    "$DEVCTL_PYTHON" dev/scripts/checks/check_receipt_schema_validation.py --format md; then
+    echo "[pre-commit hook] receipt-schema guard failed; commit is blocked." >&2
+    exit 1
+fi
+
+if ! PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONPATH="$REPO_ROOT/dev/scripts${PYTHONPATH:+:$PYTHONPATH}" \
+    "$DEVCTL_PYTHON" dev/scripts/checks/check_receipt_store_has_active_consumer.py --format md; then
+    echo "[pre-commit hook] receipt-store consumer guard failed; commit is blocked." >&2
+    exit 1
+fi
+
+if ! PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONPATH="$REPO_ROOT/dev/scripts${PYTHONPATH:+:$PYTHONPATH}" \
+    "$DEVCTL_PYTHON" dev/scripts/checks/check_receipt_store_coverage_sweep.py --format md; then
+    echo "[pre-commit hook] receipt-store coverage sweep failed; commit is blocked." >&2
+    exit 1
+fi
+
+if ! PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONPATH="$REPO_ROOT/dev/scripts${PYTHONPATH:+:$PYTHONPATH}" \
+    "$DEVCTL_PYTHON" dev/scripts/checks/check_every_applied_row_has_closure_receipt.py --format md; then
+    echo "[pre-commit hook] PlanRow closure coverage guard failed; commit is blocked." >&2
+    exit 1
+fi
+
+if ! PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONPATH="$REPO_ROOT/dev/scripts${PYTHONPATH:+:$PYTHONPATH}" \
+    "$DEVCTL_PYTHON" dev/scripts/checks/check_receipt_commit_anchor_refs.py --format md; then
+    echo "[pre-commit hook] receipt commit-anchor guard failed; commit is blocked." >&2
+    exit 1
+fi
+
 # Governed `devctl commit` marks the underlying `git commit` invocation with a
 # transient config flag so the raw-commit gate can distinguish the repo-owned
 # pipeline from an ungoverned shell/editor commit.

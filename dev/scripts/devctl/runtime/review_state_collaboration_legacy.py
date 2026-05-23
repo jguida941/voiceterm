@@ -22,17 +22,12 @@ from .review_state_models import (
 )
 from .review_state_collaboration_legacy_support import (
     capability_provider,
-    legacy_agent_for_role,
+    legacy_agent_for_capability,
     legacy_owner_status,
     legacy_watcher_owner,
-    provider_from_registry,
     same_agent,
 )
-from .role_profile import (
-    TandemRole,
-    default_provider_for_role,
-    role_for_provider,
-)
+from .role_profile import normalize_role_id
 
 
 def _legacy_collaboration_state(
@@ -45,7 +40,10 @@ def _legacy_collaboration_state(
 ) -> CollaborationSessionState:
     role_assignments = _legacy_role_assignments(bridge=bridge, registry=registry)
     participants = _legacy_participants(registry)
-    mutation_owner = legacy_agent_for_role(role_assignments, "coding_agent")
+    mutation_owner = legacy_agent_for_capability(
+        role_assignments,
+        {"implementation", "mutation"},
+    )
     verification_owner = select_verification_owner(
         role_assignments=role_assignments,
         mutation_owner=mutation_owner,
@@ -99,9 +97,9 @@ def _legacy_collaboration_state(
         status="live" if has_runtime else "resumable" if has_context else "inactive",
         reviewer_mode=bridge.effective_reviewer_mode or bridge.reviewer_mode,
         operator_mode="manual",
-        lead_agent=legacy_agent_for_role(role_assignments, "lead_agent"),
-        review_agent=legacy_agent_for_role(role_assignments, "review_agent"),
-        coding_agent=legacy_agent_for_role(role_assignments, "coding_agent"),
+        lead_agent="",
+        review_agent="",
+        coding_agent="",
         current_slice=current_session.current_instruction
         or current_session.last_reviewed_scope,
         peer_review=CollaborationPeerReviewState(
@@ -156,58 +154,54 @@ def _legacy_role_assignments(
     bridge: ReviewBridgeState,
     registry: AgentRegistryState,
 ) -> tuple[CollaborationRoleAssignmentState, ...]:
-    reviewer_provider = provider_from_registry(
-        registry,
-        TandemRole.REVIEWER.value,
-    ) or capability_provider(
+    assignments: list[CollaborationRoleAssignmentState] = []
+    for agent in registry.agents:
+        if not agent.agent_id:
+            continue
+        provider = agent.provider or agent.agent_id
+        role_id = normalize_role_id(agent.lane or agent.current_job)
+        if not role_id:
+            continue
+        assignments.append(
+            CollaborationRoleAssignmentState(
+                role_id=role_id,
+                agent_id=agent.agent_id,
+                provider=provider,
+                display_name=agent.display_name or agent.agent_id,
+                status=agent.job_state or "declared",
+                source="legacy_projection:migrated_registry_lane",
+                live=agent.job_state not in {"inactive", "idle", "", "unknown"},
+            )
+        )
+    for capability in (
         bridge.reviewer_capability,
-        default=default_provider_for_role(TandemRole.REVIEWER),
-    )
-    implementer_provider = provider_from_registry(
-        registry,
-        TandemRole.IMPLEMENTER.value,
-    ) or capability_provider(
         bridge.implementer_capability,
-        default=default_provider_for_role(TandemRole.IMPLEMENTER),
-    )
-    operator_provider = provider_from_registry(
-        registry,
-        TandemRole.OPERATOR.value,
-    ) or default_provider_for_role(TandemRole.OPERATOR)
-    return (
-        CollaborationRoleAssignmentState(
-            role_id="lead_agent",
-            agent_id=reviewer_provider,
-            provider=reviewer_provider,
-            display_name=reviewer_provider.title(),
-            status="declared",
-            source="legacy_projection",
-        ),
-        CollaborationRoleAssignmentState(
-            role_id="review_agent",
-            agent_id=reviewer_provider,
-            provider=reviewer_provider,
-            display_name=reviewer_provider.title(),
-            status="declared",
-            source="legacy_projection",
-        ),
-        CollaborationRoleAssignmentState(
-            role_id="coding_agent",
-            agent_id=implementer_provider,
-            provider=implementer_provider,
-            display_name=implementer_provider.title(),
-            status="declared",
-            source="legacy_projection",
-        ),
-        CollaborationRoleAssignmentState(
-            role_id="operator_agent",
-            agent_id=operator_provider,
-            provider=operator_provider,
-            display_name=operator_provider.title(),
-            status="declared",
-            source="legacy_projection",
-        ),
-    )
+        getattr(bridge, "operator_capability", None),
+    ):
+        provider = capability_provider(capability, default="")
+        role_id = normalize_role_id(
+            getattr(capability, "role", "")
+            or getattr(capability, "role_id", "")
+            or getattr(capability, "target_role", "")
+        )
+        if not provider or not role_id:
+            continue
+        if any(
+            assignment.provider == provider and assignment.role_id == role_id
+            for assignment in assignments
+        ):
+            continue
+        assignments.append(
+            CollaborationRoleAssignmentState(
+                role_id=role_id,
+                agent_id=provider,
+                provider=provider,
+                display_name=provider.title(),
+                status="declared",
+                source="legacy_projection:migrated_capability_role",
+            )
+        )
+    return tuple(assignments)
 
 
 def _legacy_participants(
@@ -218,7 +212,7 @@ def _legacy_participants(
         if not agent.agent_id:
             continue
         provider = agent.provider or agent.agent_id
-        role = role_for_provider(provider).value
+        role = normalize_role_id(agent.lane or agent.current_job)
         live = agent.job_state not in {"inactive", "idle", "", "unknown"}
         participants.append(
             CollaborationParticipantState(

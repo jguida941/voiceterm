@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from .review_state_models import CollaborationRoleAssignmentState
+from .role_profile import role_capability_classes
 
 
 def select_verification_owner(
@@ -12,10 +13,23 @@ def select_verification_owner(
     same_agent_fn,
 ) -> str:
     """Pick the first non-mutation review/operator owner candidate."""
-    for role_id in ("review_agent", "operator_agent"):
-        agent_id = agent_for_role(role_assignments, role_id)
-        if agent_id and not same_agent_fn(agent_id, mutation_owner):
-            return agent_id
+    for assignment in role_assignments:
+        if not assignment.agent_id:
+            continue
+        if same_agent_fn(assignment.agent_id, mutation_owner):
+            continue
+        capability_classes = set(role_capability_classes(assignment.role_id))
+        if capability_classes & {
+            "review",
+            "test",
+            "architecture",
+            "governance",
+            "research",
+            "intake",
+            "control",
+            "observe",
+        }:
+            return assignment.agent_id
     return ""
 
 

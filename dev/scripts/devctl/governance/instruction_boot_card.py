@@ -39,6 +39,7 @@ REQUIRED_BOOT_COMMANDS = (
     "render-surfaces",
     "docs-check",
     "test-python",
+    "peer-spawn",
 )
 
 FORBIDDEN_BOOT_CLAIMS = (
@@ -185,6 +186,12 @@ def build_instruction_boot_card(
         "- `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format md`",
         "- `python3 dev/scripts/devctl.py develop campaign --format md` (remote-control, exception debt, and push-proof posture)",
         "- `python3 dev/scripts/devctl.py develop show --slice-id <id> --format md`",
+        "",
+        "## Peer spawn (canonical)",
+        "",
+        "- `python3 dev/scripts/devctl.py peer-spawn --provider codex --role implementer --bypass-receipt-id <id> --row-id <id> --format json` is the single repo-owned entry point for spawning a peer conductor (codex/claude/cursor).",
+        "- `python3 dev/scripts/devctl.py peer-terminate --provider codex --session-id <id> --pid <pid>` emits a typed `AgentTerminationReceipt` and signals the running peer.",
+        "- Spawn authority comes from an active `BypassReceipt` with `agent_spawn_only` scope; `review-channel --action launch`, `--action recover`, and `agent-supervise --execute` compose the same canonical launch path under the hood.",
         "",
         "## Active-plan onboarding (adding files under `dev/active/`)",
         "",

@@ -261,6 +261,92 @@ class CheckMultiAgentSyncTests(unittest.TestCase):
 
         self.assertEqual(agent_loop_decision_errors(payload), [])
 
+    def test_demoted_helper_subagent_without_packet_is_evidence_only(self) -> None:
+        payload = {
+            "agent_work_board": {
+                "rows": [
+                    {
+                        "actor_id": "codex",
+                        "role": "subagent",
+                        "role_source": "helper_session_demotion",
+                        "session_id": "helper-session",
+                        "active_packet_id": "",
+                        "attention_packet_id": "",
+                        "executing_packet_id": "",
+                        "status": "polling",
+                        "idle_seconds": 0,
+                        "stale_after_seconds": 300,
+                    },
+                    {
+                        "actor_id": "codex",
+                        "role": "reviewer",
+                        "session_id": "controller-session",
+                        "active_packet_id": "",
+                        "attention_packet_id": "",
+                        "executing_packet_id": "",
+                        "status": "polling",
+                        "idle_seconds": 0,
+                        "stale_after_seconds": 900,
+                    },
+                ]
+            },
+            "agent_loop_decisions": [
+                {
+                    "actor_id": "codex",
+                    "actor_role": "reviewer",
+                    "session_id": "controller-session",
+                    "active_packet_id": "",
+                    "attention_packet_id": "",
+                }
+            ],
+        }
+
+        self.assertEqual(agent_loop_decision_errors(payload), [])
+
+    def test_parked_future_row_packet_does_not_drive_loop_focus(self) -> None:
+        payload = {
+            "packets": [
+                {
+                    "packet_id": "rev_pkt_future",
+                    "kind": "action_request",
+                    "to_agent": "claude",
+                    "target_role": "implementer",
+                    "lifecycle_current_state": "execution_pending",
+                    "requested_action": "stage_draft",
+                    "policy_hint": "stage_draft",
+                    "durable_binding": {
+                        "plan_packet_routing": {
+                            "classification": "future_row_note",
+                            "scheduler_eligible": False,
+                            "target_plan_row_status": "queued",
+                        }
+                    },
+                }
+            ],
+            "agent_work_board": {
+                "rows": [
+                    {
+                        "actor_id": "claude",
+                        "role": "implementer",
+                        "session_id": "s-claude",
+                        "active_packet_id": "rev_pkt_future",
+                        "attention_packet_id": "rev_pkt_future",
+                    }
+                ]
+            },
+            "agent_loop_decisions": [
+                {
+                    "actor_id": "claude",
+                    "actor_role": "implementer",
+                    "session_id": "s-claude",
+                    "active_packet_id": "rev_pkt_current",
+                    "attention_packet_id": "rev_pkt_current",
+                }
+            ],
+        }
+
+        self.assertEqual(agent_loop_decision_errors(payload), [])
+
     def test_wrong_legacy_unscoped_packet_still_fails_focus_check(self) -> None:
         payload = {
             "agent_work_board": {
@@ -325,6 +411,58 @@ class CheckMultiAgentSyncTests(unittest.TestCase):
         self.assertTrue(
             any("Packet inbox current instruction disagrees" in err for err in errors)
         )
+
+    def test_parked_future_row_packet_does_not_drive_current_instruction(self) -> None:
+        payload = {
+            "queue": {
+                "derived_next_instruction_source": {
+                    "to_agent": "claude",
+                    "packet_id": "rev_pkt_future",
+                    "target_role": "implementer",
+                    "target_session_id": "s-claude",
+                }
+            },
+            "packet_inbox": {
+                "agents": [
+                    {
+                        "agent": "claude",
+                        "current_instruction_packet_id": "rev_pkt_future",
+                        "target_role": "implementer",
+                        "target_session_id": "s-claude",
+                    }
+                ]
+            },
+            "packets": [
+                {
+                    "packet_id": "rev_pkt_future",
+                    "kind": "action_request",
+                    "to_agent": "claude",
+                    "target_role": "implementer",
+                    "target_session_id": "s-claude",
+                    "lifecycle_current_state": "execution_pending",
+                    "requested_action": "stage_draft",
+                    "policy_hint": "stage_draft",
+                    "durable_binding": {
+                        "plan_packet_routing": {
+                            "classification": "future_row_note",
+                            "scheduler_eligible": False,
+                            "target_plan_row_status": "queued",
+                        }
+                    },
+                }
+            ],
+        }
+        decisions = [
+            {
+                "actor_id": "claude",
+                "actor_role": "implementer",
+                "session_id": "s-claude",
+                "active_packet_id": "rev_pkt_current",
+                "attention_packet_id": "rev_pkt_current",
+            }
+        ]
+
+        self.assertEqual(instruction_authority_mismatch_errors(payload, decisions), [])
 
     def test_body_open_subqueue_can_advance_past_observed_current_instruction(self) -> None:
         payload = {

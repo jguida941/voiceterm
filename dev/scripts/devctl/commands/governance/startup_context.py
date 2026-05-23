@@ -35,7 +35,10 @@ from ...runtime.machine_output import (
     ArtifactOutputOptions,
     emit_machine_artifact_output,
 )
-from ...runtime.action_routing import project_startup_action_routing
+from ...runtime.action_routing import (
+    ActionRoutingDecision,
+    project_startup_action_routing,
+)
 from ...runtime.authority_snapshot import project_authority_snapshot
 from ...runtime.packet_continuity import PacketContinuityIndex, PacketContinuityRow
 from ...runtime.packet_plan_context import PacketPlanContext
@@ -401,7 +404,7 @@ def run(args) -> int:
         bool(push.safe_to_continue_editing) if push is not None else True
     )
     payload["startup_authority"] = _startup_authority_payload(authority_report)
-    routing_decision = project_startup_action_routing(
+    routing_decision: ActionRoutingDecision = project_startup_action_routing(
         payload,
         next_command=_summary_next_command(payload),
         caller_role=caller_role,

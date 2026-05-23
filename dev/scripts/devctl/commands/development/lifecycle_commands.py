@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dev.scripts.devctl.runtime.typed_ids import PacketId, as_packet_id, id_text
+from ...runtime.typed_ids import PacketId, as_packet_id, id_text
 
 
 def packet_show_command(packet_id: PacketId | str) -> str:

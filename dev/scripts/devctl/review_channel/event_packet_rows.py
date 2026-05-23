@@ -76,6 +76,8 @@ def packet_from_event(event: dict[str, object]) -> ReviewPacketRow:
         run_id=event.get("run_id"),
         from_agent=event.get("from_agent"),
         to_agent=event.get("to_agent"),
+        actor=event.get("actor"),
+        actor_role=event.get("actor_role"),
         kind=event.get("kind"),
         summary=event.get("summary"),
         body=event.get("body"),
@@ -120,7 +122,15 @@ def packet_from_event(event: dict[str, object]) -> ReviewPacketRow:
         acked_by=None,
         acked_at_utc=None,
         applied_at_utc=None,
-        delivery_emitted_at_utc=event.get("timestamp_utc") if is_action_request else None,
+        # A19 lifecycle completeness (delete_after_ingest.md lines 1767-1808):
+        # action_request packets carry an explicit delivery step and get the
+        # delivery timestamp at the moment of emission. Non-action-request
+        # kinds (task_progress, task_blocked, observation, etc.) are
+        # immediate-delivery: their delivery completes the moment they are
+        # posted. Recording delivery_emitted_at_utc = posted_at for those
+        # kinds keeps the lifecycle field non-null and prevents the half-
+        # lifecycle contradiction the amendment documented.
+        delivery_emitted_at_utc=event.get("timestamp_utc"),
         delivery_observed_at_utc="",
         delivery_observed_by="",
         body_observed_at_utc="",

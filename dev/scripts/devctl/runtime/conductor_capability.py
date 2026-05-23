@@ -15,9 +15,10 @@ from .reviewer_mode import (
     reviewer_mode_allows_reviewer_mutation,
 )
 from .review_state_models import ConductorCapabilityState
-from .role_profile import TandemRole, normalize_tandem_role, role_for_provider
+from .role_profile import TandemRole, normalize_tandem_role, role_capability_class
 from .topology_authority_facts import (
     live_implementer_present,
+    live_provider_has_role,
     live_reviewer_present,
 )
 
@@ -73,7 +74,8 @@ def build_conductor_capability_state(
     `collaboration` retain the legacy reviewer_mode-based behavior for
     back-compat.
     """
-    resolved_role = (normalize_tandem_role(role) or role_for_provider(provider)).value
+    resolved = normalize_tandem_role(role) or role_capability_class(role)
+    resolved_role = resolved.value if resolved is not None else ""
     normalized_mode = normalize_reviewer_mode_value(
         reviewer_mode,
         default=ReviewerMode.TOOLS_ONLY,
@@ -84,10 +86,21 @@ def build_conductor_capability_state(
             reviewer_mode=normalized_mode,
             collaboration=collaboration,
         )
-    return _implementer_capability(
+    if resolved_role == TandemRole.IMPLEMENTER.value:
+        return _implementer_capability(
+            provider=provider,
+            reviewer_mode=normalized_mode,
+            collaboration=collaboration,
+        )
+    return ConductorCapabilityState(
         provider=provider,
-        reviewer_mode=normalized_mode,
-        collaboration=collaboration,
+        role="unbound",
+        startup_context_command="",
+        may_edit_repo=False,
+        requires_explicit_takeover=False,
+        worker_unavailable_policy="inactive",
+        queue_policy="inactive",
+        status_summary="Provider has no typed role assignment.",
     )
 
 
@@ -117,12 +130,9 @@ def _reviewer_capability(
 ) -> ConductorCapabilityState:
     startup_command = startup_context_command_for_role(TandemRole.REVIEWER.value)
     takeover_command = reviewer_takeover_command()
-    # v4.55.3 (rev_pkt_4777): when typed collaboration is supplied AND
-    # the legacy reviewer_mode is `active_dual_agent`, require a live
-    # coding_agent role_assignment before opening the bounded-implementer
-    # branch. `single_agent` / `tools_only` modes do NOT require a typed
-    # coding_agent (the reviewer mutates alone in those modes), so the
-    # gate must be scoped to the active_dual_agent path.
+    # Typed collaboration must carry a live implementation-capable lane before
+    # the bounded implementer branch opens. Legacy reviewer-mode labels are only
+    # compatibility inputs; they do not grant that lane.
     if (
         collaboration is not None
         and reviewer_mode_allows_implementer(reviewer_mode)
@@ -140,8 +150,8 @@ def _reviewer_capability(
             queue_policy="inactive",
             status_summary=(
                 "Reviewer capability gated by typed role_assignments: no "
-                "live coding_agent grants, so reviewer_mode=active_dual_agent "
-                "cannot open the bounded-implementer branch."
+                "live implementation-capable lane, so reviewer_mode cannot "
+                "open the bounded-implementer branch."
             ),
         )
     if reviewer_mode_allows_implementer(reviewer_mode):
@@ -159,17 +169,16 @@ def _reviewer_capability(
                 "is explicit."
             ),
         )
-    # v4.55.3 (rev_pkt_4783): when typed collaboration is supplied AND
-    # the legacy reviewer_mode is `single_agent`, require a live
-    # `review_agent` role_assignment before granting the reviewer-mutation
-    # branch (`may_edit_repo=True`). Symmetric with the active_dual_agent
-    # gate above: typed `role_assignments` decide authority, not the
-    # legacy reviewer_mode string alone.
+    # Single-actor mutation still needs typed implementation or mutation
+    # capability on this provider. Review/test/architecture roles do not become
+    # mutation authority just because an old reviewer-mode label says so.
     if (
         collaboration is not None
         and reviewer_mode_allows_reviewer_mutation(reviewer_mode)
-        and not live_reviewer_present(
-            collaboration, legacy_label=reviewer_mode
+        and not live_provider_has_role(
+            collaboration,
+            role_id="implementation",
+            provider=provider,
         )
     ):
         return ConductorCapabilityState(
@@ -182,7 +191,7 @@ def _reviewer_capability(
             queue_policy="inactive",
             status_summary=(
                 "Reviewer capability gated by typed role_assignments: no "
-                "live review_agent grants, so reviewer_mode=single_agent "
+                "live implementation or mutation grants, so reviewer_mode "
                 "cannot open the reviewer-mutation branch."
             ),
         )
@@ -219,13 +228,12 @@ def _implementer_capability(
     collaboration: Mapping[str, object] | None = None,
 ) -> ConductorCapabilityState:
     startup_command = startup_context_command_for_role(TandemRole.IMPLEMENTER.value)
-    # v4.55.3 (rev_pkt_4777): typed implementer capability requires a
-    # live coding_agent role_assignment, not just a legacy
-    # reviewer_mode=active_dual_agent string. Without typed evidence,
-    # may_edit_repo stays False even when the legacy label suggests
-    # active dual-agent.
-    if collaboration is not None and not live_implementer_present(
-        collaboration, legacy_label=reviewer_mode
+    # Typed implementer capability requires a live implementation-capable lane,
+    # not an old topology label or old role id string.
+    if collaboration is not None and not live_provider_has_role(
+        collaboration,
+        role_id="implementation",
+        provider=provider,
     ):
         return ConductorCapabilityState(
             provider=provider,
@@ -237,8 +245,8 @@ def _implementer_capability(
             queue_policy="inactive",
             status_summary=(
                 "Implementer capability gated by typed role_assignments: "
-                "no live coding_agent grants, so reviewer_mode label cannot "
-                "grant edit capability alone."
+                "no live implementation or mutation grants, so reviewer_mode "
+                "cannot grant edit capability alone."
             ),
         )
     if reviewer_mode_allows_implementer(reviewer_mode):

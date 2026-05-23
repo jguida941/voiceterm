@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from ...runtime.master_plan_contract import DEFAULT_MASTER_PLAN_STORE_REL
+from ...runtime.master_plan_store import read_plan_rows_jsonl
 from ...review_channel.agent_sync_readers import agent_sync_pending_packet_ids
 from ...review_channel.event_projection_queue import build_event_queue_summary
 from ...review_channel.pending_packets import live_pending_packets
@@ -12,6 +14,7 @@ def queue_for_event_report(
     args,
     bundle,
     packets: list[dict[str, object]] | None,
+    repo_root=None,
 ):
     """Return the queue summary for one event-backed action report."""
     queue = bundle.review_state.get("queue", {})
@@ -43,6 +46,7 @@ def queue_for_event_report(
         pending_counts,
         stale_count,
         packets=packets,
+        plan_rows=_read_plan_rows(repo_root),
     )
     summary["filtered_scope"] = {
         "target": target,
@@ -63,6 +67,15 @@ def queue_for_event_report(
                 "actionable inbox filter"
             )
     return summary
+
+
+def _read_plan_rows(repo_root) -> tuple[object, ...]:
+    if repo_root is None:
+        return ()
+    path = repo_root / DEFAULT_MASTER_PLAN_STORE_REL
+    if not path.is_file():
+        return ()
+    return tuple(read_plan_rows_jsonl(path))
 
 
 def _filtered_pending_counts(

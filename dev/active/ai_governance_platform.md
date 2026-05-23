@@ -1,6 +1,6 @@
 # AI Governance Platform Plan
 
-**Status**: active  |  **Last updated**: 2026-05-19 | **Owner:** Tooling/control plane/product architecture
+**Status**: active  |  **Last updated**: 2026-05-22 | **Owner:** Tooling/control plane/product architecture
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
 `MP-377`, and it is the maintained projection of architecture decisions for the
@@ -86,6 +86,19 @@ Current ingestion status:
   it points at `dev/state/plan_index.jsonl` (the typed PlanRow store),
   keeping the durable-authority binding enforced through a named constant
   instead of free-form prose.
+- 2026-05-22 MP-GUARDIR-V4-PHASE-0-6-E current-row proof mode repair:
+  `delete_after_ingest.md` remains operator staging/source provenance only.
+  Runtime progress now flows through typed `CurrentRowProofMode`, which reads
+  PlanRows, source snapshots, ingestion receipts, guard outputs, dogfood rows,
+  review-channel packet/session evidence, final-gate output, feature proof
+  receipts, and closure receipts. `render-current-row-projection` rewrites the
+  user-visible markdown projection from typed state, while
+  `check_current_row_proof_bundle.py --enforce-projection-sync` rejects stale
+  or manually checked projection rows. A typed `SliceBlockedReceipt` can stop
+  A13 evidence-churn guards without closing the row; closure still requires
+  passing dogfood, typed collaboration evidence, exact-node
+  `FeatureProofReceipt(proven_passed)`, final gate satisfaction, and
+  `PlanRowClosureReceipt`.
 - 2026-05-12 continuation-gate dogfood found that the final-response gate could
   still strand Codex after startup bootstrap by preferring a peer
   `repair_startup_authority` row whose `next_command` was prose

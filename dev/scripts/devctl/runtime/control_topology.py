@@ -6,13 +6,14 @@ from collections.abc import Mapping
 from typing import Literal
 
 from .conductor_capability import normalize_reviewer_mode
-from .control_topology_bridge_counts import bridge_provider_count, boolish
+from .control_topology_bridge_counts import boolish
 from .control_topology_numeric import (
     count,
     int_value,
     supervised_conductor_count as resolve_supervised_conductor_count,
 )
 from .runtime_count_roles import provider_has_only_non_tandem_presence
+from .role_profile import role_capability_classes
 from .control_topology_runtime_counts import (
     startup_bridge_liveness,
     startup_runtime_counts,
@@ -67,18 +68,6 @@ def derive_observed_control_topology(
             "runtime_present_implementer_total",
         ),
     )
-    if not typed_participant_evidence:
-        reviewer_count = max(
-            reviewer_count,
-            bridge_provider_count(bridge, "codex"),
-            int(boolish(bridge.get("codex_conductor_active"))),
-        )
-        implementer_count = max(
-            implementer_count,
-            bridge_provider_count(bridge, "claude"),
-            int(boolish(bridge.get("claude_conductor_active"))),
-        )
-
     if control_presence_count <= 0:
         reviewer_count = 0
     elif reviewer_count > control_presence_count:
@@ -220,12 +209,12 @@ def _typed_live_reviewer_and_implementer_present(review_state: object | None) ->
     role_assignments = _sequence(_field(collaboration, "role_assignments"))
     review_agent_identities = _live_role_identities(
         role_assignments,
-        role_id="review_agent",
+        capability_classes={"review", "test", "architecture", "governance", "research", "intake"},
         live_participants=live_participants,
     )
     coding_agent_identities = _live_role_identities(
         role_assignments,
-        role_id="coding_agent",
+        capability_classes={"implementation", "mutation"},
         live_participants=live_participants,
     )
     if any(
@@ -236,12 +225,14 @@ def _typed_live_reviewer_and_implementer_present(review_state: object | None) ->
         return True
 
     reviewer_live = any(
-        _text(_field(row, "role")) == "reviewer"
+        set(role_capability_classes(_text(_field(row, "role"))))
+        & {"review", "test", "architecture", "governance", "research", "intake"}
         and boolish(_field(row, "live"))
         for row in participants
     )
     implementer_live = any(
-        _text(_field(row, "role")) == "implementer"
+        set(role_capability_classes(_text(_field(row, "role"))))
+        & {"implementation", "mutation"}
         and boolish(_field(row, "live"))
         for row in participants
     )
@@ -251,12 +242,13 @@ def _typed_live_reviewer_and_implementer_present(review_state: object | None) ->
 def _live_role_identities(
     rows: tuple[object, ...],
     *,
-    role_id: str,
+    capability_classes: set[str],
     live_participants: tuple[object, ...],
 ) -> tuple[str, ...]:
     identities: list[str] = []
     for row in rows:
-        if _text(_field(row, "role_id")) != role_id or not boolish(_field(row, "live")):
+        role_classes = set(role_capability_classes(_text(_field(row, "role_id"))))
+        if not role_classes & capability_classes or not boolish(_field(row, "live")):
             continue
         identity = _text(_field(row, "provider") or _field(row, "agent_id"))
         if not identity:

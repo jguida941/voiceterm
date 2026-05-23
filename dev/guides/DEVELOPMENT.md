@@ -3,6 +3,7 @@
 ## Contents
 
 - [Workflow ownership and routing](#workflow-ownership-and-routing)
+- [Current-row proof mode](#current-row-proof-mode)
 - [End-to-end lifecycle flow](#end-to-end-lifecycle-flow)
 - [What checks protect us](#what-checks-protect-us)
 - [After file edits](#after-file-edits)
@@ -30,6 +31,40 @@ Already know the feature area? Use this short loop:
 3. Run the bundle that matches your change type (`bundle.runtime`, `bundle.docs`, or `bundle.tooling`).
 4. Run any risk-matrix add-ons listed in `AGENTS.md` for the paths you touched. (`AGENTS.md` is a generated projection; durable risk policy lives in `dev/config/devctl_repo_policy.json` and typed guards.)
 5. Push to a branch off `develop` (or `master` for releases only).
+
+## Current-row proof mode
+
+Current-row proof mode keeps operator staging markdown out of the execution
+authority path. A staging source such as `delete_after_ingest.md` is source
+provenance only: ingest it into `PlanRow`, `PlanSourceSnapshot`, and
+`PlanIntentIngestionReceipt` typed stores, then use typed proof state for live
+progress.
+
+Use these managed commands for the current-row proof projection:
+
+```bash
+python3 dev/scripts/devctl.py render-current-row-projection --row-id <row_id> --format md --write
+python3 dev/scripts/devctl.py current-row-proof-step --row-id <row_id> --guard-id check_feature_completion --format json
+python3 dev/scripts/devctl.py current-row-proof-dogfood --row-id <row_id> --format json
+python3 dev/scripts/devctl.py current-row-proof-receipt --row-id <row_id> --test-node <pytest-node-id> --format json
+python3 dev/scripts/checks/check_current_row_proof_bundle.py --row-id <row_id> --enforce-projection-sync --format json
+```
+
+`current-row-proof-step` records a typed `GuardRunResult` for one required
+guard and regenerates `dev/reports/plan_execution/current_row.md`.
+`current-row-proof-dogfood` records a typed dogfood result for
+`check-router --execute` and regenerates the same projection.
+`current-row-proof-receipt` writes the row's `FeatureProofReceipt` only after
+the required guard proofs exist and the caller supplies an exact pytest node id.
+The projection is user visibility only: checkboxes are computed from typed
+rows, guard outputs, dogfood rows, collaboration evidence, final-gate output,
+and receipts. Manual `[x]` edits are drift and must fail projection sync.
+
+If a slice is intentionally blocked, emit a typed `SliceBlockedReceipt` in
+`dev/state/slice_lifecycle_receipts.jsonl`. The A13 churn guards honor that
+blocker as state evidence, but it is not closure: the row remains blocked until
+dogfood passes, typed collaboration exists, `FeatureProofReceipt(proven_passed)`
+names an exact pytest node, the final gate passes, and a closure receipt exists.
 
 ## Workflow ownership and routing
 

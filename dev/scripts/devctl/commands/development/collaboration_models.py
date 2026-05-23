@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 
 
@@ -56,6 +57,7 @@ class DevelopmentRuntimeSnapshot:
     unregistered_session_count: int = 0
     rows: tuple[DevelopmentRuntimeRow, ...] = ()
     session_discovery: tuple[DevelopmentSessionDiscoveryRow, ...] = ()
+    coordination_snapshot: Mapping[str, object] | None = None
     summary: str = ""
 
 

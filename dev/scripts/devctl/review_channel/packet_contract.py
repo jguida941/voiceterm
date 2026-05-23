@@ -258,6 +258,8 @@ class PacketPostRequest:
     causation_id: str = ""
     run_id: str = ""
     expires_in_minutes: int | None = None
+    actor: str = ""
+    actor_role: str = ""
     target: PacketTargetFields = field(default_factory=PacketTargetFields)
     runtime_approval: PacketRuntimeApprovalFields = field(
         default_factory=PacketRuntimeApprovalFields

@@ -5,6 +5,14 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
+from ...platform.coordination_topology import build_coordination_topology_snapshot
+from ...platform.coordination_topology_models import CoordinationTopologySnapshot
+from ...runtime.review_state_parser import review_state_from_payload
+from ...runtime.work_intake_models import (
+    WorkIntakeCoordinationState,
+    WorkIntakeOwnershipState,
+    work_intake_coordination_from_mapping,
+)
 from .models import DevelopmentRuntimeRow, DevelopmentRuntimeSnapshot
 from .session_discovery import discover_sessions_for_runtime
 
@@ -24,6 +32,7 @@ def runtime_snapshot_from_review_state(
     work_board = _mapping(review_state.get("agent_work_board"))
     agent_sync = _mapping(review_state.get("agent_sync"))
     coordination = _mapping(review_state.get("coordination_state"))
+    coordination_snapshot = _coordination_topology_snapshot(review_state)
     rows = tuple(_runtime_row(row) for row in _row_payloads(work_board))
     ordered_rows = tuple(sorted(rows, key=_row_sort_key)[: max(1, row_limit)])
     session_discovery = discover_sessions_for_runtime(
@@ -35,15 +44,22 @@ def runtime_snapshot_from_review_state(
     fresh_count = len(rows) - stale_count
     actor_sync = _mapping(_mapping(agent_sync.get("agents")).get(actor))
     pending_packets = _sequence(actor_sync.get("pending_packets_to_me"))
-    topology = _text(coordination.get("coordination_topology"))
-    authority_mode = _text(coordination.get("authority_mode"))
+    topology = (
+        _text(coordination_snapshot.collaboration_topology)
+        or _text(coordination.get("coordination_topology"))
+    )
+    authority_mode = (
+        _text(coordination_snapshot.authority_mode)
+        or _text(coordination.get("authority_mode"))
+    )
     return DevelopmentRuntimeSnapshot(
         actor=actor,
         actor_source=actor_source,
         authority_source=_AUTHORITY_SOURCE,
         coordination_topology=topology,
         authority_mode=authority_mode,
-        safe_to_fanout=bool(review_state.get("safe_to_fanout")),
+        safe_to_fanout=coordination_snapshot.fanout_safe
+        or bool(review_state.get("safe_to_fanout")),
         actor_sync_status=_text(actor_sync.get("derived_status")),
         actor_pending_packet_count=len(pending_packets),
         fresh_row_count=fresh_count,
@@ -52,6 +68,7 @@ def runtime_snapshot_from_review_state(
         unregistered_session_count=unregistered_count,
         rows=ordered_rows,
         session_discovery=session_discovery,
+        coordination_snapshot=coordination_snapshot.to_dict(),
         summary=_runtime_summary(
             topology=topology,
             pending_packet_count=len(pending_packets),
@@ -59,6 +76,40 @@ def runtime_snapshot_from_review_state(
             unregistered_session_count=unregistered_count,
         ),
     )
+
+
+def _coordination_topology_snapshot(
+    review_state: Mapping[str, object],
+) -> CoordinationTopologySnapshot:
+    review = review_state_from_payload(review_state)
+    coordination_payload = dict(_mapping(review_state.get("coordination_state")))
+    if "collaboration_topology" not in coordination_payload:
+        topology = _text(coordination_payload.get("coordination_topology"))
+        if topology:
+            coordination_payload["collaboration_topology"] = topology
+    coordination = (
+        work_intake_coordination_from_mapping(coordination_payload)
+        or WorkIntakeCoordinationState()
+    )
+    ownership = WorkIntakeOwnershipState(
+        status=_text(coordination_payload.get("ownership_status")) or "clear",
+        scope_paths=_string_tuple(coordination_payload.get("scope_paths")),
+        outside_scope_dirty_paths=_string_tuple(
+            coordination_payload.get("outside_scope_dirty_paths")
+        ),
+        dirty_paths=_string_tuple(coordination_payload.get("dirty_paths")),
+    )
+    snapshot = build_coordination_topology_snapshot(
+        review_state=review,
+        ownership=ownership,
+        coordination=coordination,
+    )
+    if not isinstance(snapshot, CoordinationTopologySnapshot):
+        raise TypeError(
+            "build_coordination_topology_snapshot must return "
+            "CoordinationTopologySnapshot"
+        )
+    return snapshot
 
 
 def _runtime_row(row: Mapping[str, object]) -> DevelopmentRuntimeRow:
@@ -129,6 +180,10 @@ def _sequence(value: object) -> tuple[object, ...]:
     if isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
         return tuple(value)
     return ()
+
+
+def _string_tuple(value: object) -> tuple[str, ...]:
+    return tuple(_text(item) for item in _sequence(value) if _text(item))
 
 
 def _text(value: object) -> str:

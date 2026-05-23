@@ -256,10 +256,6 @@ class RelaunchTriggerInput:
 def normalize_relaunch_actor(value: object) -> str:
     """Return canonical relaunch-loop actor ids."""
     text = coerce_text(value).lower().replace("-", "_").replace(":", "_")
-    if text in {"codex", "reviewer", "codex_reviewer"}:
-        return "codex_reviewer"
-    if text in {"claude", "implementer", "coder", "claude_implementer"}:
-        return "claude_implementer"
     return text
 
 

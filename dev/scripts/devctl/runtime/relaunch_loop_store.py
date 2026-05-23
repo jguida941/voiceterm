@@ -7,7 +7,13 @@ from pathlib import Path
 from typing import Any
 
 from .jsonl_support import parse_json_line_dict
-from .relaunch_loop_models import AgentRelaunchTrigger, SliceClosureEvent
+from .relaunch_loop_models import (
+    AgentRelaunchTrigger,
+    AuthorityScope,
+    RelaunchQuotaToken,
+    SliceClosureEvent,
+    TypedLaunchCommand,
+)
 from .state_store_authority import append_json_mapping
 
 
@@ -36,8 +42,24 @@ def load_relaunch_triggers(path: Path) -> tuple[AgentRelaunchTrigger, ...]:
     triggers: list[AgentRelaunchTrigger] = []
     for payload in _load_jsonl(path):
         trigger = AgentRelaunchTrigger.from_mapping(payload)
-        if trigger is not None:
-            triggers.append(trigger)
+        if trigger is None:
+            continue
+        # Typed contract boundary: AgentRelaunchTrigger composes typed
+        # AuthorityScope, TypedLaunchCommand, and RelaunchQuotaToken
+        # sub-contracts; reject loaded rows whose decoded shape drifted.
+        if not isinstance(trigger.launch_command, TypedLaunchCommand):
+            raise TypeError(
+                "AgentRelaunchTrigger.launch_command must be TypedLaunchCommand"
+            )
+        if not isinstance(trigger.authority_scope, AuthorityScope):
+            raise TypeError(
+                "AgentRelaunchTrigger.authority_scope must be AuthorityScope"
+            )
+        if not isinstance(trigger.quota_token, RelaunchQuotaToken):
+            raise TypeError(
+                "AgentRelaunchTrigger.quota_token must be RelaunchQuotaToken"
+            )
+        triggers.append(trigger)
     return tuple(triggers)
 
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 from collections.abc import Mapping
+from dataclasses import dataclass
 from pathlib import Path
 
 from ...runtime.peer_attention_window import _BLOCKING_KINDS
@@ -17,8 +18,10 @@ from ...runtime.packet_carry_forward_sources import (
 )
 from ...runtime.plan_packet_routing import packet_can_drive_current_plan
 from ...runtime.review_packet_inbox import packet_inbox_from_review_state
+from ...runtime.review_packet_inbox_liveness import is_live_pending
 from .models import DevelopmentPacketAttention
 from .packet_attention_body_followup import (
+    PacketBodyFollowup,
     packet_body_followup_for_selection,
 )
 from .packet_attention_support import (
@@ -29,6 +32,7 @@ from .packet_attention_support import (
     latest_attention_packet_id,
     live_finding_packet_id,
     live_pending_packet_ids,
+    packet_matches_fresh_route,
     packet_attention_satisfied_by_ingestion,
     packet_attention_summary,
     pending_actionable_packet_ids,
@@ -44,6 +48,20 @@ _ATTENTION_REQUIRED_STATUSES = {
     "checkpoint_required",
 }
 
+# Lane-barrier coherence fix (Operator-asserted contradiction May 22, 2026):
+# the typed work-board emits ``awaiting_reviewer_ack`` lane barriers from
+# ``agent_sync.agents[actor].awaiting_packet_id`` /
+# ``awaiting_from_agent`` (see
+# ``review_channel/agent_work_board_barriers.py::build_lane_barriers``).
+# Until this fix the develop-controller's attention reducer only consulted
+# the actor's INBOUND ``packet_inbox`` record, so an actor blocked on an
+# OUTBOUND ack (their own packet awaiting peer ack) saw the lane barrier
+# in ``sync-status`` but ``attention_required=False`` in ``develop next``.
+# Reading the awaiting fields here folds the lane-barrier signal into the
+# typed attention reducer so the two surfaces cannot disagree at the same
+# ``source_latest_event_id``.
+_AWAITING_REVIEWER_ACK_WAKE_REASON = "awaiting_reviewer_ack"
+
 
 def packet_attention_from_review_state(
     review_state: Mapping[str, object],
@@ -58,7 +76,13 @@ def packet_attention_from_review_state(
     terminal_receipts = terminal_receipt_by_packet or {}
     inbox = packet_inbox_from_review_state(review_state)
     record = inbox.for_agent(agent) if inbox is not None else None
+    awaiting_barrier = _awaiting_reviewer_ack_barrier(review_state, agent=agent)
     if record is None:
+        if awaiting_barrier is not None:
+            return _awaiting_barrier_only_attention(
+                agent=agent,
+                barrier=awaiting_barrier,
+            )
         return DevelopmentPacketAttention(agent=agent)
     exit_context = PacketExitContext(
         review_state=review_state,
@@ -78,6 +102,10 @@ def packet_attention_from_review_state(
         agent=agent,
         exit_context=exit_context,
     )
+    current_plan_authority = resolve_current_plan_authority(
+        rows,
+        pending_packets=packet_rows(review_state.get("packets")),
+    )
     status = record.attention_status
     wake_reason = record.wake_reason
     required_command = str(record.required_command or "").strip()
@@ -95,6 +123,36 @@ def packet_attention_from_review_state(
         wake_reason=wake_reason,
         attention_required=True,
     )
+    pending_packet_ids = tuple(
+        packet_id
+        for packet_id in pending_packet_ids
+        if packet_matches_fresh_route(
+            packet_by_id(review_state, packet_id),
+            actor=agent,
+            review_state=review_state,
+        )
+    )
+    packet_id = _current_plan_attention_packet_id(
+        packet_id,
+        rows=rows,
+        review_state=review_state,
+        durable_row_id_by_packet=durable_row_id_by_packet,
+        current_plan_authority=current_plan_authority,
+    )
+    pending_packet_ids = _current_plan_attention_packet_ids(
+        pending_packet_ids,
+        rows=rows,
+        review_state=review_state,
+        durable_row_id_by_packet=durable_row_id_by_packet,
+        current_plan_authority=current_plan_authority,
+    )
+    delivery_packet_ids = _current_plan_attention_packet_ids(
+        delivery_packet_ids,
+        rows=rows,
+        review_state=review_state,
+        durable_row_id_by_packet=durable_row_id_by_packet,
+        current_plan_authority=current_plan_authority,
+    )
     latest_packet_id = latest_attention_packet_id(
         latest_finding_packet_id=packet_id,
         pending_actionable_packet_ids=pending_packet_ids,
@@ -107,6 +165,20 @@ def packet_attention_from_review_state(
         exit_context=exit_context,
     )
     if body_followup.required and body_followup.packet_id:
+        body_packet = packet_by_id(review_state, body_followup.packet_id)
+        if not packet_matches_fresh_route(
+            body_packet,
+            actor=agent,
+            review_state=review_state,
+        ) or not _packet_id_can_drive_attention(
+            body_followup.packet_id,
+            rows=rows,
+            review_state=review_state,
+            durable_row_id_by_packet=durable_row_id_by_packet,
+            current_plan_authority=current_plan_authority,
+        ):
+            body_followup = PacketBodyFollowup(body_followup.route)
+    if body_followup.required and body_followup.packet_id:
         latest_packet_id = body_followup.packet_id
     attention_packet = packet_by_id(review_state, latest_packet_id)
     durable_row_id = durable_row_id_for_packet(
@@ -114,10 +186,6 @@ def packet_attention_from_review_state(
         latest_packet_id,
         durable_row_id_by_packet=durable_row_id_by_packet,
         packet=attention_packet,
-    )
-    current_plan_authority = resolve_current_plan_authority(
-        rows,
-        pending_packets=packet_rows(review_state.get("packets")),
     )
     authority_affecting = _authority_affecting_packet(
         attention_packet,
@@ -165,6 +233,23 @@ def packet_attention_from_review_state(
         packet_id = ""
         durable_row_id = ""
         attention_packet = {}
+    # Lane-barrier coherence: if the inbox path produced no attention but
+    # ``agent_sync`` reports the actor is awaiting a reviewer ack on a
+    # still-live packet, surface that as ``attention_required=True`` so
+    # the typed controller cannot disagree with the work-board's typed
+    # lane-barrier rows at the same source_latest_event_id.
+    if (
+        not attention_required
+        and awaiting_barrier is not None
+        and _awaiting_packet_live(review_state, awaiting_barrier.packet_id)
+    ):
+        attention_required = True
+        latest_packet_id = awaiting_barrier.packet_id
+        pending_packet_ids = (awaiting_barrier.packet_id,)
+        status = "blocked"
+        wake_reason = _AWAITING_REVIEWER_ACK_WAKE_REASON
+        required_command = inbox_command_for_agent(awaiting_barrier.target_actor or agent)
+        attention_packet = packet_by_id(review_state, awaiting_barrier.packet_id)
     if not attention_required:
         status = "none"
         wake_reason = ""
@@ -226,6 +311,80 @@ def packet_attention_from_review_state(
                 )
             )
         ),
+    )
+
+
+def _current_plan_attention_packet_id(
+    packet_id: str,
+    *,
+    rows: tuple[PlanRow, ...],
+    review_state: Mapping[str, object],
+    durable_row_id_by_packet: Mapping[str, str] | None,
+    current_plan_authority,
+) -> str:
+    packet_text = str(packet_id or "").strip()
+    if not packet_text:
+        return ""
+    return (
+        packet_text
+        if _packet_id_can_drive_attention(
+            packet_text,
+            rows=rows,
+            review_state=review_state,
+            durable_row_id_by_packet=durable_row_id_by_packet,
+            current_plan_authority=current_plan_authority,
+        )
+        else ""
+    )
+
+
+def _current_plan_attention_packet_ids(
+    packet_ids: tuple[str, ...],
+    *,
+    rows: tuple[PlanRow, ...],
+    review_state: Mapping[str, object],
+    durable_row_id_by_packet: Mapping[str, str] | None,
+    current_plan_authority,
+) -> tuple[str, ...]:
+    return tuple(
+        packet_id
+        for packet_id in packet_ids
+        if _packet_id_can_drive_attention(
+            packet_id,
+            rows=rows,
+            review_state=review_state,
+            durable_row_id_by_packet=durable_row_id_by_packet,
+            current_plan_authority=current_plan_authority,
+        )
+    )
+
+
+def _packet_id_can_drive_attention(
+    packet_id: str,
+    *,
+    rows: tuple[PlanRow, ...],
+    review_state: Mapping[str, object],
+    durable_row_id_by_packet: Mapping[str, str] | None,
+    current_plan_authority,
+) -> bool:
+    packet = packet_by_id(review_state, packet_id)
+    durable_row_id = durable_row_id_for_packet(
+        rows,
+        packet_id,
+        durable_row_id_by_packet=durable_row_id_by_packet,
+        packet=packet,
+    )
+    authority_affecting = _authority_affecting_packet(
+        packet,
+        durable_row_id=durable_row_id,
+        rows=rows,
+    )
+    return _packet_can_drive_attention(
+        packet,
+        rows=rows,
+        current_plan_authority=current_plan_authority,
+        durable_row_id=durable_row_id,
+        authority_affecting=authority_affecting,
     )
 
 
@@ -471,6 +630,106 @@ def _packet_specific_attention_without_packet(
     if status == "wake_required":
         return True
     return wake_reason in {"finding_pending", "expired_unresolved_packet"}
+
+
+@dataclass(frozen=True, slots=True)
+class _AwaitingReviewerAckBarrier:
+    """Typed view of one ``awaiting_reviewer_ack`` lane-barrier row.
+
+    Mirrors the shape produced by
+    ``review_channel/agent_work_board_barriers.py::build_lane_barriers``
+    so the develop-controller attention reducer can fold the same typed
+    signal without importing the work-board projection module.
+    """
+
+    packet_id: str
+    target_actor: str
+
+
+def _awaiting_reviewer_ack_barrier(
+    review_state: Mapping[str, object],
+    *,
+    agent: str,
+) -> _AwaitingReviewerAckBarrier | None:
+    """Return the awaiting-reviewer-ack barrier for ``agent``, or None.
+
+    Reads ``agent_sync.agents[agent]`` mirroring the typed work-board
+    barrier reducer. The returned barrier is the same row that
+    ``sync-status`` renders as ``Lane Barriers (typed)`` so the two
+    surfaces agree at the same source_latest_event_id.
+    """
+    agent_sync = review_state.get("agent_sync")
+    if not isinstance(agent_sync, Mapping):
+        return None
+    agents = agent_sync.get("agents")
+    if not isinstance(agents, Mapping):
+        return None
+    row = agents.get(agent)
+    if not isinstance(row, Mapping):
+        return None
+    awaiting = str(row.get("awaiting_packet_id") or "").strip()
+    if not awaiting:
+        return None
+    target_actor = str(row.get("awaiting_from_agent") or "").strip()
+    return _AwaitingReviewerAckBarrier(
+        packet_id=awaiting,
+        target_actor=target_actor,
+    )
+
+
+def _awaiting_packet_live(
+    review_state: Mapping[str, object],
+    packet_id: str,
+) -> bool:
+    """Return True when the awaited packet is still a live pending packet.
+
+    Guards against stale ``agent_sync`` rows whose ``awaiting_packet_id``
+    out-paces the live packet inbox (e.g. the awaited packet was already
+    acked / disposed). Without this check the attention reducer would
+    surface forced attention indefinitely after the packet cleared.
+    """
+    if not packet_id:
+        return False
+    packets = review_state.get("packets")
+    if not isinstance(packets, (list, tuple)):
+        return False
+    for packet in packets:
+        if not isinstance(packet, Mapping):
+            continue
+        if str(packet.get("packet_id") or "").strip() != packet_id:
+            continue
+        return is_live_pending(packet)
+    return False
+
+
+def _awaiting_barrier_only_attention(
+    *,
+    agent: str,
+    barrier: _AwaitingReviewerAckBarrier,
+) -> DevelopmentPacketAttention:
+    """Return a barrier-only attention shape when no inbox record exists.
+
+    The typed packet inbox only synthesizes records for known agents
+    (``codex``, ``claude``, ``cursor``, ``operator`` + any to_agent in
+    pending packets). When the actor has no inbound packets, ``record``
+    is None — but lane-barrier state still belongs in the attention
+    reducer so ``operator`` / future provider lanes do not silently
+    drop their typed blockers.
+    """
+    return DevelopmentPacketAttention(
+        attention_required=True,
+        agent=agent,
+        attention_status="blocked",
+        attention_reason=_AWAITING_REVIEWER_ACK_WAKE_REASON,
+        wake_reason=_AWAITING_REVIEWER_ACK_WAKE_REASON,
+        latest_attention_packet_id=barrier.packet_id,
+        pending_actionable_packet_ids=(barrier.packet_id,),
+        required_command=inbox_command_for_agent(barrier.target_actor or agent),
+        summary=(
+            f"{agent} lane awaiting {barrier.target_actor or 'partner'} "
+            f"ack on {barrier.packet_id}."
+        ),
+    )
 
 
 def review_state_payload(repo_root: Path) -> Mapping[str, object]:

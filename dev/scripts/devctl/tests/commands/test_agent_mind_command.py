@@ -515,12 +515,15 @@ class SliceBuilderFilterTests(unittest.TestCase):
                     for command in awareness["next_commands"]
                 )
             )
-            self.assertTrue(
-                any(
-                    "agent-mind --agent claude" in command
-                    for command in awareness["next_commands"]
-                )
+            # Per AntiDumbass amendment: with no typed CollaborationSessionState
+            # available in unit-test scope, peer providers cannot be derived
+            # from a hardcoded codex<->claude reciprocal. The typed warning
+            # surfaces the missing topology instead.
+            self.assertIn(
+                "no_live_peer_topology_in_collaboration_session",
+                awareness["peer_topology_warnings"],
             )
+            self.assertEqual(awareness["peer_providers"], [])
 
     def test_agent_message_boundary_accepts_peer_poll_after_long_task_message(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

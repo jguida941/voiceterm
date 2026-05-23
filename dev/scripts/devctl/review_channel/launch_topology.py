@@ -6,7 +6,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from ..runtime.role_profile import TandemRole, normalize_tandem_role, role_for_provider
+from ..runtime.role_profile import normalize_role_id, role_capability_classes
 
 if TYPE_CHECKING:
     from .core import LaneAssignment
@@ -57,8 +57,7 @@ def build_conductor_launch_specs(
         (
             provider
             for provider in providers
-            if role_map.get(provider, role_for_provider(provider))
-            == TandemRole.REVIEWER
+            if _provider_has_capability(provider, role_map, {"review", "test", "architecture", "governance", "research", "intake"})
         ),
         None,
     )
@@ -66,8 +65,7 @@ def build_conductor_launch_specs(
         (
             provider
             for provider in providers
-            if role_map.get(provider, role_for_provider(provider))
-            == TandemRole.IMPLEMENTER
+            if _provider_has_capability(provider, role_map, {"implementation", "mutation"})
         ),
         None,
     )
@@ -86,7 +84,7 @@ def build_conductor_launch_specs(
         # killing all session.
         if not spec_lanes and spec_budget <= 0:
             continue
-        role = role_map.get(provider, role_for_provider(provider)).value
+        role = _provider_role(provider, role_map) or "unbound"
         counterpart_provider = _counterpart_provider(
             provider=provider,
             role_map=role_map,
@@ -110,7 +108,7 @@ def build_conductor_launch_specs(
 def _ordered_providers(
     *,
     lane_map: Mapping[str, tuple["LaneAssignment", ...]],
-    role_map: Mapping[str, TandemRole],
+    role_map: Mapping[str, tuple[str, ...]],
     providers_to_launch: Sequence[str] | None,
 ) -> tuple[str, ...]:
     providers = list(lane_map)
@@ -127,14 +125,14 @@ def _ordered_providers(
 
 def _provider_sort_key(
     provider: str,
-    role_map: Mapping[str, TandemRole],
+    role_map: Mapping[str, tuple[str, ...]],
 ) -> tuple[int, str]:
-    role = role_map.get(provider, role_for_provider(provider))
-    if role == TandemRole.REVIEWER:
+    role_classes = _provider_capability_classes(provider, role_map)
+    if role_classes & {"review", "test", "architecture", "governance", "research", "intake"}:
         return (0, provider)
-    if role == TandemRole.IMPLEMENTER:
+    if role_classes & {"implementation", "mutation"}:
         return (1, provider)
-    if role == TandemRole.OPERATOR:
+    if role_classes & {"control", "observe"}:
         return (2, provider)
     return (3, provider)
 
@@ -142,38 +140,60 @@ def _provider_sort_key(
 def _counterpart_provider(
     *,
     provider: str,
-    role_map: Mapping[str, TandemRole],
+    role_map: Mapping[str, tuple[str, ...]],
     reviewer_provider: str | None,
     implementer_provider: str | None,
 ) -> str:
-    role = role_map.get(provider, role_for_provider(provider))
-    if role == TandemRole.REVIEWER:
+    role_classes = _provider_capability_classes(provider, role_map)
+    if role_classes & {"review", "test", "architecture", "governance", "research", "intake"}:
         return implementer_provider or "implementer"
-    if role == TandemRole.IMPLEMENTER:
+    if role_classes & {"implementation", "mutation"}:
         return reviewer_provider or "reviewer"
     return reviewer_provider or implementer_provider or "operator"
 
 
+def _provider_role(
+    provider: str,
+    role_map: Mapping[str, tuple[str, ...]],
+) -> str:
+    roles = role_map.get(provider, ())
+    return roles[0] if roles else ""
+
+
+def _provider_has_capability(
+    provider: str,
+    role_map: Mapping[str, tuple[str, ...]],
+    capability_classes: set[str],
+) -> bool:
+    return bool(_provider_capability_classes(provider, role_map) & capability_classes)
+
+
+def _provider_capability_classes(
+    provider: str,
+    role_map: Mapping[str, tuple[str, ...]],
+) -> set[str]:
+    classes: set[str] = set()
+    for role in role_map.get(provider, ()):
+        classes.update(role_capability_classes(role))
+    return classes
+
+
 def _provider_role_map(
     lane_map: Mapping[str, tuple["LaneAssignment", ...]],
-) -> dict[str, TandemRole]:
-    role_map: dict[str, TandemRole] = {}
+) -> dict[str, tuple[str, ...]]:
+    role_map: dict[str, tuple[str, ...]] = {}
     for provider, lanes in lane_map.items():
-        lane_roles = {
-            resolved_role
-            for lane in lanes
-            if (
-                resolved_role := normalize_tandem_role(getattr(lane, "role", ""))
+        lane_roles = tuple(
+            dict.fromkeys(
+                resolved_role
+                for lane in lanes
+                if (
+                    resolved_role := normalize_role_id(getattr(lane, "role", ""))
+                )
             )
-            is not None
-        }
-        if len(lane_roles) > 1:
-            roles = ", ".join(sorted(role.value for role in lane_roles))
-            raise ValueError(
-                f"Provider `{provider}` has conflicting planned lane roles: {roles}"
-            )
+        )
         if lane_roles:
-            role_map[provider] = next(iter(lane_roles))
+            role_map[provider] = lane_roles
     return role_map
 
 

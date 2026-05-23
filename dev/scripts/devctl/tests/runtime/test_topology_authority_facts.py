@@ -12,6 +12,7 @@ from __future__ import annotations
 from dev.scripts.devctl.runtime.topology_authority_facts import (
     legacy_label_is_authority_evidence_only,
     live_implementer_present,
+    live_provider_has_role,
     live_reviewer_present,
     typed_collaboration_from_review_state,
 )
@@ -43,6 +44,35 @@ def test_v4553_typed_implementer_assignment_grants_live_implementer() -> None:
         ]
     }
     assert live_implementer_present(collaboration) is True
+
+
+def test_live_provider_has_role_binds_presence_to_current_actor() -> None:
+    collaboration = {
+        "role_assignments": [
+            {
+                "agent_id": "claude-session",
+                "provider": "claude",
+                "role_id": "coding_agent",
+                "live": True,
+            }
+        ]
+    }
+
+    assert live_provider_has_role(
+        collaboration,
+        role_id="coding_agent",
+        provider="claude",
+    ) is True
+    assert live_provider_has_role(
+        collaboration,
+        role_id="coding_agent",
+        provider="claude-session",
+    ) is True
+    assert live_provider_has_role(
+        collaboration,
+        role_id="coding_agent",
+        provider="codex",
+    ) is False
 
 
 def test_v4553_legacy_label_alone_does_not_grant_live_reviewer() -> None:

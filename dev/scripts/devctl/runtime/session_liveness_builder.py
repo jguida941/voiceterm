@@ -4,12 +4,12 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 
-from .role_profile import role_for_provider
 from .session_liveness_signal import (
     SessionLivenessInputs,
     SessionLivenessSignal,
     classify_session_liveness,
 )
+from .role_profile import normalize_role_id, role_capability_classes
 
 
 def build_session_liveness_signals(
@@ -48,7 +48,7 @@ def _signal_for_provider(
     bridge_liveness: Mapping[str, object],
     active_providers: Sequence[str],
 ) -> SessionLivenessSignal:
-    role = role_for_provider(provider).value
+    role = _typed_role_for_provider(provider, bridge_liveness) or "unbound"
     return classify_session_liveness(
         SessionLivenessInputs(
             provider=provider,
@@ -77,9 +77,82 @@ def _reviewer_daemon_running(
     provider: str,
     bridge_liveness: Mapping[str, object],
 ) -> bool:
-    if role_for_provider(provider).value != "reviewer":
+    if "review" not in role_capability_classes(
+        _typed_role_for_provider(provider, bridge_liveness)
+    ):
         return False
     return bool(bridge_liveness.get("reviewer_supervisor_running"))
+
+
+def _typed_role_for_provider(
+    provider: str,
+    bridge_liveness: Mapping[str, object],
+) -> str:
+    normalized_provider = str(provider or "").strip().lower()
+    for row in _explicit_role_rows(bridge_liveness):
+        row_provider = str(row.get("provider") or row.get("actor_id") or "").strip().lower()
+        role = _role_from_row(row)
+        if row_provider == normalized_provider and role:
+            return role
+    for field_name in (
+        "reviewer_capability",
+        "implementer_capability",
+        "operator_capability",
+    ):
+        capability = bridge_liveness.get(field_name)
+        if not isinstance(capability, Mapping):
+            continue
+        capability_provider = str(capability.get("provider") or "").strip().lower()
+        if capability_provider == normalized_provider:
+            return normalize_role_id(
+                capability.get("role")
+                or capability.get("role_id")
+                or capability.get("target_role")
+            )
+    return ""
+
+
+def _explicit_role_rows(
+    bridge_liveness: Mapping[str, object],
+) -> tuple[Mapping[str, object], ...]:
+    rows: list[Mapping[str, object]] = []
+    for field_name in (
+        "session_liveness_signals",
+        "participant_liveness",
+        "active_participants",
+        "role_assignments",
+    ):
+        value = bridge_liveness.get(field_name)
+        if not isinstance(value, (list, tuple)):
+            continue
+        rows.extend(row for row in value if isinstance(row, Mapping))
+    collaboration = bridge_liveness.get("collaboration")
+    if isinstance(collaboration, Mapping):
+        value = collaboration.get("role_assignments")
+        if isinstance(value, (list, tuple)):
+            rows.extend(row for row in value if isinstance(row, Mapping))
+    return tuple(rows)
+
+
+def _role_from_row(row: Mapping[str, object]) -> str:
+    role = normalize_role_id(
+        row.get("role")
+        or row.get("actor_role")
+        or row.get("role_id")
+        or row.get("role_preset")
+        or row.get("target_role")
+    )
+    if role:
+        if role == "lead_agent":
+            return "orchestrator"
+        if role == "review_agent":
+            return "architecture_review"
+        if role == "coding_agent":
+            return "implementation"
+        if role == "operator_agent":
+            return "operator"
+        return role
+    return ""
 
 
 def _runtime_provider_set(bridge_liveness: Mapping[str, object]) -> tuple[str, ...]:
@@ -95,12 +168,9 @@ def _runtime_provider_set(bridge_liveness: Mapping[str, object]) -> tuple[str, .
 def _bridge_active_provider_set(
     bridge_liveness: Mapping[str, object],
 ) -> tuple[str, ...]:
-    providers = list(_string_values(bridge_liveness.get("active_conductor_providers")))
-    if bool(bridge_liveness.get("codex_conductor_active")):
-        providers.append("codex")
-    if bool(bridge_liveness.get("claude_conductor_active")):
-        providers.append("claude")
-    return _ordered_unique(providers)
+    return _ordered_unique(
+        list(_string_values(bridge_liveness.get("active_conductor_providers")))
+    )
 
 
 def _poll_age_for_provider(
@@ -109,7 +179,7 @@ def _poll_age_for_provider(
     role: str,
     bridge_liveness: Mapping[str, object],
 ) -> int | None:
-    if provider != "codex" and role != "reviewer":
+    if "review" not in role_capability_classes(role):
         return None
     return _int_or_none(
         bridge_liveness.get("last_reviewer_poll_age_seconds")

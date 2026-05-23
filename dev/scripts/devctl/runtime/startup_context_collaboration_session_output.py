@@ -39,6 +39,9 @@ def startup_collaboration_summary_dict(
     payload["participants"] = [
         startup_participant_summary_dict(row) for row in collaboration.participants
     ]
+    payload["role_assignments"] = [
+        startup_role_assignment_dict(row) for row in collaboration.role_assignments
+    ]
     return payload
 
 
@@ -60,9 +63,6 @@ _COLLABORATION_BASE_FIELDS = (
     "contract_id",
     "session_id",
     "topology_mode",
-    "lead_agent",
-    "review_agent",
-    "coding_agent",
     "mutation_owner",
     "verification_owner",
     "watcher_owner",

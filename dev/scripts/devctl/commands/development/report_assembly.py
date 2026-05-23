@@ -215,6 +215,7 @@ def build_report_impl(args: Any) -> DevelopmentLoopReport:
         topology=_topology_summary(core.topology),
         next_slice=core.next_slice,
         packet_attention=core.packet_attention,
+        current_plan_authority=core.current_plan_authority,
         runtime=core.runtime,
         peer_minds=core.peer_minds,
         orchestration=core.orchestration,

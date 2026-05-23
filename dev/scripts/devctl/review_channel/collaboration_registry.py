@@ -10,7 +10,7 @@ from ..runtime.review_state_models import (
     CollaborationRoleAssignmentState,
     CollaborationSessionState,
 )
-from ..runtime.role_profile import TandemRole, role_for_provider
+from ..runtime.role_profile import normalize_role_id, role_capability_classes
 
 
 def build_runtime_agent_registry_from_collaboration(
@@ -24,8 +24,6 @@ def build_runtime_agent_registry_from_collaboration(
     agents: list[AgentRegistryEntryState] = []
     seen_agent_ids: set[str] = set()
     for assignment in collaboration.role_assignments:
-        if assignment.role_id not in {"review_agent", "coding_agent", "operator_agent"}:
-            continue
         agent_id = assignment.agent_id or assignment.provider
         if agent_id in seen_agent_ids:
             continue
@@ -98,13 +96,13 @@ def build_runtime_agent_registry_from_collaboration(
 
 
 def _assignment_role(assignment: CollaborationRoleAssignmentState) -> str:
-    if assignment.role_id in {"lead_agent", "review_agent"}:
-        return TandemRole.REVIEWER.value
-    if assignment.role_id == "coding_agent":
-        return TandemRole.IMPLEMENTER.value
-    if assignment.role_id == "operator_agent":
-        return TandemRole.OPERATOR.value
-    return role_for_provider(assignment.provider).value
+    role_id = normalize_role_id(assignment.role_id)
+    return {
+        "lead_agent": "orchestrator",
+        "review_agent": "architecture_review",
+        "coding_agent": "implementation",
+        "operator_agent": "operator",
+    }.get(role_id, role_id)
 
 
 def _job_state_from_collaboration(
@@ -113,13 +111,14 @@ def _job_state_from_collaboration(
     participant: CollaborationParticipantState | None,
     collaboration: CollaborationSessionState,
 ) -> str:
-    if role == TandemRole.REVIEWER.value:
+    capability_classes = set(role_capability_classes(role))
+    if capability_classes & {"review", "test", "architecture", "governance", "research", "intake"}:
         if collaboration.reviewer_mode != "active_dual_agent" and participant is None:
             return "inactive"
         if _ready_gate_status(collaboration, "review_truth") == "blocked":
             return "review_needed"
         return "reviewing" if participant is None or participant.live else "inactive"
-    if role == TandemRole.IMPLEMENTER.value:
+    if capability_classes & {"implementation", "mutation"}:
         implementer_status = collaboration.peer_review.implementer_status.strip()
         if implementer_status in {"", "(missing)"}:
             return "waiting" if collaboration.peer_review.current_instruction else "inactive"
@@ -128,7 +127,7 @@ def _job_state_from_collaboration(
         if collaboration.peer_review.current_instruction:
             return "waiting_for_ack"
         return "inactive"
-    if role == TandemRole.OPERATOR.value:
+    if capability_classes & {"control", "observe"}:
         if collaboration.arbitration.status == "operator_attention":
             return "waiting"
         return "idle"
@@ -140,13 +139,14 @@ def _waiting_on_from_collaboration(
     role: str,
     collaboration: CollaborationSessionState,
 ) -> str:
-    if role == TandemRole.REVIEWER.value:
+    capability_classes = set(role_capability_classes(role))
+    if capability_classes & {"review", "test", "architecture", "governance", "research", "intake"}:
         return "worktree" if _ready_gate_status(collaboration, "review_truth") == "blocked" else ""
-    if role == TandemRole.IMPLEMENTER.value:
+    if capability_classes & {"implementation", "mutation"}:
         if _ready_gate_status(collaboration, "review_truth") == "blocked":
             return "reviewer"
         return ""
-    if role == TandemRole.OPERATOR.value:
+    if capability_classes & {"control", "observe"}:
         return "review" if collaboration.arbitration.status == "operator_attention" else ""
     return ""
 
@@ -162,23 +162,17 @@ def _ready_gate_status(
 
 
 def _default_lane_title(role: str) -> str:
-    if role == TandemRole.REVIEWER.value:
-        return "Reviewer"
-    if role == TandemRole.IMPLEMENTER.value:
-        return "Implementer"
-    if role == TandemRole.OPERATOR.value:
-        return "Approver"
-    return role.title()
+    return normalize_role_id(role).replace("_", " ").title()
 
 
 def _default_job_state(role: str) -> str:
-    if role == TandemRole.OPERATOR.value:
+    if set(role_capability_classes(role)) & {"control", "observe"}:
         return "idle"
     return "inactive"
 
 
 def _default_script_profile(role: str) -> str:
-    if role == TandemRole.OPERATOR.value:
+    if set(role_capability_classes(role)) & {"control", "observe"}:
         return ""
     return "markdown-bridge-conductor"
 

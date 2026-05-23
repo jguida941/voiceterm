@@ -16,7 +16,7 @@ from ...runtime.development_packet_pressure_models import (
     PacketIngestDecision,
     PacketIntentClassification,
 )
-from dev.scripts.devctl.runtime.development_team import DevelopmentScalingContract
+from ...runtime.development_team import DevelopmentScalingContract
 from .collaboration_models import (
     DevelopmentPeerMindEvent,
     DevelopmentPeerMindSnapshot,
@@ -301,6 +301,7 @@ class DevelopmentLoopReport:
     topology: DevelopmentTopologySummary
     next_slice: DevelopmentNextSlice
     packet_attention: DevelopmentPacketAttention
+    current_plan_authority: Any
     runtime: DevelopmentRuntimeSnapshot
     peer_minds: tuple[DevelopmentPeerMindSnapshot, ...]
     orchestration: DevelopmentOrchestrationSnapshot

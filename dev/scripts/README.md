@@ -15,6 +15,26 @@ Runtime note:
   dev/scripts/devctl.py ...` so `check`, `probe-report`, and `guard-run`
   follow-ups stay on the same runtime.
 
+Current-row proof mode commands:
+
+```bash
+python3 dev/scripts/devctl.py render-current-row-projection --row-id <row_id> --format md --write
+python3 dev/scripts/devctl.py current-row-proof-step --row-id <row_id> --guard-id check_feature_completion --format json
+python3 dev/scripts/devctl.py current-row-proof-dogfood --row-id <row_id> --format json
+python3 dev/scripts/devctl.py current-row-proof-receipt --row-id <row_id> --test-node <pytest-node-id> --format json
+python3 dev/scripts/checks/check_staging_source_ingested.py --source delete_after_ingest.md --row-id <row_id> --format json
+python3 dev/scripts/checks/check_current_row_proof_bundle.py --row-id <row_id> --enforce-projection-sync --format json
+```
+
+`delete_after_ingest.md` is an intake/source-provenance file, not a live
+checklist. The durable proof path is typed state plus managed outputs:
+`PlanRow`, source snapshots, ingestion receipts, `GuardRunResult` rows,
+dogfood rows, review-channel packet/session evidence, final-gate output,
+`FeatureProofReceipt`, and closure receipts. `current-row-proof-receipt` writes
+the receipt only from existing guard proof plus an exact pytest node id. The
+generated projection at `dev/reports/plan_execution/current_row.md` is
+rewritten from those stores and must not be edited by hand.
+
 Use `devctl` first for release, verification, docs-governance, and reporting.
 Legacy shell scripts remain as compatibility adapters that route into `devctl`.
 For active-doc discovery, use `dev/active/INDEX.md`.

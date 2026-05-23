@@ -740,14 +740,33 @@ def _packet_show_command(packet_id: str) -> str:
     )
 
 
+class MissingTypedCollaborationSessionError(RuntimeError):
+    """Raised when stop-anchor command generation cannot resolve typed role bindings.
+
+    Production code must not fall back to hardcoded provider-role literals such
+    as ``(role="reviewer", provider="codex")`` and ``(role="implementer",
+    provider="claude")`` per the AntiDumbass amendment (``delete_after_ingest.md``
+    lines 731-870): provider names are adapter identities, not role authority.
+
+    Callers must supply ``role_bindings`` resolved from typed
+    ``CollaborationSessionState`` (typically via ``read_role_bindings`` over
+    ``session_records[*]`` and the bridge-liveness role assignments). If no
+    typed session is active, the caller must surface this error instead of
+    silently emitting a two-provider command plan.
+    """
+
+
 def _stop_anchor_post_commands(
     stop_anchor_request: CollaborationStopAnchorRequest,
     role_bindings: tuple[CollaborationRoleBinding, ...],
 ) -> tuple[str, ...]:
-    bindings = role_bindings or (
-        CollaborationRoleBinding(role="reviewer", provider="codex"),
-        CollaborationRoleBinding(role="implementer", provider="claude"),
-    )
+    if not role_bindings:
+        raise MissingTypedCollaborationSessionError(
+            "stop-anchor post command generation requires typed role_bindings "
+            "resolved from an active CollaborationSessionState; refusing to "
+            "fall back to hardcoded codex/claude provider pairs."
+        )
+    bindings = role_bindings
     commands: list[str] = []
     summary = "agent_sync stop condition reached"
     body = (

@@ -14,7 +14,7 @@ from ..runtime.review_state_models import (
     DelegatedWorkReceiptState,
     ReviewCurrentSessionState,
 )
-from ..runtime.role_profile import TandemRole
+from ..runtime.role_profile import role_capability_classes
 from .collaboration_session_roster import _text
 from .session_probe import ConductorSessionRecord
 
@@ -136,11 +136,15 @@ def _runtime_gate_status(
     if reviewer_mode != "active_dual_agent":
         return "not_required"
     reviewer_live = any(
-        participant.live and participant.role == TandemRole.REVIEWER.value
+        participant.live
+        and set(role_capability_classes(participant.role))
+        & {"review", "architecture", "governance", "research", "test", "intake"}
         for participant in participants
     )
     implementer_live = any(
-        participant.live and participant.role == TandemRole.IMPLEMENTER.value
+        participant.live
+        and set(role_capability_classes(participant.role))
+        & {"implementation", "mutation"}
         for participant in participants
     )
     return "ready" if reviewer_live and implementer_live else "blocked"
@@ -156,11 +160,15 @@ def _runtime_gate_summary(
             "paired reviewer/implementer conductors."
         )
     reviewer_live = any(
-        participant.live and participant.role == TandemRole.REVIEWER.value
+        participant.live
+        and set(role_capability_classes(participant.role))
+        & {"review", "architecture", "governance", "research", "test", "intake"}
         for participant in participants
     )
     implementer_live = any(
-        participant.live and participant.role == TandemRole.IMPLEMENTER.value
+        participant.live
+        and set(role_capability_classes(participant.role))
+        & {"implementation", "mutation"}
         for participant in participants
     )
     if reviewer_live and implementer_live:

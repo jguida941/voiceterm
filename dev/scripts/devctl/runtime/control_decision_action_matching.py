@@ -7,7 +7,22 @@ from collections.abc import Mapping, Sequence
 
 from .command_envelope_classification import classify_command_mutation
 from .review_channel_post_actions import required_review_channel_post_action
+from .role_profile import TandemRole, normalize_tandem_role
 from .value_coercion import coerce_bool, coerce_string
+
+_COLLABORATION_HANDOFF_ACTION_REQUESTS = frozenset({"implementer_handoff"})
+_COLLABORATION_HANDOFF_SOURCE_ROLES = frozenset(
+    {
+        "reviewer",
+        "orchestrator",
+        "plan_steward",
+        "architecture_review",
+        "duplicate_scope_guard",
+        "dogfood_test",
+        "governance_receipt",
+        "codex_research",
+    }
+)
 
 
 def action_mutates(
@@ -165,6 +180,8 @@ def _allowed_review_channel_action_request_post(argv: Sequence[str]) -> bool:
     target_ref = _argv_option_value(argv, "--target-ref").strip()
     target_revision = _argv_option_value(argv, "--target-revision").strip()
     guard_evidence = _argv_option_value(argv, "--full-guard-bundle-evidence").strip()
+    if requested_action in _COLLABORATION_HANDOFF_ACTION_REQUESTS:
+        return _allowed_review_channel_implementer_handoff_post(argv)
     return (
         requested_action == "stage_commit_pipeline"
         and target_kind == "runtime"
@@ -172,6 +189,34 @@ def _allowed_review_channel_action_request_post(argv: Sequence[str]) -> bool:
         and bool(target_revision)
         and bool(guard_evidence)
     )
+
+
+def _allowed_review_channel_implementer_handoff_post(argv: Sequence[str]) -> bool:
+    target_kind = _argv_option_value(argv, "--target-kind").strip()
+    target_ref = _argv_option_value(argv, "--target-ref").strip()
+    target_revision = _argv_option_value(argv, "--target-revision").strip()
+    target_role = _argv_option_value(argv, "--target-role").strip()
+    source_role = normalized_role(_argv_option_value(argv, "--actor-role"))
+    guard_evidence = _argv_option_value(argv, "--full-guard-bundle-evidence").strip()
+    return (
+        target_kind == "plan"
+        and bool(target_ref)
+        and not target_revision
+        and normalized_role(target_role) == "implementer"
+        and source_role in _COLLABORATION_HANDOFF_SOURCE_ROLES
+        and not guard_evidence
+    )
+
+
+def normalized_role(role: object) -> str:
+    tandem = normalize_tandem_role(role)
+    if tandem == TandemRole.REVIEWER:
+        return "reviewer"
+    if tandem == TandemRole.IMPLEMENTER:
+        return "implementer"
+    if tandem == TandemRole.OPERATOR:
+        return "operator"
+    return coerce_string(role).strip().lower().replace("-", "_").replace(" ", "_")
 
 
 def _argv_is_review_channel_post(

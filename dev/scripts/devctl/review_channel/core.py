@@ -24,7 +24,6 @@ from pathlib import Path
 
 from ..config import REPO_ROOT
 from ..repo_packs import active_path_config
-from ..runtime.role_profile import TandemRole, role_for_provider
 from .launch import (
     list_terminal_profiles,
     resolve_terminal_profile_name,
@@ -104,7 +103,7 @@ def parse_lane_assignments(review_channel_text: str) -> list[LaneAssignment]:
             provider = _provider_from_lane(lane=lane, agent_id=match.group("agent"))
         except ValueError:
             continue
-        role = _role_from_lane(lane=lane, provider=provider).value
+        role = _role_from_lane(lane=lane, provider=provider)
         lanes.append(
             LaneAssignment(
                 agent_id=match.group("agent"),
@@ -132,7 +131,7 @@ def _provider_from_lane(*, lane: str, agent_id: str) -> str:
     raise ValueError(f"Unable to infer provider for {agent_id}: {lane}")
 
 
-def _role_from_lane(*, lane: str, provider: str) -> TandemRole:
+def _role_from_lane(*, lane: str, provider: str) -> str:
     """Infer a lane role from explicit work keywords before provider defaults."""
     lowered = lane.lower()
     reviewer_match = _contains_lane_keyword(
@@ -160,12 +159,12 @@ def _role_from_lane(*, lane: str, provider: str) -> TandemRole:
         ),
     )
     if reviewer_match and not implementer_match:
-        return TandemRole.REVIEWER
+        return "architecture_review"
     if implementer_match and not reviewer_match:
-        return TandemRole.IMPLEMENTER
+        return "implementation"
     if reviewer_match:
-        return TandemRole.REVIEWER
-    return role_for_provider(provider)
+        return "architecture_review"
+    return ""
 
 
 def _contains_lane_keyword(text: str, keywords: tuple[str, ...]) -> bool:

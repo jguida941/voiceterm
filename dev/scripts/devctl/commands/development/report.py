@@ -11,6 +11,14 @@ from ...review_channel.event_store import load_events, resolve_artifact_paths
 from ...runtime.command_envelope_classification import classify_command_envelope
 from ...runtime.development_collaboration_profiles import (
     AgentCollaborationProfile,
+    CollaborationProfileActorAuthority,
+    CollaborationProfileArbitration,
+    CollaborationProfilePeerReview,
+    CollaborationProfileReadyGate,
+    CollaborationProfileSession,
+    CollaborationProfileWakeEvidence,
+    CollaborationResolvedRoleBudget,
+    CollaborationRoleBinding,
     CollaborationRoleCountRequest,
     CollaborationStopAnchorRequest,
     build_agent_collaboration_profile,
@@ -64,12 +72,73 @@ def build_report(args: Any) -> DevelopmentLoopReport:
 
 
 def _profile_contract_refs(profile: AgentCollaborationProfile) -> dict[str, object]:
+    if not isinstance(profile, AgentCollaborationProfile):
+        raise TypeError("_profile_contract_refs requires AgentCollaborationProfile")
     role_count_requests: tuple[CollaborationRoleCountRequest, ...] = (
         profile.role_count_requests
     )
+    for request in role_count_requests:
+        if not isinstance(request, CollaborationRoleCountRequest):
+            raise TypeError(
+                "profile.role_count_requests must contain CollaborationRoleCountRequest rows"
+            )
     stop_anchor_request: CollaborationStopAnchorRequest | None = (
         profile.stop_anchor_request
     )
+    if stop_anchor_request is not None and not isinstance(
+        stop_anchor_request, CollaborationStopAnchorRequest
+    ):
+        raise TypeError(
+            "profile.stop_anchor_request must be CollaborationStopAnchorRequest"
+        )
+    # Typed contract boundary: the report exposes sub-contracts that compose
+    # into AgentCollaborationProfile; surface schema drift as a fail-closed
+    # TypeError instead of letting raw mapping shapes leak into the report.
+    for binding in profile.role_bindings:
+        if not isinstance(binding, CollaborationRoleBinding):
+            raise TypeError(
+                "profile.role_bindings must contain CollaborationRoleBinding rows"
+            )
+    for budget in profile.resolved_role_budgets:
+        if not isinstance(budget, CollaborationResolvedRoleBudget):
+            raise TypeError(
+                "profile.resolved_role_budgets must contain CollaborationResolvedRoleBudget rows"
+            )
+    for evidence in profile.advisory_wake_evidence:
+        if not isinstance(evidence, CollaborationProfileWakeEvidence):
+            raise TypeError(
+                "profile.advisory_wake_evidence must contain CollaborationProfileWakeEvidence rows"
+            )
+    session = profile.collaboration_session
+    if session is not None:
+        if not isinstance(session, CollaborationProfileSession):
+            raise TypeError(
+                "profile.collaboration_session must be CollaborationProfileSession"
+            )
+        for authority in session.actor_authorities:
+            if not isinstance(authority, CollaborationProfileActorAuthority):
+                raise TypeError(
+                    "session.actor_authorities must contain CollaborationProfileActorAuthority rows"
+                )
+        peer_review = session.peer_review
+        if peer_review is not None and not isinstance(
+            peer_review, CollaborationProfilePeerReview
+        ):
+            raise TypeError(
+                "session.peer_review must be CollaborationProfilePeerReview"
+            )
+        arbitration = session.arbitration
+        if arbitration is not None and not isinstance(
+            arbitration, CollaborationProfileArbitration
+        ):
+            raise TypeError(
+                "session.arbitration must be CollaborationProfileArbitration"
+            )
+        for gate in session.ready_gates:
+            if not isinstance(gate, CollaborationProfileReadyGate):
+                raise TypeError(
+                    "session.ready_gates must contain CollaborationProfileReadyGate rows"
+                )
     return {
         "profile_contract_id": profile.contract_id,
         "role_count_request_count": len(role_count_requests),

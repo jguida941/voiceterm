@@ -259,6 +259,117 @@ class CheckMultiAgentSyncRuntimeTruthTests(unittest.TestCase):
         "resolved_review_state_relative_path"
     )
     @patch("dev.scripts.checks.multi_agent_sync.runtime_truth.load_review_state_payload")
+    def test_runtime_truth_refreshes_superseded_lifecycle_decision(
+        self,
+        load_payload_mock,
+        relpath_mock,
+    ) -> None:
+        relpath_mock.return_value = "dev/reports/review_channel/projections/latest/review_state.json"
+        old_packet = {
+            "packet_id": "rev_pkt_old",
+            "from_agent": "codex",
+            "to_agent": "claude",
+            "kind": "action_request",
+            "requested_action": "implementer_handoff",
+            "body": "Old observed packet still needs semantic ingestion.",
+            "status": "pending",
+            "lifecycle_current_state": "delivery_pending",
+            "latest_event_id": "rev_evt_100",
+            "target_role": "implementer",
+            "target_session_id": "s-claude",
+        }
+        old_packet["body_observation_events"] = [
+            {
+                "body_observed_by": "claude",
+                "body_observed_role": "implementer",
+                "body_observed_session_id": "s-claude",
+                "body_digest": packet_body_digest(old_packet),
+            }
+        ]
+        new_packet = {
+            "packet_id": "rev_pkt_new",
+            "from_agent": "codex",
+            "to_agent": "claude",
+            "kind": "action_request",
+            "requested_action": "implementer_handoff",
+            "body": "New active packet is bound as current typed work.",
+            "status": "pending",
+            "lifecycle_current_state": "delivery_pending",
+            "latest_event_id": "rev_evt_110",
+            "target_role": "implementer",
+            "target_session_id": "s-claude",
+            "durable_binding": {
+                "contract_id": "PacketCreationBinding",
+                "status": "inserted",
+                "binding_target_kind": "plan_row_evidence",
+            },
+        }
+        load_payload_mock.return_value = {
+            "collaboration": {
+                "participants": [],
+                "delegated_work": [],
+                "ready_gates": [],
+            },
+            "registry": {"agents": []},
+            "agent_sync": {
+                "agents": {
+                    "claude": {
+                        "pending_packets_to_me": ["rev_pkt_old", "rev_pkt_new"],
+                    }
+                }
+            },
+            "agent_work_board": {
+                "rows": [
+                    {
+                        "actor_id": "claude",
+                        "role": "implementer",
+                        "session_id": "s-claude",
+                        "active_packet_id": "rev_pkt_new",
+                        "attention_packet_id": "rev_pkt_new",
+                        "source_event_id": "rev_evt_110",
+                    }
+                ]
+            },
+            "agent_loop_decisions": [
+                {
+                    "actor_id": "claude",
+                    "actor_role": "implementer",
+                    "session_id": "s-claude",
+                    "active_packet_id": "rev_pkt_old",
+                    "attention_packet_id": "rev_pkt_old",
+                    "pending_packet_count": 2,
+                    "required_action": "ingest_packet_semantics",
+                    "reason_code": "packet_semantic_ingestion_required",
+                }
+            ],
+            "reviewer_runtime": {
+                "agent_runtime_clock": {
+                    "source_latest_event_id": "rev_evt_110",
+                    "snapshot_id": "agent-runtime-clock:rev_evt_110",
+                },
+                "packet_attention": {
+                    "observation_actor_id": "",
+                    "pending_packet_count": 2,
+                    "wake_required": True,
+                    "stale_reason": "actor_identity_ambiguous_with_pending_wake",
+                },
+            },
+            "packets": [old_packet, new_packet],
+        }
+
+        result = runtime_truth.evaluate_runtime_truth(
+            repo_root=Path("/repo"),
+            planned_agent_ids=[],
+        )
+
+        self.assertTrue(result["checked"])
+        self.assertFalse(result["errors"])
+
+    @patch(
+        "dev.scripts.checks.multi_agent_sync.runtime_truth."
+        "resolved_review_state_relative_path"
+    )
+    @patch("dev.scripts.checks.multi_agent_sync.runtime_truth.load_review_state_payload")
     def test_runtime_truth_allows_observed_communication_only_work_board_focus(
         self,
         load_payload_mock,

@@ -8,7 +8,7 @@ from .review_state_models import (
     CollaborationRoleAssignmentState,
     ConductorCapabilityState,
 )
-from .role_profile import TandemRole, default_provider_for_role, normalize_tandem_role, role_for_provider
+from .role_profile import normalize_role_id, role_capability_classes
 
 
 def legacy_agent_for_role(
@@ -28,7 +28,10 @@ def legacy_watcher_owner(
     mutation_owner: str,
     verification_owner: str,
 ) -> str:
-    operator_owner = legacy_agent_for_role(role_assignments, "operator_agent")
+    operator_owner = legacy_agent_for_capability(
+        role_assignments,
+        {"control", "observe"},
+    )
     for candidate in (operator_owner, mutation_owner, verification_owner):
         if legacy_owner_status(
             candidate,
@@ -43,6 +46,22 @@ def legacy_watcher_owner(
             role_assignments=role_assignments,
         ) != "inactive":
             return candidate
+    return ""
+
+
+def legacy_agent_for_capability(
+    assignments: tuple[CollaborationRoleAssignmentState, ...],
+    capability_classes: set[str],
+    *,
+    excluded_agent_id: str = "",
+) -> str:
+    for assignment in assignments:
+        if not assignment.agent_id:
+            continue
+        if excluded_agent_id and same_agent(assignment.agent_id, excluded_agent_id):
+            continue
+        if set(role_capability_classes(assignment.role_id)) & capability_classes:
+            return assignment.agent_id
     return ""
 
 
@@ -81,11 +100,8 @@ def provider_from_registry(
 ) -> str:
     for agent in registry.agents:
         provider = agent.provider or agent.agent_id
-        if (
-            normalized_job := normalize_tandem_role(agent.current_job)
-        ) is not None and normalized_job.value == role_name:
-            return provider
-        if role_for_provider(provider).value == role_name:
+        role_id = normalize_role_id(agent.lane or agent.current_job)
+        if role_id == role_name:
             return provider
     return ""
 

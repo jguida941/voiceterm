@@ -10,14 +10,9 @@ from ..runtime.review_state_models import (
 from ..runtime.reviewer_runtime_models import (
     RemoteControlAttachmentState,
 )
-from ..runtime.role_profile import (
-    TandemRole,
-    build_default_tandem_profile,
-)
+from ..runtime.role_profile import normalize_role_id, role_capability_classes
 from .collaboration_session_roster_lookup import (
     active_attachment_by_provider as _active_attachment_by_provider,
-    attachment_matches_role as _attachment_matches_role,
-    has_active_remote_operator as _has_active_remote_operator,
     role_assignment as _role_assignment,
     text as _text,
 )
@@ -25,12 +20,6 @@ from .collaboration_session_roster_projection import (
     participant_from_attachment as _participant_from_attachment,
     participant_from_record as _participant_from_record,
     planned_lane_role as _planned_lane_role,
-)
-from .collaboration_session_roster_resolution import (
-    provider_for_remote_role as _provider_for_remote_role,
-    provider_for_role as _provider_for_role,
-    providers_for_remote_role as _providers_for_remote_role,
-    providers_for_role as _providers_for_role,
 )
 from .session_probe import ConductorSessionRecord
 
@@ -66,92 +55,64 @@ def _build_role_assignments(
     reviewer_mode: str = "",
 ) -> tuple[CollaborationRoleAssignmentState, ...]:
     active_attachments = _active_attachment_by_provider(remote_attachments)
-    default_profile = build_default_tandem_profile()
-    reviewer_provider = _provider_for_role(
-        session_records,
-        TandemRole.REVIEWER,
-        live_only=True,
-    ) or _provider_for_remote_role(
-        active_attachments,
-        TandemRole.REVIEWER,
-    ) or _provider_for_role(
-        session_records,
-        TandemRole.REVIEWER,
-    ) or default_profile.reviewer.provider
-    active_remote_implementer_providers = _providers_for_remote_role(
-        active_attachments,
-        TandemRole.IMPLEMENTER,
-    )
-    live_implementer_providers = _providers_for_role(
-        session_records,
-        TandemRole.IMPLEMENTER,
-        live_only=True,
-    ) or active_remote_implementer_providers
-    if (
-        reviewer_mode == "single_agent"
-        and reviewer_provider
-        and not active_remote_implementer_providers
-    ):
-        implementer_providers = (reviewer_provider,)
-    elif live_implementer_providers:
-        implementer_providers = live_implementer_providers
-    elif (
-        reviewer_mode == "single_agent"
-        and reviewer_provider
-        and _has_active_remote_operator(active_attachments)
-    ):
-        implementer_providers = (reviewer_provider,)
-    else:
-        implementer_providers = _providers_for_role(
-            session_records,
-            TandemRole.IMPLEMENTER,
-        ) or tuple(item.provider for item in default_profile.implementers)
-    operator_provider = _provider_for_role(
-        session_records,
-        TandemRole.OPERATOR,
-        live_only=True,
-    ) or _provider_for_remote_role(
-        active_attachments,
-        TandemRole.OPERATOR,
-    ) or _provider_for_role(
-        session_records,
-        TandemRole.OPERATOR,
-    ) or default_profile.operator.provider
-    profile = build_default_tandem_profile(
-        reviewer_provider=reviewer_provider,
-        implementer_providers=implementer_providers,
-        operator_provider=operator_provider,
-    )
-    return (
-        _role_assignment(
-            "lead_agent",
-            profile.reviewer.provider,
-            profile.reviewer.display_name,
-            session_records,
-            remote_attachments=tuple(active_attachments.values()),
-        ),
-        _role_assignment(
-            "review_agent",
-            profile.reviewer.provider,
-            profile.reviewer.display_name,
-            session_records,
-            remote_attachments=tuple(active_attachments.values()),
-        ),
-        _role_assignment(
-            "coding_agent",
-            profile.implementers[0].provider,
-            profile.implementers[0].display_name,
-            session_records,
-            remote_attachments=tuple(active_attachments.values()),
-        ),
-        _role_assignment(
-            "operator_agent",
-            profile.operator.provider,
-            profile.operator.display_name,
-            session_records,
-            remote_attachments=tuple(active_attachments.values()),
-        ),
-    )
+    assignments: list[CollaborationRoleAssignmentState] = []
+    seen: set[tuple[str, str]] = set()
+    attachment_rows = tuple(active_attachments.values())
+
+    def append_role(role_id: object, provider: object, display_name: object = "") -> None:
+        normalized_role = _collaboration_role_id(role_id)
+        normalized_provider = _text(provider).lower()
+        if not normalized_role or not normalized_provider:
+            return
+        key = (normalized_role, normalized_provider)
+        if key in seen:
+            return
+        seen.add(key)
+        assignments.append(
+            _role_assignment(
+                normalized_role,
+                normalized_provider,
+                _text(display_name) or normalized_provider.title(),
+                session_records,
+                remote_attachments=attachment_rows,
+            )
+        )
+
+    for record in session_records:
+        append_role(record.role, record.provider, record.provider_name)
+        if (
+            reviewer_mode == "single_agent"
+            and _collaboration_role_id(record.role) == "review_agent"
+        ):
+            append_role("coding_agent", record.provider, record.provider_name)
+        for lane in record.planned_lanes:
+            append_role(
+                _planned_lane_role(lane, provider=record.provider),
+                _text(lane.get("provider")) or record.provider,
+                _text(lane.get("display_name")),
+            )
+    for provider, attachment in active_attachments.items():
+        append_role(attachment.role, provider, provider.title())
+    return tuple(assignments)
+
+
+def _collaboration_role_id(role_id: object) -> str:
+    normalized_role = normalize_role_id(role_id)
+    capability_classes = set(role_capability_classes(normalized_role))
+    if capability_classes & {"implementation", "mutation"}:
+        return "coding_agent"
+    if capability_classes & {
+        "review",
+        "architecture",
+        "governance",
+        "research",
+        "test",
+        "intake",
+    }:
+        return "review_agent"
+    if capability_classes & {"control", "observe"}:
+        return "operator_agent"
+    return normalized_role
 
 
 def _build_delegated_work(
@@ -167,7 +128,7 @@ def _build_delegated_work(
                     receipt_id=f"{record.session_name}:{agent_id}",
                     agent_id=agent_id,
                     provider=provider,
-                    role=_planned_lane_role(lane, provider=provider).value,
+                    role=_planned_lane_role(lane, provider=provider),
                     owner_session=record.session_name,
                     source="session_metadata",
                     status="planned",

@@ -96,12 +96,12 @@ class RuntimeRoleIndex:
                 granted_capabilities=capabilities,
             )
 
-        # A declared implementer without repo mutation authority is not a
-        # writable implementer. Keep it visible as dashboard/observer work so
-        # route selection cannot hand mutation to a legacy provider default.
+        # A declared implementer without repo mutation authority is still the
+        # implementer lane, but it is read-only until typed mutation authority
+        # is present. Role identity routes packets; capabilities grant edits.
         if (declared or participant_role) == "implementer":
             return RuntimeRoleResolution(
-                role="dashboard",
+                role="implementer",
                 declared_role=declared or participant_role,
                 authority_role="",
                 role_source="declared_role_without_mutation_authority",
@@ -225,9 +225,12 @@ def _authority_role_for_actor(
             continue
         role = normalize_packet_route_role(authority.get("role"))
         if role and _truthy(authority.get("live")):
-            # Treat a live authority role without grants as evidence only for
-            # non-mutating lanes. Mutation needs an explicit repo grant.
-            return "dashboard" if role == "implementer" else role
+            # A live implementer assignment without grants is lane authority,
+            # not mutation authority. Let declared/session role handling keep
+            # the lane visible while mutation stays read-only.
+            if role == "implementer":
+                return ""
+            return role
     return ""
 
 

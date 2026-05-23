@@ -1,19 +1,11 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 from dev.scripts.checks.check_plan_row_contract_refs_resolve import (
     evaluate_plan_row_contract_refs_resolve,
 )
-
-
-def _write_jsonl(path: Path, rows: tuple[dict[str, object], ...]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        "".join(json.dumps(row, sort_keys=True) + "\n" for row in rows),
-        encoding="utf-8",
-    )
+from dev.scripts.devctl.tests.checks._test_jsonl_helpers import write_jsonl as _write_jsonl
 
 
 def test_plan_row_contract_refs_guard_reports_orphan_refs(tmp_path: Path) -> None:

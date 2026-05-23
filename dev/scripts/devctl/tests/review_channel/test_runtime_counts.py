@@ -134,17 +134,17 @@ def test_build_runtime_counts_counts_live_single_agent_writer_from_role_assignme
             ],
             "role_assignments": [
                 {
-                    "role_id": "review_agent",
+                    "role_id": "architecture_review",
                     "provider": "codex",
                     "live": True,
                 },
                 {
-                    "role_id": "coding_agent",
+                    "role_id": "implementation",
                     "provider": "codex",
                     "live": True,
                 },
                 {
-                    "role_id": "operator_agent",
+                    "role_id": "operator",
                     "provider": "claude",
                     "live": True,
                 },
@@ -154,6 +154,38 @@ def test_build_runtime_counts_counts_live_single_agent_writer_from_role_assignme
     )
 
     assert counts["live_participants_total"] == 2
+    assert counts["live_reviewer_total"] == 1
+    assert counts["live_implementer_total"] == 1
+    assert counts["active_conductor_count"] == 1
+
+
+def test_build_runtime_counts_normalizes_deprecated_role_assignment_ids() -> None:
+    counts = build_runtime_counts(
+        collaboration={
+            "participants": [
+                {
+                    "agent_id": "codex",
+                    "provider": "codex",
+                    "role": "reviewer",
+                    "live": True,
+                }
+            ],
+            "role_assignments": [
+                {
+                    "role_id": "review_agent",
+                    "provider": "codex",
+                    "live": True,
+                },
+                {
+                    "role_id": "coding_agent",
+                    "provider": "codex",
+                    "live": True,
+                },
+            ],
+            "delegated_work": [],
+        }
+    )
+
     assert counts["live_reviewer_total"] == 1
     assert counts["live_implementer_total"] == 1
     assert counts["active_conductor_count"] == 1
@@ -178,17 +210,17 @@ def test_build_runtime_counts_ignores_operator_only_provider_role_assignment() -
             ],
             "role_assignments": [
                 {
-                    "role_id": "review_agent",
+                    "role_id": "architecture_review",
                     "provider": "codex",
                     "live": True,
                 },
                 {
-                    "role_id": "coding_agent",
+                    "role_id": "implementation",
                     "provider": "claude",
                     "live": True,
                 },
                 {
-                    "role_id": "operator_agent",
+                    "role_id": "operator",
                     "provider": "claude",
                     "live": True,
                 },

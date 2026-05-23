@@ -22,6 +22,7 @@ from .coordination_topology_support import (
     ready_gate_records,
     resync_posture,
     reviewer_freshness,
+    runtime_role_topology,
     runtime_provider_roles,
     topology_summary,
     delegated_worktree_records,
@@ -41,16 +42,37 @@ def build_coordination_topology_snapshot(
     coordination: WorkIntakeCoordinationState,
 ) -> CoordinationTopologySnapshot:
     """Join live runtime, ownership, and routing signals into one answer."""
+    role_topology = runtime_role_topology(review_state)
     active_provider_role_map = runtime_provider_roles(review_state)
     participants = participant_records(
         review_state=review_state,
         active_provider_roles=active_provider_role_map,
+        active_provider_ids=role_topology.active_providers,
+        role_occupancies=role_topology.role_occupancies,
     )
     delegated_worktrees = delegated_worktree_records(
         review_state=review_state,
         duplicate_worktrees=coordination.duplicate_delegated_worktrees,
     )
     ready_gates = ready_gate_records(review_state)
+    # Typed contract boundary: the support module must hand back the typed
+    # coordination dataclasses so the snapshot cannot be filled with raw
+    # tuples or mapping rows that bypass schema validation.
+    for participant in participants:
+        if not isinstance(participant, CoordinationParticipantRecord):
+            raise TypeError(
+                "participant_records must return CoordinationParticipantRecord rows"
+            )
+    for worktree in delegated_worktrees:
+        if not isinstance(worktree, DelegatedWorktreeRecord):
+            raise TypeError(
+                "delegated_worktree_records must return DelegatedWorktreeRecord rows"
+            )
+    for gate in ready_gates:
+        if not isinstance(gate, CoordinationReadyGateRecord):
+            raise TypeError(
+                "ready_gate_records must return CoordinationReadyGateRecord rows"
+            )
 
     fanout_posture_value, fanout_safe, recommended_topology = fanout_posture(
         review_state=review_state,
@@ -67,6 +89,11 @@ def build_coordination_topology_snapshot(
 
     active_participant_count = sum(1 for row in participants if row.live)
     active_conductor_count = len(active_provider_role_map)
+    typed_role_topology = role_topology.typed_role_topology_label
+    collaboration_topology = _collaboration_topology(
+        declared=coordination.collaboration_topology,
+        typed_role_topology=typed_role_topology,
+    )
     planned_lane_count = sum(row.planned_lane_count for row in participants)
     requested_worker_budget_total = sum(
         max(row.requested_worker_budget, 0) for row in participants
@@ -80,7 +107,7 @@ def build_coordination_topology_snapshot(
     )[:_MAX_CONFLICTING_PATHS]
 
     return CoordinationTopologySnapshot(
-        collaboration_topology=coordination.collaboration_topology or "single_agent",
+        collaboration_topology=collaboration_topology,
         authority_mode=coordination.authority_mode or "self_directed",
         work_ownership_mode=coordination.work_ownership_mode or "exclusive_slice",
         sync_cadence_mode=coordination.sync_cadence_mode or "continuous",
@@ -110,12 +137,22 @@ def build_coordination_topology_snapshot(
         ready_gates=ready_gates[:_MAX_READY_GATES],
         summary=topology_summary(
             active_participant_count=active_participant_count,
-            collaboration_topology=coordination.collaboration_topology or "single_agent",
+            collaboration_topology=collaboration_topology,
             work_ownership_mode=coordination.work_ownership_mode or "exclusive_slice",
             fanout_posture=fanout_posture_value,
             resync_posture=resync_posture_value,
         ),
     )
+
+
+def _collaboration_topology(*, declared: str, typed_role_topology: str) -> str:
+    if typed_role_topology != "typed_role_topology_unresolved" and declared in {
+        "",
+        "single_agent",
+    }:
+        return typed_role_topology
+    return declared or typed_role_topology
+
 
 __all__ = [
     "COORDINATION_TOPOLOGY_CONTRACT_ID",

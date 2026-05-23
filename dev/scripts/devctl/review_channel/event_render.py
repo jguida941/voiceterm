@@ -461,6 +461,30 @@ def _append_packet_queue_sections(
 ) -> None:
     pending, history, stale_packets = partition_live_packet_queue(packets)
     stale_packet_ids = {_packet_id_text(packet_row) for packet_row in stale_packets}
+    inbox_route_pending = [
+        packet_row
+        for packet_row in history
+        if _is_inbox_route_pending_packet(packet_row)
+        and _packet_id_text(packet_row) not in stale_packet_ids
+    ]
+    if inbox_route_pending:
+        inbox_route_ids = {
+            _packet_id_text(packet_row) for packet_row in inbox_route_pending
+        }
+        pending_ids = {
+            _packet_id_text(packet_row)
+            for packet_row in [*pending, *inbox_route_pending]
+        }
+        pending = [
+            packet_row
+            for packet_row in packets
+            if _packet_id_text(packet_row) in pending_ids
+        ]
+        history = [
+            packet_row
+            for packet_row in history
+            if _packet_id_text(packet_row) not in inbox_route_ids
+        ]
     if pending:
         lines.append("")
         lines.append("## Live Packets")
@@ -476,6 +500,19 @@ def _append_packet_queue_sections(
                     stale_pending=_packet_id_text(packet_row) in stale_packet_ids,
                 )
             )
+
+
+def _is_inbox_route_pending_packet(packet_row: object) -> bool:
+    if not isinstance(packet_row, dict):
+        return False
+    status = str(packet_row.get("status") or "").strip()
+    if status != "pending":
+        return False
+    return str(packet_row.get("inbox_routing_status") or "").strip() in {
+        "route_scoped_to_actor",
+        "wrong_role_for_actor",
+        "wrong_session_for_actor",
+    }
 
 
 def _packet_id_text(packet_row: object) -> str:

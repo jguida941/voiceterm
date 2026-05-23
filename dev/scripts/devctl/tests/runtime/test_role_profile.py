@@ -7,8 +7,10 @@ from dev.scripts.devctl.runtime.role_profile import (
     OPERATOR_DIRECTIVE_CAPABILITIES,
     OperatorDirectivePacket,
     default_provider_for_role,
+    normalize_role_id,
     normalize_tandem_role,
     OperatorRole,
+    role_capability_classes,
     RoleProfile,
     TandemProfile,
     TandemRole,
@@ -81,29 +83,37 @@ class TestOperatorDirectivePacket:
 
 
 class TestRoleForProvider:
-    def test_codex_is_reviewer(self):
-        assert role_for_provider("codex") == TandemRole.REVIEWER
-
-    def test_claude_is_implementer(self):
-        assert role_for_provider("claude") == TandemRole.IMPLEMENTER
-
-    def test_cursor_is_implementer(self):
-        assert role_for_provider("cursor") == TandemRole.IMPLEMENTER
+    def test_provider_identity_does_not_imply_role_without_typed_map(self):
+        assert role_for_provider("codex") is None
+        assert role_for_provider("claude") is None
+        assert role_for_provider("cursor") is None
 
     def test_operator_is_operator(self):
-        assert role_for_provider("operator") == TandemRole.OPERATOR
-        assert role_for_provider("human_operator") == TandemRole.OPERATOR
-        assert role_for_provider("remote_operator") == TandemRole.OPERATOR
+        custom = {
+            "operator": TandemRole.OPERATOR,
+            "human_operator": TandemRole.OPERATOR,
+            "remote_operator": TandemRole.OPERATOR,
+        }
+        assert role_for_provider("operator", custom) == TandemRole.OPERATOR
+        assert role_for_provider("human_operator", custom) == TandemRole.OPERATOR
+        assert role_for_provider("remote_operator", custom) == TandemRole.OPERATOR
 
-    def test_unknown_defaults_to_implementer(self):
-        assert role_for_provider("gemini") == TandemRole.IMPLEMENTER
+    def test_unknown_fails_closed_without_typed_map(self):
+        assert role_for_provider("gemini") is None
 
     def test_case_insensitive(self):
-        assert role_for_provider("Codex") == TandemRole.REVIEWER
-        assert role_for_provider("CLAUDE") == TandemRole.IMPLEMENTER
+        custom = {"codex": TandemRole.IMPLEMENTER, "claude": TandemRole.REVIEWER}
+        assert role_for_provider("Codex", custom) == TandemRole.IMPLEMENTER
+        assert role_for_provider("CLAUDE", custom) == TandemRole.REVIEWER
 
     def test_custom_map(self):
-        custom = {"gemini": TandemRole.REVIEWER}
+        custom = {
+            "codex": TandemRole.IMPLEMENTER,
+            "claude": TandemRole.REVIEWER,
+            "gemini": TandemRole.REVIEWER,
+        }
+        assert role_for_provider("codex", custom) == TandemRole.IMPLEMENTER
+        assert role_for_provider("claude", custom) == TandemRole.REVIEWER
         assert role_for_provider("gemini", custom) == TandemRole.REVIEWER
 
 
@@ -114,10 +124,30 @@ class TestRoleHelpers:
         assert normalize_tandem_role("approver") == TandemRole.OPERATOR
         assert normalize_tandem_role("remote operator") == TandemRole.OPERATOR
 
-    def test_default_provider_for_role_uses_default_mapping(self):
-        assert default_provider_for_role("reviewer") == "codex"
-        assert default_provider_for_role("implementer") == "claude"
-        assert default_provider_for_role("operator") == "operator"
+    def test_normalize_role_id_preserves_typed_roles_and_canonical_aliases(self):
+        assert normalize_role_id("TDDFirstRole") == "tdd_first_role"
+        assert normalize_role_id("tdd_discovery") == "tdd_discovery"
+        assert normalize_role_id("dogfooder") == "dogfood_test"
+        assert normalize_role_id("DogfoodTestRole") == "dogfood_test"
+        assert normalize_role_id("GovernanceReceiptRole") == "governance_receipt"
+        assert normalize_role_id("operator inquiry role") == "operator_inquiry_role"
+        assert normalize_role_id("custom future role") == "custom_future_role"
+
+    def test_role_capability_classes_are_secondary_metadata(self):
+        assert role_capability_classes("tdd_first_role") == ("test",)
+        assert role_capability_classes("architecture_review") == (
+            "review",
+            "architecture",
+        )
+        assert role_capability_classes("custom future role") == ()
+
+    def test_default_provider_for_role_requires_typed_map(self):
+        assert default_provider_for_role("reviewer") == ""
+        assert default_provider_for_role("implementer") == ""
+        assert default_provider_for_role("operator") == ""
+        custom = {"claude": TandemRole.REVIEWER, "codex": TandemRole.IMPLEMENTER}
+        assert default_provider_for_role("reviewer", custom) == "claude"
+        assert default_provider_for_role("implementer", custom) == "codex"
 
 
 class TestRoleProfile:
@@ -162,10 +192,10 @@ class TestRoleProfileFromMapping:
         assert profile.provider == "codex"
         assert profile.capabilities == ("review", "promote")
 
-    def test_infers_role_from_provider(self):
+    def test_provider_only_does_not_infer_role(self):
         payload = {"provider": "claude"}
         profile = role_profile_from_mapping(payload)
-        assert profile.role == "implementer"
+        assert profile.role == ""
 
     def test_missing_provider(self):
         payload = {"role": "operator"}
@@ -184,8 +214,9 @@ class TestTandemProfile:
 
     def test_by_provider(self):
         tp = build_default_tandem_profile()
-        assert tp.by_provider("codex").role == "reviewer"
-        assert tp.by_provider("claude").role == "implementer"
+        assert tp.by_provider("codex") is None
+        assert tp.by_provider("claude") is None
+        assert tp.by_provider("unassigned") is not None
         assert tp.by_provider("operator").role == "operator"
         assert tp.by_provider("unknown") is None
 
@@ -200,7 +231,7 @@ class TestTandemProfile:
         tp = build_default_tandem_profile()
         d = tp.to_dict()
         assert d["schema_version"] == 1
-        assert d["reviewer"]["provider"] == "codex"
+        assert d["reviewer"]["provider"] == "unassigned"
         assert d["operator"]["provider"] == "operator"
 
     def test_custom_providers(self):

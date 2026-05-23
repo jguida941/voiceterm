@@ -1,5 +1,7 @@
 from dev.scripts.devctl.runtime.control_decision_obedience import (
     ATTEMPTED_ACTION_RECEIPT_CONTRACT_ID,
+    DEFAULT_EXPECTED_DECISION_PATH,
+    MissingDecisionRefreshHint,
     build_attempted_action_receipt,
     evaluate_control_decision_obedience,
     extract_decision_and_attempted_actions,
@@ -252,6 +254,152 @@ def test_allowed_post_action_request_requires_exact_stage_commit_shape() -> None
     assert report.ok is True
 
 
+def test_allowed_post_action_request_accepts_implementer_handoff_shape() -> None:
+    for actor_id, target_actor in (("codex", "claude"), ("claude", "codex")):
+        decision = {
+            **_blocked_decision(),
+            "actor_id": actor_id,
+            "actor_role": "reviewer",
+            "session_id": f"{actor_id}-reviewer-session",
+            "allowed_actions": ["review-channel.post_action_request"],
+        }
+
+        report = evaluate_control_decision_obedience(
+            decision=decision,
+            attempted_actions=(
+                {
+                    "argv": (
+                        "review-channel",
+                        "--action",
+                        "post",
+                        "--kind",
+                        "action_request",
+                        "--requested-action",
+                        "implementer_handoff",
+                        "--target-kind",
+                        "plan",
+                        "--target-ref",
+                        "MP-GUARDIR-V4-PHASE-0-6-E-CURRENT-PLAN-AUTHORITY-S1",
+                        "--target-role",
+                        "implementer",
+                        "--actor",
+                        actor_id,
+                        "--actor-role",
+                        "reviewer",
+                        "--to-agent",
+                        target_actor,
+                        "--session-id",
+                        f"{actor_id}-reviewer-session",
+                    ),
+                    "actor": actor_id,
+                    "role": "reviewer",
+                    "session_id": f"{actor_id}-reviewer-session",
+                    "mutates": True,
+                    "writes_state": True,
+                    "executes_command": True,
+                },
+            ),
+        )
+
+        assert report.ok is True, actor_id
+
+
+def test_post_action_request_rejects_implementer_as_handoff_source_role() -> None:
+    decision = {
+        **_blocked_decision(),
+        "actor_id": "codex",
+        "actor_role": "implementer",
+        "session_id": "codex-implementer-session",
+        "allowed_actions": ["review-channel.post_action_request"],
+    }
+
+    report = evaluate_control_decision_obedience(
+        decision=decision,
+        attempted_actions=(
+            {
+                "argv": (
+                    "review-channel",
+                    "--action",
+                    "post",
+                    "--kind",
+                    "action_request",
+                    "--requested-action",
+                    "implementer_handoff",
+                    "--target-kind",
+                    "plan",
+                    "--target-ref",
+                    "MP-GUARDIR-V4-PHASE-0-6-E-CURRENT-PLAN-AUTHORITY-S1",
+                    "--target-role",
+                    "implementer",
+                    "--actor",
+                    "codex",
+                    "--actor-role",
+                    "implementer",
+                    "--to-agent",
+                    "claude",
+                    "--session-id",
+                    "codex-implementer-session",
+                ),
+                "actor": "codex",
+                "role": "implementer",
+                "session_id": "codex-implementer-session",
+                "mutates": True,
+                "writes_state": True,
+                "executes_command": True,
+            },
+        ),
+    )
+
+    reasons = {violation["reason"] for violation in report.violations}
+    assert report.ok is False
+    assert "mutation_attempt_after_may_mutate_false" in reasons
+
+
+def test_post_action_request_rejects_rowless_implementer_handoff() -> None:
+    decision = {
+        **_blocked_decision(),
+        "actor_id": "codex",
+        "actor_role": "reviewer",
+        "session_id": "codex-session",
+        "allowed_actions": ["review-channel.post_action_request"],
+    }
+
+    report = evaluate_control_decision_obedience(
+        decision=decision,
+        attempted_actions=(
+            {
+                "argv": (
+                    "review-channel",
+                    "--action",
+                    "post",
+                    "--kind",
+                    "action_request",
+                    "--requested-action",
+                    "implementer_handoff",
+                    "--target-role",
+                    "implementer",
+                    "--actor",
+                    "codex",
+                    "--actor-role",
+                    "reviewer",
+                    "--session-id",
+                    "codex-session",
+                ),
+                "actor": "codex",
+                "role": "reviewer",
+                "session_id": "codex-session",
+                "mutates": True,
+                "writes_state": True,
+                "executes_command": True,
+            },
+        ),
+    )
+
+    reasons = {violation["reason"] for violation in report.violations}
+    assert report.ok is False
+    assert "mutation_attempt_after_may_mutate_false" in reasons
+
+
 def test_post_finding_does_not_authorize_action_request() -> None:
     decision = {
         **_blocked_decision(),
@@ -372,6 +520,45 @@ def test_allowed_post_task_progress_obeys_controller_action_routing() -> None:
                 "actor": "codex",
                 "role": "reviewer",
                 "session_id": "codex-session",
+                "mutates": True,
+                "writes_state": True,
+                "executes_command": True,
+            },
+        ),
+    )
+
+    assert report.ok is True
+
+
+def test_allowed_post_task_blocked_obeys_controller_action_routing() -> None:
+    decision = {
+        **_blocked_decision(),
+        "actor_id": "claude",
+        "actor_role": "implementer",
+        "session_id": "claude-session",
+        "allowed_actions": ["review-channel.post_task_blocked"],
+    }
+
+    report = evaluate_control_decision_obedience(
+        decision=decision,
+        attempted_actions=(
+            {
+                "argv": (
+                    "review-channel",
+                    "--action",
+                    "post",
+                    "--kind",
+                    "task_blocked",
+                    "--actor",
+                    "claude",
+                    "--actor-role",
+                    "implementer",
+                    "--session-id",
+                    "claude-session",
+                ),
+                "actor": "claude",
+                "role": "implementer",
+                "session_id": "claude-session",
                 "mutates": True,
                 "writes_state": True,
                 "executes_command": True,
@@ -911,6 +1098,158 @@ def test_control_decision_obedience_empty_input_fails() -> None:
     reasons = {violation["reason"] for violation in report.violations}
     assert "no_control_decision_input" in reasons
     assert "no_attempted_action_input" in reasons
+
+
+def test_missing_decision_emits_typed_refresh_hint_with_scope_fields() -> None:
+    """Invariant C: ``decision=None`` must emit a typed refresh hint with
+    ``next_command``/``expected_decision_path``/``actor``/``role``/
+    ``session_id`` so consumers know exactly how to recover instead of
+    seeing a bare ``no_control_decision_input`` violation."""
+
+    report = evaluate_control_decision_obedience(
+        decision=None,
+        attempted_actions=(
+            {
+                "command": (
+                    "python3 dev/scripts/devctl.py review-channel --action show"
+                ),
+                "actor": "codex",
+                "role": "reviewer",
+                "session_id": "codex-session",
+            },
+        ),
+    )
+
+    assert report.ok is False
+    payload = report.to_dict()
+    hint = payload["missing_decision_refresh_hint"]
+    assert isinstance(hint, dict)
+    assert hint["contract_id"] == "MissingDecisionRefreshHint"
+    assert hint["schema_version"] == 1
+    assert hint["actor"] == "codex"
+    assert hint["role"] == "reviewer"
+    assert hint["session_id"] == "codex-session"
+    assert hint["expected_decision_path"] == DEFAULT_EXPECTED_DECISION_PATH
+    assert hint["next_command"] == (
+        "python3 dev/scripts/devctl.py develop next "
+        "--actor codex --role reviewer --session-id codex-session "
+        "--format json"
+    )
+    assert hint["refresh_command"] == hint["next_command"]
+    assert report.next_command == hint["next_command"]
+    assert report.refresh_command == hint["refresh_command"]
+
+
+def test_missing_decision_refresh_hint_uses_kwarg_scope_over_action_scope() -> None:
+    """When the caller threads explicit ``actor``/``role``/``session_id``
+    kwargs the hint must use those values (not the attempted-action row's
+    fields). This is how the obedience layer carries the calling
+    consumer's scope even if the attempted action lacks it."""
+
+    report = evaluate_control_decision_obedience(
+        decision=None,
+        attempted_actions=(
+            {
+                "command": (
+                    "python3 dev/scripts/devctl.py review-channel --action show"
+                ),
+                "actor": "should_not_win",
+            },
+        ),
+        actor="claude",
+        role="implementer",
+        session_id="claude-session",
+    )
+
+    payload = report.to_dict()
+    hint = payload["missing_decision_refresh_hint"]
+    assert isinstance(hint, dict)
+    assert hint["actor"] == "claude"
+    assert hint["role"] == "implementer"
+    assert hint["session_id"] == "claude-session"
+    assert hint["next_command"] == (
+        "python3 dev/scripts/devctl.py develop next "
+        "--actor claude --role implementer --session-id claude-session "
+        "--format json"
+    )
+
+
+def test_missing_decision_refresh_hint_respects_custom_expected_path() -> None:
+    """Callers that load decisions from a non-default artifact must be
+    able to surface the exact path they expected via
+    ``expected_decision_path``."""
+
+    custom_path = "dev/reports/review_channel/state/custom_latest.json"
+    report = evaluate_control_decision_obedience(
+        decision=None,
+        attempted_actions=(),
+        actor="claude",
+        role="reviewer",
+        session_id="sess-1",
+        expected_decision_path=custom_path,
+    )
+
+    payload = report.to_dict()
+    hint = payload["missing_decision_refresh_hint"]
+    assert isinstance(hint, dict)
+    assert hint["expected_decision_path"] == custom_path
+    assert custom_path in hint["detail"]
+
+
+def test_missing_decision_refresh_hint_dataclass_shape() -> None:
+    """Pin the typed dataclass surface so consumers can rely on the field
+    set. The hint must expose at minimum next_command,
+    expected_decision_path, actor, role, session_id plus the standard
+    schema/contract envelope."""
+
+    hint = MissingDecisionRefreshHint(
+        hint_id="missing_control_decision:refresh_agent_loop_decision",
+        next_command="python3 dev/scripts/devctl.py develop next --format json",
+        refresh_command="python3 dev/scripts/devctl.py develop next --format json",
+        expected_decision_path=DEFAULT_EXPECTED_DECISION_PATH,
+        actor="codex",
+        role="reviewer",
+        session_id="codex-session",
+    )
+
+    payload = hint.to_dict()
+    for field in (
+        "hint_id",
+        "next_command",
+        "refresh_command",
+        "expected_decision_path",
+        "actor",
+        "role",
+        "session_id",
+        "detail",
+        "schema_version",
+        "contract_id",
+    ):
+        assert field in payload, field
+    assert payload["contract_id"] == "MissingDecisionRefreshHint"
+    assert payload["schema_version"] == 1
+
+
+def test_missing_decision_refresh_hint_no_action_no_scope_kwargs() -> None:
+    """When neither the caller nor the attempted action carries a scope,
+    the hint must still emit a typed shape with empty string fields and a
+    canonical ``develop next --format json`` command — never crash."""
+
+    report = evaluate_control_decision_obedience(
+        decision=None,
+        attempted_actions=(),
+    )
+
+    payload = report.to_dict()
+    hint = payload["missing_decision_refresh_hint"]
+    assert isinstance(hint, dict)
+    assert hint["actor"] == ""
+    assert hint["role"] == ""
+    assert hint["session_id"] == ""
+    assert hint["expected_decision_path"] == DEFAULT_EXPECTED_DECISION_PATH
+    assert hint["next_command"] == (
+        "python3 dev/scripts/devctl.py develop next --format json"
+    )
 
 
 def test_attempted_action_receipt_can_drive_obedience_guard() -> None:

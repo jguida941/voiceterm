@@ -21,6 +21,8 @@ class ReviewPacketRow(TypedDict):
     run_id: object
     from_agent: object
     to_agent: object
+    actor: object
+    actor_role: object
     kind: object
     summary: object
     body: object

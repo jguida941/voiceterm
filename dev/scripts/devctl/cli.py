@@ -21,11 +21,14 @@ from .commands.governance import (
 )
 from .commands.remote_control import command as remote_control_command
 from .commands.runtime import agent_supervise
+from .commands.runtime import peer_spawn as peer_spawn_command
 from .cli_parser import entrypoint as _impl
 
 # Keep the compatibility shim visible to static command-surface guards.
 COMMAND_HANDLERS = {
     "agent-supervise": agent_supervise.run,
+    "peer-spawn": peer_spawn_command.run_peer_spawn,
+    "peer-terminate": peer_spawn_command.run_peer_terminate,
     "bypass": bypass_command.run,
     "develop": development_command.run,
     "demo": demo_command.run,

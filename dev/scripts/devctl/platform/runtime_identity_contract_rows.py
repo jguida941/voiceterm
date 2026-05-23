@@ -2,9 +2,16 @@
 
 from __future__ import annotations
 
+from ..runtime.action_contracts import ArtifactStore
 from ..runtime.agent_loop_bilateral_protocol import (
     AgentLoopBilateralProtocol,
     BilateralProtocolPropertyResult,
+)
+from ..runtime.evidence_archive import (
+    EvidenceArchiveEntry,
+    EvidenceArchiveManifest,
+    EvidenceArchivePolicy,
+    EvidenceArchiveReceipt,
 )
 from ..runtime.evidence_archive_ref_guard import EvidenceArchiveRefResolution
 from .contracts import ContractField, ContractSpec
@@ -117,7 +124,7 @@ RUNTIME_IDENTITY_CONTRACTS: tuple[ContractSpec, ...] = (
         startup_surface_tokens=("correlation_id", "causation_id", "run_id"),
     ),
     ContractSpec(
-        contract_id="EvidenceArchivePolicy",
+        contract_id=EvidenceArchivePolicy.__name__,
         owner_layer="governance_runtime",
         purpose=(
             "Retention policy for evidence families; it permits archiving after "
@@ -150,7 +157,7 @@ RUNTIME_IDENTITY_CONTRACTS: tuple[ContractSpec, ...] = (
         startup_surface_tokens=("policy_id", "evidence_kind", "retention_days"),
     ),
     ContractSpec(
-        contract_id="EvidenceArchiveManifest",
+        contract_id=EvidenceArchiveManifest.__name__,
         owner_layer="governance_runtime",
         purpose=(
             "Manifest for archived evidence bundles, preserving source hashes, "
@@ -162,14 +169,18 @@ RUNTIME_IDENTITY_CONTRACTS: tuple[ContractSpec, ...] = (
             ContractField("archive_path", "str", "Compressed archive bundle path."),
             ContractField("source_root", "str", "Source tree scanned for evidence files."),
             ContractField("head_sha_at_archive", "str", "Repository HEAD at archive time."),
-            ContractField("entries", "tuple[EvidenceArchiveEntry, ...]", "Archived evidence entries."),
+            ContractField(
+                "entries",
+                f"tuple[{EvidenceArchiveEntry.__name__}, ...]",
+                "Archived evidence entries.",
+            ),
             ContractField("created_at_utc", "str", "UTC manifest creation timestamp."),
         ),
         runtime_model="dev.scripts.devctl.runtime.evidence_archive:EvidenceArchiveManifest",
         startup_surface_tokens=("manifest_id", "policy_id", "archive_path"),
     ),
     ContractSpec(
-        contract_id="EvidenceArchiveReceipt",
+        contract_id=EvidenceArchiveReceipt.__name__,
         owner_layer="governance_runtime",
         purpose=(
             "Receipt proving an evidence archive operation preserved typed receipts "
@@ -717,7 +728,7 @@ RUNTIME_IDENTITY_CONTRACTS: tuple[ContractSpec, ...] = (
         startup_surface_tokens=("status", "reason", "correlation_id"),
     ),
     ContractSpec(
-        contract_id="ArtifactStore",
+        contract_id=ArtifactStore.__name__,
         owner_layer="governance_runtime",
         purpose=(
             "Stable storage contract for reports, projections, review "

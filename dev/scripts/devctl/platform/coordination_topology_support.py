@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from ..runtime.review_state_models import ReviewState
+from ..runtime.role_topology import LiveRoleTopology, RoleOccupancy, resolve_role_topology
 from ..runtime.work_intake_models import (
     WorkIntakeCoordinationState,
     WorkIntakeOwnershipState,
@@ -20,21 +21,62 @@ _PUSH_EXECUTE_COMMAND = "python3 dev/scripts/devctl.py push --execute"
 
 
 def runtime_provider_roles(review_state: ReviewState | None) -> dict[str, str]:
-    """Return bridge-observed live provider roles."""
-    if review_state is None:
-        return {}
+    """Return live provider roles from typed role topology."""
+    topology = runtime_role_topology(review_state)
     active: dict[str, str] = {}
-    if review_state.bridge.codex_conductor_active:
-        active["codex"] = "reviewer"
-    if review_state.bridge.claude_conductor_active:
-        active["claude"] = "implementer"
+    for role, providers in topology.live_role_providers:
+        for provider in providers:
+            active[provider] = role
     return active
+
+
+def runtime_role_topology(review_state: ReviewState | None) -> LiveRoleTopology:
+    """Resolve the generic typed role occupancy model from review state."""
+    if review_state is None:
+        return resolve_role_topology({})
+    return resolve_role_topology(
+        {
+            "active_conductor_providers": getattr(
+                review_state.bridge,
+                "active_conductor_providers",
+                (),
+            ),
+            "session_liveness_signals": review_state.bridge.session_liveness_signals,
+            "codex_conductor_active": review_state.bridge.codex_conductor_active,
+            "claude_conductor_active": review_state.bridge.claude_conductor_active,
+            "collaboration": {
+                "actor_authorities": tuple(
+                    _actor_authority_payload(row)
+                    for row in review_state.collaboration.actor_authorities
+                ),
+                "participants": tuple(
+                    {
+                        "provider": row.provider,
+                        "role": row.role,
+                        "live": row.live,
+                    }
+                    for row in review_state.collaboration.participants
+                ),
+                "role_assignments": tuple(
+                    {
+                        "provider": row.provider,
+                        "role_id": row.role_id,
+                        "live": row.live,
+                    }
+                    for row in review_state.collaboration.role_assignments
+                ),
+            },
+        },
+        include_runtime_presence=True,
+    )
 
 
 def participant_records(
     *,
     review_state: ReviewState | None,
     active_provider_roles: dict[str, str],
+    active_provider_ids: tuple[str, ...] = (),
+    role_occupancies: tuple[RoleOccupancy, ...] = (),
 ) -> tuple[CoordinationParticipantRecord, ...]:
     """Build participant rows from collaboration plus bridge runtime fallback."""
     if review_state is None:
@@ -43,6 +85,9 @@ def participant_records(
     current_session = review_state.current_session
     rows: list[CoordinationParticipantRecord] = []
     seen_keys: set[tuple[str, str]] = set()
+    live_occupancy_providers = {
+        occupancy.provider for occupancy in role_occupancies if occupancy.live
+    }
     for participant in review_state.collaboration.participants:
         key = (
             (participant.agent_id or participant.provider).strip(),
@@ -51,7 +96,11 @@ def participant_records(
         if key in seen_keys:
             continue
         seen_keys.add(key)
-        bridge_live = participant.provider in active_provider_roles
+        bridge_live = (
+            participant.provider in active_provider_roles
+            or participant.provider in active_provider_ids
+            or participant.provider in live_occupancy_providers
+        )
         rows.append(
             CoordinationParticipantRecord(
                 agent_id=participant.agent_id or participant.provider,
@@ -73,6 +122,35 @@ def participant_records(
                 session_hint=session_hint(
                     current_session=current_session,
                     role=participant.role,
+                ),
+            )
+        )
+
+    for occupancy in role_occupancies:
+        if not occupancy.live:
+            continue
+        actor_id = occupancy.actor_id or occupancy.provider
+        key = (actor_id, occupancy.role_id)
+        if key in seen_keys:
+            continue
+        seen_keys.add(key)
+        rows.append(
+            CoordinationParticipantRecord(
+                agent_id=actor_id,
+                provider=occupancy.provider,
+                role=occupancy.role_id,
+                session_name=occupancy.session_id
+                or runtime_session_name(review_state, provider=occupancy.provider),
+                live=True,
+                live_source="typed_role_topology",
+                status="runtime_observed",
+                session_state=session_state(
+                    current_session=current_session,
+                    role=occupancy.role_id,
+                ),
+                session_hint=session_hint(
+                    current_session=current_session,
+                    role=occupancy.role_id,
                 ),
             )
         )
@@ -170,18 +248,34 @@ def fanout_posture(
         or ownership.concurrent_writer_detected
         or coordination.duplicate_delegated_worktrees
     ):
-        return "blocked_conflict", False, "single_agent"
+        return "blocked_conflict", False, "role_authority_conflict"
     if runtime_blocks_fanout(
         review_state=review_state,
         ready_gates=ready_gates,
         fanout_requested=fanout_requested,
     ):
-        return "blocked_resync", False, "single_agent"
+        return "blocked_resync", False, "role_authority_resync_required"
     if not fanout_requested:
-        return "conductor_only", False, "single_agent"
+        return "conductor_only", False, "typed_role_topology_conductor_only"
     return "fanout_ready", True, (
-        coordination.collaboration_topology or "multi_agent_orchestrated"
+        coordination.collaboration_topology or "typed_role_topology_fanout_ready"
     )
+
+
+def _actor_authority_payload(row) -> dict[str, object]:
+    return {
+        "actor_id": row.actor_id,
+        "provider": row.provider,
+        "role": row.role,
+        "live": row.live,
+        "grants": tuple(
+            {
+                "capability": grant.capability,
+                "granted": grant.granted,
+            }
+            for grant in row.grants
+        ),
+    }
 
 
 def runtime_blocks_fanout(
@@ -336,4 +430,3 @@ def recovery_command(review_state: ReviewState) -> str:
     if assessment is None:
         return ""
     return assessment.decision.command
-

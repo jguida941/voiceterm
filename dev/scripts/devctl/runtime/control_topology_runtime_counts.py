@@ -99,25 +99,27 @@ def _live_role_totals(
     role_assignments: list[Mapping[str, object]],
     live_participants: list[Mapping[str, object]],
 ) -> dict[str, int | bool]:
-    reviewer_ids: list[str] = []
-    implementer_ids: list[str] = []
-    for row in role_assignments:
-        if not boolish(row.get("live")):
-            continue
-        provider = _text(row.get("provider") or row.get("agent_id"))
-        if not provider:
-            continue
-        if provider_has_only_non_tandem_presence(
+    eligible_role_assignments = [
+        row
+        for row in role_assignments
+        if boolish(row.get("live"))
+        and not provider_has_only_non_tandem_presence(
             live_participants,
-            provider,
+            _text(row.get("provider") or row.get("agent_id")),
             text_fn=_text,
-        ):
-            continue
-        role_id = _text(row.get("role_id"))
-        if role_id == "review_agent" and provider not in reviewer_ids:
-            reviewer_ids.append(provider)
-        elif role_id == "coding_agent" and provider not in implementer_ids:
-            implementer_ids.append(provider)
+        )
+    ]
+    topology = resolve_role_topology(
+        {
+            "collaboration": {
+                "role_assignments": eligible_role_assignments,
+                "participants": live_participants,
+            }
+        },
+        include_runtime_presence=True,
+    )
+    reviewer_ids = list(topology.live_reviewer_providers)
+    implementer_ids = list(topology.live_implementer_providers)
     if not reviewer_ids:
         reviewer_ids.extend(
             participant_role_provider_ids(

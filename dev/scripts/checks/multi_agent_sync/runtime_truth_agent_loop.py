@@ -126,6 +126,8 @@ def _work_board_row_requires_loop_decision(
     packet_index: Mapping[str, Mapping[str, object]] | None = None,
 ) -> bool:
     packet_ids = _work_board_packet_ids(row)
+    if not packet_ids and _is_demoted_helper_subagent(row):
+        return False
     if packet_ids:
         if packet_index is None:
             return True
@@ -177,6 +179,13 @@ def _work_board_packet_ids(row: Mapping[str, object]) -> tuple[str, ...]:
         if packet_id and packet_id not in packet_ids:
             packet_ids.append(packet_id)
     return tuple(packet_ids)
+
+
+def _is_demoted_helper_subagent(row: Mapping[str, object]) -> bool:
+    return (
+        coerce_text(row.get("role")) == "subagent"
+        and coerce_text(row.get("role_source")) == "helper_session_demotion"
+    )
 
 
 def _packet_index_by_id(

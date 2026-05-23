@@ -169,6 +169,16 @@ def _query_filter_arguments(arg_builder: Callable[..., Any]) -> list[Any]:
             help="Limit rows returned by inbox/history/watch",
         ),
         arg_builder(
+            "--include-stale",
+            dest="include_stale",
+            action="store_true",
+            help=(
+                "Show pending packets older than the A19 hygiene window "
+                "(default 24h since posted_at). Off by default so the lane "
+                "view only contains actionable items per A19."
+            ),
+        ),
+        arg_builder(
             "--for",
             "--for-agent",
             dest="for_agent",

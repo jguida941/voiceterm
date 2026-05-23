@@ -14,9 +14,6 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 
-from ..runtime.role_profile import TandemRole, default_provider_for_role
-
-
 # ── Constants ──────────────────────────────────────────────────
 
 OWNER_IMPLEMENTER = "implementer"
@@ -63,16 +60,16 @@ def resolve_publication_owner(
     - no_live_agents / reviewer_only → blocked
     - default (local_terminal + reviewer present) → reviewer owns
     """
-    resolved_reviewer = (
-        reviewer_provider
-        or default_provider_for_role(TandemRole.REVIEWER)
-    )
-    resolved_implementer = (
-        implementer_provider
-        or default_provider_for_role(TandemRole.IMPLEMENTER)
-    )
+    resolved_reviewer = reviewer_provider.strip().lower()
+    resolved_implementer = implementer_provider.strip().lower()
 
     if interaction_mode == "remote_control":
+        if not resolved_implementer:
+            return PublicationOwnershipDecision(
+                owner=OWNER_BLOCKED,
+                owner_provider="",
+                reason="remote_control_publication_missing_implementation_provider",
+            )
         return PublicationOwnershipDecision(
             owner=OWNER_IMPLEMENTER,
             owner_provider=resolved_implementer,
@@ -94,12 +91,24 @@ def resolve_publication_owner(
         )
 
     if topology == "implementer_without_reviewer":
+        if not resolved_implementer:
+            return PublicationOwnershipDecision(
+                owner=OWNER_BLOCKED,
+                owner_provider="",
+                reason="solo_implementer_publication_missing_provider",
+            )
         return PublicationOwnershipDecision(
             owner=OWNER_IMPLEMENTER,
             owner_provider=resolved_implementer,
             reason="solo_implementer_owns_publication",
         )
 
+    if not resolved_reviewer:
+        return PublicationOwnershipDecision(
+            owner=OWNER_BLOCKED,
+            owner_provider="",
+            reason="local_publication_missing_review_provider",
+        )
     return PublicationOwnershipDecision(
         owner=OWNER_REVIEWER,
         owner_provider=resolved_reviewer,
@@ -126,7 +135,9 @@ def build_implementer_publication_request(
     if decision.owner != OWNER_IMPLEMENTER:
         return None
 
-    from_agent = reviewer_provider or default_provider_for_role(TandemRole.REVIEWER)
+    from_agent = reviewer_provider.strip().lower()
+    if not from_agent:
+        return None
     return {
         "kind": "action_request",
         "from_agent": from_agent,

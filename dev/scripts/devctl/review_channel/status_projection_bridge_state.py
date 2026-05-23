@@ -13,9 +13,9 @@ from ..runtime.review_state_models import (
     ReviewerRuntimeContract,
 )
 from ..runtime.review_state_semantics import is_pending_implementer_state
-from ..runtime.role_profile import TandemRole, default_provider_for_role
+from ..runtime.role_profile import TandemRole, role_capability_classes
 from .collaboration_authority_liveness import apply_collaboration_authority_liveness
-from .collaboration_provider import collaboration_provider
+from .collaboration_provider import collaboration_provider_for_capability
 from .handoff import BridgeSnapshot
 from .launch_truth import classify_launch_truth, effective_reviewer_mode
 from .peer_liveness import resolve_reported_reviewer_mode
@@ -90,15 +90,20 @@ def build_typed_bridge_liveness(
     typed["launch_truth"] = classify_launch_truth(typed).value
     typed["effective_reviewer_mode"] = effective_reviewer_mode(typed)
     effective_mode = str(typed.get("effective_reviewer_mode") or reviewer_mode)
-    reviewer_provider = collaboration_provider(
+    reviewer_provider = collaboration_provider_for_capability(
         collaboration,
-        role_id="review_agent",
-        default=default_provider_for_role(TandemRole.REVIEWER),
+        capability_classes={
+            "review",
+            "test",
+            "architecture",
+            "governance",
+            "research",
+            "intake",
+        },
     )
-    implementer_provider = collaboration_provider(
+    implementer_provider = collaboration_provider_for_capability(
         collaboration,
-        role_id="coding_agent",
-        default=default_provider_for_role(TandemRole.IMPLEMENTER),
+        capability_classes={"implementation", "mutation"},
     )
     typed["reviewer_capability"] = asdict(
         build_conductor_capability_state(
@@ -131,9 +136,15 @@ def _live_participant_providers(
     for participant in collaboration.participants:
         if not participant.live:
             continue
-        if participant.role not in {
-            TandemRole.REVIEWER.value,
-            TandemRole.IMPLEMENTER.value,
+        if not set(role_capability_classes(participant.role)) & {
+            "review",
+            "implementation",
+            "mutation",
+            "test",
+            "architecture",
+            "governance",
+            "research",
+            "intake",
         }:
             continue
         provider = str(participant.provider or participant.agent_id).strip().lower()
@@ -158,15 +169,20 @@ def build_review_bridge_state(
         bridge_liveness.get("effective_reviewer_mode") or declared_mode
     )
     reviewer_mode = declared_mode
-    reviewer_provider = collaboration_provider(
+    reviewer_provider = collaboration_provider_for_capability(
         collaboration,
-        role_id="review_agent",
-        default=default_provider_for_role(TandemRole.REVIEWER),
+        capability_classes={
+            "review",
+            "test",
+            "architecture",
+            "governance",
+            "research",
+            "intake",
+        },
     )
-    implementer_provider = collaboration_provider(
+    implementer_provider = collaboration_provider_for_capability(
         collaboration,
-        role_id="coding_agent",
-        default=default_provider_for_role(TandemRole.IMPLEMENTER),
+        capability_classes={"implementation", "mutation"},
     )
     return ReviewBridgeState(
         overall_state=overall_state,

@@ -11,6 +11,7 @@ from dev.scripts.devctl.commands.review_channel.event_handler import (
     _build_event_report,
 )
 from dev.scripts.devctl.review_channel.event_reducer_inbox import filter_inbox_packets
+from dev.scripts.devctl.review_channel.event_render import render_event_md
 from dev.scripts.devctl.review_channel.event_store import ReviewChannelArtifactPaths
 from dev.scripts.devctl.review_channel.packet_body_observation import packet_body_digest
 from dev.scripts.devctl.review_channel.projection_bundle import (
@@ -222,6 +223,67 @@ def test_targeted_inbox_surfaces_route_scoped_plan_packet_until_read() -> None:
 
     assert [packet["packet_id"] for packet in packets] == ["rev_pkt_plan_bound"]
     assert packets[0]["inbox_routing_status"] == "route_scoped_to_actor"
+
+
+def test_targeted_inbox_markdown_keeps_unread_route_scoped_plan_packet_live() -> None:
+    packet = {
+        "packet_id": "rev_pkt_plan_bound",
+        "to_agent": "claude",
+        "from_agent": "codex",
+        "kind": "continuation_anchor",
+        "summary": "Current-row communication proof",
+        "status": "pending",
+        "target_role": "implementer",
+        "target_session_id": "claude-session",
+        "latest_event_id": "rev_evt_85803",
+        "body": "Reply with typed task_progress.",
+        "durable_binding": {
+            "status": "inserted",
+            "binding_target_kind": "plan_row_evidence",
+        },
+        "disposition": {
+            "sink": "queued",
+            "resolution_anchor": "slice_target:claude_packet_queue",
+        },
+    }
+    older_live_packet = {
+        "packet_id": "rev_pkt_old_action",
+        "to_agent": "claude",
+        "from_agent": "operator",
+        "kind": "action_request",
+        "summary": "Older action request",
+        "status": "pending",
+        "target_role": "implementer",
+        "latest_event_id": "rev_evt_85774",
+    }
+    review_state = {"packets": [older_live_packet, packet]}
+
+    packets = filter_inbox_packets(
+        review_state,
+        target="claude",
+        target_role="implementer",
+        target_session_id="claude-session",
+        status="pending",
+    )
+    markdown = render_event_md(
+        {
+            "ok": True,
+            "action": "inbox",
+            "execution_mode": "event-backed",
+            "queue": {"pending_total": 1},
+            "target": "claude",
+            "status_filter": "pending",
+            "limit": 20,
+            "packets": packets,
+        }
+    )
+
+    assert "## Live Packets" in markdown
+    assert markdown.index("rev_pkt_plan_bound: pending") < markdown.index(
+        "rev_pkt_old_action: pending"
+    )
+    assert "rev_pkt_plan_bound: pending" in markdown
+    assert "## Packet History" not in markdown
 
 
 def test_targeted_role_inbox_marks_wrong_role_packet_instead_of_hiding() -> None:

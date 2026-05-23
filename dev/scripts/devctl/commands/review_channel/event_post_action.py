@@ -5,8 +5,10 @@ from __future__ import annotations
 import json
 import subprocess
 from pathlib import Path
+from types import SimpleNamespace
 
 from ...runtime.collaboration_packet_kinds import TASK_PRODUCED_PACKET_KIND
+from ...runtime.control_decision_artifacts import load_control_decision_payload
 from ...review_channel.context_refs import resolve_context_pack_refs
 from ...review_channel.event_store import DEFAULT_REVIEW_CHANNEL_SESSION_ID
 from ...review_channel.events import post_packet
@@ -83,6 +85,7 @@ def require_real_session_for_live_agent_post(
     args,
     *,
     repo_root: Path | None = None,
+    control_decision: dict[str, object] | None = None,
 ) -> None:
     """Reject live-agent posts whose session_id is fallback OR not the agent's real live session.
 
@@ -106,6 +109,8 @@ def require_real_session_for_live_agent_post(
             f"downstream cascade closures bypass parent-session verification."
         )
     if repo_root is None:
+        return
+    if _control_decision_authenticates_session(args, control_decision or {}):
         return
     live_actor = resolve_live_actor_session(from_agent, repo_root)
     live_session_id = live_actor["session_id"]
@@ -170,7 +175,11 @@ def _post_request(context: EventActionContext) -> PacketPostRequest:
         args,
         evidence_refs,
     )
-    require_real_session_for_live_agent_post(args, repo_root=context.repo_root)
+    require_real_session_for_live_agent_post(
+        args,
+        repo_root=context.repo_root,
+        control_decision=_post_control_decision(args, repo_root=context.repo_root),
+    )
     return PacketPostRequest(
         from_agent=args.from_agent,
         to_agent=args.to_agent,
@@ -192,6 +201,8 @@ def _post_request(context: EventActionContext) -> PacketPostRequest:
         causation_id=getattr(args, "causation_id", "") or "",
         run_id=getattr(args, "run_id", "") or "",
         expires_in_minutes=getattr(args, "expires_in_minutes", None),
+        actor=str(getattr(args, "actor", "") or getattr(args, "from_agent", "") or "").strip(),
+        actor_role=str(getattr(args, "actor_role", "") or "").strip(),
         target=_target_fields(args),
         runtime_approval=_runtime_approval_fields(args),
         guard_bundle_evidence=_guard_bundle_evidence_fields(args),
@@ -248,6 +259,44 @@ def _post_evidence_refs(args) -> tuple[str, ...]:
 
 def _clean_evidence_ref(value: object) -> str:
     return str(value or "").strip()
+
+
+def _post_control_decision(args, *, repo_root: Path) -> dict[str, object]:
+    values = dict(vars(args)) if hasattr(args, "__dict__") else {}
+    values["role"] = str(
+        values.get("role") or values.get("actor_role") or values.get("target_role") or ""
+    ).strip()
+    values["session_id"] = str(values.get("session_id") or "").strip()
+    values["actor"] = str(values.get("actor") or values.get("from_agent") or "").strip()
+    return load_control_decision_payload(
+        SimpleNamespace(**values),
+        repo_root=repo_root,
+    )
+
+
+def _control_decision_authenticates_session(
+    args,
+    decision: dict[str, object],
+) -> bool:
+    if not decision:
+        return False
+    from_agent = str(getattr(args, "from_agent", "") or "").strip()
+    actor = str(getattr(args, "actor", "") or from_agent).strip()
+    actor_role = str(getattr(args, "actor_role", "") or "").strip()
+    session_id = str(getattr(args, "session_id", "") or "").strip()
+    if str(decision.get("actor_id") or "").strip() != actor:
+        return False
+    if actor != from_agent:
+        return False
+    if str(decision.get("session_id") or "").strip() != session_id:
+        return False
+    decision_role = str(decision.get("actor_role") or "").strip()
+    if actor_role and decision_role != actor_role:
+        return False
+    return bool(
+        str(decision.get("source_latest_event_id") or "").strip()
+        or str(decision.get("source_snapshot_id") or "").strip()
+    )
 
 
 def _require_typed_evidence_for_post(

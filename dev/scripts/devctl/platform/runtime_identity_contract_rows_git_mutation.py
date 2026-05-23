@@ -36,6 +36,11 @@ GIT_MUTATION_PROOF_CONTRACTS: tuple[ContractSpec, ...] = (
             ContractField("failure_reason", "str", "Bounded failure reason when verification fails."),
             ContractField("recorded_at_utc", "str", "UTC timestamp when proof was recorded."),
             ContractField("produced_by", "str", "Actor/tool that produced the proof."),
+            ContractField(
+                "code_identity_hash",
+                "str",
+                "Code identity hash that pins the mutation to a typed code-identity claim.",
+            ),
             ContractField("evidence_refs", "tuple[str, ...]", "Refs inspected by the proof."),
             ContractField("artifact_paths", "tuple[str, ...]", "Artifacts linked to the proof."),
             ContractField(

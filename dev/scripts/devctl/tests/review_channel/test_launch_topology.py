@@ -32,8 +32,8 @@ class LaunchTopologyTests(unittest.TestCase):
     def test_build_conductor_launch_specs_orders_reviewer_before_implementer(self) -> None:
         specs = build_conductor_launch_specs(
             provider_lane_map={
-                "claude": (_lane("AGENT-2", "claude", "Claude coding"),),
-                "codex": (_lane("AGENT-1", "codex", "Codex review"),),
+                "claude": (_lane("AGENT-2", "claude", "Claude coding", role="implementer"),),
+                "codex": (_lane("AGENT-1", "codex", "Codex review", role="reviewer"),),
             },
             requested_worker_budgets={"codex": 0, "claude": 2},
         )
@@ -58,7 +58,7 @@ class LaunchTopologyTests(unittest.TestCase):
         """
         specs = build_conductor_launch_specs(
             provider_lane_map={
-                "codex": (_lane("AGENT-1", "codex", "Codex review"),),
+                "codex": (_lane("AGENT-1", "codex", "Codex review", role="reviewer"),),
                 "claude": (),
             },
             requested_worker_budgets={"codex": 0, "claude": 0},
@@ -68,7 +68,7 @@ class LaunchTopologyTests(unittest.TestCase):
         # Sanity: claude with non-zero budget should still get a spec.
         specs_with_claude_budget = build_conductor_launch_specs(
             provider_lane_map={
-                "codex": (_lane("AGENT-1", "codex", "Codex review"),),
+                "codex": (_lane("AGENT-1", "codex", "Codex review", role="reviewer"),),
                 "claude": (),
             },
             requested_worker_budgets={"codex": 0, "claude": 2},
@@ -128,8 +128,8 @@ class LaunchTopologyTests(unittest.TestCase):
                     codex_workers=0,
                     claude_workers=0,
                     provider_lane_map={
-                        "codex": [_lane("AGENT-1", "codex", "Codex review")],
-                        "claude": [_lane("AGENT-2", "claude", "Claude coding")],
+                        "codex": [_lane("AGENT-1", "codex", "Codex review", role="reviewer")],
+                        "claude": [_lane("AGENT-2", "claude", "Claude coding", role="implementer")],
                     },
                     requested_worker_budgets={"codex": 0, "claude": 1},
                     rollover_threshold_pct=20,

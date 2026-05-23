@@ -9,6 +9,7 @@ FindingBacklog + RankedFinding contracts and does NOT weaken VCS/edit gates.
 from __future__ import annotations
 
 from dev.scripts.devctl.commands.development.next_slice import select_next_slice
+from dev.scripts.devctl.runtime.current_plan_authority import CurrentPlanAuthority
 from dev.scripts.devctl.runtime.master_plan_contract import PlanRow
 from dev.scripts.devctl.triage.findings_priority_models import RankedFinding
 
@@ -60,6 +61,68 @@ def test_critical_finding_with_active_target_ref_preempts_leaf_row() -> None:
     assert result.slice_id == "MP-LINKED"
     assert "preempts" in result.reason
     assert "critical" in result.reason
+
+
+def test_finding_linked_to_different_row_cannot_preempt_current_authority() -> None:
+    """Finding preemption must be graph-valid against CurrentPlanAuthority."""
+    rows = (
+        _row(
+            row_id="MP-GUARDIR-V4-PHASE-0-6-E-CURRENT-PLAN-AUTHORITY-S1",
+            target_ref="plan:MP-377",
+            status="in_progress",
+        ),
+        _row(
+            row_id="MP377-P0-T22AN-AE",
+            target_ref="dev/active/ai_governance_platform.md",
+            status="in_progress",
+        ),
+    )
+    findings = (
+        _finding(
+            severity="critical",
+            qid="audit_memory_governance_integration_gap",
+            primary_file="dev/active/ai_governance_platform.md",
+        ),
+    )
+
+    result = select_next_slice(
+        rows,
+        ranked_findings=findings,
+        current_plan_authority=CurrentPlanAuthority(
+            plan_row_id="MP-GUARDIR-V4-PHASE-0-6-E-CURRENT-PLAN-AUTHORITY-S1",
+            plan_row_status="in_progress",
+        ),
+    )
+
+    assert result.slice_id == "MP-GUARDIR-V4-PHASE-0-6-E-CURRENT-PLAN-AUTHORITY-S1"
+    assert "current-plan authority" in result.reason
+
+
+def test_finding_linked_to_current_row_can_attach_to_current_authority() -> None:
+    rows = (
+        _row(
+            row_id="MP-GUARDIR-V4-PHASE-0-6-E-CURRENT-PLAN-AUTHORITY-S1",
+            target_ref="dev/scripts/devctl/runtime/current_plan_authority.py",
+            status="in_progress",
+        ),
+    )
+    findings = (
+        _finding(
+            severity="critical",
+            primary_file="dev/scripts/devctl/runtime/current_plan_authority.py",
+        ),
+    )
+
+    result = select_next_slice(
+        rows,
+        ranked_findings=findings,
+        current_plan_authority=CurrentPlanAuthority(
+            plan_row_id="MP-GUARDIR-V4-PHASE-0-6-E-CURRENT-PLAN-AUTHORITY-S1",
+            plan_row_status="in_progress",
+        ),
+    )
+
+    assert result.slice_id == "MP-GUARDIR-V4-PHASE-0-6-E-CURRENT-PLAN-AUTHORITY-S1"
 
 
 def test_high_finding_without_linkage_does_not_preempt_current_plan() -> None:

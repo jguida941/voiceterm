@@ -12,7 +12,7 @@ from ...review_channel.implementer_ack_events import (
     find_matching_implementer_ack_event,
 )
 from ...review_channel.packet_agents import packet_agent_ids_from_review_state
-from ...runtime.role_profile import TandemRole, role_for_provider
+from ...runtime.role_profile import role_capability_classes
 from .event_action_support import EventActionContext
 
 
@@ -130,11 +130,9 @@ def _validate_implementer_ack_actor(
         raise ValueError(f"Unsupported review-channel actor: {actor}")
     if _actor_is_assigned_implementer(review_state, actor):
         return
-    if role_for_provider(actor) == TandemRole.IMPLEMENTER:
-        return
     raise ValueError(
         "review-channel implementer-ack requires an actor with the typed "
-        "implementer role."
+        "implementation capability."
     )
 
 
@@ -156,13 +154,8 @@ def _assignment_matches_actor(row: object, actor: str) -> bool:
         return False
     role_id = str(row.get("role_id") or "").strip()
     provider = str(row.get("provider") or "").strip()
-    role = str(row.get("role") or "").strip()
     if provider != actor:
         return False
-    if role_id == "coding_agent":
-        return True
-    return role_for_provider(actor) == TandemRole.IMPLEMENTER and role in {
-        "",
-        TandemRole.IMPLEMENTER.value,
-        "coding_agent",
-    }
+    role = role_id or str(row.get("role") or "").strip()
+    capability_classes = role_capability_classes(role, grants=row.get("grants"))
+    return bool(set(capability_classes) & {"implementation", "mutation"})

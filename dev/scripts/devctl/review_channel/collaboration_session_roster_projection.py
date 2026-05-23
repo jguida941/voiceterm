@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from ..runtime.review_state_models import CollaborationParticipantState
 from ..runtime.reviewer_runtime_models import RemoteControlAttachmentState
-from ..runtime.role_profile import normalize_tandem_role, role_for_provider
+from ..runtime.role_profile import normalize_role_id
 from .session_probe import ConductorSessionRecord
 from .collaboration_session_roster_lookup import text
 
@@ -35,7 +35,7 @@ def participant_from_record(
             agent_id=record.provider,
             provider=record.provider,
             display_name=record.provider_name,
-            role=record.role or role_for_provider(record.provider).value,
+            role=normalize_role_id(record.role),
             session_name=record.session_name,
             live=record.live,
             status="live" if record.live else "configured",
@@ -58,7 +58,7 @@ def participant_from_record(
         agent_id=record.provider,
         provider=record.provider,
         display_name=record.provider_name,
-        role=attachment.role or record.role or role_for_provider(record.provider).value,
+        role=normalize_role_id(attachment.role or record.role),
         session_name=attachment.session_name or record.session_name or f"{record.provider}-remote-control",
         live=True,
         status="live",
@@ -87,7 +87,7 @@ def participant_from_attachment(
         agent_id=provider,
         provider=provider,
         display_name=provider.title(),
-        role=attachment.role or role_for_provider(provider).value,
+        role=normalize_role_id(attachment.role),
         session_name=attachment.session_name or f"{provider}-remote-control",
         live=True,
         status="live",
@@ -104,5 +104,10 @@ def participant_from_attachment(
     )
 
 
-def planned_lane_role(lane: dict[str, object], *, provider: str):
-    return normalize_tandem_role(text(lane.get("role"))) or role_for_provider(provider)
+def planned_lane_role(lane: dict[str, object], *, provider: str) -> str:
+    return normalize_role_id(
+        lane.get("role")
+        or lane.get("role_id")
+        or lane.get("role_preset")
+        or lane.get("target_role")
+    )

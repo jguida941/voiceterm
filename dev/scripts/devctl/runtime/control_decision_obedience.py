@@ -93,6 +93,38 @@ class StaleControllerDecisionBlocker:
         return payload
 
 
+DEFAULT_EXPECTED_DECISION_PATH = (
+    "dev/reports/review_channel/state/latest.json"
+)
+
+
+@dataclass(frozen=True, slots=True)
+class MissingDecisionRefreshHint:
+    """Typed recovery hint when no controller decision was supplied.
+
+    Invariant C (TDD Inv 4): when ``evaluate_control_decision_obedience``
+    receives ``decision=None`` and ``allow_empty=False``, the consumer needs
+    a typed recovery shape that names the exact controller artifact path the
+    obedience layer expected to read AND the per-actor/role/session refresh
+    command. Raw ``no_control_decision_input`` violations alone tell the
+    caller *that* the decision was missing but not *how* to recover.
+    """
+
+    hint_id: str
+    next_command: str
+    refresh_command: str
+    expected_decision_path: str = DEFAULT_EXPECTED_DECISION_PATH
+    actor: str = ""
+    role: str = ""
+    session_id: str = ""
+    detail: str = ""
+    schema_version: int = 1
+    contract_id: str = "MissingDecisionRefreshHint"
+
+    def to_dict(self) -> dict[str, object]:
+        return asdict(self)
+
+
 @dataclass(frozen=True, slots=True)
 class ControlDecisionObedienceReport:
     ok: bool
@@ -105,6 +137,9 @@ class ControlDecisionObedienceReport:
     # typed ``stale_decision_blocker`` so consumers can refresh the
     # decision and retry instead of seeing raw violations.
     stale_decision_blocker: dict[str, object] | None = None
+    missing_decision_refresh_hint: dict[str, object] | None = None
+    next_command: str = ""
+    refresh_command: str = ""
     schema_version: int = CONTROL_DECISION_OBEYED_SCHEMA_VERSION
     contract_id: str = CONTROL_DECISION_OBEYED_CONTRACT_ID
 
@@ -117,6 +152,10 @@ def evaluate_control_decision_obedience(
     decision: Mapping[str, object] | None,
     attempted_actions: Iterable[Mapping[str, object]],
     allow_empty: bool = False,
+    actor: str = "",
+    role: str = "",
+    session_id: str = "",
+    expected_decision_path: str = DEFAULT_EXPECTED_DECISION_PATH,
 ) -> ControlDecisionObedienceReport:
     """Fail when an attempted action violates the last controller decision.
 
@@ -126,10 +165,23 @@ def evaluate_control_decision_obedience(
     ``StaleControllerDecisionBlocker`` is emitted instead of (or alongside)
     the raw violations. Consumers can distinguish "refresh decision and
     retry" from "real action violation, fix the action".
+
+    Invariant C (TDD Inv 4): when ``decision is None`` and
+    ``allow_empty=False`` the report carries a typed
+    ``MissingDecisionRefreshHint`` so callers can refresh the controller
+    artifact and retry. The hint names the per-actor/role/session refresh
+    command and the canonical typed-state path the loader expected to read.
+    Optional ``actor``/``role``/``session_id`` kwargs let callers thread
+    their own scope when no attempted action carries one; the
+    ``expected_decision_path`` kwarg lets non-default loaders override the
+    canonical artifact path.
     """
 
     actions = tuple(attempted_actions)
     violations: list[ControlDecisionObedienceViolation] = []
+    missing_decision_refresh_hint_payload: dict[str, object] | None = None
+    next_command = ""
+    refresh_command = ""
     if decision is None and not allow_empty:
         violations.append(
             ControlDecisionObedienceViolation(
@@ -137,6 +189,16 @@ def evaluate_control_decision_obedience(
                 detail="No AgentLoopDecision/control decision was supplied.",
             )
         )
+        hint = _missing_decision_refresh_hint(
+            actions,
+            actor=actor,
+            role=role,
+            session_id=session_id,
+            expected_decision_path=expected_decision_path,
+        )
+        missing_decision_refresh_hint_payload = hint.to_dict()
+        next_command = hint.next_command
+        refresh_command = hint.refresh_command
     if not actions and not allow_empty:
         violations.append(
             ControlDecisionObedienceViolation(
@@ -168,7 +230,75 @@ def evaluate_control_decision_obedience(
         violation_count=len(violation_payloads),
         violations=violation_payloads,
         stale_decision_blocker=stale_decision_blocker_payload,
+        missing_decision_refresh_hint=missing_decision_refresh_hint_payload,
+        next_command=next_command,
+        refresh_command=refresh_command,
     )
+
+
+def _missing_decision_refresh_hint(
+    actions: tuple[Mapping[str, object], ...],
+    *,
+    actor: str = "",
+    role: str = "",
+    session_id: str = "",
+    expected_decision_path: str = DEFAULT_EXPECTED_DECISION_PATH,
+) -> MissingDecisionRefreshHint:
+    """Build a typed refresh hint scoped to the caller's actor/role/session.
+
+    Caller-supplied ``actor``/``role``/``session_id`` kwargs win; otherwise
+    the first attempted-action row supplying each field is used. The
+    ``next_command`` template threads the resolved scope into
+    ``develop next`` so the refresh runs in the same role/session the
+    consumer is acting under.
+    """
+
+    resolved_actor = coerce_string(actor).strip() or _first_action_field(
+        actions, "actor"
+    )
+    resolved_role = coerce_string(role).strip() or _first_action_field(
+        actions, "role"
+    )
+    resolved_session_id = coerce_string(session_id).strip() or _first_action_field(
+        actions, "session_id"
+    )
+    expected_path = (
+        coerce_string(expected_decision_path).strip() or DEFAULT_EXPECTED_DECISION_PATH
+    )
+    parts = ["python3", "dev/scripts/devctl.py", "develop", "next"]
+    if resolved_actor:
+        parts.extend(("--actor", resolved_actor))
+    if resolved_role:
+        parts.extend(("--role", resolved_role))
+    if resolved_session_id:
+        parts.extend(("--session-id", resolved_session_id))
+    parts.extend(("--format", "json"))
+    command = " ".join(parts)
+    return MissingDecisionRefreshHint(
+        hint_id="missing_control_decision:refresh_agent_loop_decision",
+        next_command=command,
+        refresh_command=command,
+        expected_decision_path=expected_path,
+        actor=resolved_actor,
+        role=resolved_role,
+        session_id=resolved_session_id,
+        detail=(
+            "No AgentLoopDecision/control decision was supplied. Refresh the "
+            f"typed controller decision at {expected_path} and retry the "
+            "attempted action against that fresh decision."
+        ),
+    )
+
+
+def _first_action_field(
+    actions: tuple[Mapping[str, object], ...],
+    field: str,
+) -> str:
+    for action in actions:
+        value = coerce_string(action.get(field)).strip()
+        if value:
+            return value
+    return ""
 
 
 def _detect_stale_decision_blocker(
@@ -596,9 +726,12 @@ __all__ = [
     "ATTEMPTED_ACTION_RECEIPT_SCHEMA_VERSION",
     "CONTROL_DECISION_OBEYED_CONTRACT_ID",
     "CONTROL_DECISION_OBEYED_SCHEMA_VERSION",
+    "DEFAULT_EXPECTED_DECISION_PATH",
     "AttemptedActionReceipt",
     "ControlDecisionObedienceReport",
     "ControlDecisionObedienceViolation",
+    "MissingDecisionRefreshHint",
+    "StaleControllerDecisionBlocker",
     "build_attempted_action_receipt",
     "evaluate_control_decision_obedience",
     "extract_decision_and_attempted_actions",

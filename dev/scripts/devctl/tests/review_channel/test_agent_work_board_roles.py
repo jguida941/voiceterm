@@ -52,7 +52,7 @@ def test_mutation_authority_overrides_legacy_provider_role() -> None:
     assert resolved.granted_capabilities == ("repo.stage", "repo.commit")
 
 
-def test_declared_implementer_without_mutation_grant_is_dashboard_lane() -> None:
+def test_declared_implementer_without_mutation_grant_stays_read_only_implementer_lane() -> None:
     index = build_runtime_role_index(
         {
             "actor_authorities": [
@@ -81,8 +81,9 @@ def test_declared_implementer_without_mutation_grant_is_dashboard_lane() -> None
         declared_role="implementer",
     )
 
-    assert resolved.role == "dashboard"
+    assert resolved.role == "implementer"
     assert resolved.declared_role == "implementer"
+    assert resolved.role_source == "declared_role_without_mutation_authority"
     assert resolved.mutation_mode == "read_only"
     assert resolved.granted_capabilities == ()
 

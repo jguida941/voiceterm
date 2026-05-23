@@ -254,9 +254,96 @@ def test_coordination_topology_flags_duplicate_worktrees_as_conflict() -> None:
 
     assert snapshot.fanout_posture == "blocked_conflict"
     assert snapshot.fanout_safe is False
-    assert snapshot.recommended_topology == "single_agent"
+    assert snapshot.recommended_topology == "role_authority_conflict"
     assert snapshot.duplicate_delegated_worktrees == ("../codex-voice-wt-a1",)
     assert snapshot.delegated_worktrees[0].duplicate_worktree is True
+
+
+def test_coordination_topology_uses_generic_typed_role_occupancy_label() -> None:
+    state = _review_state(
+        {
+            "schema_version": 1,
+            "command": "review-channel",
+            "action": "status",
+            "timestamp": "2026-04-08T00:00:00Z",
+            "ok": True,
+            "review_state": {
+                "review": {"session_id": "session-1"},
+                "queue": {"pending_total": 0},
+                "current_session": {"implementer_ack_state": "current"},
+                "collaboration": {
+                    "schema_version": 1,
+                    "contract_id": "CollaborationSession",
+                    "session_id": "session-1",
+                    "status": "live",
+                    "reviewer_mode": "active_dual_agent",
+                    "operator_mode": "manual",
+                    "lead_agent": "",
+                    "review_agent": "",
+                    "coding_agent": "",
+                    "current_slice": "continue",
+                    "peer_review": {
+                        "current_instruction": "continue",
+                        "current_instruction_revision": "rev-1",
+                        "open_findings": "none",
+                        "implementer_status": "coding",
+                        "implementer_ack": "ack",
+                        "implementer_ack_state": "current",
+                    },
+                    "arbitration": {"status": "clear", "summary": "", "owner": "system"},
+                    "restart": {"status": "live", "resumable": True, "source": "session_metadata"},
+                    "ready_gates": [],
+                    "role_assignments": [
+                        {
+                            "agent_id": "codex",
+                            "provider": "codex",
+                            "role_id": "TDDFirstRole",
+                            "live": True,
+                        },
+                        {
+                            "agent_id": "claude",
+                            "provider": "claude",
+                            "role_id": "dogfooder",
+                            "live": True,
+                        },
+                    ],
+                    "participants": [],
+                    "delegated_work": [],
+                },
+                "bridge": {
+                    "reviewer_mode": "active_dual_agent",
+                    "effective_reviewer_mode": "active_dual_agent",
+                    "active_conductor_providers": ["codex", "claude"],
+                },
+                "attention": {
+                    "status": "healthy",
+                    "owner": "system",
+                    "summary": "healthy",
+                    "recommended_action": "",
+                    "recommended_command": "",
+                },
+                "reviewer_runtime": {
+                    "reviewer_mode": "active_dual_agent",
+                    "effective_reviewer_mode": "active_dual_agent",
+                    "reviewer_freshness": "fresh",
+                },
+            },
+        }
+    )
+
+    snapshot = build_coordination_topology_snapshot(
+        review_state=state,
+        ownership=WorkIntakeOwnershipState(status="clear"),
+        coordination=WorkIntakeCoordinationState(),
+    )
+
+    assert snapshot.collaboration_topology == (
+        "typed_role_topology[dogfood_test:claude;tdd_first_role:codex]"
+    )
+    assert tuple(row.role for row in snapshot.active_participants) == (
+        "dogfood_test",
+        "tdd_first_role",
+    )
 
 
 def test_coordination_topology_marks_live_fanout_ready_when_workers_are_isolated() -> None:

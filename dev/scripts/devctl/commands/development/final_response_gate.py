@@ -25,6 +25,7 @@ from ...runtime.bypass_receipt_active_lookup_gate import (
     BypassReceiptActiveLookupFailureCode,
     require_active_bypass_receipt_for_override,
 )
+from ...runtime.current_plan_authority import CurrentPlanAuthority
 from ...runtime.ground_truth_probe_gate import (
     DEFAULT_MAX_RECEIPT_AGE_SECONDS,
     GroundTruthProbeReceiptCheck,
@@ -95,6 +96,7 @@ def enforce_final_response_gate(
     packet_attention: Any | None = None,
     orchestration: Any | None = None,
     next_slice_id: str = "",
+    current_plan_authority: CurrentPlanAuthority | None = None,
     current_plan_row_id: str = "",
     repo_root: Path | None = None,
     ground_truth_expected_trigger_paths: Iterable[str] = (),
@@ -102,12 +104,16 @@ def enforce_final_response_gate(
     now_utc: datetime | None = None,
 ) -> FinalResponseGateResult:
     """Return the typed gate result for final-response emission."""
+    effective_current_plan_row_id = _effective_current_plan_row_id(
+        current_plan_authority,
+        current_plan_row_id,
+    )
     live_block = _live_final_response_block(
         continuation,
         packet_attention=packet_attention,
         orchestration=orchestration,
         next_slice_id=next_slice_id,
-        current_plan_row_id=current_plan_row_id,
+        current_plan_row_id=effective_current_plan_row_id,
         repo_root=repo_root,
         ground_truth_expected_trigger_paths=ground_truth_expected_trigger_paths,
         ground_truth_max_age_seconds=ground_truth_max_age_seconds,
@@ -137,6 +143,15 @@ def enforce_final_response_gate(
     )
 
 
+def _effective_current_plan_row_id(
+    current_plan_authority: CurrentPlanAuthority | None,
+    fallback_row_id: str,
+) -> str:
+    if current_plan_authority is None:
+        return str(fallback_row_id or "").strip()
+    return str(current_plan_authority.plan_row_id or fallback_row_id or "").strip()
+
+
 def _live_final_response_block(
     continuation: DevelopmentContinuationRequiredSignal,
     *,
@@ -149,6 +164,28 @@ def _live_final_response_block(
     ground_truth_max_age_seconds: int = DEFAULT_MAX_RECEIPT_AGE_SECONDS,
     now_utc: datetime | None = None,
 ) -> FinalResponseGateResult | None:
+    # Compute the ground-truth-probe receipt block FIRST so an unsatisfied
+    # typed verdict can be surfaced as the canonical block reason. The
+    # receipt is authoritative typed proof per the live-state semantic TDD
+    # plan; orchestration / packet-attention checks are process metadata
+    # that must not hide the receipt's verdict from a reading agent.
+    #
+    # Ordering contract (gate_blocker_source_must_match_unsatisfied_ground_truth_receipt):
+    #   - If receipt verdict is UNSATISFIED → return ground-truth block first.
+    #   - If receipt verdict is MISSING/STALE/MISMATCHED → still prefer it
+    #     over packet/orchestration (typed proof absence is authoritative).
+    #   - If the receipt check returns None (i.e. satisfied), fall through
+    #     to the legacy ordering so existing process checks remain visible.
+    ground_truth_block = _ground_truth_receipt_final_response_block(
+        continuation,
+        repo_root=repo_root,
+        next_slice_id=next_slice_id,
+        expected_trigger_paths=ground_truth_expected_trigger_paths,
+        max_age_seconds=ground_truth_max_age_seconds,
+        now_utc=now_utc,
+    )
+    if ground_truth_block is not None:
+        return ground_truth_block
     packet_block = _packet_attention_final_response_block(
         continuation,
         packet_attention=packet_attention,
@@ -167,14 +204,7 @@ def _live_final_response_block(
     )
     if agent_block is not None:
         return agent_block
-    return _ground_truth_receipt_final_response_block(
-        continuation,
-        repo_root=repo_root,
-        next_slice_id=next_slice_id,
-        expected_trigger_paths=ground_truth_expected_trigger_paths,
-        max_age_seconds=ground_truth_max_age_seconds,
-        now_utc=now_utc,
-    )
+    return None
 
 
 def _ground_truth_receipt_final_response_block(

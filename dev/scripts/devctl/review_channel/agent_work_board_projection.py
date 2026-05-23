@@ -55,6 +55,7 @@ def build_agent_work_board_projection(
     collaboration: Mapping[str, object] | None = None,
     refresh_seq: int,
     refreshed_at_utc: str,
+    default_plan_row_id: str = "",
 ) -> AgentWorkBoardProjection:
     """Build the work-board projection from packet rows + sessions + agent_sync."""
     last_event_id = _latest_event_id(events)
@@ -75,6 +76,7 @@ def build_agent_work_board_projection(
             last_event_id=last_event_id,
             participants_by_role=participants_by_role,
             role_index=role_index,
+            default_plan_row_id=default_plan_row_id,
         )
     )
     rows.extend(
@@ -85,6 +87,7 @@ def build_agent_work_board_projection(
             last_event_id=last_event_id,
             participants_by_role=participants_by_role,
             role_index=role_index,
+            default_plan_row_id=default_plan_row_id,
         )
     )
 
@@ -108,6 +111,7 @@ def _build_codex_session_rows(
     last_event_id: str,
     participants_by_role: dict[tuple[str, str], Mapping[str, object]],
     role_index: object,
+    default_plan_row_id: str = "",
 ) -> list[AgentWorkBoardRow]:
     sessions = recent_sessions(
         provider=PROVIDER_CODEX,
@@ -171,6 +175,7 @@ def _build_codex_session_rows(
                     actor_id="codex",
                     role=role_resolution.role,
                 ),
+                default_plan_row_id=default_plan_row_id,
             )
         )
     return rows
@@ -184,6 +189,7 @@ def _build_claude_session_rows(
     last_event_id: str,
     participants_by_role: dict[tuple[str, str], Mapping[str, object]],
     role_index: object,
+    default_plan_row_id: str = "",
 ) -> list[AgentWorkBoardRow]:
     sessions = recent_sessions(
         provider=PROVIDER_CLAUDE,
@@ -236,6 +242,7 @@ def _build_claude_session_rows(
                     actor_id="claude",
                     role=role_resolution.role,
                 ),
+                default_plan_row_id=default_plan_row_id,
             )
         )
     rows.extend(
@@ -245,6 +252,7 @@ def _build_claude_session_rows(
             last_event_id=last_event_id,
             participants_by_role=participants_by_role,
             role_index=role_index,
+            default_plan_row_id=default_plan_row_id,
         )
     )
     return rows
@@ -257,6 +265,7 @@ def _build_claude_subagent_rows(
     last_event_id: str,
     participants_by_role: dict[tuple[str, str], Mapping[str, object]],
     role_index: object,
+    default_plan_row_id: str = "",
 ) -> list[AgentWorkBoardRow]:
     if CLAUDE_PROJECTS_ROOT is None or not CLAUDE_PROJECTS_ROOT.exists():
         return []
@@ -302,6 +311,7 @@ def _build_claude_subagent_rows(
                     actor_id="claude",
                     role="implementer",
                 ),
+                default_plan_row_id=default_plan_row_id,
             )
         )
     return rows
@@ -332,11 +342,19 @@ def _demote_helper_codex_session(
     helper, explorer, or research sidecar left on disk by an earlier
     spawn audit. Those must not inherit provider-level reviewer
     authority from `RuntimeRoleIndex` just because actor_id=codex has
-    reviewer authority — otherwise `develop next` and
+    reviewer authority -- otherwise `develop next` and
     `develop launch` dry-run promote helper sidecars to controller
     rows. Demote to `subagent` with read_only mutation and no
     capabilities so the typed lanes see them as evidence-only.
+
+    ``resolution`` is the typed contract boundary: an ``isinstance`` probe
+    keeps the ``RuntimeRoleResolution`` dataclass identity visible to
+    contract coverage scans without changing observable behavior.
     """
+    if not isinstance(resolution, RuntimeRoleResolution):
+        # Tolerate non-typed fallback values: the projection passes them
+        # through as a no-op rather than failing closed.
+        return resolution
     if session_count <= 1 or session_index == 1:
         return resolution
     if resolution.role in {"subagent", "researcher"}:

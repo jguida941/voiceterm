@@ -13,11 +13,17 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 try:
-    from check_bootstrap import REPO_ROOT, emit_runtime_error, utc_timestamp
+    from check_bootstrap import (
+        REPO_ROOT,
+        emit_runtime_error,
+        report_to_dict as _report_to_dict,
+        utc_timestamp,
+    )
 except ModuleNotFoundError:
     from dev.scripts.checks.check_bootstrap import (
         REPO_ROOT,
         emit_runtime_error,
+        report_to_dict as _report_to_dict,
         utc_timestamp,
     )
 
@@ -30,13 +36,10 @@ from dev.scripts.devctl.runtime.command_envelope_classification import (  # noqa
 from dev.scripts.devctl.runtime.control_decision_action_matching import (  # noqa: E402
     action_text,
     allowed_controller_action,
+    normalized_role as _normalized_role,
 )
 from dev.scripts.devctl.runtime.control_decision_obedience import (  # noqa: E402
     extract_decision_and_attempted_actions,
-)
-from dev.scripts.devctl.runtime.role_profile import (  # noqa: E402
-    TandemRole,
-    normalize_tandem_role,
 )
 from dev.scripts.devctl.runtime.typed_action_mutation import (  # noqa: E402
     typed_action_is_mutation,
@@ -50,9 +53,12 @@ from dev.scripts.devctl.runtime.value_coercion import (  # noqa: E402
 COMMAND = "check_role_lane_mutation_authority"
 CONTRACT_ID = "RoleLaneMutationAuthorityGuard"
 ROLE_LANE_MUTATION_REASON = "role_lane_mutation_without_authority"
+SAFE_TO_CONTINUE_FALSE_REASON = "safe_to_continue_false_blocks_mutation"
+UNSAFE_CONTINUE_WITH_EDIT_GRANT_REASON = "unsafe_continue_with_edit_grant"
 LOOSE_PROVIDER_INSTRUCTION_REASON = (
     "loose_provider_instruction_without_typed_review_channel_state"
 )
+PRE_TOOL_TARGET_MISSING_REASON = "pre_tool_target_file_missing"
 DISPLAY_TEXT = (
     "AI DUMBASS ALERT: role lane violation. Stay in your typed lane. "
     "Reviewer/orchestrator cannot mutate implementation files without typed "
@@ -142,11 +148,7 @@ class RoleLaneMutationAuthorityReport:
     display_text: str = DISPLAY_TEXT
 
     def to_dict(self) -> dict[str, object]:
-        payload = asdict(self)
-        payload["checked_surfaces"] = list(self.checked_surfaces)
-        payload["violations"] = list(self.violations)
-        payload["warnings"] = list(self.warnings)
-        return payload
+        return _report_to_dict(self)
 
 
 def build_report(
@@ -156,6 +158,7 @@ def build_report(
     stdin_text: str = "",
     live_state_path: Path = DEFAULT_LIVE_STATE_PATH,
     mode: str = "pre_mutation",
+    target_file: str = "",
 ) -> dict[str, object]:
     payload, checked_surfaces, warnings = _load_payload(
         report_override=report_override,
@@ -163,6 +166,7 @@ def build_report(
         stdin_text=stdin_text,
         live_state_path=live_state_path,
         mode=mode,
+        target_file=target_file,
     )
     return evaluate_role_lane_mutation_authority(
         payload=payload,
@@ -227,6 +231,7 @@ def _load_payload(
     stdin_text: str,
     live_state_path: Path,
     mode: str,
+    target_file: str,
 ) -> tuple[object, tuple[str, ...], tuple[str, ...]]:
     if report_override is not None:
         return report_override, ("fixture",), ()
@@ -241,7 +246,11 @@ def _load_payload(
     else:
         payload = {}
         warnings.append("live review-channel state missing")
-    if mode == "pre_mutation":
+    normalized_target = target_file.strip()
+    if mode == "pre_mutation" and normalized_target:
+        payload = _attach_target_file_mutation(payload, normalized_target)
+        checked_surfaces.append(f"target-file:{normalized_target}")
+    elif mode == "pre_mutation":
         payload, worktree_warnings = _attach_live_worktree_mutations(payload)
         checked_surfaces.append("git status --porcelain=v1 --untracked-files=all")
         warnings.extend(worktree_warnings)
@@ -300,6 +309,73 @@ def _attach_live_worktree_mutations(payload: object) -> tuple[object, tuple[str,
     existing = merged.get("worktree_mutations")
     merged["worktree_mutations"] = list(_mutation_items(existing)) + worktree_mutations
     return merged, tuple(warnings)
+
+
+def _attach_target_file_mutation(payload: object, target_file: str) -> object:
+    if isinstance(payload, Mapping):
+        merged = dict(payload)
+    else:
+        merged = {"raw_payload": payload}
+    existing = merged.get("worktree_mutations")
+    mutations = list(_mutation_items(existing))
+    if _path_requires_mutation_authority(target_file):
+        mutations.append(
+            {
+                "path": target_file.strip().lstrip("./"),
+                "change_status": "target-file",
+                "source": "pre_tool_target_file",
+            }
+        )
+    merged["worktree_mutations"] = mutations
+    return merged
+
+
+def _target_file_from_tool_input(stdin_text: str) -> str:
+    try:
+        payload = json.loads(stdin_text)
+    except json.JSONDecodeError:
+        return ""
+    return _first_tool_file_path(payload)
+
+
+def _first_tool_file_path(payload: object) -> str:
+    if isinstance(payload, Mapping):
+        for key in ("file_path", "filepath", "path", "target_file"):
+            text = coerce_string(payload.get(key)).strip()
+            if text:
+                return text
+        for key in ("tool_input", "input", "toolInput"):
+            text = _first_tool_file_path(payload.get(key))
+            if text:
+                return text
+        return ""
+    if isinstance(payload, Sequence) and not isinstance(payload, (str, bytes)):
+        for item in payload:
+            text = _first_tool_file_path(item)
+            if text:
+                return text
+    return ""
+
+
+def _missing_pre_tool_target_report() -> dict[str, object]:
+    report = RoleLaneMutationAuthorityReport(
+        ok=False,
+        evaluated_action_count=0,
+        mutating_action_count=0,
+        violation_count=1,
+        checked_surfaces=("tool-input-stdin",),
+        violations=(
+            RoleLaneViolation(
+                reason=PRE_TOOL_TARGET_MISSING_REASON,
+                detail=(
+                    "PreToolUse edit guard received no file_path/path in tool input; "
+                    "failing closed instead of allowing an unscoped edit."
+                ),
+            ).to_dict(),
+        ),
+        timestamp=utc_timestamp(),
+    )
+    return report.to_dict()
 
 
 def _git_worktree_mutations(repo_root: Path) -> list[dict[str, str]]:
@@ -443,6 +519,35 @@ def _violations_for_mutation(
                 session_id=session_id,
             )
         )
+    if _safe_to_continue_blocks_mutation(decision_payload, action):
+        violations.append(
+            _violation(
+                SAFE_TO_CONTINUE_FALSE_REASON,
+                (
+                    "AgentLoopDecision.safe_to_continue is false; mutation "
+                    "requires an active scoped operator_override."
+                ),
+                actor=actor,
+                role=role,
+                session_id=session_id,
+            )
+        )
+    if _unsafe_continue_with_edit_grant(decision_payload, action):
+        violations.append(
+            _violation(
+                UNSAFE_CONTINUE_WITH_EDIT_GRANT_REASON,
+                (
+                    "Invariant H violation: AgentLoopDecision.safe_to_continue "
+                    "is false but allowed_actions carries a mutation grant "
+                    "(e.g. implementation.edit) without an active scoped "
+                    "operator_override or BypassReceipt. Edit-grant must be "
+                    "stripped or backed by a typed override authority."
+                ),
+                actor=actor,
+                role=role,
+                session_id=session_id,
+            )
+        )
     if _has_typed_mutation_authority(decision_payload, action):
         return violations
     detail = (
@@ -473,6 +578,44 @@ def _has_typed_mutation_authority(
         or _typed_mutation_lease_authorizes(decision, action)
         or _implementer_authorizes(decision, action)
     )
+
+
+def _safe_to_continue_blocks_mutation(
+    decision: Mapping[str, object],
+    action: Mapping[str, object],
+) -> bool:
+    if "safe_to_continue" not in decision:
+        return False
+    if coerce_bool(decision.get("safe_to_continue")):
+        return False
+    return not _operator_override_authorizes(decision, action)
+
+
+def _unsafe_continue_with_edit_grant(
+    decision: Mapping[str, object],
+    action: Mapping[str, object],
+) -> bool:
+    """Invariant H: ``safe_to_continue=False`` cannot coexist with a
+    mutation action in ``allowed_actions`` unless a scoped operator
+    override (or BypassReceipt-derived override) explicitly authorizes
+    it.
+
+    The :class:`AgentLoopDecision` model strips ``implementation.edit``
+    from ``allowed_actions`` in ``__post_init__`` when this contradiction
+    is detected, but a hand-crafted payload (review-state JSON, fixture,
+    dashboard projection) can still ship the contradictory shape. This
+    guard catches the contradiction at the lane-authority gate so the
+    edit grant cannot smuggle past the model.
+    """
+    if "safe_to_continue" not in decision:
+        return False
+    if coerce_bool(decision.get("safe_to_continue")):
+        return False
+    allowed = _string_set(decision.get("allowed_actions"))
+    contradiction = allowed & MUTATION_ACTIONS
+    if not contradiction:
+        return False
+    return not _operator_override_authorizes(decision, action)
 
 
 def _typed_packet_lifecycle_control_action(
@@ -800,17 +943,6 @@ def _session_id(action: Mapping[str, object], decision: Mapping[str, object]) ->
     )
 
 
-def _normalized_role(role: str) -> str:
-    tandem = normalize_tandem_role(role)
-    if tandem == TandemRole.REVIEWER:
-        return "reviewer"
-    if tandem == TandemRole.IMPLEMENTER:
-        return "implementer"
-    if tandem == TandemRole.OPERATOR:
-        return "operator"
-    return coerce_string(role).strip().lower().replace("-", "_").replace(" ", "_")
-
-
 def _decision_authority_refs(decision: Mapping[str, object]) -> set[str]:
     return {
         value
@@ -916,6 +1048,22 @@ def _build_parser() -> argparse.ArgumentParser:
         default=DEFAULT_LIVE_STATE_PATH,
         help="Review-channel live state JSON used when no input is supplied.",
     )
+    parser.add_argument(
+        "--target-file",
+        default="",
+        help=(
+            "Pre-tool-use target file. When set with --mode pre_mutation, the "
+            "guard evaluates only this path instead of scanning the whole dirty tree."
+        ),
+    )
+    parser.add_argument(
+        "--tool-input-stdin",
+        action="store_true",
+        help=(
+            "Read a tool-hook JSON payload from stdin and extract tool_input.file_path "
+            "or path as the pre-mutation target."
+        ),
+    )
     parser.add_argument("--format", choices=("md", "json"), default="md")
     return parser
 
@@ -923,12 +1071,24 @@ def _build_parser() -> argparse.ArgumentParser:
 def main() -> int:
     args = _build_parser().parse_args()
     try:
-        stdin_text = sys.stdin.read() if args.stdin else ""
+        tool_input_text = sys.stdin.read() if args.tool_input_stdin else ""
+        target_file = args.target_file.strip()
+        if args.tool_input_stdin and not target_file:
+            target_file = _target_file_from_tool_input(tool_input_text)
+        if args.tool_input_stdin and not target_file:
+            report = _missing_pre_tool_target_report()
+            if args.format == "json":
+                print(json.dumps(report, indent=2, sort_keys=True))
+            else:
+                print(render_markdown(report))
+            return 1
+        stdin_text = sys.stdin.read() if args.stdin and not args.tool_input_stdin else ""
         report = build_report(
             input_path=args.input,
             stdin_text=stdin_text,
             live_state_path=args.live_state_path,
             mode=args.mode,
+            target_file=target_file,
         )
     except Exception as exc:  # broad-except: guard entrypoints emit structured reports instead of traceback fallback=typed runtime error
         return emit_runtime_error(COMMAND, args.format, str(exc))
