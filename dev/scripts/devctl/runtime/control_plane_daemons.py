@@ -11,6 +11,10 @@ from .role_profile import (
     default_provider_for_role,
     normalize_tandem_role,
 )
+from .reviewer_mode import (
+    reviewer_mode_is_active,
+    reviewer_mode_is_single_agent,
+)
 from .reviewer_runtime_models import (
     has_active_remote_control_attachment,
     remote_control_attachment_from_mapping,
@@ -155,8 +159,7 @@ def _single_agent_local_reviewer_activity(
 ) -> bool | None:
     """Treat fresh local reviewer packet activity as live single-agent truth."""
     bridge = _typed_bridge(authority)
-    reviewer_mode = str(bridge.get("reviewer_mode") or "").strip()
-    if reviewer_mode != "single_agent":
+    if not reviewer_mode_is_single_agent(bridge.get("reviewer_mode")):
         return None
     reviewer_provider = _reviewer_provider(authority)
     if reviewer_provider != target_provider:
@@ -182,8 +185,7 @@ def _single_agent_remote_attachment_activity(
 ) -> bool | None:
     """Treat an attached remote-control provider as live single-agent truth."""
     bridge = _typed_bridge(authority)
-    reviewer_mode = str(bridge.get("reviewer_mode") or "").strip()
-    if reviewer_mode != "single_agent":
+    if not reviewer_mode_is_single_agent(bridge.get("reviewer_mode")):
         return None
     reviewer_runtime = authority.get("reviewer_runtime")
     if not isinstance(reviewer_runtime, dict):
@@ -208,8 +210,11 @@ def _typed_bridge_conductor_activity(
 ) -> bool | None:
     """Promote explicit typed bridge liveness when bounded by session evidence."""
     bridge = _typed_bridge(authority)
-    reviewer_mode = str(bridge.get("reviewer_mode") or "").strip()
-    if reviewer_mode not in {"single_agent", "active_dual_agent"}:
+    raw_reviewer_mode = bridge.get("reviewer_mode")
+    if not (
+        reviewer_mode_is_single_agent(raw_reviewer_mode)
+        or reviewer_mode_is_active(raw_reviewer_mode)
+    ):
         return None
     poll_evidence = (
         bridge.get("last_reviewer_poll_utc")

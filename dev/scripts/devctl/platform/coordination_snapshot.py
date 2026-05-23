@@ -89,9 +89,14 @@ def build_coordination_snapshot(
     )
     declared_topology_value = declared_topology(
         collaboration=collaboration,
-        observed_topology=coordination.collaboration_topology or "single_agent",
+        observed_topology=(
+            coordination.collaboration_topology
+            or "single_implementer_single_reviewer"
+        ),
     )
-    observed_topology = coordination.collaboration_topology or "single_agent"
+    observed_topology = (
+        coordination.collaboration_topology or "single_implementer_single_reviewer"
+    )
     fanout_posture_value = fanout_posture(
         delegated_work=delegated_work,
         duplicate_worktrees=duplicate_worktree_rows,

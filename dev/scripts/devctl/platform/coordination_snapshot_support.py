@@ -21,7 +21,7 @@ def repo_name(governance: object | None, repo_root: Path) -> str:
 def declared_topology(*, collaboration: object | None, observed_topology: str) -> str:
     """Prefer collaboration topology when it exists, else observed topology."""
     topology = text(getattr(collaboration, "topology_mode", ""))
-    return topology or observed_topology or "single_agent"
+    return topology or observed_topology or "single_implementer_single_reviewer"
 
 
 def fanout_posture(
@@ -50,7 +50,10 @@ def fanout_posture(
         return "planned_not_live"
     if requested_budget > 0:
         return "requested_pending_workers"
-    if declared_topology == "dual_agent" and observed_topology == "single_agent":
+    if (
+        declared_topology == "dual_agent"
+        and observed_topology == "single_implementer_single_reviewer"
+    ):
         return "review_loop_not_live"
     return "single_agent_only"
 
@@ -85,7 +88,7 @@ def resync_reasons(
     """Collect the bounded reasons that force resync before safe fanout."""
     reasons: list[str] = []
     sanctioned_single_agent = (
-        observed_topology == "single_agent"
+        observed_topology == "single_implementer_single_reviewer"
         and is_sanctioned_single_agent_control(review_state)
     )
     for conflict in conflicts:
@@ -114,7 +117,10 @@ def resync_reasons(
     if freshness and freshness not in {"fresh", "current"}:
         if not sanctioned_single_agent:
             reasons.append(f"reviewer_freshness:{freshness}")
-    if declared_topology != observed_topology and declared_topology != "single_agent":
+    if (
+        declared_topology != observed_topology
+        and declared_topology != "single_implementer_single_reviewer"
+    ):
         if not sanctioned_single_agent:
             reasons.append(f"declared_topology:{declared_topology}")
     return dedupe(reasons)[:_MAX_REASONS]
@@ -145,7 +151,7 @@ def recommended_topology(
 ) -> str:
     """Project the topology recommendation implied by the bounded posture."""
     if resync_reasons:
-        return "single_agent"
+        return "single_implementer_single_reviewer"
     if safe_to_fanout and fanout_posture in {
         "active_fanout",
         "planned_not_live",
@@ -154,7 +160,7 @@ def recommended_topology(
         return "multi_agent_orchestrated"
     if observed_topology == "dual_agent":
         return "dual_agent"
-    return "single_agent"
+    return "single_implementer_single_reviewer"
 
 
 def duplicate_worktrees(

@@ -159,13 +159,13 @@ def test_build_coordination_snapshot_carries_surface_provenance(
         repo_root=tmp_path,
         ownership=WorkIntakeOwnershipState(status="clear"),
         coordination=WorkIntakeCoordinationState(
-            collaboration_topology="single_agent",
+            collaboration_topology="single_implementer_single_reviewer",
             authority_mode="self_directed",
             work_ownership_mode="exclusive_slice",
         ),
     )
     review_state = _review_state(
-        topology_mode="single_agent",
+        topology_mode="single_implementer_single_reviewer",
         participants=(_participant("codex", "reviewer", live=True),),
         delegated_work=(),
         ready_gates=(),
@@ -226,7 +226,7 @@ def test_build_coordination_snapshot_demotes_planned_but_inactive_fanout(
             scope_paths=("dev/scripts/devctl/runtime/work_intake.py",),
         ),
         coordination=WorkIntakeCoordinationState(
-            collaboration_topology="single_agent",
+            collaboration_topology="single_implementer_single_reviewer",
             authority_mode="self_directed",
             work_ownership_mode="exclusive_slice",
             sync_cadence_mode="before_publish",
@@ -279,8 +279,8 @@ def test_build_coordination_snapshot_demotes_planned_but_inactive_fanout(
     )
 
     assert snapshot.declared_topology == "multi_agent_orchestrated"
-    assert snapshot.observed_topology == "single_agent"
-    assert snapshot.recommended_topology == "single_agent"
+    assert snapshot.observed_topology == "single_implementer_single_reviewer"
+    assert snapshot.recommended_topology == "single_implementer_single_reviewer"
     assert snapshot.fanout_posture == "planned_scaffolding_only"
     assert snapshot.safe_to_fanout is False
     assert snapshot.worktree_strategy == "isolated_worker_worktrees"
@@ -417,7 +417,7 @@ def test_build_coordination_snapshot_allows_sanctioned_local_single_agent_takeov
         repo_root=tmp_path,
         ownership=WorkIntakeOwnershipState(status="clear"),
         coordination=WorkIntakeCoordinationState(
-            collaboration_topology="single_agent",
+            collaboration_topology="single_implementer_single_reviewer",
             authority_mode="self_directed",
             work_ownership_mode="exclusive_slice",
             sync_cadence_mode="checkpointed",
@@ -454,8 +454,8 @@ def test_build_coordination_snapshot_allows_sanctioned_local_single_agent_takeov
         review_state=review_state,
     )
 
-    assert snapshot.observed_topology == "single_agent"
-    assert snapshot.recommended_topology == "single_agent"
+    assert snapshot.observed_topology == "single_implementer_single_reviewer"
+    assert snapshot.recommended_topology == "single_implementer_single_reviewer"
     assert snapshot.resync_required is False
     assert "attention:inactive" not in snapshot.resync_reasons
     assert "review_truth:blocked" not in snapshot.resync_reasons
@@ -520,7 +520,7 @@ def test_build_coordination_snapshot_flags_duplicate_worktrees(
     assert snapshot.worktree_strategy == "duplicate_worker_worktree"
     assert snapshot.safe_to_fanout is False
     assert snapshot.duplicate_worktrees == ("../codex-voice-wt-a1",)
-    assert snapshot.recommended_topology == "single_agent"
+    assert snapshot.recommended_topology == "single_implementer_single_reviewer"
 
 
 def test_build_coordination_snapshot_falls_back_to_current_instruction(
@@ -530,7 +530,7 @@ def test_build_coordination_snapshot_falls_back_to_current_instruction(
         repo_root=tmp_path,
         ownership=WorkIntakeOwnershipState(status="clear"),
         coordination=WorkIntakeCoordinationState(
-            collaboration_topology="single_agent",
+            collaboration_topology="single_implementer_single_reviewer",
             authority_mode="self_directed",
             work_ownership_mode="exclusive_slice",
             sync_cadence_mode="before_publish",
@@ -540,7 +540,7 @@ def test_build_coordination_snapshot_falls_back_to_current_instruction(
         continuity=SimpleNamespace(current_goal="", next_action="", summary=""),
     )
     review_state = _review_state(
-        topology_mode="single_agent",
+        topology_mode="single_implementer_single_reviewer",
         participants=(),
         delegated_work=(),
         ready_gates=(),
@@ -569,7 +569,7 @@ def test_build_coordination_snapshot_prefers_typed_coordination_current_slice(
         repo_root=tmp_path,
         ownership=WorkIntakeOwnershipState(status="clear"),
         coordination=WorkIntakeCoordinationState(
-            collaboration_topology="single_agent",
+            collaboration_topology="single_implementer_single_reviewer",
             authority_mode="self_directed",
             work_ownership_mode="exclusive_slice",
             sync_cadence_mode="before_publish",
@@ -579,7 +579,7 @@ def test_build_coordination_snapshot_prefers_typed_coordination_current_slice(
         continuity=SimpleNamespace(current_goal="", next_action="", summary=""),
     )
     review_state = _review_state(
-        topology_mode="single_agent",
+        topology_mode="single_implementer_single_reviewer",
         participants=(),
         delegated_work=(),
         ready_gates=(),
@@ -611,7 +611,7 @@ def test_build_coordination_snapshot_uses_provided_review_state_without_refresh(
         repo_root=tmp_path,
         ownership=WorkIntakeOwnershipState(status="clear"),
         coordination=WorkIntakeCoordinationState(
-            collaboration_topology="single_agent",
+            collaboration_topology="single_implementer_single_reviewer",
             authority_mode="self_directed",
             work_ownership_mode="exclusive_slice",
             sync_cadence_mode="before_publish",
@@ -620,7 +620,7 @@ def test_build_coordination_snapshot_uses_provided_review_state_without_refresh(
         ),
     )
     review_state = _review_state(
-        topology_mode="single_agent",
+        topology_mode="single_implementer_single_reviewer",
         participants=(),
         delegated_work=(),
         ready_gates=(),
@@ -649,7 +649,7 @@ def test_build_coordination_snapshot_falls_back_to_continuity_next_action(
         repo_root=tmp_path,
         ownership=WorkIntakeOwnershipState(status="clear"),
         coordination=WorkIntakeCoordinationState(
-            collaboration_topology="single_agent",
+            collaboration_topology="single_implementer_single_reviewer",
             authority_mode="self_directed",
             work_ownership_mode="exclusive_slice",
             sync_cadence_mode="before_publish",
@@ -663,7 +663,7 @@ def test_build_coordination_snapshot_falls_back_to_continuity_next_action(
         ),
     )
     review_state = _review_state(
-        topology_mode="single_agent",
+        topology_mode="single_implementer_single_reviewer",
         participants=(),
         delegated_work=(),
         ready_gates=(),
@@ -690,7 +690,7 @@ def test_build_coordination_snapshot_prefers_continuity_over_scope_only_slice(
         repo_root=tmp_path,
         ownership=WorkIntakeOwnershipState(status="clear"),
         coordination=WorkIntakeCoordinationState(
-            collaboration_topology="single_agent",
+            collaboration_topology="single_implementer_single_reviewer",
             authority_mode="self_directed",
             work_ownership_mode="exclusive_slice",
             sync_cadence_mode="before_publish",
@@ -704,7 +704,7 @@ def test_build_coordination_snapshot_prefers_continuity_over_scope_only_slice(
         ),
     )
     review_state = _review_state(
-        topology_mode="single_agent",
+        topology_mode="single_implementer_single_reviewer",
         participants=(),
         delegated_work=(),
         ready_gates=(),
@@ -734,7 +734,7 @@ def test_build_coordination_snapshot_falls_back_to_active_target_title(
         repo_root=tmp_path,
         ownership=WorkIntakeOwnershipState(status="clear"),
         coordination=WorkIntakeCoordinationState(
-            collaboration_topology="single_agent",
+            collaboration_topology="single_implementer_single_reviewer",
             authority_mode="self_directed",
             work_ownership_mode="exclusive_slice",
             sync_cadence_mode="before_publish",
@@ -753,7 +753,7 @@ def test_build_coordination_snapshot_falls_back_to_active_target_title(
         ),
     )
     review_state = _review_state(
-        topology_mode="single_agent",
+        topology_mode="single_implementer_single_reviewer",
         participants=(),
         delegated_work=(),
         ready_gates=(),

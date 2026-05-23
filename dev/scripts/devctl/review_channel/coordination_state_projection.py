@@ -20,6 +20,8 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Literal, TypedDict
 
+from ..runtime.reviewer_mode import reviewer_mode_is_single_agent
+
 
 #: Role-based coordination topology is a free-form string of the shape
 #: ``typed_role_topology[role:provider,provider;role:provider]`` (per
@@ -159,7 +161,10 @@ def build_coordination_state_projection(
     legacy_authority_label = legacy_reviewer_mode or "unknown"
 
     notes: list[str] = []
-    if legacy_topology_label == "multi_agent_active" and legacy_reviewer_mode == "single_agent":
+    if (
+        legacy_topology_label == "multi_agent_active"
+        and reviewer_mode_is_single_agent(legacy_reviewer_mode)
+    ):
         notes.append(
             "legacy_reviewer_mode='single_agent' is authority/review-gate "
             "vocabulary; observed runtime is multi_agent_active per "
@@ -330,7 +335,7 @@ def _derive_authority_mode(
     """Map legacy reviewer_mode to typed authority_mode per rev_pkt_2298."""
     legacy = str(collaboration.get("reviewer_mode") or "").strip()
     # Per rev_pkt_2298: single_agent legacy is authority/review-gate label.
-    if legacy in {"single_agent"}:
+    if reviewer_mode_is_single_agent(legacy):
         return "single_writer"
     if legacy in {"dual_agent", "active_dual_agent"}:
         return "review_gated"

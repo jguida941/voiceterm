@@ -320,7 +320,7 @@ def test_build_system_picture_snapshot_reads_typed_sources() -> None:
                     head_commit_sha="abc123",
                     declared_topology="multi_agent_orchestrated",
                     observed_topology="dual_agent",
-                    recommended_topology="single_agent",
+                    recommended_topology="single_implementer_single_reviewer",
                     fanout_posture="planned_not_live",
                     safe_to_fanout=False,
                     worktree_strategy="isolated_worker_worktrees",
@@ -364,7 +364,10 @@ def test_build_system_picture_snapshot_reads_typed_sources() -> None:
     assert sections["startup"].summary["startup_receipt_fresh"] is True
     assert sections["graph"].summary["node_count"] == 2411
     assert sections["review_runtime"].summary["review_needed"] is True
-    assert sections["coordination"].summary["recommended_topology"] == "single_agent"
+    assert (
+        sections["coordination"].summary["recommended_topology"]
+        == "single_implementer_single_reviewer"
+    )
     assert sections["control_plane"].summary["next_command"].startswith("python3 dev/scripts/devctl.py review-channel")
     assert sections["control_plane"].summary["operator_interaction_mode"] == "remote_control"
     assert sections["control_plane"].summary["attention_status"] == "review_follow_up_required"

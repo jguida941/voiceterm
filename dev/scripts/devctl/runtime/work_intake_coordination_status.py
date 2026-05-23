@@ -31,7 +31,7 @@ def resync_required(
         return False
 
     sanctioned_single_agent = (
-        collaboration_topology == "single_agent"
+        collaboration_topology == "single_implementer_single_reviewer"
         and is_sanctioned_single_agent_control(review_state)
     )
     attention = getattr(review_state, "attention", None)

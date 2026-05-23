@@ -828,7 +828,7 @@ def test_build_work_intake_packet_emits_session_pacing_from_planning_and_graph_e
             review_state=review_state,
             ownership=WorkIntakeOwnershipState(status="clear"),
             coordination=WorkIntakeCoordinationState(
-                collaboration_topology="single_agent",
+                collaboration_topology="single_implementer_single_reviewer",
                 authority_mode="self_directed",
                 work_ownership_mode="exclusive_slice",
                 sync_cadence_mode="checkpointed",
@@ -926,7 +926,7 @@ def test_build_work_intake_packet_projects_typed_plan_routing(
             review_state=review_state,
             ownership=WorkIntakeOwnershipState(status="clear"),
             coordination=WorkIntakeCoordinationState(
-                collaboration_topology="single_agent",
+                collaboration_topology="single_implementer_single_reviewer",
                 authority_mode="self_directed",
                 work_ownership_mode="exclusive_slice",
                 sync_cadence_mode="checkpointed",
@@ -1089,7 +1089,7 @@ def test_build_work_intake_packet_routes_plan_phase_from_pacing_focus_slice(
             review_state=review_state,
             ownership=WorkIntakeOwnershipState(status="clear"),
             coordination=WorkIntakeCoordinationState(
-                collaboration_topology="single_agent",
+                collaboration_topology="single_implementer_single_reviewer",
                 authority_mode="self_directed",
                 work_ownership_mode="exclusive_slice",
                 sync_cadence_mode="checkpointed",
@@ -1472,7 +1472,7 @@ def test_build_work_intake_packet_marks_concurrent_writer_activity_for_outside_s
         "dev/scripts/devctl/review_channel/session_state_hints.py",
     )
     assert packet.ownership.live_agents == ("codex", "claude")
-    assert packet.coordination.collaboration_topology == "dual_agent"
+    assert packet.coordination.collaboration_topology == "single_implementer_single_reviewer"
     assert packet.coordination.authority_mode == "reviewer_gated"
     assert packet.coordination.work_ownership_mode == "concurrent_writer_conflict"
     assert packet.coordination.sync_cadence_mode == "before_scope_change"

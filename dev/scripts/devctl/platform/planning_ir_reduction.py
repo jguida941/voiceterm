@@ -66,7 +66,7 @@ def build_conflicts(
                 or ownership.live_agents,
                 conflicting_paths=ownership.outside_scope_dirty_paths
                 or ownership.dirty_paths,
-                recommended_topology="single_agent",
+                recommended_topology="single_implementer_single_reviewer",
                 blocking=True,
             )
         )
@@ -77,7 +77,7 @@ def build_conflicts(
                 summary="delegated workers share the same worktree",
                 active_participants=coordination.active_participants,
                 duplicate_worktrees=coordination.duplicate_delegated_worktrees,
-                recommended_topology="single_agent",
+                recommended_topology="single_implementer_single_reviewer",
                 blocking=True,
             )
         )
@@ -91,7 +91,7 @@ def build_conflicts(
                 conflict_kind="topology_conflict",
                 summary="runtime coordination already reports a concurrent-writer conflict",
                 active_participants=coordination.active_participants,
-                recommended_topology="single_agent",
+                recommended_topology="single_implementer_single_reviewer",
                 blocking=True,
             )
         )
@@ -298,8 +298,11 @@ def _score_owned_paths(
 
 def _recommended_topology(context: PlanningReductionContext) -> str:
     if context.conflicts:
-        return "single_agent"
-    return context.coordination.collaboration_topology or "single_agent"
+        return "single_implementer_single_reviewer"
+    return (
+        context.coordination.collaboration_topology
+        or "single_implementer_single_reviewer"
+    )
 
 
 def _review_candidate_paths(review_state: ReviewState | None) -> set[str]:

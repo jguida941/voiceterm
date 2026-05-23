@@ -170,7 +170,7 @@ def test_build_planning_ir_snapshot_prioritizes_active_plan_findings_and_hot_pat
             ),
             ownership=WorkIntakeOwnershipState(status="clear"),
             coordination=WorkIntakeCoordinationState(
-                collaboration_topology="single_agent",
+                collaboration_topology="single_implementer_single_reviewer",
                 authority_mode="self_directed",
                 work_ownership_mode="exclusive_slice",
                 sync_cadence_mode="checkpointed",
@@ -239,7 +239,7 @@ def test_build_planning_ir_snapshot_promotes_active_target_when_ranked_finding_o
             review_state=stale_review_state,
             ownership=WorkIntakeOwnershipState(status="clear"),
             coordination=WorkIntakeCoordinationState(
-                collaboration_topology="single_agent",
+                collaboration_topology="single_implementer_single_reviewer",
                 authority_mode="self_directed",
                 work_ownership_mode="exclusive_slice",
                 sync_cadence_mode="checkpointed",
@@ -315,7 +315,10 @@ def test_build_planning_ir_snapshot_surfaces_concurrent_writer_conflicts(
     )
     assert snapshot.next_best_slices
     assert snapshot.next_best_slices[0].schedule_state == "blocked_by_conflict"
-    assert snapshot.next_best_slices[0].recommended_topology == "single_agent"
+    assert (
+        snapshot.next_best_slices[0].recommended_topology
+        == "single_implementer_single_reviewer"
+    )
 
 
 def test_build_planning_ir_snapshot_flags_unowned_hot_paths_and_plan_mismatches(
@@ -332,7 +335,7 @@ def test_build_planning_ir_snapshot_flags_unowned_hot_paths_and_plan_mismatches(
             review_state=_review_state(scope="MP-377"),
             ownership=WorkIntakeOwnershipState(status="clear"),
             coordination=WorkIntakeCoordinationState(
-                collaboration_topology="single_agent",
+                collaboration_topology="single_implementer_single_reviewer",
                 authority_mode="self_directed",
                 work_ownership_mode="exclusive_slice",
                 sync_cadence_mode="checkpointed",
@@ -381,7 +384,7 @@ def test_build_planning_ir_snapshot_uses_request_review_state_without_refresh(
         review_state=_review_state(scope="MP-377"),
         ownership=WorkIntakeOwnershipState(status="clear"),
         coordination=WorkIntakeCoordinationState(
-            collaboration_topology="single_agent",
+            collaboration_topology="single_implementer_single_reviewer",
             authority_mode="self_directed",
             work_ownership_mode="exclusive_slice",
             sync_cadence_mode="checkpointed",

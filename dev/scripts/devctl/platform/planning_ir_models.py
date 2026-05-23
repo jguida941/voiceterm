@@ -81,7 +81,7 @@ class NextBestSliceRecord:
     finding_severity_band: str = ""
     total_score: float = 0.0
     schedule_state: str = "ready"
-    recommended_topology: str = "single_agent"
+    recommended_topology: str = "single_implementer_single_reviewer"
     summary: str = ""
 
     def to_dict(self) -> dict[str, Any]:
@@ -99,7 +99,7 @@ class ConcurrentWriterConflictRecord:
     active_participants: tuple[str, ...] = ()
     conflicting_paths: tuple[str, ...] = ()
     duplicate_worktrees: tuple[str, ...] = ()
-    recommended_topology: str = "single_agent"
+    recommended_topology: str = "single_implementer_single_reviewer"
     blocking: bool = True
 
     def to_dict(self) -> dict[str, Any]:

@@ -1928,7 +1928,7 @@ class TestGovernedCommitPipeline(unittest.TestCase):
                 del repo_root
                 return SimpleNamespace(
                     implementation_permission="blocked",
-                    observed_control_topology="single_agent",
+                    observed_control_topology="single_implementer_single_reviewer",
                     reviewer_gate=SimpleNamespace(
                         implementation_blocked=False,
                         implementation_block_reason="",

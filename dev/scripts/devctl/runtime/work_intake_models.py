@@ -132,7 +132,7 @@ class WorkIntakeOwnershipState:
 class WorkIntakeCoordinationState:
     """Bounded startup-facing reduction of live coordination state."""
 
-    collaboration_topology: str = "single_agent"
+    collaboration_topology: str = "single_implementer_single_reviewer"
     authority_mode: str = "self_directed"
     work_ownership_mode: str = "exclusive_slice"
     sync_cadence_mode: str = "continuous"
@@ -158,7 +158,7 @@ class WorkIntakeCoordinationState:
             "work_ownership_mode": self.work_ownership_mode,
             "sync_cadence_mode": self.sync_cadence_mode,
         }
-        if self.collaboration_topology != "single_agent":
+        if self.collaboration_topology != "single_implementer_single_reviewer":
             payload["collaboration_topology"] = self.collaboration_topology
         if self.interaction_mode and self.interaction_mode != "unresolved":
             payload["interaction_mode"] = self.interaction_mode
@@ -197,7 +197,7 @@ def work_intake_coordination_from_mapping(
         return None
     return WorkIntakeCoordinationState(
         collaboration_topology=str(
-            value.get("collaboration_topology") or "single_agent"
+            value.get("collaboration_topology") or "single_implementer_single_reviewer"
         ).strip(),
         authority_mode=str(value.get("authority_mode") or "self_directed").strip(),
         work_ownership_mode=str(

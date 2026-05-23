@@ -147,7 +147,7 @@ def _checkpoint_state(ctx: _StartupCommitAuthorityLike) -> str:
 
 
 def _topology_state(topology: str) -> str:
-    if topology in {"single_implementer_single_reviewer", "single_agent"}:
+    if topology == "single_implementer_single_reviewer":
         return "valid"
     if topology == "no_live_agents":
         return "absent"

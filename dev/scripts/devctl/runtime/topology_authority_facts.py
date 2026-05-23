@@ -20,6 +20,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
+from .reviewer_mode import ReviewerMode
 from .role_profile import normalize_role_id, role_capability_classes
 
 
@@ -169,7 +170,11 @@ def legacy_label_is_authority_evidence_only(label: str) -> bool:
     """
     text = (label or "").strip().lower()
     return text in {
-        "single_agent",
+        # The historical ``single_agent`` topology label string survives
+        # here only as a recognizer — its authority-mode meaning lives in
+        # ``ReviewerMode.SINGLE_AGENT``; its topology meaning has been
+        # retired in favor of ``single_implementer_single_reviewer``.
+        ReviewerMode.SINGLE_AGENT.value,
         "dual_agent",
         "multi_agent_active",
         "multi_agent_orchestrated",

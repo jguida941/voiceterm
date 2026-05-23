@@ -62,9 +62,9 @@ class CoordinationSnapshot:
     authority_mode: str = ""
     work_ownership_mode: str = ""
     sync_cadence_mode: str = ""
-    declared_topology: str = "single_agent"
-    observed_topology: str = "single_agent"
-    recommended_topology: str = "single_agent"
+    declared_topology: str = "single_implementer_single_reviewer"
+    observed_topology: str = "single_implementer_single_reviewer"
+    recommended_topology: str = "single_implementer_single_reviewer"
     fanout_posture: str = "single_agent_only"
     safe_to_fanout: bool = False
     worktree_strategy: str = "shared_primary_worktree"
@@ -172,10 +172,14 @@ def coordination_snapshot_from_mapping(value: object) -> CoordinationSnapshot | 
         authority_mode=str(value.get("authority_mode") or "").strip(),
         work_ownership_mode=str(value.get("work_ownership_mode") or "").strip(),
         sync_cadence_mode=str(value.get("sync_cadence_mode") or "").strip(),
-        declared_topology=str(value.get("declared_topology") or "single_agent").strip(),
-        observed_topology=str(value.get("observed_topology") or "single_agent").strip(),
+        declared_topology=str(
+            value.get("declared_topology") or "single_implementer_single_reviewer"
+        ).strip(),
+        observed_topology=str(
+            value.get("observed_topology") or "single_implementer_single_reviewer"
+        ).strip(),
         recommended_topology=str(
-            value.get("recommended_topology") or "single_agent"
+            value.get("recommended_topology") or "single_implementer_single_reviewer"
         ).strip(),
         fanout_posture=str(value.get("fanout_posture") or "single_agent_only").strip(),
         safe_to_fanout=bool(value.get("safe_to_fanout", False)),

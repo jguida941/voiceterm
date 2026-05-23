@@ -2748,15 +2748,26 @@ _ENUM_OWNER_EXEMPTIONS = (
 # Slice C.0 baseline established 2026-05-23 after the consolidation +
 # Phase 0 + 0.5 work. This number ratchets DOWN as C.1..C.4 retire
 # literals; it must never go UP. Ratchet history:
-#   2026-05-23 C.0  baseline      = 44 (initial capture)
-#   2026-05-23 C.3  → 41 (3 files retired: collaboration_session_status,
-#                         follow_controller, collaboration_registry)
-#   2026-05-23 C.4  → 40 (1 file retired: control_topology.py — Literal
-#                         cutover removed `single_agent` from
-#                         ObservedControlTopology; line 148 migrated to
-#                         reviewer_mode_is_single_agent(); line 154
-#                         migrated to OperatorInteractionMode enum members)
-TOPOLOGY_LITERAL_BASELINE_FILE_COUNT = 40
+#   2026-05-23 C.0       baseline = 44 (initial capture)
+#   2026-05-23 C.3       → 41 (3 files retired: collaboration_session_status,
+#                              follow_controller, collaboration_registry)
+#   2026-05-23 C.4 narrow → 40 (1 file retired: control_topology.py — Literal
+#                              cutover removed `single_agent` from
+#                              ObservedControlTopology; line 148 migrated to
+#                              reviewer_mode_is_single_agent(); line 154
+#                              migrated to OperatorInteractionMode enum members)
+#   2026-05-23 C.4 expand → 36 (4 worker migrations + Worker A's surfaced
+#                              cascade retired 4 more files: work_intake_models,
+#                              topology_authority_facts, coordination_snapshot
+#                              family + planning_ir family (Worker C),
+#                              commit_permission + control_plane_daemons
+#                              (Worker D), work_intake_coordination +
+#                              work_intake_coordination_status (cascade fix).
+#                              Used typed predicates from reviewer_mode.py
+#                              (reviewer_mode_is_single_agent /
+#                              reviewer_mode_is_active) where authority-mode
+#                              comparisons were needed.)
+TOPOLOGY_LITERAL_BASELINE_FILE_COUNT = 36
 
 
 def _count_topology_literal_files() -> int:

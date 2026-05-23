@@ -279,8 +279,8 @@ def _collaboration_topology(
     ):
         return "observer_plus_implementer"
     if participant_count >= 2:
-        return "dual_agent"
-    return "single_agent"
+        return "single_implementer_single_reviewer"
+    return "single_implementer_single_reviewer"
 
 
 def _authority_mode(
