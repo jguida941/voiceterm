@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `extraction/guardir-core-p0-proof-integrity`
-- HEAD: `05eace212f91` — A37 Phase 0.5: ship devctl role CLI surface (MP377-TYPED-ROLE-MODE-CUSTOMIZATION-S1 S1a)
-- Tree hash: `f9d743595cd6`
-- Generation stamp: `snap-8423f444a069`
-- Generated at (UTC): 2026-05-23T19:52:53Z
+- HEAD: `889d03ec13de` — A37 Slice C.0: TOPO-HUNT-BASELINE topology-literal ratchet
+- Tree hash: `420f63764bd3`
+- Generation stamp: `snap-94c8aa5c8cd4`
+- Generated at (UTC): 2026-05-23T20:09:57Z
 - Push decision: `run_devctl_push` — push_preconditions_satisfied
 - Reviewer mode: `tools_only` (interaction: `local_terminal`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 428 files, +82536/-3538
+- Delta since last snapshot: 24 commits, 428 files, +82608/-3473
 - Governance findings: 27 open / 0 fixed / 27 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -28,9 +28,9 @@ production client (VoiceTerm...
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `extraction/guardir-core-p0-proof-integrity`
-- HEAD SHA: `05eace212f91114742cafdd62a114134c4376bfa`
+- HEAD SHA: `889d03ec13dedc34e4d95124a415b6b35fe0662a`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-05-23T15:51:57-04:00
+- HEAD timestamp (UTC): 2026-05-23T16:09:01-04:00
 
 ## 2. Governance state
 
@@ -44,7 +44,7 @@ production client (VoiceTerm...
 - next_step_command: `python3 dev/scripts/devctl.py push --execute`
 - latest_push_report_state: `blocked` (validation_failed)
 - publication_backlog: urgent
-- publication_guidance: 7 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
+- publication_guidance: 9 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
 
 ### Reviewer runtime
 - reviewer_mode: `tools_only`
@@ -64,12 +64,12 @@ production client (VoiceTerm...
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `05eace212f91`
+Range: last 24 commits ending at `889d03ec13de`
 
 - commits: 24
 - files changed: 428
-- insertions: +82536
-- deletions: -3538
+- insertions: +82608
+- deletions: -3473
 - bundle classes touched: tooling, docs
 - risk add-ons triggered: Dependency / security
 - authority surfaces touched: 8 file(s)
@@ -78,30 +78,30 @@ Range: last 24 commits ending at `05eace212f91`
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `05eace21` | A37 Phase 0.5: ship devctl role CLI surface (MP377-TYPED-RO… | 12 | +564/-5 | tooling |  |
-| 2 | `312b3e45` | Refresh external review snapshot for 7afc813d | 1 | +57/-49 | tooling |  |
-| 3 | `7afc813d` | A37 Phase 0 + Pre-0 + Phase 0.x: SemanticTDDRoleSpec + inge… | 9 | +131/-1 | tooling |  |
-| 4 | `960135c9` | A37 Phase 0 + Pre-0: SemanticTDDRoleSpec consolidation + in… | 9 | +993/-8 | tooling |  |
-| 5 | `eabfd370` | Refresh external review snapshot for 58bee30c | 1 | +120/-98 | tooling |  |
-| 6 | `58bee30c` | Multi-session checkpoint: peer-spawn id-resolution + bounde… | 344 | +58347/-1882 | tooling | Dependency / security |
-| 7 | `9b321ff7` | CLAUDE-REV-002 G1+G8: pre_mutation gate + pre-commit hook c… | 11 | +2094/-7 | tooling |  |
-| 8 | `7a7afa85` | Refresh external review snapshot for 90451b8a | 1 | +19/-19 | tooling |  |
-| 9 | `90451b8a` | Snapshot remaining GuardIR governance repair state | 88 | +17323/-697 | tooling |  |
-| 10 | `d1387379` | Repair current plan packet scheduler | 17 | +1287/-76 | tooling |  |
-| 11 | `fda73137` | Refresh external review snapshot for 41ad2430 | 1 | +49/-47 | tooling |  |
-| 12 | `41ad2430` | Land GuardIR v4 canonical plan markdown | 2 | +716/-0 | tooling |  |
-| 13 | `62dd7efb` | Refresh external review snapshot for 3a698ba6 | 1 | +55/-49 | tooling |  |
-| 14 | `3a698ba6` | Add packet contract schema fixtures | 7 | +166/-54 | tooling |  |
-| 15 | `a55f1fbe` | Refresh external review snapshot for 52d8835c | 1 | +52/-53 | tooling |  |
-| 16 | `52d8835c` | Bind system map closure plan row | 5 | +53/-50 | tooling |  |
-| 17 | `37e29c9a` | Refresh external review snapshot for d06542d2 | 1 | +53/-54 | tooling |  |
-| 18 | `d06542d2` | Bind proof resolver closure row | 6 | +55/-52 | tooling |  |
-| 19 | `88cd53ad` | Refresh external review snapshot for 877ec1c5 | 1 | +52/-50 | tooling |  |
-| 20 | `877ec1c5` | Resolve unittest proof test nodes | 4 | +133/-62 | tooling |  |
-| 21 | `93bce1be` | Refresh external review snapshot for 5e431ccc | 1 | +52/-53 | tooling |  |
-| 22 | `5e431ccc` | Bind push proof closure plan row | 5 | +54/-57 | tooling |  |
-| 23 | `fd57faa3` | Refresh external review snapshot for 69c856eb | 1 | +52/-53 | tooling |  |
-| 24 | `69c856eb` | Record push proof closure receipts | 6 | +59/-62 | tooling |  |
+| 1 | `889d03ec` | A37 Slice C.0: TOPO-HUNT-BASELINE topology-literal ratchet | 2 | +132/-0 | tooling |  |
+| 2 | `3ce6a487` | Refresh external review snapshot for 05eace21 | 1 | +51/-50 | tooling |  |
+| 3 | `05eace21` | A37 Phase 0.5: ship devctl role CLI surface (MP377-TYPED-RO… | 12 | +564/-5 | tooling |  |
+| 4 | `312b3e45` | Refresh external review snapshot for 7afc813d | 1 | +57/-49 | tooling |  |
+| 5 | `7afc813d` | A37 Phase 0 + Pre-0 + Phase 0.x: SemanticTDDRoleSpec + inge… | 9 | +131/-1 | tooling |  |
+| 6 | `960135c9` | A37 Phase 0 + Pre-0: SemanticTDDRoleSpec consolidation + in… | 9 | +993/-8 | tooling |  |
+| 7 | `eabfd370` | Refresh external review snapshot for 58bee30c | 1 | +120/-98 | tooling |  |
+| 8 | `58bee30c` | Multi-session checkpoint: peer-spawn id-resolution + bounde… | 344 | +58347/-1882 | tooling | Dependency / security |
+| 9 | `9b321ff7` | CLAUDE-REV-002 G1+G8: pre_mutation gate + pre-commit hook c… | 11 | +2094/-7 | tooling |  |
+| 10 | `7a7afa85` | Refresh external review snapshot for 90451b8a | 1 | +19/-19 | tooling |  |
+| 11 | `90451b8a` | Snapshot remaining GuardIR governance repair state | 88 | +17323/-697 | tooling |  |
+| 12 | `d1387379` | Repair current plan packet scheduler | 17 | +1287/-76 | tooling |  |
+| 13 | `fda73137` | Refresh external review snapshot for 41ad2430 | 1 | +49/-47 | tooling |  |
+| 14 | `41ad2430` | Land GuardIR v4 canonical plan markdown | 2 | +716/-0 | tooling |  |
+| 15 | `62dd7efb` | Refresh external review snapshot for 3a698ba6 | 1 | +55/-49 | tooling |  |
+| 16 | `3a698ba6` | Add packet contract schema fixtures | 7 | +166/-54 | tooling |  |
+| 17 | `a55f1fbe` | Refresh external review snapshot for 52d8835c | 1 | +52/-53 | tooling |  |
+| 18 | `52d8835c` | Bind system map closure plan row | 5 | +53/-50 | tooling |  |
+| 19 | `37e29c9a` | Refresh external review snapshot for d06542d2 | 1 | +53/-54 | tooling |  |
+| 20 | `d06542d2` | Bind proof resolver closure row | 6 | +55/-52 | tooling |  |
+| 21 | `88cd53ad` | Refresh external review snapshot for 877ec1c5 | 1 | +52/-50 | tooling |  |
+| 22 | `877ec1c5` | Resolve unittest proof test nodes | 4 | +133/-62 | tooling |  |
+| 23 | `93bce1be` | Refresh external review snapshot for 5e431ccc | 1 | +52/-53 | tooling |  |
+| 24 | `5e431ccc` | Bind push proof closure plan row | 5 | +54/-57 | tooling |  |
 
 ### Files
 
@@ -119,8 +119,8 @@ Range: last 24 commits ending at `05eace212f91`
 | `dev/active/contract_orphans_audit.md` | tooling | +58/-0 |
 | `dev/active/live_state_semantic_tdd_plan.md` | tooling | +1149/-0 |
 | `dev/active/platform_authority_loop.md` | tooling | +12/-12 |
-| `dev/active/semantic_tdd_lane.md` | tooling | +274/-5 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +964/-929 |
+| `dev/active/semantic_tdd_lane.md` | tooling | +285/-5 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +915/-865 |
 | `dev/audits/plan_intake/2026-05-20-guardir-lifecycle-recovery-ci-proof-bridge-v4.md` | tooling | +5496/-355 |
 | `dev/audits/plan_intake/sha256-manifest.txt` | tooling | +2/-1 |
 | `dev/config/git_hooks/pre-commit-review-snapshot.sh` | tooling | +89/-7 |
@@ -128,7 +128,7 @@ Range: last 24 commits ending at `05eace212f91`
 | `dev/guides/AI_GOVERNANCE_PLATFORM.md` | docs | +3/-2 |
 | `dev/guides/DEVELOPMENT.md` | docs | +56/-20 |
 | `dev/guides/PLATFORM_GUIDE.md` | docs | +872/-12 |
-| `dev/guides/SYSTEM_MAP.md` | docs | +56/-53 |
+| `dev/guides/SYSTEM_MAP.md` | docs | +55/-52 |
 | `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +63/-1 |
 | `dev/reports/feature_proof_receipts/7a7afa8520c0d7ca751be3eb889e36b02ea6ebf2.json` | tooling | +48/-0 |
 | `dev/scripts/README.md` | tooling | +21/-0 |
@@ -232,6 +232,11 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`889d03ec`** — A37 Slice C.0: TOPO-HUNT-BASELINE topology-literal ratchet
+  - Establishes the baseline violation count for the canonical Slice C
+  - topology-literal retirement (streamed-sprouting-pizza.md). 2a/2b split
+  - per the lane discipline: current-safety drift catcher GREEN today,
+- **`3ce6a487`** — Refresh external review snapshot for 05eace21
 - **`05eace21`** — A37 Phase 0.5: ship devctl role CLI surface (MP377-TYPED-ROLE-MODE-CUSTOMIZATION-S1 S1a)
   - Drives 4 Phase 0.5 RED tests to GREEN. CLI surface live.
 - **`312b3e45`** — Refresh external review snapshot for 7afc813d
@@ -270,8 +275,6 @@ Recent findings:
 - **`877ec1c5`** — Resolve unittest proof test nodes
 - **`93bce1be`** — Refresh external review snapshot for 5e431ccc
 - **`5e431ccc`** — Bind push proof closure plan row
-- **`fd57faa3`** — Refresh external review snapshot for 69c856eb
-- **`69c856eb`** — Record push proof closure receipts
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -315,4 +318,4 @@ repo_path=/Users/jguida941/testing_upgrade/codex-voice
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-8423f444a069` binds this file to HEAD `05eace212f91`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-94c8aa5c8cd4` binds this file to HEAD `889d03ec13de`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
