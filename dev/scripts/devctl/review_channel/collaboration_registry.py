@@ -10,6 +10,7 @@ from ..runtime.review_state_models import (
     CollaborationRoleAssignmentState,
     CollaborationSessionState,
 )
+from ..runtime.reviewer_mode import reviewer_mode_is_active
 from ..runtime.role_profile import normalize_role_id, role_capability_classes
 
 
@@ -113,7 +114,7 @@ def _job_state_from_collaboration(
 ) -> str:
     capability_classes = set(role_capability_classes(role))
     if capability_classes & {"review", "test", "architecture", "governance", "research", "intake"}:
-        if collaboration.reviewer_mode != "active_dual_agent" and participant is None:
+        if not reviewer_mode_is_active(collaboration.reviewer_mode) and participant is None:
             return "inactive"
         if _ready_gate_status(collaboration, "review_truth") == "blocked":
             return "review_needed"

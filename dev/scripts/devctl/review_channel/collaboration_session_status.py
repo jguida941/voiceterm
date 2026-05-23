@@ -14,6 +14,7 @@ from ..runtime.review_state_models import (
     DelegatedWorkReceiptState,
     ReviewCurrentSessionState,
 )
+from ..runtime.reviewer_mode import reviewer_mode_is_active
 from ..runtime.role_profile import role_capability_classes
 from .collaboration_session_roster import _text
 from .session_probe import ConductorSessionRecord
@@ -133,7 +134,7 @@ def _runtime_gate_status(
     reviewer_mode: str,
     participants: tuple[CollaborationParticipantState, ...],
 ) -> str:
-    if reviewer_mode != "active_dual_agent":
+    if not reviewer_mode_is_active(reviewer_mode):
         return "not_required"
     reviewer_live = any(
         participant.live
@@ -154,7 +155,7 @@ def _runtime_gate_summary(
     reviewer_mode: str,
     participants: tuple[CollaborationParticipantState, ...],
 ) -> str:
-    if reviewer_mode != "active_dual_agent":
+    if not reviewer_mode_is_active(reviewer_mode):
         return (
             f"Compatibility reviewer mode `{reviewer_mode}` does not require "
             "paired reviewer/implementer conductors."
@@ -184,7 +185,7 @@ def _review_gate_status(
     *,
     reviewer_mode: str,
 ) -> str:
-    if reviewer_mode != "active_dual_agent":
+    if not reviewer_mode_is_active(reviewer_mode):
         return "not_required"
     if (
         bridge_liveness.get("review_needed")
@@ -199,7 +200,7 @@ def _review_gate_summary(
     *,
     reviewer_mode: str,
 ) -> str:
-    if reviewer_mode != "active_dual_agent":
+    if not reviewer_mode_is_active(reviewer_mode):
         return "Single-agent reviewer mode does not require dual-agent review truth."
     if bridge_liveness.get("review_needed"):
         return "Reviewer follow-up is still required for the current worktree."
@@ -213,7 +214,7 @@ def _implementer_gate_status(
     *,
     reviewer_mode: str,
 ) -> str:
-    if reviewer_mode != "active_dual_agent":
+    if not reviewer_mode_is_active(reviewer_mode):
         return "not_required"
     if is_missing_instruction(current_session.current_instruction):
         return "not_required"
@@ -229,7 +230,7 @@ def _implementer_gate_summary(
     *,
     reviewer_mode: str,
 ) -> str:
-    if reviewer_mode != "active_dual_agent":
+    if not reviewer_mode_is_active(reviewer_mode):
         return (
             "Single-agent reviewer mode does not require a separate implementer ACK."
         )

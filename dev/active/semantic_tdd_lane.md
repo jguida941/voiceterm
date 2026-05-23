@@ -268,6 +268,30 @@ from what the test asserts (not from a transient guard number).
 
 **Slice ordering**: C.0 establishes baseline (this slice, GREEN). C.1 retires `reviewer_gate_logic.py:27,52,57`. C.2 retires `authority_snapshot_projection.py:67,150` + `push_authorization.py:281` function rename. C.3 retires the 6 collaboration_session_status sites + follow_controller + collaboration_registry. C.4 cuts over `ObservedControlTopology.Literal` (removes `"single_agent"` from the typed literal union). C.5 multi-agent role-flip dogfood. C.6 two-live-agent dispatch dogfood. The baseline-44 ratchet must DROP at every C.1–C.4 closure.
 
+### Slice C.1 + C.2 — ALREADY-DONE audit (May 9 plan stale vs May 23 code)
+
+**Audit 2026-05-23**: The streamed-sprouting-pizza.md Slice C.1 + C.2 line refs are stale relative to current code. Reviewer-gate logic and authority-snapshot/push-authorization retirements were already migrated in prior commits not tied to A37.
+
+| Original target | Current state | Status |
+|---|---|---|
+| `reviewer_gate_logic.py:27,52,57` | 0 literals; uses typed `reviewer_mode_is_active()` predicate from enum-owner `reviewer_mode.py` | ALREADY-DONE |
+| `authority_snapshot_projection.py:67,150` | File does not exist (renamed/removed) | ALREADY-DONE |
+| `push_authorization.py:281` + `_active_dual_agent_review` function | 0 literals; function name absent | ALREADY-DONE |
+
+Tasks #4 (Slice C.1) and #5 (Slice C.2) closed as already-done with audit proof.
+
+### Slice C.3 — REVIEW-CHANNEL-TYPED (3 files migrated, 8 literal sites cleared)
+
+| ID | What it asserts | Test file | Status |
+|---|---|---|---|
+| C.3.STATUS | `collaboration_session_status.py` contains zero raw topology literals. 6 sites at lines 136/157/187/202/216/232 (`if reviewer_mode != "active_dual_agent":`) migrated to `if not reviewer_mode_is_active(reviewer_mode):` using the typed predicate from `runtime/reviewer_mode.py`. | `test_live_state_invariants.py::test_collaboration_session_status_must_not_carry_topology_literal` | GREEN |
+
+**Real-life proof (Slice C.3)**:
+- 3 files migrated: `collaboration_session_status.py` (6 sites), `follow_controller.py` (1 site at line 210), `collaboration_registry.py` (1 site at line 116). 8 total literal-comparison branches replaced with typed-predicate calls.
+- Baseline ratcheted **44 → 41 files** (3 files cleared). Tightened.
+- 19 tests pass + 1 expected xfail in related collaboration/follow_controller/registry suites.
+- Dogfood: live `devctl review-channel --action sync-status --terminal none --format json` returns `exit_code: 0` — the typed gate-decision pipeline still resolves through the migrated reviewer-mode predicate.
+
 ### Portability note (governance-pack adopter-safety)
 
 All path defaults follow the existing portable pattern documented in `peer_spawn.py:340-348` and `bypass_lifecycle_registry.py:_load_bypass_jsonl`: **env-var override + REPO_ROOT-relative default + filename as governance-pack convention**. No VoiceTerm literal is hardcoded into runtime decision paths.

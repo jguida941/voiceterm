@@ -19,6 +19,7 @@ from .reviewer_follow_guard import (
     maybe_refresh_automation_reviewer_heartbeat,
     wake_report,
 )
+from ..runtime.reviewer_mode import reviewer_mode_is_active
 from .reviewer_head_tracking import compute_review_range
 from .follow_controller_wake_target import (
     resolve_reviewer_wake_target as _resolve_reviewer_wake_target,
@@ -207,7 +208,7 @@ def _maybe_restart_reviewer_supervisor(
     if not isinstance(reviewer_supervisor, dict):
         return None
     reviewer_mode = str(bridge_liveness.get("reviewer_mode") or "")
-    if reviewer_mode != "active_dual_agent":
+    if not reviewer_mode_is_active(reviewer_mode):
         return None
     if bool(reviewer_supervisor.get("running")):
         return None

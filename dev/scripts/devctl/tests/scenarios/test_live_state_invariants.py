@@ -2747,10 +2747,11 @@ _ENUM_OWNER_EXEMPTIONS = (
 
 # Slice C.0 baseline established 2026-05-23 after the consolidation +
 # Phase 0 + 0.5 work. This number ratchets DOWN as C.1..C.4 retire
-# literals; it must never go UP. Tightened to current = 44 so any new
-# production callsite that introduces a raw topology literal triggers
-# the regression catcher immediately.
-TOPOLOGY_LITERAL_BASELINE_FILE_COUNT = 44
+# literals; it must never go UP. Ratchet history:
+#   2026-05-23 C.0  baseline      = 44 (initial capture)
+#   2026-05-23 C.3  → 41 (3 files retired: collaboration_session_status,
+#                         follow_controller, collaboration_registry)
+TOPOLOGY_LITERAL_BASELINE_FILE_COUNT = 41
 
 
 def _count_topology_literal_files() -> int:
@@ -2810,6 +2811,32 @@ def test_topology_literal_file_count_must_not_grow_above_baseline():
         "  coord[\"authority_mode\"]) or move the value into an enum owner\n"
         "  (reviewer_mode.py / operator_context.py). Slice C.1..C.4 are\n"
         "  the retirement slices; do not add new violations on top."
+    )
+
+
+def test_collaboration_session_status_must_not_carry_topology_literal():
+    """Slice C.3 — collaboration_session_status retires raw `"active_dual_agent"`.
+
+    The 6 sites at collaboration_session_status.py:136/157/187/202/216/232
+    were `if reviewer_mode != "active_dual_agent"` — that's the canonical
+    smell: branching authority on the conflated topology literal instead
+    of consulting the typed predicate `reviewer_mode_is_active()` from
+    the enum-owner module. After Slice C.3 the file consults the typed
+    predicate and the literal is gone.
+    """
+    target = REPO_ROOT / "dev" / "scripts" / "devctl" / "review_channel" / "collaboration_session_status.py"
+    content = target.read_text(encoding="utf-8")
+    found: list[str] = []
+    for label in _TOPOLOGY_LITERAL_LABELS:
+        if f'"{label}"' in content or f"'{label}'" in content:
+            found.append(label)
+    assert not found, (
+        "INVARIANT VIOLATED: collaboration_session_status_must_not_carry_topology_literal\n"
+        f"  file: {target.relative_to(REPO_ROOT)}\n"
+        f"  literals still present: {found}\n"
+        "  Replace `if reviewer_mode != \"active_dual_agent\":` branches\n"
+        "  with `if not reviewer_mode_is_active(reviewer_mode):` (the\n"
+        "  typed predicate from runtime/reviewer_mode.py)."
     )
 
 
