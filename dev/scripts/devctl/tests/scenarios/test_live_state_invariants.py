@@ -3192,3 +3192,90 @@ def test_system_map_contract_registry_count_matches():
         f"  Drift: {actual - claimed:+d}"
     )
 
+
+# ---------------------------------------------------------------------------
+# A38.4 S1.C — path-coverage xfail-strict invariants for SYSTEM_MAP.md
+# ---------------------------------------------------------------------------
+#
+# Per delete_after_ingest.md lines 5818-5831 (A38.4 amendment): beyond raw
+# counts (invariants 1-4 covered by S1.A/S1.B), two structural invariants
+# mechanize the maintenance rule for A38.3 system_map_steward:
+#
+#   5. test_system_map_lists_each_guard_path_at_least_once — every
+#      `check_*.py` file in `dev/scripts/checks/` appears at least once in
+#      SYSTEM_MAP.md by path or by guard-id substring. Stays RED today and
+#      ratchets up as the doc's row coverage expands.
+#   6. test_system_map_lists_each_devctl_subcommand_at_least_once — same
+#      shape for `devctl` subcommands.
+#
+# These two invariants are the maintenance-rule mechanization for A38.3 —
+# every new guard or subcommand triggers RED until SYSTEM_MAP.md adds a
+# row, just like every new typed contract triggers
+# check_systemmap_covers_contract_registry.py to fail until SYSTEM_MAP's
+# auto-rendered managed block updates.
+
+
+@pytest.mark.xfail(strict=True, reason="A38.4 S1.C — target architecture: every check_*.py guard file in dev/scripts/checks/ must appear at least once in SYSTEM_MAP.md (by path or by guard-id substring). Stays RED today because most guards are unlisted in the doc. Lifts to GREEN as doc gains row coverage. Maintenance-rule mechanization: every new guard triggers RED until SYSTEM_MAP.md adds a row.")
+def test_system_map_lists_each_guard_path_at_least_once():
+    """A38.4 S1.C — path-coverage ratchet for guards.
+
+    Walks dev/scripts/checks/ for every top-level check_*.py file and
+    asserts that each appears at least once in SYSTEM_MAP.md by either
+    full path OR its guard-id substring (stem with check_ prefix
+    stripped). Returns the count of unlisted guards in the assertion
+    error so the ratchet's progress is visible.
+
+    Currently RED via xfail-strict: 158 guards exist; most are not
+    individually rowed in SYSTEM_MAP.md. As the doc's row coverage
+    expands (driven by the system_map_steward role's audit), more
+    guards pass the path-or-id check.
+    """
+    text = _read_system_map_text()
+    checks_dir = REPO_ROOT / "dev" / "scripts" / "checks"
+    unlisted: list[str] = []
+    for guard_path in sorted(checks_dir.glob("check_*.py")):
+        rel = str(guard_path.relative_to(REPO_ROOT))
+        guard_id = guard_path.stem  # "check_foo_bar"
+        if rel in text or guard_id in text:
+            continue
+        unlisted.append(rel)
+    assert not unlisted, (
+        f"INVARIANT VIOLATED: system_map_lists_each_guard_path_at_least_once\n"
+        f"  {len(unlisted)} guard file(s) not listed in SYSTEM_MAP.md by path or id.\n"
+        f"  First 10: {unlisted[:10]}\n"
+        "  Add rows to SYSTEM_MAP.md or extend the managed block."
+    )
+
+
+@pytest.mark.xfail(strict=True, reason="A38.4 S1.C — target architecture: every devctl top-level subcommand must appear at least once in SYSTEM_MAP.md by command name. Stays RED today because many subcommands are unlisted. Lifts to GREEN as doc gains command coverage.")
+def test_system_map_lists_each_devctl_subcommand_at_least_once():
+    """A38.4 S1.C — path-coverage ratchet for devctl subcommands.
+
+    Parses `devctl --help` for the subcommand list and asserts each
+    appears at least once in SYSTEM_MAP.md by its subcommand name.
+    """
+    import subprocess
+    result = subprocess.run(
+        ["python3", str(REPO_ROOT / "dev" / "scripts" / "devctl.py"), "--help"],
+        check=False, capture_output=True, text=True, timeout=30,
+    )
+    help_text = result.stdout + result.stderr
+    match = _re_system_map.search(r"\{([^}]+)\}", help_text)
+    if not match:
+        pytest.skip("Could not parse devctl --help subcommand list")
+    subcommands = [token.strip() for token in match.group(1).split(",") if token.strip()]
+
+    map_text = _read_system_map_text()
+    unlisted: list[str] = []
+    for cmd in subcommands:
+        # Match either bare command or `devctl <cmd>` or `command <cmd>`
+        if cmd in map_text:
+            continue
+        unlisted.append(cmd)
+    assert not unlisted, (
+        f"INVARIANT VIOLATED: system_map_lists_each_devctl_subcommand_at_least_once\n"
+        f"  {len(unlisted)} devctl subcommand(s) not mentioned in SYSTEM_MAP.md.\n"
+        f"  First 10: {unlisted[:10]}\n"
+        "  Add rows to SYSTEM_MAP.md or extend the managed block."
+    )
+

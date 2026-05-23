@@ -84,6 +84,7 @@ from ..commands import (
     view,
 )
 from ..commands.bypass import command as bypass
+from ..commands.receipt_steward import command as receipt_steward_command
 from ..commands.governance import (
     bootstrap as governance_bootstrap,
     doc_authority as governance_doc_authority,
@@ -172,6 +173,7 @@ from .artifact_suppression import (
 from .artifact_suppression import read_only_command_suppresses_artifact_writes
 from .agent_supervise import add_agent_supervise_parser
 from .peer_spawn import add_peer_spawn_parser, add_peer_terminate_parser
+from .receipt_steward import add_receipt_steward_parser
 from .role import add_role_parser
 from ..commands.role import command as _role_command
 from .builders import add_standard_parsers
@@ -205,6 +207,7 @@ READ_ONLY_COMMANDS: frozenset[str] = frozenset({
     "agent-supervise",
     "peer-spawn",
     "peer-terminate",
+    "receipt-steward",
     "discover",
     "findings-priority",
     "graph-walk",
@@ -291,6 +294,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_agent_supervise_parser(sub)
     add_peer_spawn_parser(sub)
     add_peer_terminate_parser(sub)
+    add_receipt_steward_parser(sub)
     add_role_parser(sub)
     add_claude_loop_parser(sub)
     dogfood.add_parser(sub)
@@ -363,6 +367,7 @@ COMMAND_HANDLERS = {
     "peer-terminate": peer_spawn_command.run_peer_terminate,
     "role": _role_command.run,
     "bypass": bypass.run,
+    "receipt-steward": receipt_steward_command.run,
     "claude-loop": claude_loop.run,
     "dashboard": dashboard.run,
     "dogfood": dogfood.run,

@@ -74,6 +74,7 @@ DEFAULT_ROLE_IDS: tuple[str, ...] = tuple(
             "governance_discovery_agent",
             "system_alignment_role",
             "receipt_steward",
+            "system_map_steward",
         )
     )
 )
@@ -135,6 +136,12 @@ _ROLE_ID_ALIASES.update(
         "receipts_steward": "receipt_steward",
         "receipt_auditor": "receipt_steward",
         "receiptauditor": "receipt_steward",
+        "system-map-steward": "system_map_steward",
+        "system_map_role": "system_map_steward",
+        "systemmap_steward": "system_map_steward",
+        "system_alignment_role": "system_map_steward",
+        "system-alignment-role": "system_map_steward",
+        "systemalignmentrole": "system_map_steward",
     }
 )
 _OPERATOR_ROLE_ALIASES = frozenset(
@@ -180,6 +187,7 @@ _ROLE_CAPABILITY_CLASSES: dict[str, tuple[RoleCapabilityClass, ...]] = {
         RoleCapabilityClass.ARCHITECTURE,
     ),
     "receipt_steward": (RoleCapabilityClass.GOVERNANCE,),
+    "system_map_steward": (RoleCapabilityClass.GOVERNANCE,),
 }
 _GRANT_CAPABILITY_CLASSES: dict[str, RoleCapabilityClass] = {
     "implementation.edit": RoleCapabilityClass.MUTATION,

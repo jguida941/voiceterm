@@ -1061,6 +1061,87 @@ The xfail-to-hard-assert flip is the ratchet. From this slice forward, any futur
 
 ---
 
+## Case 13 — A38.4 S1.C path-coverage xfail-strict surfaced 147 unlisted guards / 30 unlisted subcommands
+
+**What semantic-TDD caught:** Cases 8 and 12 mechanized the *count* dimension of SYSTEM_MAP.md drift (claim vs. filesystem). A38.4 S1.C extends the same discipline to the *coverage* dimension: not just "does the doc say 158?" but "does the doc actually *mention* each of those 158 guards at least once?" The doc CAN claim the right total and still hide most rows behind the executive-summary number. Two new xfail-strict invariants walk `dev/scripts/checks/check_*.py` and the `devctl --help` subcommand list and assert each entry appears at least once in SYSTEM_MAP.md (by full path OR guard-id substring for guards; by bare command name for subcommands). On first run: **147 of 158 guards are unlisted** and **30 of 107 devctl subcommands are unlisted**. The count claim is right; the row coverage is at 7% for guards and 72% for subcommands.
+
+**How it was caught:** Batch-2 Agent-5 of the A38.4 S1.C slice. The amendment text in `delete_after_ingest.md:5818-5831` named the two invariants as "maintenance-rule mechanization for A38.3 — every new guard or subcommand triggers RED until SYSTEM_MAP.md adds a row, just like every new typed contract triggers `check_systemmap_covers_contract_registry.py` to fail until SYSTEM_MAP's auto-rendered managed block updates." S1.A and S1.B locked the count dimension; S1.C locks the row-coverage dimension.
+
+The measurement (run via the test's own helper logic against the live tree):
+```
+$ python3 -c "from pathlib import Path; r=Path('.'); cd=r/'dev/scripts/checks'; \
+    text=(r/'dev/guides/SYSTEM_MAP.md').read_text(); \
+    print(len([p for p in sorted(cd.glob('check_*.py')) \
+      if str(p) not in text and p.stem not in text]))"
+147
+$ python3 -c "import re,subprocess; \
+    out=subprocess.run(['python3','dev/scripts/devctl.py','--help'], capture_output=True, text=True); \
+    m=re.search(r'\{([^}]+)\}', out.stdout+out.stderr); \
+    cmds=[t.strip() for t in m.group(1).split(',') if t.strip()]; \
+    text=open('dev/guides/SYSTEM_MAP.md').read(); \
+    print(len([c for c in cmds if c not in text]))"
+30
+```
+
+**The RED assertion (one of two landed at the batch-2 commit):**
+```python
+# dev/scripts/devctl/tests/scenarios/test_live_state_invariants.py
+@pytest.mark.xfail(strict=True, reason="A38.4 S1.C — target architecture: every check_*.py guard file in dev/scripts/checks/ must appear at least once in SYSTEM_MAP.md (by path or by guard-id substring). Stays RED today because most guards are unlisted in the doc. Lifts to GREEN as doc gains row coverage. Maintenance-rule mechanization: every new guard triggers RED until SYSTEM_MAP.md adds a row.")
+def test_system_map_lists_each_guard_path_at_least_once():
+    text = _read_system_map_text()
+    checks_dir = REPO_ROOT / "dev" / "scripts" / "checks"
+    unlisted: list[str] = []
+    for guard_path in sorted(checks_dir.glob("check_*.py")):
+        rel = str(guard_path.relative_to(REPO_ROOT))
+        guard_id = guard_path.stem  # "check_foo_bar"
+        if rel in text or guard_id in text:
+            continue
+        unlisted.append(rel)
+    assert not unlisted, (
+        f"INVARIANT VIOLATED: system_map_lists_each_guard_path_at_least_once\n"
+        f"  {len(unlisted)} guard file(s) not listed in SYSTEM_MAP.md by path or id.\n"
+        f"  First 10: {unlisted[:10]}\n"
+        "  Add rows to SYSTEM_MAP.md or extend the managed block."
+    )
+```
+
+The second invariant (`test_system_map_lists_each_devctl_subcommand_at_least_once`) is the parallel shape for `devctl --help` subcommands. Both stay xfail-strict; the goal is NOT to make them pass today by editing the doc — that's a separate slice owned by `system_map_steward`. The point is that the *ratchet exists*, RED, with the exact gap visible.
+
+**The pytest output (both XFAIL as designed):**
+```
+$ python3 -m pytest dev/scripts/devctl/tests/scenarios/test_live_state_invariants.py -v --no-header -p no:cacheprovider -k "system_map_lists"
+collected 49 items / 47 deselected / 2 selected
+
+dev/.../test_live_state_invariants.py::test_system_map_lists_each_guard_path_at_least_once XFAIL [ 50%]
+dev/.../test_live_state_invariants.py::test_system_map_lists_each_devctl_subcommand_at_least_once XFAIL [100%]
+
+====================== 47 deselected, 2 xfailed in 1.43s =======================
+```
+
+The 4 S1.B hard-asserts continue to pass (no regression):
+```
+$ python3 -m pytest dev/scripts/devctl/tests/scenarios/test_live_state_invariants.py -v --no-header -p no:cacheprovider -k "system_map_guard_count or system_map_probe_count or system_map_devctl_command_count or system_map_contract_registry_count"
+4 passed, 45 deselected in 1.32s
+```
+
+AFTER sweep on the connectivity rails (must remain `ok=True`):
+```
+$ python3 dev/scripts/checks/check_orphan_files.py --format json | jq .ok
+True
+$ python3 dev/scripts/checks/check_function_duplication.py --format json | jq .ok
+True
+$ python3 dev/scripts/checks/check_contract_connectivity.py --format json | jq .ok
+True
+```
+
+**Why this is non-obvious without the discipline:** "the doc claims 158 guards" is satisfied as long as the executive-summary number is right (Case 12). "The doc actually lists each of those 158 guards" is a *different* claim with a *different* failure mode. A doc that says `158 guards` once and lists only 11 of them passes the count invariant trivially while being almost entirely unhelpful to a reader trying to navigate to a specific guard. The first 10 unlisted-by-path-or-id guards happen to span `check_action_request_expiry_refresh.py`, `check_action_result_status_domain.py`, `check_active_plan_sync.py`, `check_active_topology_liveness.py`, `check_agents_bundle_render.py`, `check_agents_contract.py`, `check_architecture_surface_sync.py`, `check_bootstrap.py`, `check_bridge_projection_only.py`, `check_bundle_registry_dry.py` — all production guards, none mentioned in the navigation doc. The 30 unlisted subcommands include high-impact ones like `mutation-score`, `release-notes`, `process-audit`, `process-watch`, `mcp`, `doc-authority`, `governance-export`. A reader scanning SYSTEM_MAP for "what does `devctl mutation-score` do?" gets nothing back.
+
+The xfail-strict marker is the ratchet's load-bearing part: when `system_map_steward` (A38.3) eventually walks the doc and adds rows for every guard and subcommand, these tests will xpass and force a strict fail — forcing the operator to acknowledge the doc is now row-complete (or remove the xfail). Until then, every new guard added to `dev/scripts/checks/` and every new top-level devctl subcommand auto-grows the unlisted-count without anyone having to remember to update the doc. The discipline is now self-driving for two more dimensions (path coverage + command coverage) alongside the four count dimensions S1.A/S1.B locked in.
+
+**Drift found out of scope (noted, NOT fixed in this slice):** The actual *fixing* of the unlisted-guard / unlisted-subcommand problem is a separate substrate (A38.3 `system_map_steward` role with per-slice connectivity audits, per `delete_after_ingest.md:5843-5846`). This slice intentionally only lands the ratchet, RED. The matching strategy is also intentionally generous: a guard is "listed" if either its full path appears anywhere in the doc OR its `check_foo_bar` stem appears anywhere. The 11 guards that DO match today are mostly ones referenced inline in other invariant blocks (`check_orphan_files.py`, `check_function_duplication.py`, `check_contract_connectivity.py`, `check_contract_consumer_coverage_sweep.py`, `check_python_typed_seams.py`, `check_active_plan_sync.py`, etc.) — not because SYSTEM_MAP intentionally rows them, but because they appear elsewhere in the doc body. A future tightening could require explicit dedicated rows; today's looser rule keeps the ratchet honest without manufacturing false RED on already-rowed guards.
+
+---
+
 *Documented by the documentation-agent role on 2026-05-23 against branch
 `extraction/guardir-core-p0-proof-integrity` HEAD `d35d08ec`. Cases 8-11
 appended in-session on 2026-05-23T22:30Z against HEAD `61e65e93` as the
@@ -1071,11 +1152,14 @@ correction to the agent's design category (Case 11). Case 12 appended
 2026-05-23 by A38.4 S1.B batch-agent — the xfail-strict markers from
 Case 8 flipped to hard-asserts after a real-measurement doc fix; the
 probe-count gap (test glob=39 vs find-recursive=76) was itself a
-sub-finding of the slice. Per operator direction 2026-05-23T22:15Z,
-going forward every TDD-caught problem lands in this doc immediately,
-not retroactively. Style guide: worked-example format with real code
-snippets read from the working tree at write time, real assertion error
-text, real pytest output, real diffs, real commit SHAs reachable via
-`git show <sha>`. Reference repo:
+sub-finding of the slice. Case 13 appended 2026-05-23 by A38.4 S1.C
+batch-2 agent — two new xfail-strict path-coverage ratchets surfaced
+147 unlisted guards and 30 unlisted devctl subcommands, mechanizing the
+maintenance rule for A38.3 `system_map_steward`. Per operator direction
+2026-05-23T22:15Z, going forward every TDD-caught problem lands in this
+doc immediately, not retroactively. Style guide: worked-example format
+with real code snippets read from the working tree at write time, real
+assertion error text, real pytest output, real diffs, real commit SHAs
+reachable via `git show <sha>`. Reference repo:
 https://github.com/jguida941/semantic-tdd/tree/main (docs/04-worked-
 example.md is the canonical style template for this file).*

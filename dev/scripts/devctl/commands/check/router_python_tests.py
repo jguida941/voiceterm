@@ -303,7 +303,48 @@ _DEVCTL_TEST_TARGETS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ),
     (
         "dev/scripts/devctl/runtime/receipt_steward_role.py",
-        ("dev/scripts/devctl/tests/scenarios/test_receipt_steward_substrate.py",),
+        (
+            "dev/scripts/devctl/tests/scenarios/test_receipt_steward_substrate.py",
+            "dev/scripts/devctl/tests/scenarios/test_receipt_steward_audit_cli.py",
+        ),
+    ),
+    (
+        "dev/scripts/devctl/runtime/receipt_steward_scope_claim.py",
+        (
+            "dev/scripts/devctl/tests/scenarios/test_receipt_steward_audit_cli.py",
+        ),
+    ),
+    (
+        "dev/scripts/devctl/runtime/receipt_steward_audit.py",
+        (
+            "dev/scripts/devctl/tests/scenarios/test_receipt_steward_audit_cli.py",
+        ),
+    ),
+    (
+        "dev/scripts/devctl/commands/receipt_steward/",
+        (
+            "dev/scripts/devctl/tests/scenarios/test_receipt_steward_audit_cli.py",
+        ),
+    ),
+    (
+        "dev/scripts/devctl/cli_parser/receipt_steward.py",
+        (
+            "dev/scripts/devctl/tests/scenarios/test_receipt_steward_audit_cli.py",
+        ),
+    ),
+    (
+        "dev/scripts/devctl/tests/scenarios/test_receipt_steward_audit_cli.py",
+        (
+            "dev/scripts/devctl/tests/scenarios/test_receipt_steward_audit_cli.py",
+        ),
+    ),
+    (
+        "dev/scripts/devctl/tests/scenarios/test_system_map_steward_substrate.py",
+        ("dev/scripts/devctl/tests/scenarios/test_system_map_steward_substrate.py",),
+    ),
+    (
+        "dev/scripts/devctl/runtime/system_map_steward_role.py",
+        ("dev/scripts/devctl/tests/scenarios/test_system_map_steward_substrate.py",),
     ),
     (
         "dev/scripts/devctl/tests/scenarios/test_semantic_tdd_cadence_substrate.py",

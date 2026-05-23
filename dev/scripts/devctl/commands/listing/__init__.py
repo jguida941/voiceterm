@@ -22,6 +22,7 @@ COMMANDS = [
     "publication-sync",
     "push",
     "raw-git",
+    "receipt-steward",
     "review-channel",
     "role",
     "sync",
