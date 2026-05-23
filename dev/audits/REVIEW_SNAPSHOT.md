@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `extraction/guardir-core-p0-proof-integrity`
-- HEAD: `65ad7a4eedaf` — A37 Slice C.3: REVIEW-CHANNEL-TYPED — 3 files retire 8 topology literal branches
-- Tree hash: `9b93e838f1a4`
-- Generation stamp: `snap-028f2ee49741`
-- Generated at (UTC): 2026-05-23T20:21:15Z
+- HEAD: `6490c8c4f758` — A37 Slice C.4 (expand): retire single_agent / dual_agent topology literals across 6 parallel carriers + 1 runtime producer
+- Tree hash: `fdd19f1acb35`
+- Generation stamp: `snap-f360061b77f4`
+- Generated at (UTC): 2026-05-23T22:22:41Z
 - Push decision: `run_devctl_push` — push_preconditions_satisfied
 - Reviewer mode: `tools_only` (interaction: `local_terminal`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 429 files, +82612/-3416
+- Delta since last snapshot: 24 commits, 444 files, +84419/-3236
 - Governance findings: 27 open / 0 fixed / 27 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -28,9 +28,9 @@ production client (VoiceTerm...
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `extraction/guardir-core-p0-proof-integrity`
-- HEAD SHA: `65ad7a4eedaf9b7a50be1194e404c6902711ccfd`
+- HEAD SHA: `6490c8c4f75889378a10daeefea3af36b70056c2`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-05-23T16:20:18-04:00
+- HEAD timestamp (UTC): 2026-05-23T18:21:42-04:00
 
 ## 2. Governance state
 
@@ -44,7 +44,7 @@ production client (VoiceTerm...
 - next_step_command: `python3 dev/scripts/devctl.py push --execute`
 - latest_push_report_state: `blocked` (validation_failed)
 - publication_backlog: urgent
-- publication_guidance: 11 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
+- publication_guidance: 17 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
 
 ### Reviewer runtime
 - reviewer_mode: `tools_only`
@@ -64,12 +64,12 @@ production client (VoiceTerm...
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `65ad7a4eedaf`
+Range: last 24 commits ending at `6490c8c4f758`
 
 - commits: 24
-- files changed: 429
-- insertions: +82612
-- deletions: -3416
+- files changed: 444
+- insertions: +84419
+- deletions: -3236
 - bundle classes touched: tooling, docs
 - risk add-ons triggered: Dependency / security
 - authority surfaces touched: 8 file(s)
@@ -78,30 +78,30 @@ Range: last 24 commits ending at `65ad7a4eedaf`
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `65ad7a4e` | A37 Slice C.3: REVIEW-CHANNEL-TYPED — 3 files retire 8 topo… | 5 | +66/-12 | tooling |  |
-| 2 | `4389bef4` | Refresh external review snapshot for 889d03ec | 1 | +44/-41 | tooling |  |
-| 3 | `889d03ec` | A37 Slice C.0: TOPO-HUNT-BASELINE topology-literal ratchet | 2 | +132/-0 | tooling |  |
-| 4 | `3ce6a487` | Refresh external review snapshot for 05eace21 | 1 | +51/-50 | tooling |  |
-| 5 | `05eace21` | A37 Phase 0.5: ship devctl role CLI surface (MP377-TYPED-RO… | 12 | +564/-5 | tooling |  |
-| 6 | `312b3e45` | Refresh external review snapshot for 7afc813d | 1 | +57/-49 | tooling |  |
-| 7 | `7afc813d` | A37 Phase 0 + Pre-0 + Phase 0.x: SemanticTDDRoleSpec + inge… | 9 | +131/-1 | tooling |  |
-| 8 | `960135c9` | A37 Phase 0 + Pre-0: SemanticTDDRoleSpec consolidation + in… | 9 | +993/-8 | tooling |  |
-| 9 | `eabfd370` | Refresh external review snapshot for 58bee30c | 1 | +120/-98 | tooling |  |
-| 10 | `58bee30c` | Multi-session checkpoint: peer-spawn id-resolution + bounde… | 344 | +58347/-1882 | tooling | Dependency / security |
-| 11 | `9b321ff7` | CLAUDE-REV-002 G1+G8: pre_mutation gate + pre-commit hook c… | 11 | +2094/-7 | tooling |  |
-| 12 | `7a7afa85` | Refresh external review snapshot for 90451b8a | 1 | +19/-19 | tooling |  |
-| 13 | `90451b8a` | Snapshot remaining GuardIR governance repair state | 88 | +17323/-697 | tooling |  |
-| 14 | `d1387379` | Repair current plan packet scheduler | 17 | +1287/-76 | tooling |  |
-| 15 | `fda73137` | Refresh external review snapshot for 41ad2430 | 1 | +49/-47 | tooling |  |
-| 16 | `41ad2430` | Land GuardIR v4 canonical plan markdown | 2 | +716/-0 | tooling |  |
-| 17 | `62dd7efb` | Refresh external review snapshot for 3a698ba6 | 1 | +55/-49 | tooling |  |
-| 18 | `3a698ba6` | Add packet contract schema fixtures | 7 | +166/-54 | tooling |  |
-| 19 | `a55f1fbe` | Refresh external review snapshot for 52d8835c | 1 | +52/-53 | tooling |  |
-| 20 | `52d8835c` | Bind system map closure plan row | 5 | +53/-50 | tooling |  |
-| 21 | `37e29c9a` | Refresh external review snapshot for d06542d2 | 1 | +53/-54 | tooling |  |
-| 22 | `d06542d2` | Bind proof resolver closure row | 6 | +55/-52 | tooling |  |
-| 23 | `88cd53ad` | Refresh external review snapshot for 877ec1c5 | 1 | +52/-50 | tooling |  |
-| 24 | `877ec1c5` | Resolve unittest proof test nodes | 4 | +133/-62 | tooling |  |
+| 1 | `6490c8c4` | A37 Slice C.4 (expand): retire single_agent / dual_agent to… | 18 | +129/-79 | tooling |  |
+| 2 | `21821ed2` | evidence.md cases 8-11 + SYSTEM_MAP.md renderer auto-update | 2 | +316/-5 | docs |  |
+| 3 | `61e65e93` | A38 amendment + A38.4 TDD-the-SYSTEM_MAP invariants | 2 | +567/-0 | docs |  |
+| 4 | `452cfee5` | add evidence.md + semantic-TDD evidence-log forcing function | 3 | +1026/-0 | tooling |  |
+| 5 | `0fa30a90` | A37 Slice C.4 (narrow): CONTROL-TOPOLOGY-CUTOVER — `single_… | 4 | +122/-15 | tooling |  |
+| 6 | `d35d08ec` | Refresh external review snapshot for 65ad7a4e | 1 | +45/-42 | tooling |  |
+| 7 | `65ad7a4e` | A37 Slice C.3: REVIEW-CHANNEL-TYPED — 3 files retire 8 topo… | 5 | +66/-12 | tooling |  |
+| 8 | `4389bef4` | Refresh external review snapshot for 889d03ec | 1 | +44/-41 | tooling |  |
+| 9 | `889d03ec` | A37 Slice C.0: TOPO-HUNT-BASELINE topology-literal ratchet | 2 | +132/-0 | tooling |  |
+| 10 | `3ce6a487` | Refresh external review snapshot for 05eace21 | 1 | +51/-50 | tooling |  |
+| 11 | `05eace21` | A37 Phase 0.5: ship devctl role CLI surface (MP377-TYPED-RO… | 12 | +564/-5 | tooling |  |
+| 12 | `312b3e45` | Refresh external review snapshot for 7afc813d | 1 | +57/-49 | tooling |  |
+| 13 | `7afc813d` | A37 Phase 0 + Pre-0 + Phase 0.x: SemanticTDDRoleSpec + inge… | 9 | +131/-1 | tooling |  |
+| 14 | `960135c9` | A37 Phase 0 + Pre-0: SemanticTDDRoleSpec consolidation + in… | 9 | +993/-8 | tooling |  |
+| 15 | `eabfd370` | Refresh external review snapshot for 58bee30c | 1 | +120/-98 | tooling |  |
+| 16 | `58bee30c` | Multi-session checkpoint: peer-spawn id-resolution + bounde… | 344 | +58347/-1882 | tooling | Dependency / security |
+| 17 | `9b321ff7` | CLAUDE-REV-002 G1+G8: pre_mutation gate + pre-commit hook c… | 11 | +2094/-7 | tooling |  |
+| 18 | `7a7afa85` | Refresh external review snapshot for 90451b8a | 1 | +19/-19 | tooling |  |
+| 19 | `90451b8a` | Snapshot remaining GuardIR governance repair state | 88 | +17323/-697 | tooling |  |
+| 20 | `d1387379` | Repair current plan packet scheduler | 17 | +1287/-76 | tooling |  |
+| 21 | `fda73137` | Refresh external review snapshot for 41ad2430 | 1 | +49/-47 | tooling |  |
+| 22 | `41ad2430` | Land GuardIR v4 canonical plan markdown | 2 | +716/-0 | tooling |  |
+| 23 | `62dd7efb` | Refresh external review snapshot for 3a698ba6 | 1 | +55/-49 | tooling |  |
+| 24 | `3a698ba6` | Add packet contract schema fixtures | 7 | +166/-54 | tooling |  |
 
 ### Files
 
@@ -112,7 +112,7 @@ Range: last 24 commits ending at `65ad7a4eedaf`
 | `.github/workflows/tooling_control_plane.yml` | tooling | +45/-0 |
 | `AGENTS.md` | docs | +6/-0 |
 | `System_Connection_Flowchart.md` | docs | +49/-5 |
-| `delete_after_ingest.md` | docs | +5509/-0 |
+| `delete_after_ingest.md` | docs | +5860/-0 |
 | `dev/active/INDEX.md` | tooling | +22/-6 |
 | `dev/active/MASTER_PLAN.md` | tooling | +204/-24 |
 | `dev/active/ai_governance_platform.md` | tooling | +87/-49 |
@@ -120,7 +120,7 @@ Range: last 24 commits ending at `65ad7a4eedaf`
 | `dev/active/live_state_semantic_tdd_plan.md` | tooling | +1149/-0 |
 | `dev/active/platform_authority_loop.md` | tooling | +12/-12 |
 | `dev/active/semantic_tdd_lane.md` | tooling | +309/-5 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +857/-796 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +597/-529 |
 | `dev/audits/plan_intake/2026-05-20-guardir-lifecycle-recovery-ci-proof-bridge-v4.md` | tooling | +5496/-355 |
 | `dev/audits/plan_intake/sha256-manifest.txt` | tooling | +2/-1 |
 | `dev/config/git_hooks/pre-commit-review-snapshot.sh` | tooling | +89/-7 |
@@ -128,10 +128,10 @@ Range: last 24 commits ending at `65ad7a4eedaf`
 | `dev/guides/AI_GOVERNANCE_PLATFORM.md` | docs | +3/-2 |
 | `dev/guides/DEVELOPMENT.md` | docs | +56/-20 |
 | `dev/guides/PLATFORM_GUIDE.md` | docs | +872/-12 |
-| `dev/guides/SYSTEM_MAP.md` | docs | +55/-52 |
+| `dev/guides/SYSTEM_MAP.md` | docs | +56/-53 |
 | `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +63/-1 |
 | `dev/reports/feature_proof_receipts/7a7afa8520c0d7ca751be3eb889e36b02ea6ebf2.json` | tooling | +48/-0 |
-| `dev/scripts/README.md` | tooling | +21/-0 |
+| `dev/scripts/README.md` | tooling | +22/-0 |
 | `dev/scripts/checks/_git_status_helpers.py` | tooling | +44/-0 |
 | `dev/scripts/checks/_receipt_store_scope.py` | tooling | +44/-0 |
 | `dev/scripts/checks/check_action_request_expiry_refresh.py` | tooling | +680/-0 |
@@ -147,7 +147,7 @@ Range: last 24 commits ending at `65ad7a4eedaf`
 | `dev/scripts/checks/check_feature_completion.py` | tooling | +121/-0 |
 | `dev/scripts/checks/check_loose_chat_to_typed_lane.py` | tooling | +492/-0 |
 | `dev/scripts/checks/check_multi_actor_merge_conflict.py` | tooling | +506/-0 |
-| _389 more files trimmed_ | | |
+| _404 more files trimmed_ | | |
 
 ## 4. Quality signals
 
@@ -205,6 +205,9 @@ Recent findings:
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/commands/vcs/governed_executor_commit_targets.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/runtime/reviewer_runtime_models.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/tests/vcs/test_governed_executor.py`) — Review contract-level invariants for this file
+- **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/platform/coordination_snapshot_models.py`) — Commit 6490c8c4 changed dev/scripts/devctl/platform/coordination_snapshot_models.py
+- **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/platform/planning_ir_models.py`) — Commit 6490c8c4 changed dev/scripts/devctl/platform/planning_ir_models.py
+- **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/runtime/work_intake_models.py`) — Commit 6490c8c4 changed dev/scripts/devctl/runtime/work_intake_models.py
 - **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/runtime/project_governance_contract.py`) — Commit 7afc813d changed dev/scripts/devctl/runtime/project_governance_contract.py
 - **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/commands/development/collaboration_models.py`) — Commit 58bee30c changed dev/scripts/devctl/commands/development/collaboration_models.py
 - **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/platform/adapter_contract_rows.py`) — Commit 58bee30c changed dev/scripts/devctl/platform/adapter_contract_rows.py
@@ -232,6 +235,27 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`6490c8c4`** — A37 Slice C.4 (expand): retire single_agent / dual_agent topology literals across 6 parallel carriers + 1 runtime producer
+  - Expands the narrow C.4 cutover (which retired `single_agent` only from
+  - `ObservedControlTopology` in control_topology.py at commit 0fa30a90) to
+  - the PARALLEL topology carriers that independently carried the same
+- **`21821ed2`** — evidence.md cases 8-11 + SYSTEM_MAP.md renderer auto-update
+  - evidence.md — appends 4 worked-example cases for TDD wins caught after
+  - the initial doc-agent sweep. Style matches docs/04-worked-example.md
+  - from https://github.com/jguida941/semantic-tdd/tree/main (real code
+- **`61e65e93`** — A38 amendment + A38.4 TDD-the-SYSTEM_MAP invariants
+  - delete_after_ingest.md — adds A38 amendment with FOUR composable typed
+  - substrates surfaced by 3 parallel design agents + operator correction +
+  - operator joke-with-serious-intent:
+- **`452cfee5`** — add evidence.md + semantic-TDD evidence-log forcing function
+  - evidence.md (3371 words) — documents seven concrete cases from today's
+  - session where semantic-TDD discipline caught architectural problems
+  - that would have shipped otherwise. Each case follows the canonical
+- **`0fa30a90`** — A37 Slice C.4 (narrow): CONTROL-TOPOLOGY-CUTOVER — `single_agent` retired from ObservedControlTopology
+  - Removes `"single_agent"` from the `ObservedControlTopology` Literal union
+  - in `dev/scripts/devctl/runtime/control_topology.py`. The conflation —
+  - topology (role-occupancy facts) vs authority mode (which ReviewerMode is
+- **`d35d08ec`** — Refresh external review snapshot for 65ad7a4e
 - **`65ad7a4e`** — A37 Slice C.3: REVIEW-CHANNEL-TYPED — 3 files retire 8 topology literal branches
   - Migrates raw `"active_dual_agent"` string comparisons to the typed
   - predicate `reviewer_mode_is_active()` (defined in enum-owner
@@ -272,12 +296,6 @@ Recent findings:
 - **`41ad2430`** — Land GuardIR v4 canonical plan markdown
 - **`62dd7efb`** — Refresh external review snapshot for 3a698ba6
 - **`3a698ba6`** — Add packet contract schema fixtures
-- **`a55f1fbe`** — Refresh external review snapshot for 52d8835c
-- **`52d8835c`** — Bind system map closure plan row
-- **`37e29c9a`** — Refresh external review snapshot for d06542d2
-- **`d06542d2`** — Bind proof resolver closure row
-- **`88cd53ad`** — Refresh external review snapshot for 877ec1c5
-- **`877ec1c5`** — Resolve unittest proof test nodes
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -321,4 +339,4 @@ repo_path=/Users/jguida941/testing_upgrade/codex-voice
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-028f2ee49741` binds this file to HEAD `65ad7a4eedaf`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-f360061b77f4` binds this file to HEAD `6490c8c4f758`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
