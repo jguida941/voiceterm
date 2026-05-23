@@ -257,6 +257,17 @@ from what the test asserts (not from a transient guard number).
 
 **Migration scope**: session-introduced callsite (`peer_spawn.py:347`) migrated this slice. Pre-existing callsites elsewhere (bypass_lifecycle_registry, tests, etc.) remain hardcoded — deferred to a separate slice per the bounded-scope principle. Visible debt tracked via `grep -rn 'REPO_ROOT.*"dev".*"state"'` for future ratcheting.
 
+### Slice C.0 — TOPO-HUNT-BASELINE (topology-literal ratchet)
+
+| ID | What it asserts | Test file | Status |
+|---|---|---|---|
+| C.0.2A | Production runtime / review_channel file count carrying raw topology literals (`"single_agent"` / `"dual_agent"` / `"active_dual_agent"`) must not exceed the baseline captured 2026-05-23 = **44 files**. Drift catcher: any new callsite introducing a literal comparison fails this test. Subsequent slices C.1–C.4 retire literals; the baseline ratchets DOWN. | `test_live_state_invariants.py::test_topology_literal_file_count_must_not_grow_above_baseline` | GREEN (44 ≤ 44 baseline) |
+| C.0.2B | Zero raw topology literals in production runtime / review_channel modules outside enum-owner files (`reviewer_mode.py`, `operator_context.py`). Stays RED as visible debt until Slice C closure migrates every callsite to typed `coord["authority_mode"]` reads. | `test_live_state_invariants.py::test_topology_literal_count_must_be_zero_in_production_outside_enum_owners` | XFAIL(strict) — visible ratchet |
+
+**Baseline inventory (2026-05-23)**: 44 production files contain at least one of the three typed-overloaded topology literals (`"single_agent"` × 15 files, `"dual_agent"` × 7 files, `"active_dual_agent"` × 15 files, plus some overlap). Enum-owner files exempt: `dev/scripts/devctl/runtime/reviewer_mode.py`, `dev/scripts/devctl/runtime/operator_context.py`. AST-precision hunt is intentionally deferred — text scan covers string-literal authority comparisons which is the actual smell; subsequent slices can tighten.
+
+**Slice ordering**: C.0 establishes baseline (this slice, GREEN). C.1 retires `reviewer_gate_logic.py:27,52,57`. C.2 retires `authority_snapshot_projection.py:67,150` + `push_authorization.py:281` function rename. C.3 retires the 6 collaboration_session_status sites + follow_controller + collaboration_registry. C.4 cuts over `ObservedControlTopology.Literal` (removes `"single_agent"` from the typed literal union). C.5 multi-agent role-flip dogfood. C.6 two-live-agent dispatch dogfood. The baseline-44 ratchet must DROP at every C.1–C.4 closure.
+
 ### Portability note (governance-pack adopter-safety)
 
 All path defaults follow the existing portable pattern documented in `peer_spawn.py:340-348` and `bypass_lifecycle_registry.py:_load_bypass_jsonl`: **env-var override + REPO_ROOT-relative default + filename as governance-pack convention**. No VoiceTerm literal is hardcoded into runtime decision paths.

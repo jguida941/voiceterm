@@ -2713,3 +2713,124 @@ def test_project_governance_path_roots_exposes_state_field_for_adopter_portabili
         "this override path via devctl_repo_policy.json."
     )
 
+
+# ---------------------------------------------------------------------------
+# Invariant Slice C.0 — TOPO-HUNT-BASELINE (topology literal ratchet)
+# ---------------------------------------------------------------------------
+#
+# Per the canonical streamed-sprouting-pizza.md Slice C plan + rev_pkt_3495
+# axes-first proposal: the labels `single_agent`, `dual_agent`, and
+# `active_dual_agent` are overloaded across five orthogonal axes (review
+# policy, role assignment, live occupancy, operator access posture,
+# capability). They MUST NOT branch authority decisions in production
+# runtime modules outside the typed-enum owners (`reviewer_mode.py`,
+# `operator_context.py`).
+#
+# Slice C.0 establishes the baseline violation count across production
+# paths. Subsequent slices C.1..C.4 retire the literals; each ratchets
+# the baseline DOWN. The 2a invariant fails closed on any NEW violation
+# above the baseline (drift catcher); the 2b xfail-strict target stays
+# RED until every production callsite is migrated.
+
+_TOPOLOGY_LITERAL_LABELS = (
+    "active_dual_agent",
+    "single_agent",
+    "dual_agent",
+)
+
+# Files where the literals are SEMANTICALLY VALID (enum/Literal owners,
+# typed compatibility surfaces). The hunt scans the rest of production.
+_ENUM_OWNER_EXEMPTIONS = (
+    "dev/scripts/devctl/runtime/reviewer_mode.py",
+    "dev/scripts/devctl/runtime/operator_context.py",
+)
+
+# Slice C.0 baseline established 2026-05-23 after the consolidation +
+# Phase 0 + 0.5 work. This number ratchets DOWN as C.1..C.4 retire
+# literals; it must never go UP. Tightened to current = 44 so any new
+# production callsite that introduces a raw topology literal triggers
+# the regression catcher immediately.
+TOPOLOGY_LITERAL_BASELINE_FILE_COUNT = 44
+
+
+def _count_topology_literal_files() -> int:
+    """Count production files containing any of the three literals.
+
+    Returns the number of FILES (not occurrences) under
+    `dev/scripts/devctl/runtime/` or `dev/scripts/devctl/review_channel/`
+    that contain at least one of the typed-overloaded literal strings,
+    EXCLUDING enum-owner files where the literal is semantically valid.
+    """
+    scan_roots = (
+        REPO_ROOT / "dev" / "scripts" / "devctl" / "runtime",
+        REPO_ROOT / "dev" / "scripts" / "devctl" / "review_channel",
+    )
+    matching: set[str] = set()
+    for root in scan_roots:
+        if not root.is_dir():
+            continue
+        for path in root.rglob("*.py"):
+            rel = str(path.relative_to(REPO_ROOT))
+            if rel in _ENUM_OWNER_EXEMPTIONS:
+                continue
+            if "/__pycache__/" in rel or rel.endswith("__init__.py"):
+                continue
+            try:
+                content = path.read_text(encoding="utf-8")
+            except (OSError, UnicodeDecodeError):
+                continue
+            for label in _TOPOLOGY_LITERAL_LABELS:
+                # match quoted literal (preferred) — the hunt is about
+                # string-literal authority comparisons, not arbitrary
+                # token mentions in comments.
+                if f'"{label}"' in content or f"'{label}'" in content:
+                    matching.add(rel)
+                    break
+    return len(matching)
+
+
+def test_topology_literal_file_count_must_not_grow_above_baseline():
+    """Slice C.0 2a — current-safety quarantine, GREEN today.
+
+    The number of production runtime / review_channel files containing
+    the typed-overloaded topology literals must not exceed the baseline
+    captured 2026-05-23. Subsequent Slice C.1..C.4 retirements ratchet
+    this baseline DOWN; this invariant catches regressions where a new
+    callsite introduces a literal comparison instead of consulting the
+    typed projection.
+    """
+    actual = _count_topology_literal_files()
+    assert actual <= TOPOLOGY_LITERAL_BASELINE_FILE_COUNT, (
+        "INVARIANT VIOLATED: topology_literal_file_count_must_not_grow_above_baseline\n"
+        f"  baseline (2026-05-23): {TOPOLOGY_LITERAL_BASELINE_FILE_COUNT} files\n"
+        f"  current:               {actual} files\n"
+        f"  delta:                 +{actual - TOPOLOGY_LITERAL_BASELINE_FILE_COUNT}\n"
+        "  A new production callsite introduced a raw topology literal\n"
+        "  comparison. Replace with a typed projection read (e.g.\n"
+        "  coord[\"authority_mode\"]) or move the value into an enum owner\n"
+        "  (reviewer_mode.py / operator_context.py). Slice C.1..C.4 are\n"
+        "  the retirement slices; do not add new violations on top."
+    )
+
+
+@pytest.mark.xfail(strict=True, reason="Slice C target: zero raw topology literals in production runtime / review_channel modules outside enum owners; ratchets down through C.1..C.4 retirement slices and lifts to GREEN only when Slice C closure lands")
+def test_topology_literal_count_must_be_zero_in_production_outside_enum_owners():
+    """Slice C.0 2b — target architecture, xfail-strict ratchet.
+
+    The end-state target: zero production files (outside enum owners
+    `reviewer_mode.py`, `operator_context.py`) carry the typed-overloaded
+    topology literals. Stays RED as visible debt until Slice C closure
+    completes the retirement. Lifts to GREEN only when the entire Slice
+    C sequence (C.1..C.4) has migrated every callsite to typed
+    projection reads.
+    """
+    actual = _count_topology_literal_files()
+    assert actual == 0, (
+        "INVARIANT VIOLATED: topology_literal_count_must_be_zero_in_production_outside_enum_owners\n"
+        f"  current: {actual} production files still carry raw topology literals\n"
+        "  Target: zero. The retirement plan is Slice C.1..C.4 in\n"
+        "  /Users/jguida941/.claude/plans/streamed-sprouting-pizza.md.\n"
+        "  9 named gate sites + ~12 control_topology.py occurrences + the\n"
+        "  remaining 30+ across review_channel/coordination paths."
+    )
+
