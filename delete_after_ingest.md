@@ -1024,6 +1024,46 @@ each slice with pytest node id; plan rows
 If Slice C.5.d (assign_role action) surfaces a Slice E gap, that becomes
 its own queued plan row, not a Slice C blocker.
 
+#### A37 Phase 0.x — PathRoots `state` field + typed adopter-portable path resolution
+
+Operator-asserted: env-var override (`DEVCTL_*_STORE_PATH`) is a TEST-only
+pattern for hermetic pytest scenarios — NOT the adopter-portability
+mechanism. Canonical portability surface is
+`ProjectGovernance.path_roots` (the `PathRoots` dataclass at
+`dev/scripts/devctl/runtime/project_governance_contract.py:57`).
+
+Today `PathRoots` declares `active_docs`, `reports`, `scripts`, `checks`,
+`workflows`, `guides`, `config` — but **NOT `state`**. Production
+callsites hardcode `REPO_ROOT / "dev" / "state" / "<file>.jsonl"`. Adopter
+repos that need a different state directory have no typed escape:
+the dataclass doesn't expose the root.
+
+Required (Phase 0.x scope — bounded migration):
+- Extend `PathRoots` dataclass with `state: str = "dev/state"`.
+- Extend `project_governance_parse.py` to deserialize the new field.
+- Migrate session-introduced callsite `peer_spawn.py:347` from
+  `REPO_ROOT / "dev" / "state" / "bypass_lifecycles.jsonl"` to
+  `Path(path_roots.state) / "bypass_lifecycles.jsonl"`.
+- RED test in `test_live_state_invariants.py` asserting
+  `ProjectGovernance().path_roots.state == "dev/state"` by default.
+- BEFORE/AFTER connectivity sweep including
+  `check_function_duplication` (no duplicate state-path fields) and
+  `check_orphan_files`.
+- Dogfood: live `devctl peer-spawn --bypass-receipt-id <id> --dry-run`
+  succeeds with the migrated path-resolution chain.
+
+Deferred to a later slice (out of Phase 0.x scope):
+- Pre-existing hardcoded `REPO_ROOT / "dev" / "state"` callsites in
+  `bypass_lifecycle_registry.py` and elsewhere — broader migration that
+  needs its own RED test + per-callsite review.
+- Adding repo-policy declarative override (`devctl_repo_policy.json`
+  state-root entry) — pure typed default suffices for the immediate
+  portability gap.
+
+Plan row binding: this section is ingested as a sibling of A37's main
+row, with `--plan-row-id A37-PHASE-0X-PATHROOTS-STATE-FIELD-S1` and
+`--target-ref plan:MP-GUARDIR-V4-PHASE-0-6-E-CURRENT-PLAN-AUTHORITY-S1`.
+
 ### Jump Index
 
 | ID | Section | Purpose | Current status | Next command | Proof required |

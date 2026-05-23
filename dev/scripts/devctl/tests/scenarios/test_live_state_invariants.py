@@ -2645,3 +2645,71 @@ def test_devctl_role_create_rejects_invalid_capability_class_with_typed_reason()
         f"  errors: {errors!r}"
     )
 
+
+# ---------------------------------------------------------------------------
+# Invariant Phase 0.x — PathRoots.state field (typed adopter-portable path)
+# ---------------------------------------------------------------------------
+#
+# Closes a real architectural gap: dev/scripts/devctl/runtime/
+# project_governance_contract.py:PathRoots declares typed roots for
+# active_docs, reports, scripts, checks, workflows, guides, config — but
+# NOT for state. Production callsites hardcode
+# REPO_ROOT / "dev" / "state" / "<file>.jsonl", which means an adopter
+# repo that wants a different state directory has no typed escape. The
+# env-var override pattern (DEVCTL_*_STORE_PATH) is for hermetic test
+# isolation, not adopter portability. The canonical portability surface
+# is ProjectGovernance.path_roots — and it must expose state.
+#
+# RED today (state field not yet added); GREEN once PathRoots is
+# extended.
+
+
+def test_project_governance_path_roots_exposes_state_field_for_adopter_portability():
+    """Phase 0.x — typed state-root field on PathRoots.
+
+    ProjectGovernance.path_roots is the canonical typed surface for
+    repo-relative path resolution (per AGENTS.md/CLAUDE.md: "Resolve
+    repo behavior through ProjectGovernance, repo-pack policy, and
+    typed runtime contracts"). It must expose `state` as a typed root
+    so adopter repos can override `dev/state` via typed config without
+    relying on env-var overrides intended for tests.
+    """
+    from dev.scripts.devctl.runtime.project_governance_contract import PathRoots
+    from dev.scripts.devctl.runtime.project_governance_parse import (
+        path_roots_from_mapping,
+    )
+
+    default_roots = PathRoots()
+
+    assert hasattr(default_roots, "state"), (
+        "INVARIANT VIOLATED: project_governance_path_roots_exposes_state_field_for_adopter_portability\n"
+        "  PathRoots dataclass is missing a `state` field.\n"
+        "  Today production code hardcodes `REPO_ROOT / 'dev' / 'state' / '<file>.jsonl'`\n"
+        "  (e.g., peer_spawn.py:347). Adopter repos cannot override the state\n"
+        "  directory without env-var overrides intended for tests.\n"
+        f"  current PathRoots fields: {[f for f in dir(default_roots) if not f.startswith('_')]}\n"
+        "  Fix: add `state: str = \"dev/state\"` to PathRoots in\n"
+        "  dev/scripts/devctl/runtime/project_governance_contract.py."
+    )
+
+    assert default_roots.state == "dev/state", (
+        f"INVARIANT VIOLATED: PathRoots().state default must be 'dev/state'; "
+        f"got {default_roots.state!r}. The default preserves the existing repo\n"
+        "  convention; adopter repos override via typed devctl_repo_policy.json."
+    )
+
+    # Round-trip through the parser: a typed payload that omits `state`
+    # should still produce a PathRoots whose `state` is the typed default.
+    # An explicit override in the payload should be honored.
+    parsed_default = path_roots_from_mapping({})
+    assert parsed_default.state == "dev/state", (
+        f"INVARIANT VIOLATED: path_roots_from_mapping({{}}) must fall back to "
+        f"'dev/state' for the state field; got {parsed_default.state!r}."
+    )
+    parsed_override = path_roots_from_mapping({"state": "custom/state/root"})
+    assert parsed_override.state == "custom/state/root", (
+        f"INVARIANT VIOLATED: path_roots_from_mapping must honor explicit "
+        f"state override; got {parsed_override.state!r}. Adopter repos need "
+        "this override path via devctl_repo_policy.json."
+    )
+

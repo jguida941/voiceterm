@@ -238,6 +238,16 @@ from what the test asserts (not from a transient guard number).
 | PHASE-0.5.SEED | `devctl role create --as-system --dry-run` targets `system_roles.seed.jsonl` (via env var `DEVCTL_SYSTEM_ROLES_STORE_PATH` or REPO_ROOT default); without `--as-system` targets `custom_roles.jsonl` (via `DEVCTL_CUSTOM_ROLES_STORE_PATH` or REPO_ROOT default). Pattern matches the existing portable bypass-lifecycle store-path resolution. | `test_live_state_invariants.py::test_devctl_role_create_as_system_targets_seed_file` | RED — queued |
 | PHASE-0.5.REJECT | `devctl role create --dry-run` with an unknown `base_workstream_id` (or other unresolved typed reference) rejects with a typed reason naming the missing capability — does NOT write the row, does NOT emit a proof receipt. | `test_live_state_invariants.py::test_devctl_role_create_rejects_invalid_capability_class_with_typed_reason` | RED — queued |
 
+### Phase 0.x — PathRoots `state` field (typed adopter-portable path)
+
+| ID | What it asserts | Test file | Status |
+|---|---|---|---|
+| PHASE-0.X.STATE-FIELD | `PathRoots` dataclass exposes `state: str = "dev/state"` so adopter repos can override the state-root via typed `devctl_repo_policy.json`. `path_roots_from_mapping({})` falls back to the typed default; `path_roots_from_mapping({"state": "..."})` honors explicit override. | `test_live_state_invariants.py::test_project_governance_path_roots_exposes_state_field_for_adopter_portability` | GREEN |
+
+**Real-life proof (Phase 0.x)**: live `devctl peer-spawn --bypass-receipt-id bypass:grant-20260523T192904638788 --dry-run` resolved through the migrated `peer_spawn.py:347` (which now uses `REPO_ROOT / PathRoots().state / "bypass_lifecycles.jsonl"`) and returned `ok=True, status=dry_run_no_launch_callable, bypass_receipt_id=<echoed>`. The typed-path-resolution chain works end-to-end; the env-var override (`DEVCTL_BYPASS_LIFECYCLE_STORE_PATH`) is preserved for hermetic test isolation only.
+
+**Migration scope**: session-introduced callsite (`peer_spawn.py:347`) migrated this slice. Pre-existing callsites elsewhere (bypass_lifecycle_registry, tests, etc.) remain hardcoded — deferred to a separate slice per the bounded-scope principle. Visible debt tracked via `grep -rn 'REPO_ROOT.*"dev".*"state"'` for future ratcheting.
+
 ### Portability note (governance-pack adopter-safety)
 
 All path defaults follow the existing portable pattern documented in `peer_spawn.py:340-348` and `bypass_lifecycle_registry.py:_load_bypass_jsonl`: **env-var override + REPO_ROOT-relative default + filename as governance-pack convention**. No VoiceTerm literal is hardcoded into runtime decision paths.

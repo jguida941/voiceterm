@@ -71,6 +71,7 @@ def repo_pack_ref_from_mapping(
 def path_roots_from_mapping(
     payload: Mapping[str, object],
 ) -> PathRoots:
+    raw_state = coerce_string(payload.get("state"))
     return PathRoots(
         active_docs=coerce_string(payload.get("active_docs")),
         reports=coerce_string(payload.get("reports")),
@@ -79,6 +80,7 @@ def path_roots_from_mapping(
         workflows=coerce_string(payload.get("workflows")),
         guides=coerce_string(payload.get("guides")),
         config=coerce_string(payload.get("config")),
+        state=raw_state or "dev/state",
     )
 
 

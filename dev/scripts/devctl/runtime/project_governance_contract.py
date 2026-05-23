@@ -64,6 +64,7 @@ class PathRoots:
     workflows: str = ".github/workflows"
     guides: str = "dev/guides"
     config: str = "dev/config"
+    state: str = "dev/state"
 
 
 @dataclass(frozen=True, slots=True)

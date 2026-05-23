@@ -338,13 +338,19 @@ def _load_bypass_receipt(args: Any) -> BypassReceipt | None:
         except (OSError, json.JSONDecodeError):
             return None
     elif raw_id:
+        # Adopter-portable path resolution: typed PathRoots().state default
+        # via ProjectGovernance.path_roots is the canonical surface (per
+        # SYSTEM_MAP.md line 1539); the env-var override is reserved for
+        # hermetic test isolation. Adopter repos override the state root
+        # via devctl_repo_policy.json -> path_roots.state.
+        from ...runtime.project_governance_contract import PathRoots
         store_override = os.environ.get(
             "DEVCTL_BYPASS_LIFECYCLE_STORE_PATH", ""
         ).strip()
         store_path = (
             Path(store_override)
             if store_override
-            else REPO_ROOT / "dev" / "state" / "bypass_lifecycles.jsonl"
+            else REPO_ROOT / PathRoots().state / "bypass_lifecycles.jsonl"
         )
         lifecycle = active_bypass_lifecycle_for_receipt_id(
             raw_id,
