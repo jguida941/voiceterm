@@ -6,6 +6,10 @@ default-run = "voiceterm"
 autobins = false
 description = "Voice-first terminal overlay for Codex and Claude"
 license-file = "LICENSE"
+# Proprietary evaluation license: distributed as binaries / Homebrew / PyPI,
+# never published to crates.io. Also lets cargo-deny's license gate treat the
+# crate as private instead of "unlicensed" (custom license has no SPDX id).
+publish = false
 repository = "https://github.com/jguida941/voiceterm"
 rust-version = "1.88.0"
 keywords = ["voice", "terminal", "whisper", "cli"]
