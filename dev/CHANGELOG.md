@@ -7,6 +7,62 @@ Note: Some historical entries reference internal documents that are not publishe
 
 ## [Unreleased]
 
+## [1.2.3] - 2026-07-10
+
+### Fixed (field bugs — Cursor / JetBrains IDE terminals)
+
+- **Claude HUD box flicker in Cursor (typing + streaming)** — root cause:
+  recent Cursor builds stopped exporting `CURSOR_*` env hints
+  (`TERM_PROGRAM` is plain `vscode`), so `detect_terminal_host()`
+  classifies Cursor as `Other` and Claude sessions hit the legacy
+  Other-host per-scroll-chunk HUD pre-clear (blank band now, idle-gated
+  repaint later = visible disappear/reappear). Other hosts now pre-clear
+  only on genuine transitions (overlay panels / pending status clears),
+  mirroring the Cursor branch. (`writer/state/policy.rs`)
+- **HUD prompt-suppression retired on non-rolling hosts (Cursor/Other)**
+  — the approval-hint latch collapsed the HUD to height 0 and released
+  on a 3s debounce (black blink while typing; full/min oscillation with
+  codex). Structural row protection (reserved gap rows + DECSTBM
+  confined to the child viewport) supersedes it; JetBrains keeps its
+  rolling-detector suppression. (`event_loop/prompt_occlusion.rs`)
+- **Codex HUD hidden at start / after clears (any host)** — codex 0.144
+  destructive clears (`2J`/`3J`/RIS) wiped the freshly painted HUD with
+  nothing arming a repaint; destructive clears now arm an idle-gated
+  full repaint. (`writer/state/dispatch_pty.rs`, `policy.rs`)
+- **Dead plain Enter under leaked kitty keyboard protocol** — codex
+  0.144 pushes kitty flags through the relay; dead sessions left panes
+  poisoned so Enter arrived as CSI-u `ESC[13u` and every key double-fired
+  (press+release). The input parser now decodes CSI-u basics (Enter
+  press mapped, releases/repeats consumed), and startup/exit write a
+  kitty-flags reset plus screen clear to de-poison panes.
+  (`input/parser.rs`, `arrow_keys.rs`, `terminal_restore.rs`, `main.rs`)
+- **HUD buttons / overlay clicks dying after banner size changes** —
+  clicks are now hit-tested live against current button geometry instead
+  of a stale registry cache; overlay panels hit-test against their real
+  left-anchored column origin (fixes dead `[Close]` / "Click/Tap select"
+  and the apparent freeze). (`event_loop/input_dispatch.rs`,
+  `overlay/overlay_mouse.rs`)
+- **Cursor+Claude cadence repaints tear-hardened** — the input-repair
+  timer and non-scroll/scroll throttles request line-diff repaints
+  (zero bytes when banner content is unchanged) instead of forced
+  full-row rewrites. (`writer/state/policy.rs`, `redraw.rs`)
+- **Claude status-row corruption / trailing artifacts in Cursor** — the
+  DECSTBM scroll region is confined to the child PTY viewport bottom
+  instead of `rows - banner_height`, so child scrolling can never smear
+  HUD rows. (`writer/render.rs`, `terminal.rs`)
+- **Previous-session screen residue at startup** — startup now writes a
+  full clear (`2J`/`3J`) alongside the kitty reset before the splash.
+  (`main.rs`)
+
+### Changed
+
+- Root-level governance research documents archived to
+  `dev/archive/root-governance-docs/` (THESIS_EVIDENCE, UNIVERSAL_SYSTEM
+  plans/evidence, ZGRAPH research, backlog/bridge/codesmells notes,
+  System_Connection_Flowchart).
+
+### Governance / tooling (from the quality-sweep line)
+
 ### Fixed
 
 - `dev/scripts/devctl/commands/vcs/commit.py` +
