@@ -16,7 +16,6 @@ are archived or folded into the umbrella plan.
 | `dev/active/memory_studio.md` | `reference` | `reference-only` | `MP-230..MP-255` | only when memory/action/context-pack reference context is needed |
 | `dev/active/devctl_reporting_upgrade.md` | `reference` | `reference-only` | `MP-297..MP-300`, `MP-303`, `MP-306`, `MP-379` | when improving `devctl` reporting, dashboard outputs, CIHub integration, or collector integrity; use as owner reference, not standalone execution authority |
 | `dev/active/autonomous_control_plane.md` | `reference` | `reference-only` | `MP-325..MP-338, MP-340` | when autonomy/mobile-control-plane reference context is needed; the typed phase registry in `ai_governance_platform.md` decides live execution order |
-| `dev/active/review_channel.md` | `spec` | `mirrored in MASTER_PLAN` | `MP-355` | when designing or implementing the shared review channel, dual-agent shared-screen surfaces, reviewer/coder packet flows, overlay-visible Codex/Claude coordination, or the merged markdown-swarm multi-agent cycle |
 | `dev/active/CLAUDE_SESSION_AUTOMATION_SAFETY_DECLARATION.md` | `reference` | `reference-only` | session-scoped automation safety evidence | only when reviewing the current operator-authorized Claude loop automation safety declaration; not durable governance policy or execution authority |
 | `dev/active/host_process_hygiene.md` | `reference` | `reference-only` | `MP-356` | when host-side process cleanup/audit reference context is needed |
 | `dev/active/continuous_swarm.md` | `reference` | `reference-only` | `MP-358` | when the standing Codex/Claude dogfood loop or launcher proof context is needed |
@@ -54,7 +53,6 @@ are archived or folded into the umbrella plan.
 3.1 Read only the owner docs named by the typed phase/task registry at the top
     of `dev/active/ai_governance_platform.md`.
     The default execution-owner set is:
-    `dev/active/review_channel.md`,
     `dev/active/review_probes.md`,
     plus reference owner docs such as
     `dev/active/portable_code_governance.md`,

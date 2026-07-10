@@ -20,7 +20,7 @@
   owner references only unless the typed phase/task registry in
   `dev/active/ai_governance_platform.md` promotes them back into the active
   execution-owner set.
-- `dev/active/review_channel.md` now carries the reusable review/runtime
+- `dev/archive/root-governance-docs/review_channel.md` (archived v1.2.3) carries the reusable review/runtime
   contract slice for MP-355 plus the temporary markdown-swarm operating mode
   used by the current Codex/Claude cycle; implementation tasks stay in that
   file under MP-355 and must preserve the broader shared-backend boundary.

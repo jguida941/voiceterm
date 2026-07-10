@@ -176,7 +176,7 @@ impl RuleProfile {
     #[must_use]
     pub(crate) fn active_rules(&self) -> Vec<&StyleRule> {
         let mut active: Vec<&StyleRule> = self.rules.iter().filter(|r| r.enabled).collect();
-        active.sort_by(|a, b| b.priority.cmp(&a.priority));
+        active.sort_by_key(|r| std::cmp::Reverse(r.priority));
         active
     }
 

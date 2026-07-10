@@ -13,6 +13,10 @@ pub(super) struct RuntimeProfile {
     pub(super) codex_jetbrains: bool,
     pub(super) claude_jetbrains: bool,
     pub(super) cursor_claude: bool,
+    /// Destructive-clear repaint profile: the wrapped CLI repaints via
+    /// full-screen clears (codex-family backends on any host), so a
+    /// destructive clear must arm an idle-gated HUD repaint.
+    pub(super) destructive_clear_repaint_profile: bool,
     pub(super) treat_cr_as_scroll: bool,
     pub(super) flash_sensitive_scroll_profile: bool,
     pub(super) claude_non_scroll_redraw_profile: bool,
@@ -35,6 +39,7 @@ impl RuntimeProfile {
             codex_jetbrains,
             claude_jetbrains,
             cursor_claude,
+            destructive_clear_repaint_profile: backend_family == BackendFamily::Codex,
             treat_cr_as_scroll: codex_jetbrains,
             flash_sensitive_scroll_profile: codex_jetbrains || claude_jetbrains || cursor_claude,
             claude_non_scroll_redraw_profile: claude_jetbrains || cursor_claude,

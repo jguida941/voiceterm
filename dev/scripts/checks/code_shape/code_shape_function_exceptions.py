@@ -68,9 +68,13 @@ FUNCTION_POLICY_EXCEPTIONS: dict[str, FunctionShapeException] = {
     "dev/scripts/checks/check_active_plan_sync.py::_build_report": FunctionShapeException(
         max_lines=390,
         owner="MP-347",
-        expires_on="2026-05-15",
+        expires_on="2026-09-30",
         follow_up_mp="MP-347 Phase 3",
-        reason="Active-plan snapshot + parity report assembly is still in a single pipeline function.",
+        reason=(
+            "Active-plan snapshot + parity report assembly is still in a single "
+            "pipeline function. Renewed while updating the registry for the "
+            "archived review-channel doc (v1.2.3 release)."
+        ),
     ),
     "dev/scripts/checks/check_multi_agent_sync.py::_build_report": FunctionShapeException(
         max_lines=310,
@@ -401,9 +405,13 @@ FUNCTION_POLICY_EXCEPTIONS: dict[str, FunctionShapeException] = {
     "rust/src/bin/voiceterm/writer/state/dispatch_pty.rs::analyze_pty_chunk": FunctionShapeException(
         max_lines=140,
         owner="code-quality-audit",
-        expires_on="2026-06-15",
+        expires_on="2026-09-30",
         follow_up_mp="function-decomposition-backlog",
-        reason="analyze_pty_chunk (125 lines): chunk analysis pipeline; extract detection steps.",
+        reason=(
+            "analyze_pty_chunk (~130 lines): chunk analysis pipeline; grew with the "
+            "v1.2.3 codex destructive-clear repaint detection (field-bug hotfix). "
+            "Renewed to land the release; decomposition stays on the backlog."
+        ),
     ),
     "rust/src/bin/voiceterm/writer/state/policy.rs::resolve": FunctionShapeException(
         max_lines=140,

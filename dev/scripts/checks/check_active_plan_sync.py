@@ -77,10 +77,6 @@ REQUIRED_REGISTRY_ROWS = {
         "role": "spec",
         "authority": "mirrored in MASTER_PLAN",
     },
-    "dev/active/review_channel.md": {
-        "role": "spec",
-        "authority": "mirrored in MASTER_PLAN",
-    },
     "dev/active/review_probes.md": {
         "role": "spec",
         "authority": "mirrored in MASTER_PLAN",

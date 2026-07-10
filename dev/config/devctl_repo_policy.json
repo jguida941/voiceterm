@@ -315,7 +315,7 @@
       "checkpoint": {
         "max_dirty_paths_before_checkpoint": 12,
         "max_untracked_paths_before_checkpoint": 6,
-        "compatibility_projection_paths": ["bridge.md"],
+        "compatibility_projection_paths": [],
         "advisory_context_paths": ["convo.md"]
       },
       "publication": {

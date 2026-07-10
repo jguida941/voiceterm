@@ -130,8 +130,7 @@ impl WriterState {
         // bug on JetBrains AND Cursor: HUD absent until the user presses the
         // HUD hotkey). Arm an idle-gated repaint whenever a destructive clear
         // lands while a HUD is displayed or pending.
-        let codex_destructive_clear = profile.backend_family
-            == crate::runtime_compat::BackendFamily::Codex
+        let codex_destructive_clear = profile.destructive_clear_repaint_profile
             && (self.display.enhanced_status.is_some() || self.pending.enhanced_status.is_some())
             && pty_output_contains_destructive_clear(bytes);
         if codex_destructive_clear && claude_hud_debug_enabled() {
