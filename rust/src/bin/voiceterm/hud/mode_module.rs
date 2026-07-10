@@ -3,7 +3,9 @@
 //! Shows the current voice mode: "● AUTO", "○ MANUAL", or "◐ INSERT".
 
 use super::{display_width, HudModule, HudState, Mode};
+#[cfg(test)]
 use crate::theme::GlyphSet;
+use crate::theme::{mode_auto_icon, mode_insert_icon, mode_manual_icon, mode_recording_icon};
 
 /// Mode indicator module showing current voice mode.
 pub struct ModeModule;
@@ -56,19 +58,14 @@ impl HudModule for ModeModule {
 
 fn mode_indicator(state: &HudState) -> (&'static str, &'static str) {
     if state.is_recording {
-        return match state.glyph_set {
-            GlyphSet::Unicode => ("●", "REC"),
-            GlyphSet::Ascii => ("*", "REC"),
-        };
+        return (mode_recording_icon(state.glyph_set), "REC");
     }
 
-    match (state.mode, state.glyph_set) {
-        (Mode::Auto, GlyphSet::Unicode) => ("◉", "AUTO"),
-        (Mode::Manual, GlyphSet::Unicode) => ("○", "MANUAL"),
-        (Mode::Insert, GlyphSet::Unicode) => ("◐", "INSERT"),
-        (Mode::Auto, GlyphSet::Ascii) => ("@", "AUTO"),
-        (Mode::Manual, GlyphSet::Ascii) => (">", "MANUAL"),
-        (Mode::Insert, GlyphSet::Ascii) => ("~", "INSERT"),
+    let g = state.glyph_set;
+    match state.mode {
+        Mode::Auto => (mode_auto_icon(g), "AUTO"),
+        Mode::Manual => (mode_manual_icon(g), "MANUAL"),
+        Mode::Insert => (mode_insert_icon(g), "INSERT"),
     }
 }
 

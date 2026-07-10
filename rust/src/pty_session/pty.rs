@@ -43,6 +43,14 @@ struct PtySessionInit {
     output_thread: thread::JoinHandle<()>,
 }
 
+const WATCHDOG_POLL_INTERVAL_MS: i32 = 100;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum LifelineWatchEvent {
+    LifelineClosed,
+    ParentExited,
+}
+
 fn start_pty_session(
     cli_cmd: &str,
     working_dir: &str,
@@ -99,8 +107,8 @@ fn child_process_is_alive(child_pid: i32) -> bool {
     if child_pid < 0 {
         return false;
     }
+    // SAFETY: child_pid is owned by this session; waitpid with WNOHANG only inspects state.
     unsafe {
-        // SAFETY: child_pid is owned by this session; waitpid with WNOHANG only inspects state.
         let mut status = 0;
         let ret = libc::waitpid(child_pid, &mut status, libc::WNOHANG);
         ret == 0 // 0 means still running
@@ -265,6 +273,12 @@ impl PtyCliSession {
         output
     }
 
+    /// Return the PTY child process pid for diagnostics and daemon session tracking.
+    #[must_use]
+    pub fn child_pid(&self) -> i32 {
+        self.child_pid
+    }
+
     /// Peek whether the child is still running (without reaping it).
     #[must_use]
     pub fn is_alive(&self) -> bool {
@@ -276,6 +290,7 @@ impl PtyCliSession {
         if self.child_pid < 0 {
             return None;
         }
+        // SAFETY: self.child_pid is owned by this session; waitpid with WNOHANG only inspects state.
         unsafe {
             let mut status = 0;
             let ret = libc::waitpid(self.child_pid, &mut status, libc::WNOHANG);
@@ -291,6 +306,7 @@ impl PtyCliSession {
 
 impl Drop for PtyCliSession {
     fn drop(&mut self) {
+        // SAFETY: this session still owns the PTY descriptors and child pid until drop completes.
         unsafe {
             shutdown_pty_child(self.master_fd, self.child_pid);
             close_pty_session_handles(self.master_fd, &mut self.lifeline_write_fd);
@@ -404,6 +420,13 @@ impl PtyOverlaySession {
         child_process_is_alive(self.child_pid)
     }
 
+    /// Return the PTY session leader pid so read-only diagnostics can inspect
+    /// process-group state.
+    #[must_use]
+    pub fn child_pid(&self) -> i32 {
+        self.child_pid
+    }
+
     /// Query the current PTY window size (rows, cols).
     #[must_use]
     pub fn current_winsize(&self) -> (u16, u16) {
@@ -431,6 +454,7 @@ pub(crate) fn test_pty_session(
 
 impl Drop for PtyOverlaySession {
     fn drop(&mut self) {
+        // SAFETY: this overlay session still owns the PTY descriptors and child pid until drop completes.
         unsafe {
             shutdown_pty_child(self.master_fd, self.child_pid);
             close_pty_session_handles(self.master_fd, &mut self.lifeline_write_fd);
@@ -503,7 +527,10 @@ pub(super) unsafe fn spawn_pty_child(
         ws_ypixel: 0,
     };
 
-    #[allow(clippy::unnecessary_mut_passed)]
+    #[allow(
+        clippy::unnecessary_mut_passed,
+        reason = "libc::openpty takes mutable pointers for the output fds and winsize struct."
+    )]
     // SAFETY: openpty expects valid pointers for master/slave/winsize; we pass stack locals.
     if libc::openpty(
         &mut master_fd,
@@ -583,7 +610,7 @@ pub(super) unsafe fn child_exec(
         libc::_exit(1);
     };
 
-    spawn_lifeline_watchdog(lifeline_read_fd);
+    let _ = spawn_lifeline_watchdog(lifeline_read_fd);
     close_fd(lifeline_read_fd);
     close_fd(master_fd);
 
@@ -627,20 +654,35 @@ pub(super) unsafe fn child_exec(
 /// The watchdog blocks on a dedicated lifeline pipe. When the parent dies unexpectedly
 /// (for example IDE crash / forced terminal kill), the write end closes and the watchdog
 /// sends SIGTERM/SIGKILL to the PTY process group rooted at `target_pid`.
-unsafe fn spawn_lifeline_watchdog(lifeline_read_fd: RawFd) {
+///
+/// # Safety
+///
+/// Must be called only after `fork()` from the PTY child setup path. The caller
+/// must ensure `lifeline_read_fd` remains valid in both the parent-return and
+/// watchdog-child branches until this helper closes or returns ownership of it.
+pub(super) unsafe fn spawn_lifeline_watchdog(lifeline_read_fd: RawFd) -> i32 {
     let target_pid = libc::getpid();
     let watchdog_pid = libc::fork();
     if watchdog_pid < 0 {
-        return;
+        return watchdog_pid;
     }
     if watchdog_pid != 0 {
-        return;
+        return watchdog_pid;
     }
 
     close_fds_for_watchdog(lifeline_read_fd);
-    wait_for_lifeline_close(lifeline_read_fd);
+    let event = wait_for_lifeline_watch_event(
+        lifeline_read_fd,
+        target_pid,
+        Duration::from_millis(WATCHDOG_POLL_INTERVAL_MS as u64),
+    );
     close_fd(lifeline_read_fd);
-    terminate_process_group_with_escalation(target_pid, Duration::from_millis(500));
+    if matches!(
+        event,
+        LifelineWatchEvent::LifelineClosed | LifelineWatchEvent::ParentExited
+    ) {
+        terminate_process_group_with_escalation(target_pid, Duration::from_millis(500));
+    }
     libc::_exit(0);
 }
 
@@ -655,12 +697,55 @@ unsafe fn close_fds_for_watchdog(lifeline_read_fd: RawFd) {
     }
 }
 
-unsafe fn wait_for_lifeline_close(lifeline_read_fd: RawFd) {
+/// Wait for the PTY lifeline to close or for the PTY child to disappear.
+///
+/// # Safety
+///
+/// The caller must ensure `lifeline_read_fd` is a valid pipe fd owned by the
+/// watchdog process, and `target_pid` names the PTY child pid whose parentage
+/// the watchdog is expected to track.
+pub(super) unsafe fn wait_for_lifeline_watch_event(
+    lifeline_read_fd: RawFd,
+    target_pid: i32,
+    poll_interval: Duration,
+) -> LifelineWatchEvent {
+    let timeout_ms = poll_interval.as_millis().min(i32::MAX as u128) as i32;
+    let mut pollfd = libc::pollfd {
+        fd: lifeline_read_fd,
+        events: libc::POLLIN,
+        revents: 0,
+    };
     let mut byte = [0u8; 1];
     loop {
+        // Test harness PTY children can exit before the owning session drops and
+        // closes the lifeline pipe. Detect reparenting so the watchdog does not
+        // linger as an orphaned `voiceterm-*` helper in Activity Monitor / `ps`.
+        if libc::getppid() != target_pid {
+            return LifelineWatchEvent::ParentExited;
+        }
+
+        pollfd.revents = 0;
+        let poll_result = libc::poll(&mut pollfd, 1, timeout_ms);
+        if poll_result == 0 {
+            continue;
+        }
+        if poll_result < 0 {
+            let err = io::Error::last_os_error();
+            if matches!(err.raw_os_error(), Some(code) if code == libc::EINTR) {
+                continue;
+            }
+            return LifelineWatchEvent::LifelineClosed;
+        }
+        if (pollfd.revents & (libc::POLLHUP | libc::POLLERR | libc::POLLNVAL)) != 0 {
+            return LifelineWatchEvent::LifelineClosed;
+        }
+        if (pollfd.revents & libc::POLLIN) == 0 {
+            continue;
+        }
+
         let n = libc::read(lifeline_read_fd, byte.as_mut_ptr() as *mut libc::c_void, 1);
         if n == 0 {
-            break;
+            return LifelineWatchEvent::LifelineClosed;
         }
         if n > 0 {
             continue;
@@ -669,7 +754,10 @@ unsafe fn wait_for_lifeline_close(lifeline_read_fd: RawFd) {
         if matches!(err.raw_os_error(), Some(code) if code == libc::EINTR) {
             continue;
         }
-        break;
+        if matches!(err.raw_os_error(), Some(code) if code == libc::EAGAIN) {
+            continue;
+        }
+        return LifelineWatchEvent::LifelineClosed;
     }
 }
 
@@ -723,10 +811,12 @@ pub(super) fn set_cloexec(fd: RawFd) -> Result<()> {
         return Ok(());
     }
 
+    // SAFETY: fcntl reads the descriptor flags for a live file descriptor without taking ownership.
     let flags = unsafe { libc::fcntl(fd, libc::F_GETFD) };
     if flags < 0 {
         return Err(errno_error("fcntl(F_GETFD) failed"));
     }
+    // SAFETY: fcntl writes the close-on-exec flag back to the same live file descriptor.
     let result = unsafe { libc::fcntl(fd, libc::F_SETFD, flags | libc::FD_CLOEXEC) };
     if result < 0 {
         return Err(errno_error("fcntl(F_SETFD, FD_CLOEXEC) failed"));

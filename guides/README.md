@@ -12,6 +12,15 @@ Start here for user docs.
 6. [`TROUBLESHOOTING.md`](TROUBLESHOOTING.md) - common issues and fixes.
 7. [`WHISPER.md`](WHISPER.md) - model and language help.
 
+## Pick Your Level
+
+| If you want... | Read this |
+|---|---|
+| The shortest path to first run | [`../QUICK_START.md`](../QUICK_START.md) |
+| A simple explanation of day-to-day use | [`USAGE.md`](USAGE.md) |
+| Full option-by-option reference | [`CLI_FLAGS.md`](CLI_FLAGS.md) |
+| Source, dev, or optional companion app setup | [`INSTALL.md`](INSTALL.md) |
+
 ## Find Docs by Goal
 
 | Goal | Start here |
@@ -26,6 +35,8 @@ Start here for user docs.
 | Diagnose runtime issues | [`TROUBLESHOOTING.md`](TROUBLESHOOTING.md) |
 | Tune Whisper model/language/performance | [`WHISPER.md`](WHISPER.md) |
 | Understand install/start scripts | [`../scripts/README.md`](../scripts/README.md) |
+| Learn the optional desktop Operator Console | [`../app/operator_console/README.md`](../app/operator_console/README.md) |
+| Learn the optional iPhone/iPad companion | [`../app/ios/README.md`](../app/ios/README.md) |
 
 ## Troubleshooting Jump Links
 

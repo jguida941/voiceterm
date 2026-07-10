@@ -41,83 +41,14 @@ impl InputParser {
                 self.skip_lf = false;
             }
 
-            match byte {
-                0x11 => {
-                    self.flush_pending(out);
-                    out.push(InputEvent::Exit);
+            if let Some(event) = parse_control_byte_event(byte) {
+                self.flush_pending(out);
+                out.push(event);
+                if byte == 0x0d {
+                    self.skip_lf = true;
                 }
-                0x12 => {
-                    self.flush_pending(out);
-                    out.push(InputEvent::VoiceTrigger);
-                }
-                0x18 => {
-                    self.flush_pending(out);
-                    out.push(InputEvent::ImageCaptureTrigger);
-                }
-                0x05 => {
-                    self.flush_pending(out);
-                    out.push(InputEvent::SendStagedText);
-                }
-                0x04 => {
-                    self.flush_pending(out);
-                    out.push(InputEvent::DevPanelToggle);
-                }
-                0x16 => {
-                    self.flush_pending(out);
-                    out.push(InputEvent::ToggleAutoVoice);
-                }
-                0x14 => {
-                    self.flush_pending(out);
-                    out.push(InputEvent::ToggleSendMode);
-                }
-                0x1d => {
-                    self.flush_pending(out);
-                    out.push(InputEvent::IncreaseSensitivity);
-                }
-                0x1c => {
-                    self.flush_pending(out);
-                    out.push(InputEvent::DecreaseSensitivity);
-                }
-                0x1f => {
-                    self.flush_pending(out);
-                    out.push(InputEvent::DecreaseSensitivity);
-                }
-                0x19 => {
-                    self.flush_pending(out);
-                    out.push(InputEvent::ThemePicker);
-                }
-                0x07 => {
-                    self.flush_pending(out);
-                    out.push(InputEvent::QuickThemeCycle);
-                }
-                0x0f => {
-                    self.flush_pending(out);
-                    out.push(InputEvent::SettingsToggle);
-                }
-                0x15 => {
-                    self.flush_pending(out);
-                    out.push(InputEvent::ToggleHudStyle);
-                }
-                0x08 => {
-                    self.flush_pending(out);
-                    out.push(InputEvent::TranscriptHistoryToggle);
-                }
-                0x0e => {
-                    self.flush_pending(out);
-                    out.push(InputEvent::ToastHistoryToggle);
-                }
-                b'?' => {
-                    self.flush_pending(out);
-                    out.push(InputEvent::HelpToggle);
-                }
-                0x0d | 0x0a => {
-                    self.flush_pending(out);
-                    out.push(InputEvent::EnterKey);
-                    if byte == 0x0d {
-                        self.skip_lf = true;
-                    }
-                }
-                _ => self.pending.push(byte),
+            } else {
+                self.pending.push(byte);
             }
         }
     }
@@ -211,11 +142,15 @@ impl InputParser {
                         (is_csi_u, event)
                     };
                     if is_csi_u {
-                        self.esc_buffer = None;
                         if let Some(event) = event {
                             self.flush_pending(out);
                             out.push(event);
+                        } else {
+                            // Preserve unmapped CSI-u key reports for the wrapped CLI.
+                            // We only consume CSI-u sequences that map to VoiceTerm actions.
+                            self.pending.extend_from_slice(buffer);
                         }
+                        self.esc_buffer = None;
                     } else if let Some((kind, x, y)) = parse_mouse_event(buffer) {
                         // Mouse click across supported protocols (SGR, URXVT, X10).
                         self.esc_buffer = None;
@@ -255,6 +190,30 @@ impl InputParser {
 }
 
 #[inline]
+fn parse_control_byte_event(byte: u8) -> Option<InputEvent> {
+    match byte {
+        0x11 => Some(InputEvent::Exit),
+        0x12 => Some(InputEvent::VoiceTrigger),
+        0x18 => Some(InputEvent::ImageCaptureTrigger),
+        0x05 => Some(InputEvent::SendStagedText),
+        0x04 => Some(InputEvent::DevPanelToggle),
+        0x16 => Some(InputEvent::ToggleAutoVoice),
+        0x14 => Some(InputEvent::ToggleSendMode),
+        0x1d => Some(InputEvent::IncreaseSensitivity),
+        0x1c | 0x1f => Some(InputEvent::DecreaseSensitivity),
+        0x19 => Some(InputEvent::ThemePicker),
+        0x07 => Some(InputEvent::QuickThemeCycle),
+        0x0f => Some(InputEvent::SettingsToggle),
+        0x15 => Some(InputEvent::ToggleHudStyle),
+        0x08 => Some(InputEvent::TranscriptHistoryToggle),
+        0x0e => Some(InputEvent::ToastHistoryToggle),
+        b'?' => Some(InputEvent::HelpToggle),
+        0x0d | 0x0a => Some(InputEvent::EnterKey),
+        _ => None,
+    }
+}
+
+#[inline]
 fn is_sgr_mouse_prefix(buffer: &[u8]) -> bool {
     buffer.len() >= 3 && buffer[0] == 0x1b && buffer[1] == b'[' && buffer[2] == b'<'
 }
@@ -277,16 +236,17 @@ fn is_csi_u_numeric(buffer: &[u8]) -> bool {
     if buffer[0] != 0x1b || buffer[1] != b'[' || buffer[buffer.len() - 1] != b'u' {
         return false;
     }
+    // ':' carries kitty subparameters (mods:event-type, alternate keys).
     buffer[2..buffer.len() - 1]
         .iter()
-        .all(|b| b.is_ascii_digit() || *b == b';')
+        .all(|b| b.is_ascii_digit() || *b == b';' || *b == b':')
 }
 
 /// Parse a CSI-u keyboard event (e.g., ESC [ 114 ; 5 u for Ctrl+R).
 #[inline]
 fn parse_csi_u_event(buffer: &[u8]) -> Option<InputEvent> {
-    // Smallest supported mapped key is '?' => ESC [ 63 ; 5 u (7 bytes).
-    if buffer.len() < 7
+    // Smallest mapped key is kitty Enter => ESC [ 1 3 u (5 bytes).
+    if buffer.len() < 5
         || buffer[0] != 0x1b
         || buffer[1] != b'['
         || buffer[buffer.len() - 1] != b'u'
@@ -296,7 +256,32 @@ fn parse_csi_u_event(buffer: &[u8]) -> Option<InputEvent> {
     let params = &buffer[2..buffer.len() - 1];
     let mut parts = params.split(|b| *b == b';');
     let code = parts.next().and_then(parse_csi_u_number)?;
-    let modifiers = parts.next().and_then(parse_csi_u_number).unwrap_or(0);
+    // Second field is `modifiers`, optionally with a kitty event-type
+    // subparameter: `mods:event` (1=press, 2=repeat, 3=release).
+    let (modifiers, event_type) = match parts.next() {
+        Some(field) => {
+            let mut sub = field.split(|b| *b == b':');
+            let mods = sub.next().and_then(parse_csi_u_number).unwrap_or(0);
+            let event = sub.next().and_then(parse_csi_u_number).unwrap_or(1);
+            (mods, event)
+        }
+        None => (0, 1),
+    };
+    // Repeat/release events never trigger VoiceTerm actions (a keystroke
+    // would fire twice); they fall through and are forwarded to the wrapped
+    // CLI, which may want them.
+    if event_type != 1 {
+        return None;
+    }
+
+    // Kitty-armed terminals (codex pushes the protocol) report plain Enter as
+    // CSI-u 13 instead of bare 0x0d. Map the unmodified press to EnterKey so
+    // VoiceTerm's Enter semantics (submit, HUD/overlay activation) keep
+    // working; modified variants (Shift+Enter etc.) stay verbatim for the
+    // wrapped CLI.
+    if code == 13 && (modifiers == 0 || modifiers == 1) {
+        return Some(InputEvent::EnterKey);
+    }
 
     // Kitty/CSI-u modifier mask uses bit 2^2 (4) for Ctrl.
     if modifiers & 4 == 0 {
@@ -435,12 +420,47 @@ mod tests {
     }
 
     #[test]
-    fn input_parser_drops_csi_u_sequences() {
+    fn input_parser_forwards_unmapped_csi_u_sequences() {
         let mut parser = InputParser::new();
         let mut out = Vec::new();
         parser.consume_bytes(b"\x1b[48;0;0u", &mut out);
         parser.flush_pending(&mut out);
-        assert!(out.is_empty());
+        assert_eq!(out, vec![InputEvent::Bytes(b"\x1b[48;0;0u".to_vec())]);
+    }
+
+    #[test]
+    fn input_parser_forwards_unmapped_csi_u_escape_sequence() {
+        let mut parser = InputParser::new();
+        let mut out = Vec::new();
+        parser.consume_bytes(b"\x1b[27u", &mut out);
+        parser.flush_pending(&mut out);
+        assert_eq!(out, vec![InputEvent::Bytes(b"\x1b[27u".to_vec())]);
+    }
+
+    #[test]
+    fn input_parser_forwards_unmapped_csi_u_ctrl_c_sequence() {
+        let mut parser = InputParser::new();
+        let mut out = Vec::new();
+        parser.consume_bytes(b"\x1b[99;5u", &mut out);
+        parser.flush_pending(&mut out);
+        assert_eq!(out, vec![InputEvent::Bytes(b"\x1b[99;5u".to_vec())]);
+    }
+
+    #[test]
+    // Contract: VoiceTerm-owned CSI-u shortcuts are intercepted as actions,
+    // while unmapped CSI-u sequences are preserved verbatim for the wrapped CLI.
+    fn input_parser_csi_u_contract_maps_owned_shortcuts_and_preserves_unmapped() {
+        let mut parser = InputParser::new();
+        let mut out = Vec::new();
+        parser.consume_bytes(b"\x1b[114;5u\x1b[27u", &mut out);
+        parser.flush_pending(&mut out);
+        assert_eq!(
+            out,
+            vec![
+                InputEvent::VoiceTrigger,
+                InputEvent::Bytes(b"\x1b[27u".to_vec())
+            ]
+        );
     }
 
     #[test]
@@ -734,5 +754,58 @@ mod tests {
         parser.consume_bytes(&[32, 42, 37], &mut out);
         parser.flush_pending(&mut out);
         assert_eq!(out, vec![InputEvent::MouseClick { x: 10, y: 5 }]);
+    }
+
+    // Field bug (Cursor+codex): kitty-armed terminals report plain Enter as
+    // CSI-u 13 — voiceterm treated it as opaque bytes, so its own Enter
+    // semantics (submit, overlay activation) went dead and only Shift+Enter
+    // (legacy encoding) worked.
+    #[test]
+    fn input_parser_maps_kitty_enter_press_to_enter_key() {
+        let mut parser = InputParser::new();
+        let mut out = Vec::new();
+        parser.consume_bytes(b"\x1b[13u", &mut out);
+        parser.flush_pending(&mut out);
+        assert_eq!(out, vec![InputEvent::EnterKey]);
+
+        // Explicit press subparam maps too.
+        let mut out = Vec::new();
+        parser.consume_bytes(b"\x1b[13;1:1u", &mut out);
+        parser.flush_pending(&mut out);
+        assert_eq!(out, vec![InputEvent::EnterKey]);
+    }
+
+    #[test]
+    fn input_parser_forwards_kitty_enter_release_and_modified_variants() {
+        // Release event: forwarded verbatim for the wrapped CLI, no EnterKey.
+        let mut parser = InputParser::new();
+        let mut out = Vec::new();
+        parser.consume_bytes(b"\x1b[13;1:3u", &mut out);
+        parser.flush_pending(&mut out);
+        assert_eq!(out, vec![InputEvent::Bytes(b"\x1b[13;1:3u".to_vec())]);
+
+        // Shift+Enter stays verbatim (the wrapped CLI distinguishes it).
+        let mut parser = InputParser::new();
+        let mut out = Vec::new();
+        parser.consume_bytes(b"\x1b[13;2u", &mut out);
+        parser.flush_pending(&mut out);
+        assert_eq!(out, vec![InputEvent::Bytes(b"\x1b[13;2u".to_vec())]);
+    }
+
+    #[test]
+    fn input_parser_ignores_kitty_hotkey_release_events() {
+        // Ctrl+R release must not fire the voice trigger a second time.
+        let mut parser = InputParser::new();
+        let mut out = Vec::new();
+        parser.consume_bytes(b"\x1b[114;5:3u", &mut out);
+        parser.flush_pending(&mut out);
+        assert_eq!(out, vec![InputEvent::Bytes(b"\x1b[114;5:3u".to_vec())]);
+
+        // Ctrl+R press (with explicit :1) still fires.
+        let mut parser = InputParser::new();
+        let mut out = Vec::new();
+        parser.consume_bytes(b"\x1b[114;5:1u", &mut out);
+        parser.flush_pending(&mut out);
+        assert_eq!(out, vec![InputEvent::VoiceTrigger]);
     }
 }

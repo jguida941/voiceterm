@@ -13,6 +13,9 @@ Docs map:
 - [CLI Flags](CLI_FLAGS.md)
 - [Troubleshooting](TROUBLESHOOTING.md)
 
+Use this page when you want the simple "how do I use it?" version.
+Use [CLI Flags](CLI_FLAGS.md) when you want the full switch-by-switch reference.
+
 ## Recommended Reading Paths
 
 | Goal | Read in this order |
@@ -54,6 +57,16 @@ voiceterm --auto-voice --wake-word --voice-send-mode insert
 Say your wake phrase, then speak your prompt. In `insert` mode, say `send`,
 `send message`, or `submit` to deliver without touching the keyboard.
 
+Standalone slash-command capture:
+
+```bash
+voiceterm --capture-once --format text
+```
+
+This records once, prints the transcript to stdout, and exits without starting
+the PTY overlay. If you want slash-command templates for Codex or Claude, see
+`dev/templates/slash/`.
+
 ## Backend Support
 
 | Backend | Run command | Status |
@@ -69,6 +82,12 @@ IPC provider sessions support only `codex` and `claude`.
 `gemini` is overlay-only experimental, and `aider` / `opencode` / `custom` are
 overlay-only non-IPC backends.
 
+If you are deciding what to try first:
+
+1. Start with Codex.
+2. Use Claude if that is already your normal CLI.
+3. Treat everything else as advanced or experimental.
+
 ## IDE Compatibility
 
 This table is the current source of truth for host IDE support.
@@ -82,15 +101,26 @@ Active verified hosts are Cursor terminal and JetBrains terminals.
 | AntiGravity | Not supported | Not supported | Deferred until runtime fingerprint evidence exists (not supported in current releases) |
 | Other IDE terminals | Unverified | Unverified | Treat as experimental until listed here |
 
-Host compatibility routing now uses one canonical host classifier
-(`JetBrains`/`Cursor`/`Other`) across runtime writer paths, which reduces
-host-policy drift without changing current support status.
-
 JetBrains + Claude rare edge case (long parallel turns):
 after very long parallel tool calls or parallel web-search turns, HUD/transcript
 overlap can appear at turn completion. Quick workaround: resize the terminal
 once (even by 1 row/column) to force layout recalculation.
 Details: [Troubleshooting -> JetBrains + Claude overlay overlap after long parallel output](TROUBLESHOOTING.md#jetbrains--claude-overlay-overlap-after-long-parallel-output).
+
+If you want the least surprising setup, use Cursor terminal first.
+
+## Optional Companion Surfaces
+
+If you are working from a source checkout, VoiceTerm also has optional
+repo-backed companion surfaces:
+
+- Operator Console: desktop read/control room over repo-visible
+  `review-channel`, `mobile-status`, and related `devctl` workflow outputs.
+- iPhone/iPad companion: reads the same live mobile bundle for status views and
+  typed control actions on-device.
+
+These are advanced workflow tools. They do not replace the overlay or the
+voice-capture flow described in the rest of this guide.
 
 ## How Voice Input Works
 
@@ -212,6 +242,8 @@ Visual controls are now in Theme Studio:
 | **Export** | Export current theme to TOML file (`~/.config/voiceterm/themes/`), copy to clipboard via OSC 52, or import from file |
 
 - Use `Undo edit`, `Redo edit`, and `Rollback edits` on the Home page if you want to revert visual changes.
+- Keyboard behavior is consistent across Studio pages: `Up`/`Down` moves
+  selection, and `Left`/`Right` adjusts only rows that support value cycling.
 - `Ctrl+U` is still the fastest way to cycle HUD styles.
 - You can still set visuals with launch flags such as `--hud-border-style` and `--hud-right-panel`.
 

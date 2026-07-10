@@ -1,0 +1,18 @@
+{
+  "contract_id": "CommitReceipt",
+  "entry_kind": "artifact_schema",
+  "expected_result": "accept",
+  "fixture_role": "valid",
+  "ownership_mode": "python_only",
+  "parity_command": "python3 dev/scripts/checks/check_platform_contract_closure.py --format json",
+  "payload": {
+    "contract_id": "CommitReceipt",
+    "schema_version": 1
+  },
+  "python_owner_path": "dev/scripts/devctl/runtime/commit_receipt.py",
+  "registry_path": "dev/state/contract_registry.jsonl",
+  "rust_owner_path": "",
+  "schema_fixture_contract_id": "PlatformSchemaFixture",
+  "schema_fixture_version": 1,
+  "schema_version": 1
+}

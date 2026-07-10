@@ -1,5 +1,6 @@
 """Tests for shared devctl command helpers."""
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -9,7 +10,14 @@ from unittest import TestCase
 from unittest.mock import patch
 
 from dev.scripts.devctl import common
-from dev.scripts.devctl.common import run_cmd
+from dev.scripts.devctl.common import CommandRunPolicy, run_cmd
+from dev.scripts.devctl.runtime.stage_progress import (
+    PROGRESS_ROOT_ENV,
+    read_progress_events,
+)
+from dev.scripts.devctl.runtime.command_output_receipt import (
+    build_command_output_receipt,
+)
 from dev.scripts.devctl.steps import format_steps_md
 
 
@@ -41,16 +49,177 @@ class RunCmdTests(TestCase):
         self.assertIn("error", result)
 
     @patch(
-        "dev.scripts.devctl.common._run_with_live_output", side_effect=KeyboardInterrupt
+        "dev.scripts.devctl.command_runner._run_with_live_output",
+        side_effect=KeyboardInterrupt,
     )
     def test_run_cmd_interrupt_returns_structured_error(self, _run_mock) -> None:
         result = run_cmd("interrupt", [sys.executable, "-c", "print('x')"])
         self.assertEqual(result["returncode"], 130)
         self.assertIn("interrupted", result.get("error", ""))
 
+    @patch(
+        "dev.scripts.devctl.command_runner._run_without_live_output",
+        return_value=(0, "ok"),
+    )
+    def test_run_cmd_quiet_mode_uses_silent_runner(self, run_mock) -> None:
+        result = run_cmd(
+            "quiet",
+            [sys.executable, "-c", "print('ok')"],
+            policy=CommandRunPolicy(live_output=False),
+        )
+        self.assertEqual(result["returncode"], 0)
+        run_mock.assert_called_once()
+        receipt = result["command_output_receipt"]
+        self.assertEqual(receipt["contract_id"], "CommandOutputReceipt")
+        self.assertEqual(receipt["stdout_byte_count"], 2)
+        self.assertEqual(receipt["capture_scope"], "tail")
+
+    @patch(
+        "dev.scripts.devctl.command_runner._run_without_live_output",
+        return_value=(0, "ok [100%]\n"),
+    )
+    def test_run_cmd_records_expected_output_patterns(self, _run_mock) -> None:
+        result = run_cmd(
+            "quiet",
+            [sys.executable, "-c", "print('ok [100%]')"],
+            policy=CommandRunPolicy(
+                live_output=False,
+                expected_output_patterns=("[100%]", "missing-pattern"),
+            ),
+        )
+
+        receipt = result["command_output_receipt"]
+        self.assertEqual(receipt["matched_patterns"], ["[100%]"])
+        self.assertEqual(receipt["missing_patterns"], ["missing-pattern"])
+        self.assertFalse(receipt["output_assertions_satisfied"])
+
+    def test_command_output_receipt_rejects_forbidden_patterns(self) -> None:
+        receipt = build_command_output_receipt(
+            command_name="test-python",
+            command=("pytest",),
+            cwd=".",
+            exit_code=1,
+            stdout="F [100%]\n1 failed in 0.01s\n",
+            expected_patterns=("[100%]", " passed"),
+            forbidden_patterns=(" failed",),
+            capture_scope="tail",
+        )
+
+        payload = receipt.to_dict()
+        self.assertEqual(payload["matched_patterns"], ["[100%]"])
+        self.assertEqual(payload["missing_patterns"], [" passed"])
+        self.assertEqual(payload["matched_forbidden_patterns"], [" failed"])
+        self.assertFalse(payload["output_assertions_satisfied"])
+
+    def test_command_output_receipt_id_binds_assertion_policy(self) -> None:
+        base = build_command_output_receipt(
+            command_name="test-python",
+            command=("pytest",),
+            cwd=".",
+            exit_code=0,
+            stdout="ok [100%]\n1 passed in 0.01s\n",
+            expected_patterns=("[100%]", " passed"),
+            forbidden_patterns=(" failed",),
+            capture_scope="tail",
+        )
+        weaker = build_command_output_receipt(
+            command_name="test-python",
+            command=("pytest",),
+            cwd=".",
+            exit_code=0,
+            stdout="ok [100%]\n1 passed in 0.01s\n",
+            expected_patterns=("[100%]",),
+            forbidden_patterns=(),
+            capture_scope="tail",
+        )
+
+        self.assertNotEqual(base.receipt_id, weaker.receipt_id)
+
+    def test_command_output_receipt_id_binds_capture_scope(self) -> None:
+        full = build_command_output_receipt(
+            command_name="test-python",
+            command=("pytest",),
+            cwd=".",
+            exit_code=0,
+            stdout="ok [100%]\n1 passed in 0.01s\n",
+            expected_patterns=("[100%]", " passed"),
+            forbidden_patterns=(" failed",),
+            capture_scope="full",
+        )
+        tail = build_command_output_receipt(
+            command_name="test-python",
+            command=("pytest",),
+            cwd=".",
+            exit_code=0,
+            stdout="ok [100%]\n1 passed in 0.01s\n",
+            expected_patterns=("[100%]", " passed"),
+            forbidden_patterns=(" failed",),
+            capture_scope="tail",
+        )
+
+        self.assertNotEqual(full.receipt_id, tail.receipt_id)
+
+    def test_command_output_receipt_rejects_forbidden_pattern_on_zero_exit(self) -> None:
+        receipt = build_command_output_receipt(
+            command_name="test-python",
+            command=("pytest",),
+            cwd=".",
+            exit_code=0,
+            stdout="ok [100%]\n1 passed in 0.01s\nTraceback hidden\n",
+            expected_patterns=("[100%]", " passed"),
+            forbidden_patterns=("Traceback",),
+        )
+
+        self.assertFalse(receipt.output_assertions_satisfied)
+
+    def test_command_output_receipt_rejects_nonzero_exit_with_patterns(self) -> None:
+        receipt = build_command_output_receipt(
+            command_name="test-python",
+            command=("pytest",),
+            cwd=".",
+            exit_code=1,
+            stdout="ok [100%]\n1 passed in 0.01s\n",
+            expected_patterns=("[100%]", " passed"),
+            forbidden_patterns=(" failed",),
+        )
+
+        self.assertFalse(receipt.output_assertions_satisfied)
+
+    @patch("builtins.print")
+    def test_run_cmd_records_progress_start_and_completion(self, _mock_print) -> None:
+        with TemporaryDirectory() as tmp_dir:
+            with patch.dict(os.environ, {PROGRESS_ROOT_ENV: tmp_dir}, clear=False):
+                result = run_cmd("progress-ok", [sys.executable, "-c", "print('ok')"])
+                events = read_progress_events(limit=10)
+
+        self.assertEqual(result["returncode"], 0)
+        phases = [event.phase for event in events]
+        self.assertIn("command.start", phases)
+        self.assertIn("command.complete", phases)
+
+    @patch("builtins.print")
+    def test_run_cmd_emits_heartbeat_when_child_is_silent(self, _mock_print) -> None:
+        with TemporaryDirectory() as tmp_dir:
+            with patch.dict(
+                os.environ,
+                {
+                    PROGRESS_ROOT_ENV: tmp_dir,
+                    "DEVCTL_PROGRESS_HEARTBEAT_SECONDS": "0.01",
+                },
+                clear=False,
+            ):
+                result = run_cmd(
+                    "heartbeat",
+                    [sys.executable, "-c", "import time; time.sleep(0.08)"],
+                )
+                events = read_progress_events(limit=20)
+
+        self.assertEqual(result["returncode"], 0)
+        self.assertIn("command.heartbeat", [event.phase for event in events])
+
     @patch("builtins.print")
     @patch(
-        "dev.scripts.devctl.common._resolve_live_output_timeout_seconds",
+        "dev.scripts.devctl.command_runner_process._resolve_live_output_timeout_seconds",
         return_value=0.05,
     )
     def test_run_cmd_timeout_returns_124_and_failure_excerpt(
@@ -64,8 +233,8 @@ class RunCmdTests(TestCase):
 
 
 class RunWithLiveOutputTests(TestCase):
-    @patch("dev.scripts.devctl.common._terminate_subprocess_tree")
-    @patch("dev.scripts.devctl.common.subprocess.Popen")
+    @patch("dev.scripts.devctl.command_runner_process._terminate_subprocess_tree")
+    @patch("dev.scripts.devctl.command_runner_process.subprocess.Popen")
     def test_interrupt_terminates_subprocess_tree(
         self,
         popen_mock,
@@ -95,6 +264,34 @@ class RunWithLiveOutputTests(TestCase):
             )
 
         terminate_mock.assert_called_once_with(process)
+
+    @patch("builtins.print")
+    @patch(
+        "dev.scripts.devctl.command_runner_process._resolve_live_output_timeout_seconds",
+        return_value=0.5,
+    )
+    def test_parent_exit_does_not_wait_for_inherited_stdout_pipe(
+        self,
+        _timeout_mock,
+        _print_mock,
+    ) -> None:
+        script = "\n".join(
+            [
+                "import subprocess",
+                "import sys",
+                "subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(2)'])",
+                "print('parent-exited', flush=True)",
+            ]
+        )
+
+        returncode, output_tail = common._run_with_live_output(
+            [sys.executable, "-c", script],
+            cwd=None,
+            env=None,
+        )
+
+        self.assertEqual(returncode, 0)
+        self.assertIn("parent-exited", output_tail)
 
 
 class FormatStepsMarkdownTests(TestCase):
@@ -142,6 +339,40 @@ class CommandRenderingTests(TestCase):
         self.assertEqual(rendered, "echo '/tmp/has space/file.txt'")
 
 
+class RepoPythonNormalizationTests(TestCase):
+    def test_resolve_repo_python_command_rewrites_repo_pytest_target(self) -> None:
+        command = [
+            "python3",
+            "-m",
+            "pytest",
+            "app/operator_console/tests/",
+            "-q",
+            "--tb=short",
+        ]
+
+        normalized = common.resolve_repo_python_command(command)
+
+        self.assertEqual(normalized[0], sys.executable)
+        self.assertEqual(normalized[1:], command[1:])
+
+    def test_resolve_repo_python_command_leaves_external_pytest_target(self) -> None:
+        command = ["python3", "-m", "pytest", "/tmp/external-tests", "-q"]
+
+        normalized = common.resolve_repo_python_command(command)
+
+        self.assertEqual(normalized, command)
+
+    def test_normalize_repo_python_shell_command_rewrites_repo_pytest_target(
+        self,
+    ) -> None:
+        command = "python3 -m pytest app/operator_console/tests/ -q --tb=short"
+
+        normalized = common.normalize_repo_python_shell_command(command)
+
+        self.assertIn(sys.executable, normalized)
+        self.assertFalse(normalized.startswith("python3 "))
+
+
 class PipeOutputTests(TestCase):
     @patch("dev.scripts.devctl.common.shutil.which", return_value=None)
     def test_pipe_output_missing_command_returns_2(self, _which_mock) -> None:
@@ -169,3 +400,52 @@ class PipeOutputTests(TestCase):
         run_mock.side_effect = OSError("boom")
         rc = common.pipe_output("payload", "cat", [])
         self.assertEqual(rc, 127)
+
+
+class EmitOutputTests(TestCase):
+    def test_emit_output_uses_injected_writer_and_piper(self) -> None:
+        writes: list[tuple[str, str | None]] = []
+        pipe_calls: list[tuple[str, str | None, list[str] | None]] = []
+
+        def writer(content: str, output_path: str | None) -> None:
+            writes.append((content, output_path))
+
+        def piper(
+            content: str,
+            pipe_command: str | None,
+            pipe_args: list[str] | None,
+        ) -> int:
+            pipe_calls.append((content, pipe_command, pipe_args))
+            return 7
+
+        rc = common.emit_output(
+            "primary",
+            output_path="/tmp/out.md",
+            pipe_command="cat",
+            pipe_args=["--number"],
+            additional_outputs=[('{"ok": true}', "/tmp/out.json")],
+            writer=writer,
+            piper=piper,
+        )
+
+        self.assertEqual(rc, 7)
+        self.assertEqual(
+            writes,
+            [("primary", "/tmp/out.md"), ('{"ok": true}', "/tmp/out.json")],
+        )
+        self.assertEqual(pipe_calls, [("primary", "cat", ["--number"])])
+
+    def test_emit_output_skips_piper_when_pipe_command_missing(self) -> None:
+        writes: list[tuple[str, str | None]] = []
+
+        rc = common.emit_output(
+            "primary",
+            output_path=None,
+            pipe_command=None,
+            pipe_args=None,
+            writer=lambda content, output_path: writes.append((content, output_path)),
+            piper=lambda *_args: 9,
+        )
+
+        self.assertEqual(rc, 0)
+        self.assertEqual(writes, [("primary", None)])

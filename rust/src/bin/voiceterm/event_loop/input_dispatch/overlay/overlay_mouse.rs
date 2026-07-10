@@ -1,9 +1,14 @@
 //! Overlay mouse interaction helpers extracted from input dispatch.
 
 use super::*;
-use crate::dev_panel::{
-    dev_panel_footer, dev_panel_height, dev_panel_inner_width_for_terminal,
-    dev_panel_width_for_terminal,
+use crate::action_center::render::{
+    action_center_footer, action_center_overlay_height, action_center_overlay_width,
+    ACTION_CENTER_ENTRY_START_ROW, ACTION_CENTER_VISIBLE_ROWS,
+};
+use crate::dev_panel::{dev_panel_active_footer, dev_panel_height, panel_inner_width, panel_width};
+use crate::memory_browser::render::{
+    memory_browser_footer, memory_browser_overlay_height, memory_browser_overlay_width,
+    MEMORY_BROWSER_ENTRY_START_ROW,
 };
 use crate::transcript_history::transcript_history_visible_rows;
 
@@ -19,18 +24,7 @@ pub(super) fn handle_overlay_mouse_click(
         return;
     }
 
-    let overlay_height = match state.ui.overlay_mode {
-        OverlayMode::DevPanel => dev_panel_height(),
-        OverlayMode::Help => help_overlay_height(),
-        OverlayMode::ThemeStudio => theme_studio_height(),
-        OverlayMode::ThemePicker => theme_picker_height(),
-        OverlayMode::Settings => settings_overlay_height(),
-        OverlayMode::TranscriptHistory => transcript_history_overlay_height(),
-        OverlayMode::ToastHistory => {
-            crate::toast::toast_history_overlay_height(&state.toast_center)
-        }
-        OverlayMode::None => 0,
-    };
+    let overlay_height = overlay_height_for_mode(state);
     if overlay_height == 0 {
         return;
     }
@@ -48,65 +42,19 @@ pub(super) fn handle_overlay_mouse_click(
     let overlay_row = (y - overlay_top_y) as usize + 1;
     let cols = resolved_cols(state.ui.terminal_cols) as usize;
 
-    let (overlay_width, inner_width, footer_title) = match state.ui.overlay_mode {
-        OverlayMode::DevPanel => (
-            dev_panel_width_for_terminal(cols),
-            dev_panel_inner_width_for_terminal(cols),
-            dev_panel_footer(&state.theme.colors()),
-        ),
-        OverlayMode::Help => (
-            help_overlay_width_for_terminal(cols),
-            help_overlay_inner_width_for_terminal(cols),
-            help_overlay_footer(&state.theme.colors()),
-        ),
-        OverlayMode::ThemeStudio => (
-            theme_studio_total_width_for_terminal(cols),
-            theme_studio_inner_width_for_terminal(cols),
-            theme_studio_footer(&state.theme.colors()),
-        ),
-        OverlayMode::ThemePicker => (
-            theme_picker_total_width_for_terminal(cols),
-            theme_picker_inner_width_for_terminal(cols),
-            theme_picker_footer(&state.theme.colors(), style_pack_theme_lock()),
-        ),
-        OverlayMode::Settings => (
-            settings_overlay_width_for_terminal(cols),
-            settings_overlay_inner_width_for_terminal(cols),
-            settings_overlay_footer(&state.theme.colors()),
-        ),
-        OverlayMode::TranscriptHistory => (
-            crate::transcript_history::transcript_history_overlay_width(cols),
-            crate::transcript_history::transcript_history_overlay_inner_width(cols),
-            crate::transcript_history::transcript_history_overlay_footer(&state.theme.colors()),
-        ),
-        OverlayMode::ToastHistory => {
-            // Toast history overlay uses full-width panel with standard close footer.
-            let toast_width = cols.min(60);
-            let toast_inner = toast_width.saturating_sub(4);
-            let colors = state.theme.colors();
-            let sep = crate::theme::overlay_separator(colors.glyph_set);
-            let close_sym = crate::theme::overlay_close_symbol(colors.glyph_set);
-            let footer = format!(
-                "[{close_sym}] close {sep} {} total",
-                state.toast_center.history_count()
-            );
-            (toast_width, toast_inner, footer)
-        }
-        OverlayMode::None => (0, 0, String::new()),
-    };
+    let (overlay_width, inner_width, footer_title) = overlay_dimensions(state, cols);
 
     if overlay_width == 0 {
         return;
     }
-    let centered_overlay_left = cols.saturating_sub(overlay_width) / 2 + 1;
-    let centered_overlay_right = centered_overlay_left.saturating_add(overlay_width);
+    // Panels are rendered LEFT-ANCHORED at column 1 (write_overlay_panel
+    // emits CSI {row};1H); the click map must use the same origin. The old
+    // centered-origin math shifted every click by (cols - width)/2 in wide
+    // panes (field bug: overlay clicks work in narrow panes, die in wide
+    // ones - "Click/Tap select" dead, [Close] unclickable, feels frozen).
+    let _ = cols;
     let x_usize = x as usize;
-    let centered_hit = x_usize >= centered_overlay_left && x_usize < centered_overlay_right;
-    let rel_x = if centered_hit {
-        x_usize
-            .saturating_sub(centered_overlay_left)
-            .saturating_add(1)
-    } else if (1..=overlay_width).contains(&x_usize) {
+    let rel_x = if x_usize >= 1 && x_usize <= overlay_width {
         x_usize
     } else {
         return;
@@ -141,6 +89,12 @@ pub(super) fn handle_overlay_mouse_click(
     }
 
     if state.ui.overlay_mode == OverlayMode::ThemeStudio {
+        // Mouse selection only applies to the Home page — other pages have
+        // different layouts and fewer rows, so Home-page index math would
+        // map clicks to wrong items (or out-of-bounds).
+        if state.theme_studio.page != crate::theme_studio::StudioPage::Home {
+            return;
+        }
         let options_start = THEME_STUDIO_OPTION_START_ROW;
         let options_end = options_start.saturating_add(THEME_STUDIO_ITEMS.len().saturating_sub(1));
         if overlay_row >= options_start
@@ -157,22 +111,15 @@ pub(super) fn handle_overlay_mouse_click(
         return;
     }
 
-    if state.ui.overlay_mode == OverlayMode::TranscriptHistory {
-        let entry_start = crate::transcript_history::TRANSCRIPT_HISTORY_ENTRY_START_ROW;
-        let visible = transcript_history_visible_rows();
-        let entry_end = entry_start.saturating_add(visible.saturating_sub(1));
-        if overlay_row >= entry_start
-            && overlay_row <= entry_end
-            && rel_x > 1
-            && rel_x < overlay_width
-        {
-            let display_idx = overlay_row.saturating_sub(entry_start);
-            let abs_idx = state.transcript_history_state.scroll_offset + display_idx;
-            if abs_idx < state.transcript_history_state.filtered_indices.len() {
-                state.transcript_history_state.selected = abs_idx;
-                render_transcript_history_overlay_for_state(state, deps);
-            }
-        }
+    if handle_transcript_history_click(state, deps, overlay_row, rel_x, overlay_width) {
+        return;
+    }
+
+    if handle_memory_browser_click(state, deps, overlay_row, rel_x, overlay_width) {
+        return;
+    }
+
+    if handle_action_center_click(state, deps, overlay_row, rel_x, overlay_width) {
         return;
     }
 
@@ -220,9 +167,181 @@ pub(super) fn handle_overlay_mouse_click(
     }
 }
 
+fn overlay_height_for_mode(state: &EventLoopState) -> usize {
+    match state.ui.overlay_mode {
+        OverlayMode::DevPanel => dev_panel_height(),
+        OverlayMode::Help => help_overlay_height(),
+        OverlayMode::ThemeStudio => theme_studio_height(),
+        OverlayMode::ThemePicker => theme_picker_height(),
+        OverlayMode::Settings => settings_overlay_height(),
+        OverlayMode::TranscriptHistory => transcript_history_overlay_height(),
+        OverlayMode::ToastHistory => {
+            crate::toast::toast_history_overlay_height(&state.toast_center)
+        }
+        OverlayMode::MemoryBrowser => memory_browser_overlay_height(),
+        OverlayMode::ActionCenter => action_center_overlay_height(),
+        OverlayMode::None => 0,
+    }
+}
+
+fn overlay_dimensions(state: &EventLoopState, cols: usize) -> (usize, usize, String) {
+    match state.ui.overlay_mode {
+        OverlayMode::DevPanel => (
+            panel_width(cols),
+            panel_inner_width(cols),
+            dev_panel_active_footer(&state.theme.colors(), &state.dev_panel_commands, cols),
+        ),
+        OverlayMode::Help => (
+            help_overlay_width_for_terminal(cols),
+            help_overlay_inner_width_for_terminal(cols),
+            help_overlay_footer(&state.theme.colors()),
+        ),
+        OverlayMode::ThemeStudio => (
+            theme_studio_total_width_for_terminal(cols),
+            theme_studio_inner_width_for_terminal(cols),
+            theme_studio_footer(&state.theme.colors()),
+        ),
+        OverlayMode::ThemePicker => (
+            theme_picker_total_width_for_terminal(cols),
+            theme_picker_inner_width_for_terminal(cols),
+            theme_picker_footer(&state.theme.colors(), style_pack_theme_lock()),
+        ),
+        OverlayMode::Settings => (
+            settings_overlay_width_for_terminal(cols),
+            settings_overlay_inner_width_for_terminal(cols),
+            settings_overlay_footer(&state.theme.colors()),
+        ),
+        OverlayMode::TranscriptHistory => (
+            crate::transcript_history::transcript_history_overlay_width(cols),
+            crate::transcript_history::transcript_history_overlay_inner_width(cols),
+            crate::transcript_history::transcript_history_overlay_footer(&state.theme.colors()),
+        ),
+        OverlayMode::ToastHistory => toast_history_dimensions(state, cols),
+        OverlayMode::MemoryBrowser => {
+            let colors = state.theme.colors();
+            let width = memory_browser_overlay_width(cols);
+            (
+                width,
+                width.saturating_sub(2),
+                memory_browser_footer(&colors),
+            )
+        }
+        OverlayMode::ActionCenter => {
+            let colors = state.theme.colors();
+            let width = action_center_overlay_width(cols);
+            (
+                width,
+                width.saturating_sub(2),
+                action_center_footer(&colors),
+            )
+        }
+        OverlayMode::None => (0, 0, String::new()),
+    }
+}
+
+fn toast_history_dimensions(state: &EventLoopState, cols: usize) -> (usize, usize, String) {
+    let toast_width = cols.min(60);
+    let toast_inner = toast_width.saturating_sub(4);
+    let colors = state.theme.colors();
+    let sep = crate::theme::overlay_separator(colors.glyph_set);
+    let close_sym = crate::theme::overlay_close_symbol(colors.glyph_set);
+    let footer = format!(
+        "[{close_sym}] close {sep} {} total",
+        state.toast_center.history_count()
+    );
+    (toast_width, toast_inner, footer)
+}
+
+fn handle_transcript_history_click(
+    state: &mut EventLoopState,
+    deps: &mut EventLoopDeps,
+    overlay_row: usize,
+    rel_x: usize,
+    overlay_width: usize,
+) -> bool {
+    if state.ui.overlay_mode != OverlayMode::TranscriptHistory {
+        return false;
+    }
+    let entry_start = crate::transcript_history::TRANSCRIPT_HISTORY_ENTRY_START_ROW;
+    let visible = transcript_history_visible_rows();
+    let entry_end = entry_start.saturating_add(visible.saturating_sub(1));
+    if overlay_row < entry_start || overlay_row > entry_end || rel_x <= 1 || rel_x >= overlay_width
+    {
+        return true;
+    }
+    let display_idx = overlay_row.saturating_sub(entry_start);
+    let abs_idx = state.transcript_history_state.scroll_offset + display_idx;
+    if abs_idx < state.transcript_history_state.filtered_indices.len() {
+        state.transcript_history_state.selected = abs_idx;
+        render_transcript_history_overlay_for_state(state, deps);
+    }
+    true
+}
+
+fn handle_memory_browser_click(
+    state: &mut EventLoopState,
+    deps: &mut EventLoopDeps,
+    overlay_row: usize,
+    rel_x: usize,
+    overlay_width: usize,
+) -> bool {
+    if state.ui.overlay_mode != OverlayMode::MemoryBrowser {
+        return false;
+    }
+    let entry_end = MEMORY_BROWSER_ENTRY_START_ROW
+        .saturating_add(crate::memory_browser::BROWSER_VISIBLE_ROWS.saturating_sub(1));
+    if overlay_row < MEMORY_BROWSER_ENTRY_START_ROW
+        || overlay_row > entry_end
+        || rel_x <= 1
+        || rel_x >= overlay_width
+    {
+        return true;
+    }
+    let display_idx = overlay_row.saturating_sub(MEMORY_BROWSER_ENTRY_START_ROW);
+    let abs_idx = state.memory_browser_state.scroll_offset + display_idx;
+    if abs_idx < state.memory_browser_state.filtered_count {
+        state.memory_browser_state.selected = abs_idx;
+        render_memory_browser_overlay_for_state(state, deps);
+    }
+    true
+}
+
+fn handle_action_center_click(
+    state: &mut EventLoopState,
+    deps: &mut EventLoopDeps,
+    overlay_row: usize,
+    rel_x: usize,
+    overlay_width: usize,
+) -> bool {
+    if state.ui.overlay_mode != OverlayMode::ActionCenter {
+        return false;
+    }
+    let entry_end =
+        ACTION_CENTER_ENTRY_START_ROW.saturating_add(ACTION_CENTER_VISIBLE_ROWS.saturating_sub(1));
+    if overlay_row < ACTION_CENTER_ENTRY_START_ROW
+        || overlay_row > entry_end
+        || rel_x <= 1
+        || rel_x >= overlay_width
+    {
+        return true;
+    }
+    let display_idx = overlay_row.saturating_sub(ACTION_CENTER_ENTRY_START_ROW);
+    let selected = state.dev_panel_commands.selected_index();
+    let scroll_offset = selected.saturating_sub(ACTION_CENTER_VISIBLE_ROWS.saturating_sub(1));
+    let abs_idx = scroll_offset + display_idx;
+    if abs_idx < state.dev_panel_commands.catalog().len() {
+        state.dev_panel_commands.select_index(abs_idx);
+        render_action_center_overlay_for_state(state, deps);
+    }
+    true
+}
+
 fn footer_close_prefix(footer_title: &str) -> &str {
-    let dot_split = footer_title.split('·').next().unwrap_or(footer_title);
-    dot_split.split('|').next().unwrap_or(dot_split).trim_end()
+    if let Some(prefix_end) = footer_title.find(" close") {
+        &footer_title[..prefix_end + " close".len()]
+    } else {
+        footer_title.trim_end()
+    }
 }
 
 const SETTINGS_SLIDER_LABEL_WIDTH: usize = 15;
@@ -315,8 +434,8 @@ mod tests {
     };
 
     #[test]
-    fn footer_close_prefix_extracts_close_label_before_dot_and_pipe() {
-        let footer = "[x] close | up/down move | Enter select · Click/Tap select";
+    fn footer_close_prefix_extracts_close_label_before_dynamic_suffixes() {
+        let footer = "[x] close | Tab next | r raw | Enter reload [2/4]";
         assert_eq!(footer_close_prefix(footer), "[x] close");
     }
 

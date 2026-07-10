@@ -110,7 +110,7 @@ pub(super) struct ComponentOverrides {
 /// Toast severity display mode.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "kebab-case")]
-pub(super) enum ToastSeverityMode {
+pub(crate) enum ToastSeverityMode {
     Theme,
     Icon,
     Label,
@@ -120,7 +120,7 @@ pub(super) enum ToastSeverityMode {
 /// Banner display style.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "kebab-case")]
-pub(super) enum BannerStyleOverride {
+pub(crate) enum BannerStyleOverride {
     Theme,
     Full,
     Compact,
@@ -142,7 +142,7 @@ pub(super) enum ProgressBarFamily {
 /// Toast notification position in the terminal.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "kebab-case")]
-pub(super) enum ToastPositionOverride {
+pub(crate) enum ToastPositionOverride {
     Theme,
     TopRight,
     BottomRight,
@@ -153,7 +153,7 @@ pub(super) enum ToastPositionOverride {
 /// Startup splash visual style.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "kebab-case")]
-pub(super) enum StartupStyleOverride {
+pub(crate) enum StartupStyleOverride {
     Theme,
     Full,
     Minimal,
@@ -359,56 +359,30 @@ trait ThemeDefaultable {
     fn is_theme_default(&self) -> bool;
 }
 
-impl ThemeDefaultable for BorderStyleOverride {
-    fn is_theme_default(&self) -> bool {
-        matches!(self, Self::Theme)
-    }
+macro_rules! impl_theme_defaultable {
+    ($($override_type:ty),+ $(,)?) => {
+        $(
+            impl ThemeDefaultable for $override_type {
+                fn is_theme_default(&self) -> bool {
+                    matches!(self, Self::Theme)
+                }
+            }
+        )+
+    };
 }
-impl ThemeDefaultable for IndicatorSetOverride {
-    fn is_theme_default(&self) -> bool {
-        matches!(self, Self::Theme)
-    }
-}
-impl ThemeDefaultable for GlyphSetOverride {
-    fn is_theme_default(&self) -> bool {
-        matches!(self, Self::Theme)
-    }
-}
-impl ThemeDefaultable for ToastPositionOverride {
-    fn is_theme_default(&self) -> bool {
-        matches!(self, Self::Theme)
-    }
-}
-impl ThemeDefaultable for StartupStyleOverride {
-    fn is_theme_default(&self) -> bool {
-        matches!(self, Self::Theme)
-    }
-}
-impl ThemeDefaultable for ProgressStyleOverride {
-    fn is_theme_default(&self) -> bool {
-        matches!(self, Self::Theme)
-    }
-}
-impl ThemeDefaultable for VoiceSceneStyleOverride {
-    fn is_theme_default(&self) -> bool {
-        matches!(self, Self::Theme)
-    }
-}
-impl ThemeDefaultable for ToastSeverityMode {
-    fn is_theme_default(&self) -> bool {
-        matches!(self, Self::Theme)
-    }
-}
-impl ThemeDefaultable for BannerStyleOverride {
-    fn is_theme_default(&self) -> bool {
-        matches!(self, Self::Theme)
-    }
-}
-impl ThemeDefaultable for ProgressBarFamily {
-    fn is_theme_default(&self) -> bool {
-        matches!(self, Self::Theme)
-    }
-}
+
+impl_theme_defaultable!(
+    BorderStyleOverride,
+    IndicatorSetOverride,
+    GlyphSetOverride,
+    ToastPositionOverride,
+    StartupStyleOverride,
+    ProgressStyleOverride,
+    VoiceSceneStyleOverride,
+    ToastSeverityMode,
+    BannerStyleOverride,
+    ProgressBarFamily,
+);
 
 fn normalize_override<T: ThemeDefaultable>(value: Option<T>) -> Option<T> {
     value.filter(|v| !v.is_theme_default())

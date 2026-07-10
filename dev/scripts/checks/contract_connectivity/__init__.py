@@ -1,0 +1,1 @@
+"""Contract-connectivity guard package."""

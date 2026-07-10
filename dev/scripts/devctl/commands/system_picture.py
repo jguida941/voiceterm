@@ -1,0 +1,9 @@
+"""Backward-compat shim -- use devctl.platform.system_picture_command instead."""
+# shim-owner: tooling/platform
+# shim-reason: preserve the stable command import while system-picture rendering lives under `devctl.platform`
+# shim-expiry: 2026-06-30
+# shim-target: dev/scripts/devctl/platform/system_picture_command.py
+
+from __future__ import annotations
+
+from ..platform.system_picture_command import *

@@ -1,4 +1,9 @@
-"""devctl phone-status command implementation."""
+"""devctl phone-status command implementation.
+
+Enriches the autonomy queue artifact with resolved gates from
+``ControlPlaneReadModel`` so phone-status consumers get the same single
+source of truth as every other governance surface.
+"""
 
 from __future__ import annotations
 
@@ -7,12 +12,29 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from ..common import pipe_output, write_output
+from ..common import emit_output, pipe_output, write_output
 from ..config import REPO_ROOT
-from ..phone_status_views import (
+from ..mobile.phone_views import (
     render_report_markdown,
     view_payload,
     write_projection_bundle,
+)
+from ..runtime.control_plane_section import project_control_plane_section
+from ..runtime.control_plane_read_model import (
+    build_control_plane_read_model,
+)
+
+_PHONE_CONTROL_PLANE_FIELDS = (
+    "resolved_phase",
+    "top_blocker",
+    "next_action",
+    "next_command",
+    "push_eligible",
+    "review_accepted",
+    "reviewer_mode",
+    "operator_interaction_mode",
+    "last_guard_ok",
+    "pending_action_requests",
 )
 
 
@@ -46,11 +68,29 @@ def _load_payload(input_path: Path) -> tuple[dict[str, Any], list[str]]:
     return loaded, []
 
 
+def _control_plane_section(model) -> dict[str, Any]:
+    projected = project_control_plane_section(model)
+    return {field: projected[field] for field in _PHONE_CONTROL_PLANE_FIELDS}
+
+
+def _build_control_plane_section(repo_root: Path) -> dict[str, Any]:
+    """Build the control_plane enrichment section from the shared read model.
+
+    Thin wrapper that loads the live model from disk and forwards to the
+    pure `_control_plane_section` projection. Keep both layers so the live
+    `phone-status` command path stays disk-driven while the parity guard
+    can exercise the projection without filesystem state.
+    """
+    model = build_control_plane_read_model(repo_root)
+    return _control_plane_section(model)
+
+
 def run(args) -> int:
     """Render one phone-oriented autonomy status view from latest queue artifact."""
     warnings: list[str] = []
     errors: list[str] = []
 
+    repo_root = Path(getattr(args, "repo_root", None) or REPO_ROOT).resolve()
     input_path = _resolve_path(str(args.phone_json))
     payload, load_errors = _load_payload(input_path)
     errors.extend(load_errors)
@@ -64,6 +104,8 @@ def run(args) -> int:
         projection_files = write_projection_bundle(projection_root, payload)
         projection_dir = str(projection_root)
 
+    control_plane = _build_control_plane_section(repo_root)
+
     report = {
         "command": "phone-status",
         "timestamp": _iso_z(datetime.now(timezone.utc)),
@@ -71,22 +113,24 @@ def run(args) -> int:
         "input_path": str(input_path),
         "view": str(args.view),
         "view_payload": selected_view,
+        "control_plane": control_plane,
         "projection_dir": projection_dir,
         "projection_files": projection_files,
         "warnings": warnings,
         "errors": errors,
     }
 
-    output = (
-        json.dumps(report, indent=2)
-        if args.format == "json"
-        else render_report_markdown(report)
+    json_payload = json.dumps(report, indent=2)
+    output = json_payload if args.format == "json" else render_report_markdown(report)
+    pipe_code = emit_output(
+        output,
+        output_path=args.output,
+        pipe_command=args.pipe_command,
+        pipe_args=args.pipe_args,
+        additional_outputs=[(json_payload, args.json_output)] if args.json_output else None,
+        writer=write_output,
+        piper=pipe_output,
     )
-    write_output(output, args.output)
-    if args.json_output:
-        write_output(json.dumps(report, indent=2), args.json_output)
-    if args.pipe_command:
-        pipe_code = pipe_output(output, args.pipe_command, args.pipe_args)
-        if pipe_code != 0:
-            return pipe_code
+    if pipe_code != 0:
+        return pipe_code
     return 0 if report["ok"] else 1

@@ -121,3 +121,32 @@ pub(crate) fn section_line(colors: &ThemeColors, title: &str, width: usize) -> S
         colors.reset
     )
 }
+
+#[must_use]
+pub(crate) fn framed_content_line(
+    colors: &ThemeColors,
+    borders: &BorderSet,
+    inner_width: usize,
+    content: &str,
+    content_color: &str,
+) -> String {
+    let clipped = truncate_display(content, inner_width);
+    let pad = " ".repeat(inner_width.saturating_sub(display_width(&clipped)));
+    let body_plain = format!("{clipped}{pad}");
+    let body = if content_color.is_empty() {
+        body_plain
+    } else {
+        format!("{content_color}{body_plain}{}", colors.reset)
+    };
+
+    format!(
+        "{}{}{}{}{}{}{}",
+        colors.border,
+        borders.vertical,
+        colors.reset,
+        body,
+        colors.border,
+        borders.vertical,
+        colors.reset
+    )
+}

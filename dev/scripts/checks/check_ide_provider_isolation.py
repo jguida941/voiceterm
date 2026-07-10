@@ -6,7 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 
 from ide_provider_isolation_core import (
     ALLOWLISTED_FILE_SIGNAL_PATHS,
@@ -113,7 +113,7 @@ def main() -> int:
     ok = not blocking_mode or not violations
     report = {
         "command": "check_ide_provider_isolation",
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         "ok": ok,
         "mode": "blocking" if blocking_mode else "report-only",
         "source_root": source_roots[0] if source_roots else "",

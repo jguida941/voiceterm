@@ -9,11 +9,15 @@ import sys
 from pathlib import Path
 from typing import Iterable
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
+try:
+    from check_bootstrap import REPO_ROOT
+except ModuleNotFoundError:
+    from dev.scripts.checks.check_bootstrap import REPO_ROOT
 DEFAULT_PATHS = (".",)
 DEFAULT_EXCLUDES = (
     "integrations/**",
     "dev/archive/**",
+    ".claude/worktrees/**",
 )
 CANONICAL_TEMPLATE = (
     "**Status**: {status}  |  **Last updated**: {last_updated} | **Owner:** {owner}"
@@ -49,6 +53,8 @@ def _collect_markdown_paths(
                     collected.add(target.resolve())
             continue
         for candidate in target.rglob("*.md"):
+            if not candidate.is_file():
+                continue
             relative_path = _relative_posix(candidate)
             if _is_excluded(relative_path, excludes):
                 continue

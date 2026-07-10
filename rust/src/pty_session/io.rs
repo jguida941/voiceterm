@@ -90,8 +90,8 @@ fn spawn_reader_thread_inner(
                 assert!(guard_iters > prev);
                 guard_iteration_loop(guard_iters, 10_000, _guard_label);
             }
-            // SAFETY: master_fd is a valid PTY fd owned by this thread, and buffer is writable.
             let n = unsafe {
+                // SAFETY: master_fd is a valid PTY fd owned by this thread, and buffer is writable.
                 libc::read(
                     master_fd,
                     buffer.as_mut_ptr() as *mut libc::c_void,

@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
 
-from ..common import pipe_output, write_output
+from ..common import emit_output, pipe_output, write_output
+from ..time_utils import utc_timestamp
 from ..path_audit import scan_path_audit_references
 
 MAX_MD_VIOLATIONS = 30
@@ -56,10 +56,17 @@ def _render_md(report: dict) -> str:
 def run(args) -> int:
     """Scan for legacy script-path references and fail when any are found."""
     scan = scan_path_audit_references()
+    ok = bool(scan.get("ok"))
+    errors = _command_errors(scan)
     report = {
         "command": "path-audit",
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": utc_timestamp(),
         **scan,
+        "ok": ok,
+        "exit_ok": ok,
+        "exit_code": 0 if ok else 1,
+        "status": "ok" if ok else "blocked",
+        "errors": errors,
     }
 
     if args.format == "json":
@@ -67,7 +74,26 @@ def run(args) -> int:
     else:
         output = _render_md(report)
 
-    write_output(output, args.output)
-    if args.pipe_command:
-        return pipe_output(output, args.pipe_command, args.pipe_args)
+    pipe_rc = emit_output(
+        output,
+        output_path=args.output,
+        pipe_command=args.pipe_command,
+        pipe_args=args.pipe_args,
+        writer=write_output,
+        piper=pipe_output,
+    )
+    if pipe_rc != 0:
+        return pipe_rc
     return 0 if report["ok"] else 1
+
+
+def _command_errors(scan: dict) -> list[str]:
+    """Return command-level errors without dropping detailed violation rows."""
+    errors: list[str] = []
+    error = str(scan.get("error") or "").strip()
+    if error:
+        errors.append(error)
+    violation_count = len(scan.get("violations") or [])
+    if violation_count:
+        errors.append(f"path_audit_violations={violation_count}")
+    return errors

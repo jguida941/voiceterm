@@ -24,9 +24,3 @@ ignore = [
 
 [tool.ruff.lint.isort]
 known-first-party = ["dev"]
-
-[tool.mypy]
-python_version = "3.11"
-ignore_missing_imports = true
-warn_return_any = true
-warn_unused_configs = true

@@ -27,7 +27,7 @@ class WorkflowShellBridgeTests(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls.script = load_module(
             "workflow_shell_bridge",
-            "dev/scripts/workflow_shell_bridge.py",
+            "dev/scripts/workflow_bridge/shell.py",
         )
 
     def test_evaluate_user_docs_gate_runs_when_threshold_met(self) -> None:
@@ -158,6 +158,30 @@ class WorkflowShellBridgeTests(unittest.TestCase):
             self.assertEqual(rc, 0)
             self.assertIn(
                 (root / "a" / "backlog-medium.json").as_posix(),
+                "".join(call.args[0] for call in mock_stdout.call_args_list),
+            )
+
+    def test_print_coverage_summary_reads_cobertura_xml(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            coverage_xml = Path(tmpdir) / "coverage.xml"
+            coverage_xml.write_text(
+                (
+                    '<coverage line-rate="0.875" lines-valid="80" '
+                    'lines-covered="70"></coverage>'
+                ),
+                encoding="utf-8",
+            )
+            args = self.script.argparse.Namespace(
+                coverage_xml=coverage_xml,
+                label="Devctl",
+            )
+
+            with mock.patch("sys.stdout.write") as mock_stdout:
+                rc = self.script.print_coverage_summary(args)
+
+            self.assertEqual(rc, 0)
+            self.assertIn(
+                "Devctl coverage: 87.5% (70/80 lines)",
                 "".join(call.args[0] for call in mock_stdout.call_args_list),
             )
 

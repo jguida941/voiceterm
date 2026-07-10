@@ -121,6 +121,10 @@ def render_action_items(guard_steps: list[dict]) -> str:
             action_lines.append(
                 "- [ ] Add missing `reason=` for `#[allow(...)]`, document `unsafe` with `SAFETY:` comments, and add `# Safety` docs for public `unsafe fn` where reported."
             )
+        elif step["script_id"] == "serde_compatibility":
+            action_lines.append(
+                "- [ ] Add `#[serde(other)]` fallback variants for newly introduced tagged `Deserialize` enums or document intentional fail-closed behavior with adjacent `serde-compat: allow reason=<...>` comments."
+            )
         elif step["script_id"] == "rust_runtime_panic_policy":
             action_lines.append(
                 "- [ ] Remove new unallowlisted runtime `panic!` paths or add adjacent `panic-policy: allow reason=<...>` rationale comments for intentional hard-stop behavior."

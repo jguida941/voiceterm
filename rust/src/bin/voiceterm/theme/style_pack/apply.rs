@@ -19,85 +19,111 @@ use super::super::{
 };
 use super::StylePack;
 
+macro_rules! impl_runtime_override_conversion {
+    ($runtime:ty => $schema:ty { $($variant:ident),+ $(,)? }) => {
+        impl From<$runtime> for $schema {
+            fn from(value: $runtime) -> Self {
+                match value {
+                    $(
+                        <$runtime>::$variant => <$schema>::$variant,
+                    )+
+                }
+            }
+        }
+    };
+}
+
+impl_runtime_override_conversion!(
+    RuntimeBorderStyleOverride => BorderStyleOverride { Single, Rounded, Double, Heavy, None }
+);
+impl_runtime_override_conversion!(RuntimeGlyphSetOverride => GlyphSetOverride { Unicode, Ascii });
+impl_runtime_override_conversion!(
+    RuntimeIndicatorSetOverride => IndicatorSetOverride { Ascii, Dot, Diamond }
+);
+impl_runtime_override_conversion!(
+    RuntimeToastPositionOverride => ToastPositionOverride {
+        TopRight,
+        BottomRight,
+        TopCenter,
+        BottomCenter
+    }
+);
+impl_runtime_override_conversion!(
+    RuntimeStartupStyleOverride => StartupStyleOverride { Full, Minimal, Hidden }
+);
+impl_runtime_override_conversion!(
+    RuntimeProgressStyleOverride => ProgressStyleOverride { Braille, Dots, Line, Block }
+);
+impl_runtime_override_conversion!(
+    RuntimeToastSeverityModeOverride => ToastSeverityMode { Icon, Label, IconAndLabel }
+);
+impl_runtime_override_conversion!(
+    RuntimeBannerStyleOverride => BannerStyleOverride { Full, Compact, Minimal, Hidden }
+);
+impl_runtime_override_conversion!(
+    RuntimeProgressBarFamilyOverride => SchemaProgressBarFamily {
+        Bar,
+        Compact,
+        Blocks,
+        Braille
+    }
+);
+impl_runtime_override_conversion!(
+    RuntimeVoiceSceneStyleOverride => SchemaVoiceSceneStyleOverride { Pulse, Static, Minimal }
+);
+
+fn apply_runtime_override<Runtime, Schema>(
+    target: &mut Option<Schema>,
+    override_value: Option<Runtime>,
+) where
+    Runtime: Into<Schema>,
+{
+    if let Some(override_value) = override_value {
+        *target = Some(override_value.into());
+    }
+}
+
 pub(crate) fn apply_runtime_style_pack_overrides(
     pack: &mut StylePack,
     overrides: RuntimeStylePackOverrides,
 ) {
-    if let Some(border_override) = overrides.border_style_override {
-        pack.border_style_override = Some(match border_override {
-            RuntimeBorderStyleOverride::Single => BorderStyleOverride::Single,
-            RuntimeBorderStyleOverride::Rounded => BorderStyleOverride::Rounded,
-            RuntimeBorderStyleOverride::Double => BorderStyleOverride::Double,
-            RuntimeBorderStyleOverride::Heavy => BorderStyleOverride::Heavy,
-            RuntimeBorderStyleOverride::None => BorderStyleOverride::None,
-        });
-    }
-    if let Some(glyph_override) = overrides.glyph_set_override {
-        pack.glyph_set_override = Some(match glyph_override {
-            RuntimeGlyphSetOverride::Unicode => GlyphSetOverride::Unicode,
-            RuntimeGlyphSetOverride::Ascii => GlyphSetOverride::Ascii,
-        });
-    }
-    if let Some(indicator_override) = overrides.indicator_set_override {
-        pack.indicator_set_override = Some(match indicator_override {
-            RuntimeIndicatorSetOverride::Ascii => IndicatorSetOverride::Ascii,
-            RuntimeIndicatorSetOverride::Dot => IndicatorSetOverride::Dot,
-            RuntimeIndicatorSetOverride::Diamond => IndicatorSetOverride::Diamond,
-        });
-    }
-    if let Some(position_override) = overrides.toast_position_override {
-        pack.surface_overrides.toast_position = Some(match position_override {
-            RuntimeToastPositionOverride::TopRight => ToastPositionOverride::TopRight,
-            RuntimeToastPositionOverride::BottomRight => ToastPositionOverride::BottomRight,
-            RuntimeToastPositionOverride::TopCenter => ToastPositionOverride::TopCenter,
-            RuntimeToastPositionOverride::BottomCenter => ToastPositionOverride::BottomCenter,
-        });
-    }
-    if let Some(startup_override) = overrides.startup_style_override {
-        pack.surface_overrides.startup_style = Some(match startup_override {
-            RuntimeStartupStyleOverride::Full => StartupStyleOverride::Full,
-            RuntimeStartupStyleOverride::Minimal => StartupStyleOverride::Minimal,
-            RuntimeStartupStyleOverride::Hidden => StartupStyleOverride::Hidden,
-        });
-    }
-    if let Some(progress_override) = overrides.progress_style_override {
-        pack.surface_overrides.progress_style = Some(match progress_override {
-            RuntimeProgressStyleOverride::Braille => ProgressStyleOverride::Braille,
-            RuntimeProgressStyleOverride::Dots => ProgressStyleOverride::Dots,
-            RuntimeProgressStyleOverride::Line => ProgressStyleOverride::Line,
-            RuntimeProgressStyleOverride::Block => ProgressStyleOverride::Block,
-        });
-    }
-    if let Some(toast_severity_override) = overrides.toast_severity_mode_override {
-        pack.component_overrides.toast_severity_mode = Some(match toast_severity_override {
-            RuntimeToastSeverityModeOverride::Icon => ToastSeverityMode::Icon,
-            RuntimeToastSeverityModeOverride::Label => ToastSeverityMode::Label,
-            RuntimeToastSeverityModeOverride::IconAndLabel => ToastSeverityMode::IconAndLabel,
-        });
-    }
-    if let Some(banner_override) = overrides.banner_style_override {
-        pack.component_overrides.banner_style = Some(match banner_override {
-            RuntimeBannerStyleOverride::Full => BannerStyleOverride::Full,
-            RuntimeBannerStyleOverride::Compact => BannerStyleOverride::Compact,
-            RuntimeBannerStyleOverride::Minimal => BannerStyleOverride::Minimal,
-            RuntimeBannerStyleOverride::Hidden => BannerStyleOverride::Hidden,
-        });
-    }
-    if let Some(progress_bar_override) = overrides.progress_bar_family_override {
-        pack.component_overrides.progress_bar_family = Some(match progress_bar_override {
-            RuntimeProgressBarFamilyOverride::Bar => SchemaProgressBarFamily::Bar,
-            RuntimeProgressBarFamilyOverride::Compact => SchemaProgressBarFamily::Compact,
-            RuntimeProgressBarFamilyOverride::Blocks => SchemaProgressBarFamily::Blocks,
-            RuntimeProgressBarFamilyOverride::Braille => SchemaProgressBarFamily::Braille,
-        });
-    }
-    if let Some(scene_override) = overrides.voice_scene_style_override {
-        pack.surface_overrides.voice_scene_style = Some(match scene_override {
-            RuntimeVoiceSceneStyleOverride::Pulse => SchemaVoiceSceneStyleOverride::Pulse,
-            RuntimeVoiceSceneStyleOverride::Static => SchemaVoiceSceneStyleOverride::Static,
-            RuntimeVoiceSceneStyleOverride::Minimal => SchemaVoiceSceneStyleOverride::Minimal,
-        });
-    }
+    apply_runtime_override(
+        &mut pack.border_style_override,
+        overrides.border_style_override,
+    );
+    apply_runtime_override(&mut pack.glyph_set_override, overrides.glyph_set_override);
+    apply_runtime_override(
+        &mut pack.indicator_set_override,
+        overrides.indicator_set_override,
+    );
+    apply_runtime_override(
+        &mut pack.surface_overrides.toast_position,
+        overrides.toast_position_override,
+    );
+    apply_runtime_override(
+        &mut pack.surface_overrides.startup_style,
+        overrides.startup_style_override,
+    );
+    apply_runtime_override(
+        &mut pack.surface_overrides.progress_style,
+        overrides.progress_style_override,
+    );
+    apply_runtime_override(
+        &mut pack.component_overrides.toast_severity_mode,
+        overrides.toast_severity_mode_override,
+    );
+    apply_runtime_override(
+        &mut pack.component_overrides.banner_style,
+        overrides.banner_style_override,
+    );
+    apply_runtime_override(
+        &mut pack.component_overrides.progress_bar_family,
+        overrides.progress_bar_family_override,
+    );
+    apply_runtime_override(
+        &mut pack.surface_overrides.voice_scene_style,
+        overrides.voice_scene_style_override,
+    );
 }
 
 #[must_use]

@@ -13,6 +13,8 @@ mod layout;
 mod mode_indicator;
 mod right_panel;
 mod state;
+#[cfg(test)]
+pub(crate) mod test_helpers;
 mod text;
 
 pub use buttons::get_button_positions;

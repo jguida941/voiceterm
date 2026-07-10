@@ -200,7 +200,11 @@ pub(crate) fn drain_voice_messages<S: TranscriptSession>(ctx: &mut VoiceDrainCon
                 clear_last_latency(status_state);
             }
             if sound_on_error && matches!(other, VoiceJobMessage::Error(_)) {
-                let _ = writer_tx.send(WriterMessage::Bell { count: 2 });
+                crate::writer::send_message_blocking(
+                    writer_tx,
+                    WriterMessage::Bell { count: 2 },
+                    "voice drain: error bell",
+                );
             }
             let mut non_transcript_ctx = NonTranscriptDispatchContext {
                 config,

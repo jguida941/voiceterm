@@ -4,26 +4,28 @@
 //! Shows sample mock-ups so users can see how their customizations look
 //! without leaving the Theme Studio.
 
+use crate::scrollable::Scrollable;
+
 /// State for the Preview page.
 #[derive(Debug, Clone)]
 pub(crate) struct PreviewPageState {
     pub(crate) scroll_offset: usize,
 }
 
+impl Scrollable for PreviewPageState {
+    fn scroll_offset(&self) -> usize {
+        self.scroll_offset
+    }
+
+    fn scroll_offset_mut(&mut self) -> &mut usize {
+        &mut self.scroll_offset
+    }
+}
+
 impl PreviewPageState {
     #[must_use]
     pub(crate) fn new() -> Self {
         Self { scroll_offset: 0 }
-    }
-
-    pub(crate) fn scroll_up(&mut self) {
-        self.scroll_offset = self.scroll_offset.saturating_sub(1);
-    }
-
-    pub(crate) fn scroll_down(&mut self, max_lines: usize, visible: usize) {
-        if max_lines > visible && self.scroll_offset < max_lines - visible {
-            self.scroll_offset += 1;
-        }
     }
 
     /// Render a preview of various themed components.
@@ -150,11 +152,11 @@ mod tests {
     #[test]
     fn preview_page_scroll() {
         let mut page = PreviewPageState::new();
-        page.scroll_down(20, 10);
+        page.scroll_down(1, 10);
         assert_eq!(page.scroll_offset, 1);
-        page.scroll_up();
+        page.scroll_up(1);
         assert_eq!(page.scroll_offset, 0);
-        page.scroll_up(); // shouldn't go below 0
+        page.scroll_up(1); // shouldn't go below 0
         assert_eq!(page.scroll_offset, 0);
     }
 

@@ -6,33 +6,25 @@ from __future__ import annotations
 import argparse
 import json
 import re
-import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
 
 try:
-    from git_change_paths import list_changed_paths_with_base_map
-except (
-    ModuleNotFoundError
-):  # pragma: no cover - import fallback for package-style test loading
-    from dev.scripts.checks.git_change_paths import list_changed_paths_with_base_map
-try:
-    from rust_guard_common import GuardContext
-    from rust_guard_common import is_test_path as _is_test_path
-except (
-    ModuleNotFoundError
-):  # pragma: no cover - import fallback for package-style test loading
-    from dev.scripts.checks.rust_guard_common import GuardContext
-    from dev.scripts.checks.rust_guard_common import is_test_path as _is_test_path
-try:
-    from rust_check_text_utils import strip_cfg_test_blocks
-except (
-    ModuleNotFoundError
-):  # pragma: no cover - import fallback for package-style test loading
-    from dev.scripts.checks.rust_check_text_utils import strip_cfg_test_blocks
+    from check_bootstrap import REPO_ROOT, emit_runtime_error, import_attr, utc_timestamp
+except ModuleNotFoundError:  # pragma: no cover - import fallback for package-style test loading
+    from dev.scripts.checks.check_bootstrap import REPO_ROOT, emit_runtime_error, import_attr, utc_timestamp
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
+list_changed_paths_with_base_map = import_attr(
+    "git_change_paths", "list_changed_paths_with_base_map"
+)
+GuardContext = import_attr("rust_guard_common", "GuardContext")
+_collect_rust_files = import_attr("rust_guard_common", "collect_rust_files")
+_normalize_changed_paths = import_attr(
+    "rust_guard_common", "normalize_changed_rust_paths"
+)
+strip_cfg_test_blocks = import_attr("rust_check_text_utils", "strip_cfg_test_blocks")
+
 guard = GuardContext(REPO_ROOT)
 SOURCE_ROOT = REPO_ROOT / "rust" / "src"
 TYPE_DEF_RE = re.compile(
@@ -53,28 +45,13 @@ ALLOWLIST_DUPLICATES: dict[str, set[str]] = {
     },
 }
 
-
 def _path_for_report(path: Path) -> str:
     return path.relative_to(REPO_ROOT).as_posix()
-
-
-def _collect_rust_files(*, include_tests: bool) -> tuple[list[Path], int]:
-    files: list[Path] = []
-    skipped_tests = 0
-    for path in SOURCE_ROOT.rglob("*.rs"):
-        relative = Path(_path_for_report(path))
-        if not include_tests and _is_test_path(relative):
-            skipped_tests += 1
-            continue
-        files.append(path)
-    return sorted(files), skipped_tests
-
 
 def _extract_type_names(path: Path) -> list[str]:
     text = path.read_text(encoding="utf-8", errors="replace")
     text = strip_cfg_test_blocks(text)
     return TYPE_DEF_RE.findall(text)
-
 
 def _build_type_index(files: list[Path]) -> tuple[dict[str, set[str]], int]:
     index: dict[str, set[str]] = {}
@@ -86,22 +63,6 @@ def _build_type_index(files: list[Path]) -> tuple[dict[str, set[str]], int]:
         for name in names:
             index.setdefault(name, set()).add(rel)
     return index, type_definitions
-
-
-def _normalize_changed_paths(
-    changed_paths: list[Path], *, include_tests: bool
-) -> set[str]:
-    normalized: set[str] = set()
-    for path in changed_paths:
-        if path.suffix != ".rs":
-            continue
-        if not path.as_posix().startswith("rust/src/"):
-            continue
-        if not include_tests and _is_test_path(path):
-            continue
-        normalized.add(path.as_posix())
-    return normalized
-
 
 def _render_md(report: dict) -> str:
     lines = ["# check_duplicate_types", ""]
@@ -141,7 +102,6 @@ def _render_md(report: dict) -> str:
 
     return "\n".join(lines)
 
-
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--since-ref", help="Compare against this git ref")
@@ -156,7 +116,6 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--format", choices=("md", "json"), default="md")
     return parser
 
-
 def main() -> int:
     args = _build_parser().parse_args()
     try:
@@ -169,20 +128,12 @@ def main() -> int:
             args.head_ref,
         )
     except RuntimeError as exc:
-        report = {
-            "command": "check_duplicate_types",
-            "timestamp": datetime.now().isoformat(),
-            "ok": False,
-            "error": str(exc),
-        }
-        if args.format == "json":
-            print(json.dumps(report, indent=2))
-        else:
-            print("# check_duplicate_types\n")
-            print(f"- ok: False\n- error: {report['error']}")
-        return 2
+        return emit_runtime_error("check_duplicate_types", args.format, str(exc))
 
-    files, skipped_tests = _collect_rust_files(include_tests=args.include_tests)
+    files, skipped_tests = _collect_rust_files(
+        SOURCE_ROOT,
+        include_tests=args.include_tests,
+    )
     type_index, type_definitions_found = _build_type_index(files)
     mode = "commit-range" if args.since_ref else "working-tree"
     changed_path_filter = (
@@ -222,7 +173,7 @@ def main() -> int:
 
     report = {
         "command": "check_duplicate_types",
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": utc_timestamp(),
         "mode": mode,
         "since_ref": args.since_ref,
         "head_ref": args.head_ref,
@@ -245,7 +196,6 @@ def main() -> int:
         print(_render_md(report))
 
     return 0 if report["ok"] else 1
-
 
 if __name__ == "__main__":
     sys.exit(main())

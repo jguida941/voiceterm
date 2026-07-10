@@ -7,10 +7,12 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use voiceterm::log_debug;
 use voiceterm::pty_session::PtyOverlaySession;
 
+use crate::action_center::render::action_center_overlay_height;
 use crate::config::HudStyle;
 use crate::dev_panel::dev_panel_height;
 use crate::help::help_overlay_height;
 use crate::hud_debug::claude_hud_debug_enabled;
+use crate::memory_browser::render::memory_browser_overlay_height;
 use crate::runtime_compat::{self, BackendFamily};
 use crate::settings::settings_overlay_height;
 use crate::status_line::status_banner_height_with_policy;
@@ -31,10 +33,10 @@ extern "C" fn handle_sigwinch(_: libc::c_int) {
 }
 
 pub(crate) fn install_sigwinch_handler() -> Result<()> {
+    // SAFETY: We install an async-signal-safe handler that only sets an atomic flag.
+    // `sigemptyset` and `sigaction` are called with initialized pointers and checked
+    // for non-zero error returns.
     unsafe {
-        // SAFETY: We install an async-signal-safe handler that only sets an atomic flag.
-        // `sigemptyset` and `sigaction` are called with initialized pointers and checked
-        // for non-zero error returns.
         let mut action: libc::sigaction = std::mem::zeroed();
         action.sa_flags = libc::SA_RESTART;
         action.sa_sigaction = handle_sigwinch as *const () as usize;
@@ -110,6 +112,22 @@ fn startup_pty_rows(rows: u16, cols: u16, hud_style: HudStyle) -> u16 {
     rows.saturating_sub(reserved).max(1)
 }
 
+/// The child's believed bottom row for the plain (no-overlay) banner state —
+/// the SAME row-aware math `apply_pty_winsize` uses to size the PTY. The
+/// writer confines the DECSTBM scroll region to this bottom so the child's own
+/// bottom row (e.g. Claude's status bar) can never scroll into — or share a
+/// host row with — the HUD band or the reserved gap rows above it.
+pub(crate) fn child_viewport_rows_for_banner(
+    rows: u16,
+    cols: u16,
+    hud_style: HudStyle,
+    prompt_suppressed: bool,
+) -> u16 {
+    let reserved =
+        adjusted_reserved_rows(rows, cols, OverlayMode::None, hud_style, prompt_suppressed);
+    rows.saturating_sub(reserved).max(1)
+}
+
 pub(crate) fn reserved_rows_for_mode(
     mode: OverlayMode,
     cols: u16,
@@ -152,6 +170,8 @@ pub(crate) fn reserved_rows_for_mode(
         // Toast history uses a fixed default height estimate since the actual
         // height depends on runtime state; 10 rows is a safe conservative value.
         OverlayMode::ToastHistory => 10,
+        OverlayMode::MemoryBrowser => memory_browser_overlay_height(),
+        OverlayMode::ActionCenter => action_center_overlay_height(),
     }
 }
 

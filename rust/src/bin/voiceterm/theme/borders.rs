@@ -13,6 +13,7 @@ pub struct BorderSet {
     pub t_right: char,  // ┤
     pub t_top: char,    // ┬
     pub t_bottom: char, // ┴
+    pub cross: char,    // ┼
 }
 
 /// Standard single-line borders
@@ -27,6 +28,7 @@ pub const BORDER_SINGLE: BorderSet = BorderSet {
     t_right: '┤',
     t_top: '┬',
     t_bottom: '┴',
+    cross: '┼',
 };
 
 /// Double-line borders (elegant)
@@ -41,6 +43,7 @@ pub const BORDER_DOUBLE: BorderSet = BorderSet {
     t_right: '╣',
     t_top: '╦',
     t_bottom: '╩',
+    cross: '╬',
 };
 
 /// Heavy/bold borders
@@ -55,6 +58,7 @@ pub const BORDER_HEAVY: BorderSet = BorderSet {
     t_right: '┫',
     t_top: '┳',
     t_bottom: '┻',
+    cross: '╋',
 };
 
 /// Rounded corners (modern)
@@ -69,6 +73,7 @@ pub const BORDER_ROUNDED: BorderSet = BorderSet {
     t_right: '┤',
     t_top: '┬',
     t_bottom: '┴',
+    cross: '┼',
 };
 
 /// Minimal dotted borders (reserved for future themes)
@@ -87,6 +92,7 @@ pub const BORDER_DOTTED: BorderSet = BorderSet {
     t_right: '·',
     t_top: '·',
     t_bottom: '·',
+    cross: '·',
 };
 
 /// No borders (spaces) (reserved for future themes)
@@ -105,4 +111,5 @@ pub const BORDER_NONE: BorderSet = BorderSet {
     t_right: ' ',
     t_top: ' ',
     t_bottom: ' ',
+    cross: ' ',
 };

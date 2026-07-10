@@ -3,9 +3,10 @@
 //! Displays version and configuration info on startup.
 
 use crate::runtime_compat;
+use crate::status_line::Pipeline;
 use crate::theme::{
-    inline_separator, runtime_style_pack_overrides, RuntimeBannerStyleOverride,
-    RuntimeStartupStyleOverride, Theme,
+    inline_separator, resolved_banner_style, resolved_startup_style, style_pack_theme_lock,
+    BannerStyleOverride, StartupStyleOverride, Theme,
 };
 use crossterm::terminal::size as terminal_size;
 use std::env;
@@ -54,6 +55,13 @@ fn splash_duration_ms() -> u64 {
 fn clear_screen(stdout: &mut dyn Write) -> io::Result<()> {
     // Use both clear-screen and clear-scrollback sequences for IDE terminals.
     write!(stdout, "\x1b[0m\x1b[2J\x1b[3J\x1b[H")
+}
+
+fn pipeline_label(pipeline: Pipeline) -> &'static str {
+    match pipeline {
+        Pipeline::Rust => "Rust",
+        Pipeline::Python => "Python",
+    }
 }
 
 /// Format the ASCII startup banner with theme-routed color accents.
@@ -133,10 +141,10 @@ pub fn format_ascii_banner(
 pub struct BannerConfig {
     /// Whether auto-voice is enabled
     pub auto_voice: bool,
-    /// Current theme name
-    pub theme: String,
+    /// Current theme selection
+    pub theme: Theme,
     /// Pipeline in use (Rust or Python)
-    pub pipeline: String,
+    pub pipeline: Pipeline,
     /// Microphone sensitivity in dB
     pub sensitivity_db: f32,
     /// Backend CLI name (e.g., "claude", "gemini", "aider")
@@ -147,8 +155,8 @@ impl Default for BannerConfig {
     fn default() -> Self {
         Self {
             auto_voice: false,
-            theme: "coral".to_string(),
-            pipeline: "Rust".to_string(),
+            theme: Theme::Coral,
+            pipeline: Pipeline::Rust,
             sensitivity_db: -35.0,
             backend: "codex".to_string(),
         }
@@ -177,7 +185,7 @@ pub fn format_startup_banner(config: &BannerConfig, theme: Theme) -> String {
         colors.reset,
         VERSION,
         config.backend,
-        config.pipeline,
+        pipeline_label(config.pipeline),
         config.theme,
         auto_voice_status,
         config.sensitivity_db,
@@ -204,27 +212,26 @@ fn use_minimal_banner(cols: u16) -> bool {
 }
 
 fn build_startup_banner_for_cols(config: &BannerConfig, theme: Theme, cols: Option<u16>) -> String {
-    let use_color = theme != Theme::None;
+    // Persisted style-pack payload owns the base theme when present.
+    let effective_theme = style_pack_theme_lock().unwrap_or(theme);
+    let use_color = effective_theme != Theme::None;
     let separator = inline_separator(theme.colors().glyph_set);
-    let runtime_overrides = runtime_style_pack_overrides();
 
-    if let Some(startup_style) = runtime_overrides.startup_style_override {
-        return match startup_style {
-            RuntimeStartupStyleOverride::Full => {
-                format_ascii_banner(use_color, cols.unwrap_or(80), separator, theme)
-            }
-            RuntimeStartupStyleOverride::Minimal => format_minimal_banner(theme),
-            RuntimeStartupStyleOverride::Hidden => String::new(),
-        };
+    match resolved_startup_style(theme) {
+        Some(StartupStyleOverride::Full) => {
+            return format_ascii_banner(use_color, cols.unwrap_or(80), separator, theme);
+        }
+        Some(StartupStyleOverride::Minimal) => return format_minimal_banner(theme),
+        Some(StartupStyleOverride::Hidden) => return String::new(),
+        Some(StartupStyleOverride::Theme) | None => {}
     }
 
-    if let Some(banner_style) = runtime_overrides.banner_style_override {
-        return match banner_style {
-            RuntimeBannerStyleOverride::Full => format_startup_banner(config, theme),
-            RuntimeBannerStyleOverride::Compact => format_compact_banner(config, theme),
-            RuntimeBannerStyleOverride::Minimal => format_minimal_banner(theme),
-            RuntimeBannerStyleOverride::Hidden => String::new(),
-        };
+    match resolved_banner_style(theme) {
+        Some(BannerStyleOverride::Full) => return format_startup_banner(config, theme),
+        Some(BannerStyleOverride::Compact) => return format_compact_banner(config, theme),
+        Some(BannerStyleOverride::Minimal) => return format_minimal_banner(theme),
+        Some(BannerStyleOverride::Hidden) => return String::new(),
+        Some(BannerStyleOverride::Theme) | None => {}
     }
 
     match cols {
@@ -244,7 +251,12 @@ fn format_compact_banner(config: &BannerConfig, theme: Theme) -> String {
     };
     format!(
         "{}VoiceTerm{} v{} {separator} {} {separator} {} {separator} auto-voice: {}\n",
-        colors.info, colors.reset, VERSION, config.backend, config.pipeline, auto_voice_status
+        colors.info,
+        colors.reset,
+        VERSION,
+        config.backend,
+        pipeline_label(config.pipeline),
+        auto_voice_status
     )
 }
 
@@ -270,11 +282,18 @@ pub(crate) fn show_startup_splash(config: &BannerConfig, theme: Theme) -> io::Re
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_env::with_env_lock;
+    use crate::test_env::{
+        with_env_overrides, with_terminal_host_env_overrides, TERMINAL_HOST_ENV_KEYS,
+    };
     use crate::theme::{
         runtime_style_pack_overrides, set_runtime_style_pack_overrides, RuntimeBannerStyleOverride,
         RuntimeGlyphSetOverride, RuntimeStartupStyleOverride, RuntimeStylePackOverrides,
     };
+
+    const STYLE_PACK_ENV_KEYS: &[&str] = &[
+        "VOICETERM_STYLE_PACK_JSON",
+        "VOICETERM_TEST_ENABLE_STYLE_PACK_ENV",
+    ];
 
     struct RuntimeOverridesGuard {
         previous: RuntimeStylePackOverrides,
@@ -294,59 +313,41 @@ mod tests {
     }
 
     fn with_splash_env<T>(value: Option<&str>, f: impl FnOnce() -> T) -> T {
-        with_env_lock(|| {
-            let prev = std::env::var("VOICETERM_STARTUP_SPLASH_MS").ok();
-            match value {
-                Some(v) => std::env::set_var("VOICETERM_STARTUP_SPLASH_MS", v),
-                None => std::env::remove_var("VOICETERM_STARTUP_SPLASH_MS"),
-            }
-            let result = f();
-            match prev {
-                Some(v) => std::env::set_var("VOICETERM_STARTUP_SPLASH_MS", v),
-                None => std::env::remove_var("VOICETERM_STARTUP_SPLASH_MS"),
-            }
-            result
-        })
+        with_env_overrides(
+            &["VOICETERM_STARTUP_SPLASH_MS"],
+            &[("VOICETERM_STARTUP_SPLASH_MS", value)],
+            f,
+        )
     }
 
     fn with_banner_env_vars<T>(pairs: &[(&str, Option<&str>)], f: impl FnOnce() -> T) -> T {
-        with_env_lock(|| {
-            let keys = [
-                "PYCHARM_HOSTED",
-                "JETBRAINS_IDE",
-                "IDEA_INITIAL_DIRECTORY",
-                "IDEA_INITIAL_PROJECT",
-                "CLION_IDE",
-                "WEBSTORM_IDE",
-                "TERM_PROGRAM",
-                "TERMINAL_EMULATOR",
-                "CURSOR_TRACE_ID",
-                "CURSOR_APP_VERSION",
-                "CURSOR_VERSION",
-                "CURSOR_BUILD_VERSION",
-            ];
-            let prev: Vec<(String, Option<String>)> = keys
-                .iter()
-                .map(|key| ((*key).to_string(), std::env::var(key).ok()))
-                .collect();
-            for key in keys {
-                std::env::remove_var(key);
-            }
-            for (key, value) in pairs {
-                match value {
-                    Some(v) => std::env::set_var(key, v),
-                    None => std::env::remove_var(key),
-                }
-            }
-            let result = f();
-            for (key, value) in prev {
-                match value {
-                    Some(v) => std::env::set_var(key, v),
-                    None => std::env::remove_var(key),
-                }
-            }
-            result
-        })
+        with_terminal_host_env_overrides(pairs, f)
+    }
+
+    fn with_style_pack_payload<T>(payload: &str, f: impl FnOnce() -> T) -> T {
+        let mut keys = TERMINAL_HOST_ENV_KEYS.to_vec();
+        keys.extend_from_slice(STYLE_PACK_ENV_KEYS);
+        with_env_overrides(
+            &keys,
+            &[
+                ("VOICETERM_STYLE_PACK_JSON", Some(payload)),
+                ("VOICETERM_TEST_ENABLE_STYLE_PACK_ENV", Some("1")),
+            ],
+            f,
+        )
+    }
+
+    fn with_clean_banner_theme_state<T>(f: impl FnOnce() -> T) -> T {
+        let mut keys = TERMINAL_HOST_ENV_KEYS.to_vec();
+        keys.extend_from_slice(STYLE_PACK_ENV_KEYS);
+        with_env_overrides(
+            &keys,
+            &[
+                ("VOICETERM_STYLE_PACK_JSON", None),
+                ("VOICETERM_TEST_ENABLE_STYLE_PACK_ENV", None),
+            ],
+            || with_runtime_overrides(RuntimeStylePackOverrides::default(), f),
+        )
     }
 
     #[test]
@@ -366,8 +367,8 @@ mod tests {
     fn format_startup_banner_shows_config() {
         let config = BannerConfig {
             auto_voice: true,
-            theme: "catppuccin".to_string(),
-            pipeline: "Rust".to_string(),
+            theme: Theme::Catppuccin,
+            pipeline: Pipeline::Rust,
             sensitivity_db: -40.0,
             backend: "gemini".to_string(),
         };
@@ -380,13 +381,15 @@ mod tests {
 
     #[test]
     fn format_startup_banner_none_theme_matches_golden_snapshot() {
-        let config = BannerConfig::default();
-        let banner = format_startup_banner(&config, Theme::None);
-        let expected = format!(
-            "VoiceTerm v{VERSION} │ codex │ Rust │ theme: coral │ auto-voice: off │ -35dB\n\
+        with_banner_env_vars(&[], || {
+            let config = BannerConfig::default();
+            let banner = format_startup_banner(&config, Theme::None);
+            let expected = format!(
+                "VoiceTerm v{VERSION} │ codex │ Rust │ theme: coral │ auto-voice: off │ -35dB\n\
 Ctrl+R record │ ? help │ Ctrl+O settings │ mouse: click HUD buttons │ Ctrl+Q quit\n"
-        );
-        assert_eq!(banner, expected);
+            );
+            assert_eq!(banner, expected);
+        });
     }
 
     #[test]
@@ -400,10 +403,13 @@ Ctrl+R record │ ? help │ Ctrl+O settings │ mouse: click HUD buttons │ Ct
 
     #[test]
     fn format_minimal_banner_none_theme_matches_golden_snapshot() {
-        let banner = format_minimal_banner(Theme::None);
-        let expected =
-            format!("VoiceTerm v{VERSION} │ Ctrl+R rec │ ? help │ Ctrl+O settings │ Ctrl+Q quit\n");
-        assert_eq!(banner, expected);
+        with_banner_env_vars(&[], || {
+            let banner = format_minimal_banner(Theme::None);
+            let expected = format!(
+                "VoiceTerm v{VERSION} │ Ctrl+R rec │ ? help │ Ctrl+O settings │ Ctrl+Q quit\n"
+            );
+            assert_eq!(banner, expected);
+        });
     }
 
     #[test]
@@ -453,23 +459,27 @@ Ctrl+R record │ ? help │ Ctrl+O settings │ mouse: click HUD buttons │ Ct
 
     #[test]
     fn build_startup_banner_for_cols_selects_expected_render_mode() {
-        let config = BannerConfig::default();
+        with_banner_env_vars(&[], || {
+            with_runtime_overrides(RuntimeStylePackOverrides::default(), || {
+                let config = BannerConfig::default();
 
-        let ascii = build_startup_banner_for_cols(&config, Theme::None, Some(66));
-        assert!(ascii.contains("██╗"));
-        assert!(ascii.contains("Initializing..."));
+                let ascii = build_startup_banner_for_cols(&config, Theme::None, Some(66));
+                assert!(ascii.contains("██╗"));
+                assert!(ascii.contains("Initializing..."));
 
-        let minimal = build_startup_banner_for_cols(&config, Theme::None, Some(59));
-        assert!(minimal.contains("Ctrl+R rec"));
-        assert!(!minimal.contains("Initializing..."));
+                let minimal = build_startup_banner_for_cols(&config, Theme::None, Some(59));
+                assert!(minimal.contains("Ctrl+R rec"));
+                assert!(!minimal.contains("Initializing..."));
 
-        let standard = build_startup_banner_for_cols(&config, Theme::None, Some(60));
-        assert!(standard.contains("mouse: click HUD buttons"));
-        assert!(!standard.contains("Initializing..."));
+                let standard = build_startup_banner_for_cols(&config, Theme::None, Some(60));
+                assert!(standard.contains("mouse: click HUD buttons"));
+                assert!(!standard.contains("Initializing..."));
 
-        let fallback = build_startup_banner_for_cols(&config, Theme::None, None);
-        assert!(fallback.contains("mouse: click HUD buttons"));
-        assert!(!fallback.contains("Initializing..."));
+                let fallback = build_startup_banner_for_cols(&config, Theme::None, None);
+                assert!(fallback.contains("mouse: click HUD buttons"));
+                assert!(!fallback.contains("Initializing..."));
+            });
+        });
     }
 
     #[test]
@@ -512,6 +522,35 @@ Ctrl+R record │ ? help │ Ctrl+O settings │ mouse: click HUD buttons │ Ct
                 assert!(compact.contains("VoiceTerm"));
                 assert!(compact.contains("auto-voice"));
                 assert!(!compact.contains("mouse: click HUD buttons"));
+            },
+        );
+    }
+
+    #[test]
+    fn build_startup_banner_for_cols_uses_persisted_startup_style_payload() {
+        let config = BannerConfig::default();
+        with_style_pack_payload(
+            r#"{"version":4,"profile":"ops","base_theme":"none","surfaces":{"startup_style":"minimal"}}"#,
+            || {
+                let minimal = build_startup_banner_for_cols(&config, Theme::None, Some(80));
+                assert!(minimal.contains("Ctrl+R rec"));
+                assert!(!minimal.contains("Initializing..."));
+                assert!(!minimal.contains("mouse: click HUD buttons"));
+            },
+        );
+    }
+
+    #[test]
+    fn build_startup_banner_for_cols_uses_persisted_banner_style_payload() {
+        let config = BannerConfig::default();
+        with_style_pack_payload(
+            r#"{"version":4,"profile":"ops","base_theme":"none","components":{"banner_style":"compact"}}"#,
+            || {
+                let compact = build_startup_banner_for_cols(&config, Theme::None, Some(60));
+                assert!(compact.contains("VoiceTerm"));
+                assert!(compact.contains("auto-voice"));
+                assert!(!compact.contains("mouse: click HUD buttons"));
+                assert!(!compact.contains("Initializing..."));
             },
         );
     }
@@ -668,8 +707,27 @@ Ctrl+R record │ ? help │ Ctrl+O settings │ mouse: click HUD buttons │ Ct
 
     #[test]
     fn logo_line_color_uses_single_theme_accent() {
-        let colors = Theme::TokyoNight.colors();
-        assert_eq!(logo_line_color(Theme::TokyoNight, 0), colors.border);
-        assert_eq!(logo_line_color(Theme::TokyoNight, 3), colors.border);
+        with_clean_banner_theme_state(|| {
+            let colors = Theme::TokyoNight.colors();
+            assert_eq!(logo_line_color(Theme::TokyoNight, 0), colors.border);
+            assert_eq!(logo_line_color(Theme::TokyoNight, 3), colors.border);
+        });
+    }
+
+    #[test]
+    fn build_startup_banner_for_cols_respects_payload_base_theme_lock_over_requested_none() {
+        with_style_pack_payload(
+            r#"{"version":3,"profile":"ops","base_theme":"coral"}"#,
+            || {
+                let config = BannerConfig::default();
+                // Requested theme is None, but payload locks base_theme to coral.
+                let banner = build_startup_banner_for_cols(&config, Theme::None, Some(80));
+                // The banner should use color because payload owns base_theme.
+                assert!(
+                    banner.contains("\x1b["),
+                    "banner should contain ANSI color when payload locks base_theme to non-None"
+                );
+            },
+        );
     }
 }

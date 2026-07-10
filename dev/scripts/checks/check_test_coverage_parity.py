@@ -6,10 +6,13 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
+try:
+    from check_bootstrap import REPO_ROOT
+except ModuleNotFoundError:
+    from dev.scripts.checks.check_bootstrap import REPO_ROOT
 CHECKS_DIR = REPO_ROOT / "dev" / "scripts" / "checks"
 TESTS_DIR = REPO_ROOT / "dev" / "scripts" / "devctl" / "tests"
 SUPPORT_SUFFIXES = ("_support.py", "_core.py", "_render.py")
@@ -51,7 +54,7 @@ def build_report() -> dict:
     total = tested_count + len(violations)
     return {
         "command": "check_test_coverage_parity",
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         "ok": not violations,
         "total_checks": total,
         "tested_checks": tested_count,

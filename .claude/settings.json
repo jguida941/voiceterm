@@ -1,0 +1,51 @@
+{
+  "hooks": {
+    "UserPromptExpansion": [
+      {
+        "matcher": "remote-control",
+        "hooks": [
+          {
+            "type": "command",
+            "async": true,
+            "timeout": 60,
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/dev/scripts/devctl.py\" remote-control hook --provider claude --entrypoint claude_builtin_remote_control --launcher-source claude_builtin_slash --hook-poll-seconds 45 --format json >> /tmp/codex-voice-remote-control-hook.log 2>&1"
+          }
+        ]
+      },
+      {
+        "matcher": "rc",
+        "hooks": [
+          {
+            "type": "command",
+            "async": true,
+            "timeout": 60,
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/dev/scripts/devctl.py\" remote-control hook --provider claude --entrypoint claude_builtin_remote_control --launcher-source claude_builtin_slash --hook-poll-seconds 45 --format json >> /tmp/codex-voice-remote-control-hook.log 2>&1"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "async": true,
+            "timeout": 60,
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/dev/scripts/devctl.py\" remote-control hook --provider claude --entrypoint claude_builtin_remote_control --launcher-source claude_builtin_slash --hook-poll-seconds 45 --format json >> /tmp/codex-voice-remote-control-hook.log 2>&1"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "timeout": 10,
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/dev/scripts/devctl.py\" remote-control exit --provider claude --entrypoint claude_session_end --launcher-source claude_session_end --format json >> /tmp/codex-voice-remote-control-hook.log 2>&1"
+          }
+        ]
+      }
+    ]
+  }
+}

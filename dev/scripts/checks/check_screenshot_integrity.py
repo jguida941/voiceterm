@@ -10,11 +10,13 @@ from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
+try:
+    from check_bootstrap import REPO_ROOT
+except ModuleNotFoundError:
+    from dev.scripts.checks.check_bootstrap import REPO_ROOT
 DEFAULT_DOC_GLOBS = (
     "README.md",
     "QUICK_START.md",
-    "DEV_INDEX.md",
     "guides/*.md",
     "dev/README.md",
     "scripts/README.md",
@@ -22,6 +24,7 @@ DEFAULT_DOC_GLOBS = (
     "app/README.md",
 )
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg"}
+SECONDS_PER_DAY = 24 * 60 * 60
 
 MD_IMAGE_RE = re.compile(r"!\[[^\]]*\]\(([^)]+)\)")
 HTML_IMAGE_RE = re.compile(r"""<img\s+[^>]*src=["']([^"']+)["']""", re.IGNORECASE)
@@ -123,7 +126,7 @@ def main() -> int:
     if args.stale_days > 0:
         now = datetime.now(timezone.utc).timestamp()
         for image_path in sorted(image_to_docs):
-            age_days = int((now - image_path.stat().st_mtime) // 86400)
+            age_days = int((now - image_path.stat().st_mtime) // SECONDS_PER_DAY)
             if age_days >= args.stale_days:
                 stale_refs.append(
                     {

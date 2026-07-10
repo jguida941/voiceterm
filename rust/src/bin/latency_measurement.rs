@@ -338,7 +338,7 @@ fn measure_synthetic_run(
     // Run offline capture
     let pipeline_cfg = config.voice_pipeline_config();
     let vad_cfg: audio::VadConfig = (&pipeline_cfg).into();
-    let mut vad_engine = create_vad_engine(&pipeline_cfg);
+    let mut vad_engine = audio::create_vad_engine(&pipeline_cfg);
     let capture = audio::offline_capture_from_pcm(&samples, &vad_cfg, vad_engine.as_mut());
     let voice_capture_ms = capture.metrics.capture_ms as u64;
 
@@ -627,24 +627,6 @@ fn check_latency_bounds(
         }
     }
     Ok(())
-}
-
-fn create_vad_engine(cfg: &voiceterm::config::VoicePipelineConfig) -> Box<dyn audio::VadEngine> {
-    use voiceterm::config::VadEngineKind;
-
-    match cfg.vad_engine {
-        VadEngineKind::Simple => Box::new(audio::SimpleThresholdVad::new(cfg.vad_threshold_db)),
-        VadEngineKind::Earshot => {
-            #[cfg(feature = "vad_earshot")]
-            {
-                Box::new(voiceterm::vad_earshot::EarshotVad::from_config(cfg))
-            }
-            #[cfg(not(feature = "vad_earshot"))]
-            {
-                unreachable!("earshot VAD requested without 'vad_earshot' feature")
-            }
-        }
-    }
 }
 
 fn print_measurements(measurements: &[LatencyMeasurement]) {

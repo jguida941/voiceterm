@@ -86,6 +86,14 @@ impl Drop for TerminalRestoreGuard {
     }
 }
 
+/// Kitty keyboard-protocol reset: set the active flags to 0, then pop a few
+/// stack entries. Wrapped CLIs (codex) PUSH kitty flags through our relay onto
+/// the host terminal; if a session dies without popping them, the pane stays
+/// poisoned (keys arrive as CSI-u escape codes, releases double-fire, Enter
+/// misbehaves) for every later process. Terminals without kitty support ignore
+/// these sequences. Pops on an empty stack are ignored per the kitty spec.
+pub const KITTY_KEYBOARD_RESET: &[u8] = b"\x1b[=0;1u\x1b[<1u\x1b[<1u\x1b[<1u\x1b[<1u";
+
 /// Restore terminal raw mode, mouse capture, alt-screen, and cursor visibility.
 pub fn restore_terminal() {
     if RAW_MODE_ENABLED.swap(false, Ordering::SeqCst) {
@@ -98,6 +106,9 @@ pub fn restore_terminal() {
     if ALT_SCREEN_ENABLED.swap(false, Ordering::SeqCst) {
         let _ = execute!(stdout, LeaveAlternateScreen);
     }
+    // Never leave the pane in kitty keyboard mode, even when the wrapped CLI
+    // pushed it and died without popping (relayed pushes land on the HOST).
+    let _ = stdout.write_all(KITTY_KEYBOARD_RESET);
     let _ = execute!(stdout, Show);
     let _ = stdout.flush();
 }

@@ -1,30 +1,38 @@
-"""Shared data collection + markdown rendering for `status` and `report`.
+"""Shared data collection for `status` and `report`.
 
-Why this exists:
-- `status` and `report` should show the same fields in the same way
-- one renderer prevents accidental output drift over time
+Markdown rendering lives in `status_report_render.py` so this module stays
+focused on probe orchestration.
 """
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime
-from typing import Any, Callable, Dict, List, Tuple
+from typing import Any
 
 from .collect import (
     collect_ci_runs,
-    collect_dev_log_summary,
+    collect_clippy_pedantic_summary,
+    collect_failure_packet,
     collect_git_status,
     collect_mutation_summary,
 )
+from .collect_dev_logs import collect_dev_log_summary
+from .python_guard_report import collect_python_guard_report
+from .quality_backlog.report import collect_quality_backlog
+from .review_probe_report import build_probe_report
+from .rust_audit.report import collect_rust_audit_report
+from .status_report_render import render_project_markdown as _render_project_markdown
+from .time_utils import utc_timestamp
 
-# Default worker cap for parallel collection probes.
 DEFAULT_COLLECT_WORKERS = 4
+Probe = tuple[str, Callable[[], Any]]
+render_project_markdown = _render_project_markdown
 
 
-def _run_probes_serial(probes: List[Tuple[str, Callable[[], Any]]]) -> Dict[str, Any]:
+def _run_probes_serial(probes: list[Probe]) -> dict[str, Any]:
     """Run collection probes sequentially, returning {key: result}."""
-    results: Dict[str, Any] = {}
+    results: dict[str, Any] = {}
     for key, func in probes:
         try:
             results[key] = func()
@@ -33,18 +41,14 @@ def _run_probes_serial(probes: List[Tuple[str, Callable[[], Any]]]) -> Dict[str,
     return results
 
 
-def _run_probes_parallel(
-    probes: List[Tuple[str, Callable[[], Any]]],
-    max_workers: int,
-) -> Dict[str, Any]:
+def _run_probes_parallel(probes: list[Probe], max_workers: int) -> dict[str, Any]:
     """Run independent collection probes in parallel while preserving key mapping."""
     if not probes:
         return {}
     if len(probes) <= 1 or max_workers <= 1:
         return _run_probes_serial(probes)
-
     worker_count = min(max_workers, len(probes))
-    results: Dict[str, Any] = {}
+    results: dict[str, Any] = {}
     with ThreadPoolExecutor(max_workers=worker_count) as pool:
         futures = {pool.submit(func): key for key, func in probes}
         for future in as_completed(futures):
@@ -64,12 +68,34 @@ def build_project_report(
     include_dev_logs: bool,
     dev_root: str | None,
     dev_sessions_limit: int,
+    include_pedantic: bool = False,
+    pedantic_summary_path: str | None = None,
+    pedantic_lints_path: str | None = None,
+    pedantic_policy_path: str | None = None,
+    include_rust_audits: bool = False,
+    rust_audit_mode: str = "auto",
+    rust_audit_since_ref: str | None = None,
+    rust_audit_head_ref: str = "HEAD",
+    rust_audit_dead_code_limit: int = 25,
+    include_quality_backlog: bool = False,
+    quality_backlog_top_n: int = 40,
+    quality_backlog_include_tests: bool = False,
+    include_python_guard_backlog: bool = False,
+    python_guard_backlog_top_n: int = 20,
+    python_guard_since_ref: str | None = None,
+    python_guard_head_ref: str = "HEAD",
+    python_guard_policy_path: str | None = None,
+    include_probe_report: bool = False,
+    probe_since_ref: str | None = None,
+    probe_head_ref: str = "HEAD",
+    probe_policy_path: str | None = None,
+    probe_emit_artifacts: bool = False,
+    include_failure_packet: bool = True,
     parallel: bool = True,
     max_workers: int = DEFAULT_COLLECT_WORKERS,
 ) -> dict:
     """Collect the standard project snapshot used by both commands."""
-    # Build the list of independent collection probes.
-    probes: List[Tuple[str, Callable[[], Any]]] = [
+    probes: list[Probe] = [
         ("git", collect_git_status),
         ("mutants", collect_mutation_summary),
     ]
@@ -85,104 +111,71 @@ def build_project_report(
                 ),
             )
         )
+    if include_pedantic:
+        probes.append(
+            (
+                "pedantic",
+                lambda: collect_clippy_pedantic_summary(
+                    summary_path=pedantic_summary_path,
+                    lints_path=pedantic_lints_path,
+                    policy_path=pedantic_policy_path,
+                ),
+            )
+        )
+    if include_rust_audits:
+        probes.append(
+            (
+                "rust_audits",
+                lambda: collect_rust_audit_report(
+                    mode=rust_audit_mode,
+                    since_ref=rust_audit_since_ref,
+                    head_ref=rust_audit_head_ref,
+                    dead_code_report_limit=rust_audit_dead_code_limit,
+                ),
+            )
+        )
+    if include_quality_backlog:
+        probes.append(
+            (
+                "quality_backlog",
+                lambda: collect_quality_backlog(
+                    top_n=quality_backlog_top_n,
+                    include_tests=quality_backlog_include_tests,
+                ),
+            )
+        )
+    if include_python_guard_backlog:
+        probes.append(
+            (
+                "python_guard_backlog",
+                lambda: collect_python_guard_report(
+                    since_ref=python_guard_since_ref,
+                    head_ref=python_guard_head_ref,
+                    top_n=python_guard_backlog_top_n,
+                    policy_path=python_guard_policy_path,
+                ),
+            )
+        )
+    if include_probe_report:
+        probes.append(
+            (
+                "probe_report",
+                lambda: build_probe_report(
+                    since_ref=probe_since_ref,
+                    head_ref=probe_head_ref,
+                    policy_path=probe_policy_path,
+                    emit_artifacts=probe_emit_artifacts,
+                ),
+            )
+        )
+    if include_failure_packet:
+        probes.append(("failure_packet", collect_failure_packet))
 
-    # Execute probes (parallel or sequential based on caller preference).
-    if parallel:
-        collected = _run_probes_parallel(probes, max_workers=max_workers)
-    else:
-        collected = _run_probes_serial(probes)
-
+    collected = _run_probes_parallel(probes, max_workers=max_workers) if parallel else _run_probes_serial(probes)
     report: dict = {
         "command": command,
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": utc_timestamp(),
     }
-    # Merge results in deterministic probe-definition order.
     for key, _func in probes:
         report[key] = collected[key]
     return report
-
-
-def render_project_markdown(
-    report: dict,
-    *,
-    title: str,
-    include_ci_details: bool,
-    ci_details_limit: int = 5,
-) -> str:
-    """Render markdown once for both commands so wording stays aligned."""
-    lines = [f"# {title}", ""]
-    git_info = report.get("git", {})
-    if "error" in git_info:
-        lines.append(f"- Git: {git_info['error']}")
-    else:
-        lines.append(f"- Branch: {git_info.get('branch', 'unknown')}")
-        lines.append(f"- Changelog updated: {git_info.get('changelog_updated')}")
-        lines.append(f"- Master plan updated: {git_info.get('master_plan_updated')}")
-        lines.append(f"- Changed files: {len(git_info.get('changes', []))}")
-
-    mutants_info = report.get("mutants", {})
-    if "error" in mutants_info:
-        lines.append("- Mutation score: unavailable")
-        lines.append(f"- Mutation score note: {mutants_info['error']}")
-    else:
-        results = mutants_info.get("results", {})
-        if not isinstance(results, dict):
-            results = {}
-        score = results.get("score")
-        outcomes = results.get("outcomes_path", "unknown")
-        updated_at = results.get("outcomes_updated_at", "unknown")
-        age_hours = results.get("outcomes_age_hours")
-        score_label = "unknown" if score is None else f"{float(score):.2f}%"
-        age_label = "unknown" if age_hours is None else f"{float(age_hours):.2f}h"
-        lines.append(f"- Mutation score: {score_label}")
-        lines.append(f"- Mutation outcomes: {outcomes}")
-        lines.append(f"- Mutation outcomes updated: {updated_at} ({age_label} old)")
-        warning = mutants_info.get("warning")
-        if warning:
-            lines.append(f"- Mutation score note: {warning}")
-
-    if "ci" in report:
-        ci_info = report["ci"]
-        if "error" in ci_info:
-            lines.append(f"- CI: error ({ci_info['error']})")
-        else:
-            runs = ci_info.get("runs", [])
-            lines.append(f"- CI runs: {len(runs)}")
-            if include_ci_details:
-                for run in runs[:ci_details_limit]:
-                    run_title = run.get("displayTitle", "unknown")
-                    status = run.get("status", "unknown")
-                    conclusion = run.get("conclusion") or "pending"
-                    lines.append(f"  - {run_title}: {status}/{conclusion}")
-
-    if "dev_logs" in report:
-        dev_info = report.get("dev_logs", {})
-        if "error" in dev_info:
-            lines.append(f"- Dev logs: error ({dev_info['error']})")
-        else:
-            lines.append(f"- Dev logs root: {dev_info.get('dev_root')}")
-            lines.append(
-                "- Dev sessions scanned: "
-                f"{dev_info.get('sessions_scanned', 0)}/"
-                f"{dev_info.get('session_files_total', 0)}"
-            )
-            lines.append(
-                "- Dev events: "
-                f"{dev_info.get('events_scanned', 0)} "
-                f"(transcript={dev_info.get('transcript_events', 0)}, "
-                f"empty={dev_info.get('empty_events', 0)}, "
-                f"error={dev_info.get('error_events', 0)})"
-            )
-            lines.append(f"- Dev total words: {dev_info.get('total_words', 0)}")
-            avg_latency = dev_info.get("avg_latency_ms")
-            lines.append(
-                "- Dev avg latency: "
-                + ("unknown" if avg_latency is None else f"{avg_latency} ms")
-            )
-            lines.append(f"- Dev parse errors: {dev_info.get('parse_errors', 0)}")
-            latest_iso = dev_info.get("latest_event_iso")
-            lines.append(
-                "- Dev latest event: " + (latest_iso if latest_iso else "none")
-            )
-
-    return "\n".join(lines)

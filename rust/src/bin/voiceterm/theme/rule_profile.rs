@@ -8,6 +8,8 @@
 
 mod eval;
 
+use crate::color_mode::ColorMode;
+
 #[cfg(test)]
 pub(crate) use eval::{evaluate_condition, evaluate_rules, parse_rule_profile, preview_rules};
 
@@ -231,6 +233,37 @@ impl std::error::Error for RuleProfileError {}
 // Rule evaluation context
 // ---------------------------------------------------------------------------
 
+/// Runtime backend kind used for rule-evaluation matching.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub(crate) enum BackendKind {
+    Codex,
+    Claude,
+    Gemini,
+    Aider,
+    Opencode,
+    Other(String),
+}
+
+impl BackendKind {
+    #[must_use]
+    pub(crate) fn label(&self) -> &str {
+        match self {
+            Self::Codex => "codex",
+            Self::Claude => "claude",
+            Self::Gemini => "gemini",
+            Self::Aider => "aider",
+            Self::Opencode => "opencode",
+            Self::Other(label) => label.as_str(),
+        }
+    }
+}
+
+impl Default for BackendKind {
+    fn default() -> Self {
+        Self::Other(String::new())
+    }
+}
+
 /// Runtime context for rule condition evaluation.
 #[derive(Debug, Clone)]
 pub(crate) struct RuleEvalContext {
@@ -240,9 +273,9 @@ pub(crate) struct RuleEvalContext {
     pub(crate) audio_level_db: f64,
     pub(crate) terminal_width: u16,
     pub(crate) terminal_height: u16,
-    pub(crate) backend: String,
+    pub(crate) backend: BackendKind,
     pub(crate) capabilities: Vec<String>,
-    pub(crate) color_mode: String,
+    pub(crate) color_mode: ColorMode,
 }
 
 impl Default for RuleEvalContext {
@@ -254,9 +287,9 @@ impl Default for RuleEvalContext {
             audio_level_db: -60.0,
             terminal_width: 80,
             terminal_height: 24,
-            backend: String::new(),
+            backend: BackendKind::default(),
             capabilities: Vec::new(),
-            color_mode: "truecolor".to_string(),
+            color_mode: ColorMode::TrueColor,
         }
     }
 }

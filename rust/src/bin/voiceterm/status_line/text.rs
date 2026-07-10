@@ -2,6 +2,19 @@
 
 use unicode_width::UnicodeWidthChar;
 
+use crate::theme::ThemeColors;
+
+/// Wrap `text` in the given ANSI `color`, appending `colors.reset` afterwards.
+/// Returns the text unchanged when `color` is empty (plain-text / no-color mode).
+#[inline]
+pub(super) fn with_color(text: &str, color: &str, colors: &ThemeColors) -> String {
+    if color.is_empty() {
+        text.to_string()
+    } else {
+        format!("{color}{text}{}", colors.reset)
+    }
+}
+
 /// Calculate display width excluding ANSI escape codes.
 #[inline]
 pub(super) fn display_width(s: &str) -> usize {

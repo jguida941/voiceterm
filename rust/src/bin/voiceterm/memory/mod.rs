@@ -28,6 +28,7 @@ pub(crate) mod ingest;
 pub(crate) mod retrieval;
 pub(crate) mod schema;
 pub(crate) mod store;
+pub(crate) mod survival_index;
 pub(crate) mod types;
 
 // Re-exports for ergonomic access from event loop and overlays.

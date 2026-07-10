@@ -10,9 +10,7 @@ use crate::config::LatencyDisplayMode;
 use crate::config::{HudStyle, VoiceSendMode};
 use crate::runtime_compat::should_force_single_line_full_hud_for_env;
 use crate::status_style::StatusType;
-#[cfg(test)]
-use crate::theme::VoiceSceneStyle;
-use crate::theme::{BorderSet, Theme, ThemeColors};
+use crate::theme::{overlay_separator, BorderSet, Theme, ThemeColors};
 
 use super::layout::{breakpoints, effective_hud_style_for_state};
 use super::mode_indicator::{
@@ -20,13 +18,11 @@ use super::mode_indicator::{
 };
 use super::right_panel::format_minimal_right_panel as minimal_right_panel;
 #[cfg(test)]
-use super::right_panel::{
-    meter_level_color, minimal_pulse_dots, minimal_waveform, scene_should_animate,
-};
+use super::right_panel::{minimal_pulse_dots, minimal_waveform};
 #[cfg(test)]
 use super::state::WakeWordHudState;
 use super::state::{ButtonPosition, RecordingState, StatusLineState, VoiceMode};
-use super::text::{display_width, truncate_display};
+use super::text::{display_width, truncate_display, with_color};
 use badges::{
     format_dev_badge, format_image_badge, format_latency_badge, format_queue_badge,
     format_ready_badge, format_wake_badge,
@@ -86,15 +82,6 @@ fn should_force_single_line_full_hud(state: &StatusLineState) -> bool {
         && (state.full_hud_single_line || should_force_single_line_full_hud_for_env())
 }
 
-#[inline]
-fn with_color(text: &str, color: &str, colors: &ThemeColors) -> String {
-    if color.is_empty() {
-        text.to_string()
-    } else {
-        format!("{color}{text}{}", colors.reset)
-    }
-}
-
 fn minimal_strip_text(state: &StatusLineState, colors: &ThemeColors) -> String {
     // Use animated indicators for recording and processing states
     // Minimal mode: theme-colored indicators for all states
@@ -136,7 +123,7 @@ fn minimal_strip_text(state: &StatusLineState, colors: &ThemeColors) -> String {
                 .unwrap_or(MINIMAL_DB_FLOOR);
             line.push(' ');
             line.push_str(colors.dim);
-            line.push('·');
+            line.push_str(overlay_separator(colors.glyph_set));
             line.push_str(colors.reset);
             line.push(' ');
             line.push_str(colors.info);
@@ -149,7 +136,7 @@ fn minimal_strip_text(state: &StatusLineState, colors: &ThemeColors) -> String {
     if let Some(panel) = minimal_right_panel(state, colors) {
         line.push(' ');
         line.push_str(colors.dim);
-        line.push('·');
+        line.push_str(overlay_separator(colors.glyph_set));
         line.push_str(colors.reset);
         line.push(' ');
         line.push_str(&panel);
@@ -159,7 +146,7 @@ fn minimal_strip_text(state: &StatusLineState, colors: &ThemeColors) -> String {
         if !status.is_empty() {
             line.push(' ');
             line.push_str(colors.dim);
-            line.push('·');
+            line.push_str(overlay_separator(colors.glyph_set));
             line.push_str(colors.reset);
             line.push(' ');
             line.push_str(&status);
@@ -250,10 +237,11 @@ pub(super) fn format_minimal_strip_with_button(
 }
 
 fn hidden_launcher_text(state: &StatusLineState, colors: &ThemeColors) -> String {
+    let sep = overlay_separator(colors.glyph_set);
     let base = if state.message.is_empty() {
-        "VoiceTerm hidden · ? help · ^O settings".to_string()
+        format!("VoiceTerm hidden {sep} ? help {sep} ^O settings")
     } else {
-        format!("VoiceTerm · {}", state.message)
+        format!("VoiceTerm {sep} {}", state.message)
     };
     with_color(&base, hidden_muted_color(colors), colors)
 }
@@ -460,7 +448,6 @@ fn get_button_defs(state: &StatusLineState) -> Vec<ButtonDef> {
     ]
 }
 
-const ROW_ITEM_SEPARATOR: &str = " · ";
 const COMPACT_ITEM_SEPARATOR: &str = " ";
 const COMPACT_BUTTON_INDICES: [usize; 6] = [0, 1, 2, 3, 5, 6];
 
@@ -600,7 +587,8 @@ fn format_button_row_with_positions(
         (None, None) => {}
     }
 
-    let row = items.join(ROW_ITEM_SEPARATOR);
+    let sep = format!(" {} ", overlay_separator(colors.glyph_set));
+    let row = items.join(&sep);
 
     if display_width(&row) <= inner_width {
         return (row, positions);
@@ -731,3 +719,49 @@ fn pill_bracket_color<'a>(colors: &'a ThemeColors, highlight: &'a str, focused: 
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod probe_tests {
+    use super::*;
+    use crate::status_line::format_status_banner;
+
+    #[test]
+    fn probe_button_positions_full_hud() {
+        let mut state = StatusLineState::new();
+        state.hud_style = HudStyle::Full;
+        state.mouse_enabled = true;
+        for width in [120usize, 160] {
+            let positions = get_button_positions(&state, Theme::Dracula, width);
+            eprintln!("== width={width} ==");
+            for p in &positions {
+                eprintln!(
+                    "  row={} x={}..{} action={:?}",
+                    p.row, p.start_x, p.end_x, p.action
+                );
+            }
+            let banner = format_status_banner(&state, Theme::Dracula, width);
+            eprintln!("  banner height={}", banner.height);
+            for (i, l) in banner.lines.iter().enumerate() {
+                let plain: String = strip_ansi(l).chars().take(110).collect();
+                eprintln!("   line[{i}] {plain}");
+            }
+        }
+    }
+
+    fn strip_ansi(s: &str) -> String {
+        let mut out = String::new();
+        let mut in_esc = false;
+        for ch in s.chars() {
+            if in_esc {
+                if ch.is_ascii_alphabetic() {
+                    in_esc = false;
+                }
+            } else if ch == '\u{1b}' {
+                in_esc = true;
+            } else {
+                out.push(ch);
+            }
+        }
+        out
+    }
+}

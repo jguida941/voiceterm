@@ -1,5 +1,6 @@
 //! IPC command router that keeps transport commands decoupled from backend logic.
 
+use crate::log_debug;
 use crate::voice;
 use std::sync::mpsc;
 use std::thread;
@@ -343,9 +344,12 @@ pub(super) fn handle_auth_command(state: &mut IpcState, provider_override: Optio
     let claude_cmd = state.claude_cmd.clone();
     let (auth_result_tx, auth_result_rx) = mpsc::channel();
 
+    // detached-thread: allow reason=auth flow runs asynchronously and reports completion through the stored receiver.
     thread::spawn(move || {
         let result = run_auth_flow(provider, &codex_cmd, &claude_cmd);
-        let _ = auth_result_tx.send(result);
+        if auth_result_tx.send(result).is_err() {
+            log_debug("ipc router: auth result receiver dropped before auth flow completed");
+        }
     });
 
     state.current_auth_job = Some(AuthJob {

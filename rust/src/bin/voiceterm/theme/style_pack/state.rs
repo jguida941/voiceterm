@@ -48,13 +48,13 @@ fn runtime_style_pack_overrides_cell() -> &'static Mutex<RuntimeStylePackOverrid
     RUNTIME_STYLE_PACK_OVERRIDES.get_or_init(|| Mutex::new(RuntimeStylePackOverrides::default()))
 }
 
-#[must_use]
-pub(crate) fn runtime_style_pack_overrides() -> RuntimeStylePackOverrides {
-    #[cfg(test)]
-    {
-        RUNTIME_STYLE_PACK_OVERRIDES.with(Cell::get)
-    }
-    #[cfg(not(test))]
+#[cfg(test)]
+fn read_runtime_style_pack_overrides() -> RuntimeStylePackOverrides {
+    RUNTIME_STYLE_PACK_OVERRIDES.with(Cell::get)
+}
+
+#[cfg(not(test))]
+fn read_runtime_style_pack_overrides() -> RuntimeStylePackOverrides {
     match runtime_style_pack_overrides_cell().lock() {
         Ok(guard) => *guard,
         Err(poisoned) => {
@@ -64,12 +64,13 @@ pub(crate) fn runtime_style_pack_overrides() -> RuntimeStylePackOverrides {
     }
 }
 
-pub(crate) fn set_runtime_style_pack_overrides(overrides: RuntimeStylePackOverrides) {
-    #[cfg(test)]
-    {
-        RUNTIME_STYLE_PACK_OVERRIDES.with(|slot| slot.set(overrides));
-    }
-    #[cfg(not(test))]
+#[cfg(test)]
+fn write_runtime_style_pack_overrides(overrides: RuntimeStylePackOverrides) {
+    RUNTIME_STYLE_PACK_OVERRIDES.with(|slot| slot.set(overrides));
+}
+
+#[cfg(not(test))]
+fn write_runtime_style_pack_overrides(overrides: RuntimeStylePackOverrides) {
     match runtime_style_pack_overrides_cell().lock() {
         Ok(mut guard) => *guard = overrides,
         Err(poisoned) => {
@@ -80,42 +81,60 @@ pub(crate) fn set_runtime_style_pack_overrides(overrides: RuntimeStylePackOverri
     }
 }
 
-pub(crate) fn set_runtime_theme_file_override(path: Option<String>) {
-    #[cfg(test)]
-    {
-        RUNTIME_THEME_FILE_OVERRIDE_TEST.with(|slot| *slot.borrow_mut() = path);
+#[cfg(not(test))]
+fn runtime_theme_file_override_cell() -> &'static Mutex<Option<String>> {
+    RUNTIME_THEME_FILE_OVERRIDE.get_or_init(|| Mutex::new(None))
+}
+
+#[cfg(test)]
+fn write_runtime_theme_file_override(path: Option<String>) {
+    RUNTIME_THEME_FILE_OVERRIDE_TEST.with(|slot| *slot.borrow_mut() = path);
+}
+
+#[cfg(not(test))]
+fn write_runtime_theme_file_override(path: Option<String>) {
+    match runtime_theme_file_override_cell().lock() {
+        Ok(mut guard) => *guard = path,
+        Err(poisoned) => {
+            log_debug("runtime theme-file override lock poisoned; recovering write");
+            let mut guard = poisoned.into_inner();
+            *guard = path;
+        }
     }
-    #[cfg(not(test))]
-    {
-        let cell = RUNTIME_THEME_FILE_OVERRIDE.get_or_init(|| Mutex::new(None));
-        match cell.lock() {
-            Ok(mut guard) => *guard = path,
-            Err(poisoned) => {
-                log_debug("runtime theme-file override lock poisoned; recovering write");
-                let mut guard = poisoned.into_inner();
-                *guard = path;
-            }
+}
+
+#[cfg(test)]
+fn read_runtime_theme_file_override() -> Option<String> {
+    RUNTIME_THEME_FILE_OVERRIDE_TEST.with(|slot| slot.borrow().clone())
+}
+
+#[cfg(not(test))]
+fn read_runtime_theme_file_override() -> Option<String> {
+    match runtime_theme_file_override_cell().lock() {
+        Ok(guard) => guard.clone(),
+        Err(poisoned) => {
+            log_debug("runtime theme-file override lock poisoned; recovering read");
+            poisoned.into_inner().clone()
         }
     }
 }
 
 #[must_use]
+pub(crate) fn runtime_style_pack_overrides() -> RuntimeStylePackOverrides {
+    read_runtime_style_pack_overrides()
+}
+
+pub(crate) fn set_runtime_style_pack_overrides(overrides: RuntimeStylePackOverrides) {
+    write_runtime_style_pack_overrides(overrides);
+}
+
+pub(crate) fn set_runtime_theme_file_override(path: Option<String>) {
+    write_runtime_theme_file_override(path);
+}
+
+#[must_use]
 pub(crate) fn runtime_theme_file_override() -> Option<String> {
-    #[cfg(test)]
-    {
-        RUNTIME_THEME_FILE_OVERRIDE_TEST.with(|slot| slot.borrow().clone())
-    }
-    #[cfg(not(test))]
-    {
-        let cell = RUNTIME_THEME_FILE_OVERRIDE.get_or_init(|| Mutex::new(None));
-        match cell.lock() {
-            Ok(guard) => guard.clone(),
-            Err(poisoned) => {
-                log_debug("runtime theme-file override lock poisoned; recovering read");
-                poisoned.into_inner().clone()
-            }
-        }
-    }
+    read_runtime_theme_file_override()
 }
 
 /// Set a full runtime color palette override from the Theme Studio Colors page.

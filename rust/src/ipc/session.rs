@@ -80,6 +80,7 @@ pub(super) struct ClaudeJob {
 }
 
 pub(super) type AuthResult = auth_flow::AuthResult;
+pub(super) type ClaudeJobStartError = claude_job::ClaudeJobStartError;
 
 pub(super) struct AuthJob {
     pub(super) provider: Provider,
@@ -166,7 +167,11 @@ impl ClaudeJob {
             ClaudeJobOutput::Pty { session } => {
                 // Send graceful Ctrl+C first; PtyCliSession::drop will escalate to
                 // SIGTERM → SIGKILL if the process ignores the interrupt.
-                let _ = session.send("\u{3}");
+                if let Err(err) = session.send("\u{3}") {
+                    log_debug(&format!(
+                        "ipc session: failed to send Ctrl+C to PTY Claude job: {err:#}"
+                    ));
+                }
             }
         }
     }
@@ -196,7 +201,7 @@ pub(super) fn start_claude_job(
     prompt: &str,
     skip_permissions: bool,
     term_value: &str,
-) -> Result<ClaudeJob, String> {
+) -> Result<ClaudeJob, ClaudeJobStartError> {
     claude_job::start_claude_job(claude_cmd, prompt, skip_permissions, term_value, USE_PTY)
 }
 
@@ -210,7 +215,7 @@ pub(super) fn start_claude_job_with_pty(
     prompt: &str,
     skip_permissions: bool,
     term_value: &str,
-) -> Result<ClaudeJob, String> {
+) -> Result<ClaudeJob, ClaudeJobStartError> {
     claude_job::start_claude_job(claude_cmd, prompt, skip_permissions, term_value, true)
 }
 

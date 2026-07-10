@@ -1,0 +1,19 @@
+{
+  "contract_id": "PlatformGuide",
+  "entry_kind": "shared_contract",
+  "expected_result": "reject",
+  "fixture_role": "invalid",
+  "invalid_reason": "missing_required_field",
+  "missing_field": "contract_id",
+  "ownership_mode": "python_only",
+  "parity_command": "python3 dev/scripts/checks/check_platform_contract_closure.py --format json",
+  "payload": {
+    "schema_version": 1
+  },
+  "python_owner_path": "dev/scripts/devctl/runtime/governance_proposed_contracts.py",
+  "registry_path": "dev/state/contract_registry.jsonl",
+  "rust_owner_path": "",
+  "schema_fixture_contract_id": "PlatformSchemaFixture",
+  "schema_fixture_version": 1,
+  "schema_version": 1
+}

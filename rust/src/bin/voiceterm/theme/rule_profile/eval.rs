@@ -24,7 +24,7 @@ pub(crate) fn evaluate_condition(condition: &RuleCondition, ctx: &RuleEvalContex
             let below_max = max.is_none_or(|m| value <= m);
             above_min && below_max
         }
-        RuleCondition::Backend { backend } => ctx.backend == *backend,
+        RuleCondition::Backend { backend } => ctx.backend.label() == backend,
         RuleCondition::Capability {
             capability,
             present,
@@ -32,7 +32,7 @@ pub(crate) fn evaluate_condition(condition: &RuleCondition, ctx: &RuleEvalContex
             let has = ctx.capabilities.iter().any(|c| c == capability);
             has == *present
         }
-        RuleCondition::ColorMode { mode } => ctx.color_mode == *mode,
+        RuleCondition::ColorMode { mode } => ctx.color_mode.to_string() == *mode,
         RuleCondition::All { conditions } => conditions.iter().all(|c| evaluate_condition(c, ctx)),
         RuleCondition::Any { conditions } => conditions.iter().any(|c| evaluate_condition(c, ctx)),
     }
@@ -133,7 +133,19 @@ pub(crate) struct RulePreviewEntry {
 // JSON parsing
 // ---------------------------------------------------------------------------
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct RuleProfileParseError(String);
+
+impl std::fmt::Display for RuleProfileParseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl std::error::Error for RuleProfileParseError {}
+
 /// Parse a RuleProfile from a JSON string.
-pub(crate) fn parse_rule_profile(json: &str) -> Result<RuleProfile, String> {
-    serde_json::from_str(json).map_err(|e| format!("invalid rule profile JSON: {e}"))
+pub(crate) fn parse_rule_profile(json: &str) -> Result<RuleProfile, RuleProfileParseError> {
+    serde_json::from_str(json)
+        .map_err(|err| RuleProfileParseError(format!("invalid rule profile JSON: {err}")))
 }

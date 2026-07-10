@@ -1,0 +1,74 @@
+# Purpose: Proves portable governance bootstrap contracts on non-VoiceTerm adopter fixtures.
+# Details: See .github/workflows/README.md for triggers, jobs, and failure handling.
+name: Adopter Portability
+
+permissions:
+  contents: read
+
+concurrency:
+  group: adopter-portability-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  push:
+    branches:
+      - master
+      - develop
+    paths:
+      - "dev/scripts/devctl/**"
+      - "dev/scripts/checks/**"
+      - "dev/test_data/adopter_repo_fixtures/**"
+      - ".github/workflows/adopter_portability.yml"
+  pull_request:
+    paths:
+      - "dev/scripts/devctl/**"
+      - "dev/scripts/checks/**"
+      - "dev/test_data/adopter_repo_fixtures/**"
+      - ".github/workflows/adopter_portability.yml"
+
+jobs:
+  governance-bootstrap-adopter:
+    name: governance-bootstrap adopter fixtures
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - name: Setup Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11"
+
+      - name: Run adopter fixture bootstrap checks
+        run: |
+          set -euo pipefail
+          scratch="${RUNNER_TEMP}/adopter-portability"
+          rm -rf "${scratch}"
+          mkdir -p "${scratch}"
+
+          for fixture in greenfield_python existing_plan_python; do
+            target="${scratch}/${fixture}"
+            cp -R "dev/test_data/adopter_repo_fixtures/${fixture}" "${target}"
+            git -C "${target}" init
+            python3 dev/scripts/devctl.py governance-bootstrap \
+              --target-repo "${target}" \
+              --force-starter-policy \
+              --format json \
+              --output "${target}/bootstrap.json"
+            jq -e '.portability_validation.contract_id == "AdopterPortabilityValidation"' \
+              "${target}/bootstrap.json"
+            jq -e '.portability_validation.validated_contracts == ["ProjectGovernance", "MasterPlan", "PlanRow"]' \
+              "${target}/bootstrap.json"
+            jq -e '.portability_validation.voice_term_assumptions_detected == false' \
+              "${target}/bootstrap.json"
+            test -f "${target}/dev/config/devctl_repo_policy.json"
+            test -f "${target}/dev/guides/PORTABLE_GOVERNANCE_SETUP.md"
+          done
+
+          jq -e '.portability_validation.case_id == "greenfield"' \
+            "${scratch}/greenfield_python/bootstrap.json"
+          jq -e '.portability_validation.case_id == "existing_plan"' \
+            "${scratch}/existing_plan_python/bootstrap.json"
+          jq -e '.portability_validation.existing_plan_files == ["PROJECT_PLAN.md"]' \
+            "${scratch}/existing_plan_python/bootstrap.json"

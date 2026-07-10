@@ -153,6 +153,37 @@ class SecurityCommandTests(unittest.TestCase):
         self.assertIn("unsound", cmd)
         self.assertEqual(policy_call.args[0], "rustsec-policy")
         self.assertTrue(write_output_mock.called)
+        report = json.loads(write_output_mock.call_args.args[0])
+        self.assertEqual(report["contract_id"], "SecurityReport")
+        self.assertEqual(report["schema_version"], 1)
+        self.assertEqual(report["command"], "security")
+        self.assertEqual(report["scanner_tier"], "rustsec")
+
+    @patch("dev.scripts.devctl.commands.security.write_output")
+    @patch("dev.scripts.devctl.commands.security.run_cmd")
+    @patch("dev.scripts.devctl.commands.security.run_rustsec_audit_step")
+    def test_markdown_output_preserves_security_report_contract_header(
+        self,
+        audit_mock,
+        run_cmd_mock,
+        write_output_mock,
+    ) -> None:
+        audit_mock.return_value = (rustsec_ok_step(), [])
+        run_cmd_mock.return_value = {
+            "name": "rustsec-policy",
+            "cmd": [],
+            "cwd": ".",
+            "returncode": 0,
+            "duration_s": 0.01,
+            "skipped": False,
+        }
+
+        rc = security.run(make_args(format="md"))
+        self.assertEqual(rc, 0)
+        markdown = write_output_mock.call_args.args[0]
+        self.assertIn("contract_id: SecurityReport", markdown)
+        self.assertIn("schema_version: 1", markdown)
+        self.assertIn("command: security", markdown)
 
     @patch("dev.scripts.devctl.commands.security_steps.shutil.which", return_value=None)
     @patch("dev.scripts.devctl.commands.security.write_output")
@@ -302,7 +333,7 @@ class SecurityCommandTests(unittest.TestCase):
         )
         self.assertTrue(codeql_step["skipped"])
 
-    @patch("dev.scripts.devctl.security_codeql.shutil.which", return_value=None)
+    @patch("dev.scripts.devctl.security.codeql.shutil.which", return_value=None)
     @patch("dev.scripts.devctl.commands.security.write_output")
     @patch("dev.scripts.devctl.commands.security.run_cmd")
     @patch("dev.scripts.devctl.commands.security.run_rustsec_audit_step")
@@ -339,9 +370,9 @@ class SecurityCommandTests(unittest.TestCase):
         self.assertEqual(codeql_step["returncode"], 127)
         self.assertIn("gh is not installed", codeql_step["error"])
 
-    @patch("dev.scripts.devctl.security_codeql.subprocess.run")
+    @patch("dev.scripts.devctl.security.codeql.subprocess.run")
     @patch(
-        "dev.scripts.devctl.security_codeql.shutil.which", return_value="/usr/bin/gh"
+        "dev.scripts.devctl.security.codeql.shutil.which", return_value="/usr/bin/gh"
     )
     @patch("dev.scripts.devctl.commands.security.write_output")
     @patch("dev.scripts.devctl.commands.security.run_cmd")
@@ -384,9 +415,9 @@ class SecurityCommandTests(unittest.TestCase):
         self.assertEqual(codeql_step["returncode"], 1)
         self.assertEqual(codeql_step["details"]["blocking_alerts"], 1)
 
-    @patch("dev.scripts.devctl.security_codeql.subprocess.run")
+    @patch("dev.scripts.devctl.security.codeql.subprocess.run")
     @patch(
-        "dev.scripts.devctl.security_codeql.shutil.which", return_value="/usr/bin/gh"
+        "dev.scripts.devctl.security.codeql.shutil.which", return_value="/usr/bin/gh"
     )
     @patch("dev.scripts.devctl.commands.security.write_output")
     @patch("dev.scripts.devctl.commands.security.run_cmd")

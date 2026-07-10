@@ -4,17 +4,25 @@ from __future__ import annotations
 
 import json
 import subprocess
-from datetime import datetime
 from pathlib import Path
 
-from ..common import confirm_or_abort, pipe_output, write_output
+from ..common import (
+    confirm_or_abort,
+    display_path,
+    emit_output,
+    resolve_repo_path,
+)
 from ..config import REPO_ROOT
+from ..repo_packs import active_path_config
 from ..script_catalog import check_script_cmd
 from .audit_scaffold_render import render_generated_doc, report_output
+from ..time_utils import utc_timestamp
 
 REPORTS_AUDIT_ROOT = (REPO_ROOT / "dev" / "reports" / "audits").resolve()
-DEFAULT_OUTPUT = "dev/reports/audits/RUST_AUDIT_FINDINGS.md"
-DEFAULT_TEMPLATE = "dev/config/templates/rust_audit_findings_template.md"
+
+# Backward-compat aliases sourced from repo-pack config
+DEFAULT_OUTPUT = active_path_config().audit_scaffold_output_rel
+DEFAULT_TEMPLATE = active_path_config().audit_scaffold_template_rel
 
 GUARD_SPECS = (
     {
@@ -60,6 +68,13 @@ GUARD_SPECS = (
         "focus": "best practices",
     },
     {
+        "name": "serde-compatibility-guard",
+        "script_id": "serde_compatibility",
+        "supports_range": True,
+        "severity": "high",
+        "focus": "serde compatibility",
+    },
+    {
         "name": "rust-runtime-panic-policy-guard",
         "script_id": "rust_runtime_panic_policy",
         "supports_range": True,
@@ -81,32 +96,12 @@ GUARD_SPECS = (
         "focus": "security footguns",
     },
 )
-
-
-def _resolve_repo_path(raw_path: str) -> Path:
-    candidate = Path(raw_path)
-    if candidate.is_absolute():
-        return candidate.resolve()
-    return (REPO_ROOT / candidate).resolve()
-
-
 def _is_under_reports_audit_root(path: Path) -> bool:
     try:
         path.relative_to(REPORTS_AUDIT_ROOT)
         return True
     except ValueError:
         return False
-
-
-def _repo_relative(path: Path) -> str:
-    repo_root = REPO_ROOT.resolve()
-    resolved = path.resolve()
-    try:
-        return resolved.relative_to(repo_root).as_posix()
-    except ValueError:
-        return resolved.as_posix()
-
-
 def _guard_cmd(spec: dict, *, since_ref: str | None, head_ref: str) -> list[str]:
     cmd = check_script_cmd(spec["script_id"], "--format", "json")
     if spec["supports_range"] and since_ref:
@@ -176,8 +171,12 @@ def run(args) -> int:
     """Generate an actionable audit scaffold from guard-script findings."""
     errors: list[str] = []
 
-    output_path = _resolve_repo_path(args.output_path)
-    template_path = _resolve_repo_path(args.template_path)
+    output_path = resolve_repo_path(args.output_path, repo_root=REPO_ROOT, resolve=True)
+    template_path = resolve_repo_path(
+        args.template_path,
+        repo_root=REPO_ROOT,
+        resolve=True,
+    )
 
     if not _is_under_reports_audit_root(output_path):
         errors.append(
@@ -193,7 +192,7 @@ def run(args) -> int:
     if errors:
         report = {
             "command": "audit-scaffold",
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": utc_timestamp(),
             "ok": False,
             "output_path": output_path.as_posix(),
             "findings_detected": False,
@@ -203,7 +202,12 @@ def run(args) -> int:
             "errors": errors,
         }
         output = report_output(report, args.format)
-        write_output(output, args.output)
+        emit_output(
+            output,
+            output_path=args.output,
+            pipe_command=None,
+            pipe_args=None,
+        )
         return 1
 
     if output_path.exists():
@@ -227,7 +231,7 @@ def run(args) -> int:
             )
 
     findings_detected = any(bool(step.get("violations")) for step in guard_steps)
-    generated_at = datetime.now().isoformat()
+    generated_at = utc_timestamp()
     generated_doc = render_generated_doc(
         template_text=template_text,
         generated_at=generated_at,
@@ -245,8 +249,8 @@ def run(args) -> int:
         "command": "audit-scaffold",
         "timestamp": generated_at,
         "ok": True,
-        "output_path": _repo_relative(output_path),
-        "template_path": _repo_relative(template_path),
+        "output_path": display_path(output_path, repo_root=REPO_ROOT),
+        "template_path": display_path(template_path, repo_root=REPO_ROOT),
         "findings_detected": findings_detected,
         "trigger": args.trigger,
         "trigger_steps": args.trigger_steps or "n/a",
@@ -256,9 +260,12 @@ def run(args) -> int:
     }
 
     output = report_output(report, args.format)
-    write_output(output, args.output)
-    if args.pipe_command:
-        pipe_rc = pipe_output(output, args.pipe_command, args.pipe_args)
-        if pipe_rc != 0:
-            return pipe_rc
+    pipe_rc = emit_output(
+        output,
+        output_path=args.output,
+        pipe_command=args.pipe_command,
+        pipe_args=args.pipe_args,
+    )
+    if pipe_rc != 0:
+        return pipe_rc
     return 0

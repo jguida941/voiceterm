@@ -133,10 +133,14 @@ pub(super) fn apply_prompt_suppression(
     state.ui.terminal_rows = crate::terminal::resolved_rows(state.ui.terminal_rows);
     state.ui.terminal_cols = crate::terminal::resolved_cols(state.ui.terminal_cols);
     if state.ui.terminal_rows != previous_rows || state.ui.terminal_cols != previous_cols {
-        let _ = deps.writer_tx.send(WriterMessage::Resize {
-            rows: state.ui.terminal_rows,
-            cols: state.ui.terminal_cols,
-        });
+        crate::writer::send_message_blocking(
+            &deps.writer_tx,
+            WriterMessage::Resize {
+                rows: state.ui.terminal_rows,
+                cols: state.ui.terminal_cols,
+            },
+            "prompt occlusion: geometry refresh",
+        );
     }
 
     state.status_state.prompt_suppressed = suppressed;
@@ -153,10 +157,12 @@ pub(super) fn apply_prompt_suppression(
         state.status_state.prompt_suppressed,
     );
     // Clear before redraw so anchor transitions do not leave stale frame lines.
-    let _ = deps.writer_tx.send(WriterMessage::ClearStatus);
-    let _ = deps
-        .writer_tx
-        .send(WriterMessage::EnhancedStatus(state.status_state.clone()));
+    crate::writer::send_message_blocking(
+        &deps.writer_tx,
+        WriterMessage::ClearStatus,
+        "prompt occlusion: clear status before redraw",
+    );
+    crate::writer::send_enhanced_status(&deps.writer_tx, &state.status_state);
     if claude_hud_debug_enabled() {
         log_debug(&format!(
             "[claude-hud-debug] suppression dispatch: ClearStatus + EnhancedStatus (suppressed={}, hud_style={:?}, rows={}, cols={})",
@@ -221,15 +227,15 @@ pub(super) fn feed_prompt_output_and_sync(
     // Phase 4: Feed detector and sync.
     feed_detector_and_apply_latch(state, timers, deps, data, &signals);
     sync_prompt_suppression_from_detector(state, timers, deps, now);
-    if signals.approval_hint_seen && !state.status_state.prompt_suppressed {
+    if signals.approval.approval_hint_seen && !state.status_state.prompt_suppressed {
         log_debug(&format!(
             "[claude-hud-anomaly] prompt overlap risk: approval hint seen while HUD suppression is inactive (rolling={}, backend_label=\"{}\", explicit_chunk={}, explicit_window={}, numbered_chunk={}, numbered_window={}, rows={}, cols={}, hud_style={:?}, overlay={:?})",
             signals.use_rolling_detector,
             deps.backend_label,
-            signals.explicit_approval_hint_chunk,
-            signals.explicit_approval_hint_window,
-            signals.numbered_approval_hint_chunk,
-            signals.numbered_approval_hint_window,
+            signals.approval.explicit_approval_hint_chunk,
+            signals.approval.explicit_approval_hint_window,
+            signals.approval.numbered_approval_hint_chunk,
+            signals.approval.numbered_approval_hint_window,
             state.ui.terminal_rows,
             state.ui.terminal_cols,
             state.status_state.hud_style,
@@ -274,20 +280,20 @@ fn log_non_rolling_anomaly_if_needed(
     non_rolling_window: &Option<Vec<u8>>,
 ) {
     if signals.use_rolling_detector
-        || !signals.prompt_guard_enabled
-        || !signals.explicit_approval_hint
-        || signals.numbered_approval_hint
+        || !signals.prompt_context.prompt_guard_enabled
+        || !signals.approval.explicit_approval_hint
+        || signals.approval.numbered_approval_hint
         || state.status_state.prompt_suppressed
     {
         return;
     }
     log_debug(&format!(
         "[claude-hud-anomaly] explicit approval hint seen without numbered-match in non-rolling mode (chunk_explicit={}, window_explicit={}, chunk_numbered={}, window_numbered={}, window_live={}, window_bytes={}, rows={}, cols={})",
-        signals.explicit_approval_hint_chunk,
-        signals.explicit_approval_hint_window,
-        signals.numbered_approval_hint_chunk,
-        signals.numbered_approval_hint_window,
-        signals.non_rolling_live_approval_window_hint,
+        signals.approval.explicit_approval_hint_chunk,
+        signals.approval.explicit_approval_hint_window,
+        signals.approval.numbered_approval_hint_chunk,
+        signals.approval.numbered_approval_hint_window,
+        signals.approval.non_rolling_live_approval_window_hint,
         non_rolling_window.as_ref().map_or(0, Vec::len),
         state.ui.terminal_rows,
         state.ui.terminal_cols
@@ -303,12 +309,15 @@ fn apply_suppression_from_chunk_signals(
     _data: &[u8],
     signals: &OutputChunkSignals,
 ) {
-    if !signals.saw_tool_activity && !signals.saw_synchronized_cursor_activity {
+    if !signals.prompt_context.saw_tool_activity
+        && !signals.prompt_context.saw_synchronized_cursor_activity
+    {
         return;
     }
-    let rolling_fast_suppress_allowed = !signals.use_rolling_detector || signals.approval_hint_seen;
+    let rolling_fast_suppress_allowed =
+        !signals.use_rolling_detector || signals.approval.approval_hint_seen;
     if claude_hud_debug_enabled() {
-        if signals.saw_synchronized_cursor_activity {
+        if signals.prompt_context.saw_synchronized_cursor_activity {
             log_debug("[claude-hud-debug] suppression candidate: synchronized cursor rewrite");
         } else {
             log_debug("[claude-hud-debug] suppression candidate: tool-activity hint");
@@ -353,9 +362,9 @@ fn feed_detector_and_apply_latch(
         // evade a single rolling parse pass. When explicit approval phrases are
         // paired with live choice markers, feed a canonical phrase so suppression
         // engages deterministically.
-        if signals.prompt_guard_enabled
+        if signals.prompt_context.prompt_guard_enabled
             && !state.prompt.occlusion_detector.should_suppress_hud()
-            && signals.rolling_approval_hint_seen
+            && signals.approval.rolling_approval_hint_seen
         {
             if claude_hud_debug_enabled() {
                 log_debug("[claude-hud-debug] suppression candidate: explicit approval hint (rolling detector canonical feed)");
@@ -365,47 +374,37 @@ fn feed_detector_and_apply_latch(
                 .occlusion_detector
                 .feed_output(APPROVAL_SUPPRESSION_CANONICAL_FEED);
         }
-    } else if signals.prompt_guard_enabled
-        && signals.non_rolling_approval_hint
+    } else if signals.prompt_context.prompt_guard_enabled
+        && signals.approval.non_rolling_approval_hint
         && !(state.prompt.non_rolling_release_armed
-            && !signals.explicit_approval_hint_chunk
-            && !signals.numbered_approval_hint_chunk)
+            && !signals.approval.explicit_approval_hint_chunk
+            && !signals.approval.numbered_approval_hint_chunk)
     {
+        // Non-rolling hosts (Cursor/Other) NO LONGER SUPPRESS the HUD for any
+        // backend. The latch existed to keep the HUD from covering the child's
+        // approval prompts, but that protection is now structural on these
+        // hosts: the child PTY reserves the banner + gap rows and the DECSTBM
+        // scroll region is confined to the child viewport, so the child's UI
+        // can never share rows with the HUD. In the field the latch only
+        // produced suppress → 3s-debounce → release cycles: the HUD blinking
+        // black while typing or awaiting a reply (claude) and full/min
+        // oscillation (codex). JetBrains keeps its rolling-detector
+        // suppression above — JediTerm has no scroll-region protection.
         if claude_hud_debug_enabled() {
-            if signals.explicit_approval_hint {
-                log_debug(
-                    "[claude-hud-debug] suppression candidate: explicit approval hint (non-rolling latch)",
-                );
-            }
-            if signals.numbered_approval_hint {
-                log_debug(
-                    "[claude-hud-debug] suppression candidate: numbered approval hint (non-rolling latch)",
-                );
-            }
             log_debug(&format!(
-                "[claude-hud-debug] suppression candidate source (non-rolling): explicit_chunk={}, explicit_window={}, numbered_chunk={}, numbered_window={}, window_live={}",
-                signals.explicit_approval_hint_chunk,
-                signals.explicit_approval_hint_window,
-                signals.numbered_approval_hint_chunk,
-                signals.numbered_approval_hint_window,
-                signals.non_rolling_live_approval_window_hint
+                "[claude-hud-debug] approval hint observed (non-rolling; suppression retired): explicit_chunk={}, explicit_window={}, numbered_chunk={}, numbered_window={}, window_live={}",
+                signals.approval.explicit_approval_hint_chunk,
+                signals.approval.explicit_approval_hint_window,
+                signals.approval.numbered_approval_hint_chunk,
+                signals.approval.numbered_approval_hint_window,
+                signals.approval.non_rolling_live_approval_window_hint
             ));
-        }
-        // Non-JetBrains Claude hosts (for example VS Code/Cursor integrated terminals)
-        // are prone to noisy rolling-detector transitions while typing. Use an explicit
-        // hint latch instead of rolling context in those hosts.
-        extend_prompt_suppression_deadline(
-            &mut timers.prompt_suppression_release_not_before,
-            Instant::now() + Duration::from_millis(PROMPT_SUPPRESSION_RELEASE_DEBOUNCE_MS),
-        );
-        if !state.status_state.prompt_suppressed {
-            apply_prompt_suppression(state, deps, true);
         }
     } else if claude_hud_debug_enabled()
         && state.prompt.non_rolling_release_armed
-        && signals.non_rolling_approval_hint
-        && !signals.explicit_approval_hint_chunk
-        && !signals.numbered_approval_hint_chunk
+        && signals.approval.non_rolling_approval_hint
+        && !signals.approval.explicit_approval_hint_chunk
+        && !signals.approval.numbered_approval_hint_chunk
     {
         log_debug(
             "[claude-hud-debug] suppression relatch deferred: release-armed state with window-only approval hints",

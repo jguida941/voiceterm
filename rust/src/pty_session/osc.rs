@@ -204,8 +204,8 @@ pub(super) fn current_terminal_size(master_fd: RawFd) -> (u16, u16) {
         ws_xpixel: 0,
         ws_ypixel: 0,
     };
+    // SAFETY: ioctl reads from master_fd and writes into ws, which is initialized.
     unsafe {
-        // SAFETY: ioctl reads from master_fd and writes into ws, which is initialized.
         if libc::ioctl(master_fd, libc::TIOCGWINSZ, &mut ws) == 0 && ws.ws_row > 0 && ws.ws_col > 0
         {
             (ws.ws_row, ws.ws_col)

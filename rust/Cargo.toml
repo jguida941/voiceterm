@@ -1,11 +1,11 @@
 [package]
 name = "voiceterm"
-version = "1.1.1"
+version = "1.2.3"
 edition = "2021"
 default-run = "voiceterm"
 autobins = false
 description = "Voice-first terminal overlay for Codex and Claude"
-license = "MIT"
+license-file = "LICENSE"
 repository = "https://github.com/jguida941/voiceterm"
 rust-version = "1.88.0"
 keywords = ["voice", "terminal", "whisper", "cli"]
@@ -42,6 +42,10 @@ gag = "1.0"
 shell-words = "1"
 rubato = { version = "0.12", optional = true }
 earshot = { version = "0.1", optional = true }
+tokio = { version = "1", features = ["rt-multi-thread", "net", "io-util", "sync", "macros", "signal"] }
+tokio-tungstenite = "0.24"
+tungstenite = "0.24"
+futures-util = "0.3"
 
 [[bin]]
 name = "voiceterm"

@@ -1,350 +1,52 @@
-"""Shared helper functions used across devctl commands."""
+"""Shared command-runner helpers plus compatibility re-exports for devctl."""
 
-import os
-import queue
-import shlex
-import shutil
-import signal
-import subprocess
-import threading
-import time
-from collections import deque
 from pathlib import Path
-from typing import Deque, List, Optional, Tuple
+import subprocess
 
+from .command_runner import (
+    CommandRunPolicy,
+    CommandRunResult,
+    FAILURE_OUTPUT_MAX_CHARS,
+    FAILURE_OUTPUT_MAX_LINES,
+    INTERRUPT_KILL_GRACE_SECONDS,
+    LIVE_OUTPUT_TIMEOUT_SECONDS,
+    POST_EXIT_STDOUT_DRAIN_SECONDS,
+    _enqueue_stdout_lines,
+    _resolve_live_output_timeout_seconds,
+    _run_with_live_output,
+    _run_without_live_output,
+    _terminate_subprocess_tree,
+    _trim_failure_output,
+    run_cmd,
+)
+from . import common_io as _common_io
+from .common_io import cmd_str
 from .config import REPO_ROOT, SRC_DIR
 
-FAILURE_OUTPUT_MAX_LINES = 60
-FAILURE_OUTPUT_MAX_CHARS = 8000
-INTERRUPT_KILL_GRACE_SECONDS = 3.0
-PIPE_OUTPUT_TIMEOUT_SECONDS = 120.0
-LIVE_OUTPUT_TIMEOUT_SECONDS = 1800.0
+# Keep the shared module object and legacy common-io helpers visible so
+# existing imports and patch targets keep working after the split.
+shutil = _common_io.shutil
+for _compat_name in (
+    "add_standard_output_arguments",
+    "build_env",
+    "confirm_or_abort",
+    "display_path",
+    "emit_output",
+    "inject_quality_policy_command",
+    "normalize_string_field",
+    "normalize_repo_python_shell_command",
+    "pipe_output",
+    "read_json_object",
+    "resolve_repo_python_command",
+    "resolve_repo_path",
+    "should_emit_output",
+    "split_shell_prefix",
+    "write_output",
+):
+    globals()[_compat_name] = getattr(_common_io, _compat_name)
+del _compat_name
 
 
-def cmd_str(cmd: List[str]) -> str:
-    """Render a command list as a printable string."""
-    return shlex.join(cmd)
-
-
-def _trim_failure_output(output_tail: str) -> str:
-    """Keep failure excerpts compact so reports stay readable."""
-    trimmed = output_tail.strip()
-    if len(trimmed) <= FAILURE_OUTPUT_MAX_CHARS:
-        return trimmed
-    return trimmed[-FAILURE_OUTPUT_MAX_CHARS:]
-
-
-def _resolve_live_output_timeout_seconds() -> float:
-    """Resolve the live-output command timeout from env with safe fallback."""
-    raw = os.getenv("VOICETERM_DEVCTL_LIVE_OUTPUT_TIMEOUT_SECONDS", "").strip()
-    if not raw:
-        return LIVE_OUTPUT_TIMEOUT_SECONDS
-    try:
-        timeout = float(raw)
-    except ValueError:
-        return LIVE_OUTPUT_TIMEOUT_SECONDS
-    return timeout if timeout > 0 else 0.0
-
-
-def _enqueue_stdout_lines(stream, line_queue: "queue.Queue[object]") -> None:
-    try:
-        for line in stream:
-            line_queue.put(line)
-    except BaseException as exc:  # pragma: no cover - reader-thread relay path
-        line_queue.put(exc)
-    finally:
-        line_queue.put(None)
-
-
-def _run_with_live_output(
-    cmd: List[str],
-    cwd: Optional[Path],
-    env: Optional[dict],
-) -> Tuple[int, str]:
-    """Stream command output live while retaining a bounded failure excerpt."""
-    effective_env = dict(os.environ if env is None else env)
-    effective_env.setdefault("PYTHONDONTWRITEBYTECODE", "1")
-    process = subprocess.Popen(
-        cmd,
-        cwd=cwd,
-        env=effective_env,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-        bufsize=1,
-        start_new_session=True,
-    )
-    output_tail: Deque[str] = deque(maxlen=FAILURE_OUTPUT_MAX_LINES)
-    if process.stdout is None:
-        try:
-            return process.wait(), ""
-        except KeyboardInterrupt:
-            _terminate_subprocess_tree(process)
-            raise
-    timeout_seconds = _resolve_live_output_timeout_seconds()
-    deadline = time.monotonic() + timeout_seconds if timeout_seconds > 0 else None
-    line_queue: "queue.Queue[object]" = queue.Queue()
-    reader = threading.Thread(
-        target=_enqueue_stdout_lines,
-        args=(process.stdout, line_queue),
-        daemon=True,
-    )
-    reader.start()
-
-    try:
-        while True:
-            if deadline is not None and time.monotonic() >= deadline:
-                _terminate_subprocess_tree(process)
-                timeout_message = (
-                    f"command timed out after {timeout_seconds:.0f}s: {cmd_str(cmd)}"
-                )
-                output_tail.append(timeout_message)
-                return 124, "\n".join(output_tail)
-
-            wait_timeout = 0.25
-            if deadline is not None:
-                wait_timeout = max(0.0, min(wait_timeout, deadline - time.monotonic()))
-
-            try:
-                line = line_queue.get(timeout=wait_timeout)
-            except queue.Empty:
-                if (
-                    process.poll() is not None
-                    and not reader.is_alive()
-                    and line_queue.empty()
-                ):
-                    break
-                continue
-
-            if isinstance(line, BaseException):
-                if isinstance(line, KeyboardInterrupt):
-                    raise KeyboardInterrupt
-                output_tail.append(str(line))
-                continue
-
-            if line is None:
-                if not reader.is_alive():
-                    break
-                continue
-
-            print(line, end="")
-            output_tail.append(line.rstrip("\n"))
-        if deadline is None:
-            return process.wait(), "\n".join(output_tail)
-        remaining = max(0.0, deadline - time.monotonic())
-        if remaining <= 0.0:
-            _terminate_subprocess_tree(process)
-            timeout_message = (
-                f"command timed out after {timeout_seconds:.0f}s: {cmd_str(cmd)}"
-            )
-            output_tail.append(timeout_message)
-            return 124, "\n".join(output_tail)
-        try:
-            return process.wait(timeout=remaining), "\n".join(output_tail)
-        except subprocess.TimeoutExpired:
-            _terminate_subprocess_tree(process)
-            timeout_message = (
-                f"command timed out after {timeout_seconds:.0f}s: {cmd_str(cmd)}"
-            )
-            output_tail.append(timeout_message)
-            return 124, "\n".join(output_tail)
-    except KeyboardInterrupt:
-        _terminate_subprocess_tree(process)
-        raise
-    finally:
-        process.stdout.close()
-
-
-def _terminate_subprocess_tree(
-    process: subprocess.Popen,
-    *,
-    grace_seconds: float = INTERRUPT_KILL_GRACE_SECONDS,
-) -> None:
-    """Best-effort process-group teardown used for interrupted local runs."""
-    if process.poll() is not None:
-        return
-
-    if os.name == "nt":
-        process.terminate()
-        try:
-            process.wait(timeout=grace_seconds)
-            return
-        except subprocess.TimeoutExpired:
-            process.kill()
-            process.wait()
-            return
-
-    try:
-        os.killpg(process.pid, signal.SIGTERM)
-    except ProcessLookupError:
-        return
-    except OSError:
-        try:
-            process.terminate()
-        except OSError:
-            return
-    try:
-        process.wait(timeout=grace_seconds)
-        return
-    except subprocess.TimeoutExpired:
-        pass
-
-    try:
-        os.killpg(process.pid, signal.SIGKILL)
-    except ProcessLookupError:
-        return
-    except OSError:
-        try:
-            process.kill()
-        except OSError:
-            return
-    process.wait()
-
-
-def run_cmd(
-    name: str,
-    cmd: List[str],
-    cwd: Optional[Path] = None,
-    env: Optional[dict] = None,
-    dry_run: bool = False,
-) -> dict:
-    """Run one command and return a result dict instead of raising exceptions."""
-    start = time.time()
-    if dry_run:
-        print(f"[dry-run] {name}: {cmd_str(cmd)}")
-        return {
-            "name": name,
-            "cmd": cmd,
-            "cwd": str(cwd or REPO_ROOT),
-            "returncode": 0,
-            "duration_s": 0.0,
-            "skipped": True,
-        }
-
-    try:
-        returncode, output_tail = _run_with_live_output(cmd, cwd=cwd, env=env)
-    except KeyboardInterrupt:
-        duration = time.time() - start
-        return {
-            "name": name,
-            "cmd": cmd,
-            "cwd": str(cwd or REPO_ROOT),
-            "returncode": 130,
-            "duration_s": round(duration, 2),
-            "skipped": False,
-            "error": "interrupted; subprocess tree terminated",
-        }
-    except OSError as exc:
-        duration = time.time() - start
-        return {
-            "name": name,
-            "cmd": cmd,
-            "cwd": str(cwd or REPO_ROOT),
-            "returncode": 127,
-            "duration_s": round(duration, 2),
-            "skipped": False,
-            "error": str(exc),
-        }
-
-    duration = time.time() - start
-    result = {
-        "name": name,
-        "cmd": cmd,
-        "cwd": str(cwd or REPO_ROOT),
-        "returncode": returncode,
-        "duration_s": round(duration, 2),
-        "skipped": False,
-    }
-    if returncode != 0:
-        failure_output = _trim_failure_output(output_tail)
-        if failure_output:
-            result["failure_output"] = failure_output
-    return result
-
-
-def build_env(args) -> dict:
-    """Build env vars from common CLI flags (offline/cargo cache options)."""
-    env = os.environ.copy()
-    if getattr(args, "offline", False):
-        env["CARGO_NET_OFFLINE"] = "true"
-    if getattr(args, "cargo_home", None):
-        env["CARGO_HOME"] = os.path.expanduser(args.cargo_home)
-    if getattr(args, "cargo_target_dir", None):
-        env["CARGO_TARGET_DIR"] = os.path.expanduser(args.cargo_target_dir)
-    return env
-
-
-def write_output(content: str, output_path: Optional[str]) -> None:
-    """Write report output to a file, or print it to stdout."""
-    if output_path:
-        path = Path(output_path)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(content, encoding="utf-8")
-        print(f"Report saved to: {path}")
-    else:
-        print(content)
-
-
-def pipe_output(
-    content: str, pipe_command: Optional[str], pipe_args: Optional[List[str]]
-) -> int:
-    """Send report output to another command through stdin."""
-    if not pipe_command:
-        return 0
-    cmd = [pipe_command] + (pipe_args or [])
-    if not shutil.which(cmd[0]):
-        print(f"Pipe command not found: {cmd[0]}")
-        return 2
-    try:
-        result = subprocess.run(
-            cmd,
-            input=content,
-            text=True,
-            timeout=PIPE_OUTPUT_TIMEOUT_SECONDS,
-            check=False,
-        )
-    except subprocess.TimeoutExpired:
-        print(
-            f"Pipe command timed out after {PIPE_OUTPUT_TIMEOUT_SECONDS:.0f}s: {cmd_str(cmd)}"
-        )
-        return 124
-    except OSError as exc:
-        print(f"Pipe command failed to start ({cmd_str(cmd)}): {exc}")
-        return 127
-    return result.returncode
-
-
-def should_emit_output(args) -> bool:
-    """Return True when the caller asked for formatted/output report text."""
-    return (
-        args.format != "text"
-        or bool(args.output)
-        or bool(getattr(args, "pipe_command", None))
-    )
-
-
-def confirm_or_abort(message: str, assume_yes: bool) -> None:
-    """Ask for yes/no confirmation unless `--yes` was provided."""
-    if assume_yes:
-        return
-    try:
-        reply = input(f"{message} [y/N] ").strip().lower()
-    except EOFError:
-        print(f"{message} [y/N] <non-interactive input unavailable>")
-        print("Aborted. Re-run with --yes for non-interactive usage.")
-        raise SystemExit(1)
-    if reply not in ("y", "yes"):
-        print("Aborted.")
-        raise SystemExit(1)
-
-
-def find_latest_outcomes_file() -> Optional[Path]:
+def find_latest_outcomes_file() -> Path | None:
     """Find the newest mutation `outcomes.json` file under `rust/mutants.out`."""
-    output_dir = SRC_DIR / "mutants.out"
-    primary = output_dir / "outcomes.json"
-    if primary.exists():
-        return primary
-    candidates = list(output_dir.rglob("outcomes.json"))
-    if not candidates:
-        return None
-    return max(candidates, key=lambda path: path.stat().st_mtime)
+    return _common_io.find_latest_outcomes_file(src_dir=SRC_DIR)

@@ -41,7 +41,7 @@ pub(super) fn start_provider_job(state: &mut IpcState, provider: Provider, promp
                 state.current_job = Some(ActiveJob::Claude(job));
             }
             Err(err) => {
-                send_provider_job_error(provider, err);
+                send_provider_job_error(provider, err.to_string());
             }
         },
     }

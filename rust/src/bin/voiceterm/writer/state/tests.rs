@@ -1,9 +1,24 @@
 use super::*;
 use crate::config::HudBorderStyle;
+use crate::runtime_compat::RuntimeVariant;
 use crate::test_env::env_lock;
 use crate::HudStyle;
 use rstest::rstest;
 use std::env;
+
+const CURSOR_CLAUDE_BANNER_PRECLEAR_COOLDOWN_MS: u64 = 180;
+const CURSOR_PRECLEAR_COOLDOWN_MS: u64 = 220;
+const CLAUDE_JETBRAINS_BANNER_PRECLEAR_COOLDOWN_MS: u64 = 90;
+const CLAUDE_JETBRAINS_IDLE_REDRAW_HOLD_MS: u64 = 500;
+const JETBRAINS_PRECLEAR_COOLDOWN_MS: u64 = 260;
+const CODEX_JETBRAINS_SCROLL_REDRAW_MIN_INTERVAL_MS: u64 = 320;
+const CLAUDE_JETBRAINS_SCROLL_REDRAW_MIN_INTERVAL_MS: u64 = 150;
+const CLAUDE_CURSOR_SCROLL_REDRAW_MIN_INTERVAL_MS: u64 = 900;
+const CURSOR_CLAUDE_TYPING_REDRAW_HOLD_MS: u64 = 450;
+const CLAUDE_JETBRAINS_COMPOSER_REPAIR_QUIET_MS: u64 = 700;
+const CLAUDE_JETBRAINS_COMPOSER_RECENT_INPUT_MS: u64 = 1500;
+const CLAUDE_IDE_NON_SCROLL_REDRAW_MIN_INTERVAL_MS: u64 = 700;
+const TYPING_REDRAW_HOLD_MS: u64 = 250;
 
 struct BackendLabelEnvGuard {
     previous: Option<String>,
@@ -253,11 +268,16 @@ fn status_clear_height_only_when_banner_shrinks() {
 #[case(TerminalHost::JetBrains, BackendMatrixCase::Claude, true)]
 #[case(TerminalHost::JetBrains, BackendMatrixCase::Other, false)]
 #[case(TerminalHost::Cursor, BackendMatrixCase::Codex, false)]
-#[case(TerminalHost::Cursor, BackendMatrixCase::Claude, true)]
+// Cursor+Claude scroll chunks no longer pre-clear (field flash fix): the
+// confined scroll region already prevents HUD smear.
+#[case(TerminalHost::Cursor, BackendMatrixCase::Claude, false)]
 #[case(TerminalHost::Cursor, BackendMatrixCase::Other, false)]
-#[case(TerminalHost::Other, BackendMatrixCase::Codex, true)]
-#[case(TerminalHost::Other, BackendMatrixCase::Claude, true)]
-#[case(TerminalHost::Other, BackendMatrixCase::Other, true)]
+// Other-host scroll chunks no longer pre-clear (field flash fix): Cursor now
+// identifies as Other (no CURSOR_* env hints since recent Cursor builds), and
+// the legacy per-chunk pre-clear blanked the Claude HUD box at typing cadence.
+#[case(TerminalHost::Other, BackendMatrixCase::Codex, false)]
+#[case(TerminalHost::Other, BackendMatrixCase::Claude, false)]
+#[case(TerminalHost::Other, BackendMatrixCase::Other, false)]
 fn should_preclear_bottom_rows_matrix_matches_host_provider_contract(
     #[case] family: TerminalHost,
     #[case] backend: BackendMatrixCase,
@@ -681,7 +701,11 @@ fn should_preclear_bottom_rows_cursor_claude_preclears_once_for_startup_scroll()
 }
 
 #[test]
-fn should_preclear_bottom_rows_cursor_claude_preclears_banner_without_cadence_gate() {
+fn should_preclear_bottom_rows_cursor_claude_scroll_chunks_no_longer_preclear() {
+    // Field fix: the per-scroll-chunk HUD pre-clear blanked the bar for
+    // visible stretches while typing/streaming in Cursor+Claude (the repaint
+    // ran on a separate throttle). The scroll region is now confined to the
+    // child viewport, so the smear this defended against cannot occur.
     let mut status = StatusLineState::new();
     status.prompt_suppressed = false;
     let display = DisplayState {
@@ -691,7 +715,7 @@ fn should_preclear_bottom_rows_cursor_claude_preclears_banner_without_cadence_ga
         ..DisplayState::default()
     };
     let now = Instant::now();
-    assert!(should_preclear_bottom_rows(
+    assert!(!should_preclear_bottom_rows(
         TerminalHost::Cursor,
         true,
         &display,
@@ -751,13 +775,19 @@ fn should_preclear_bottom_rows_cursor_preclears_for_pending_status_clear() {
 }
 
 #[test]
-fn should_preclear_bottom_rows_other_terminal_uses_legacy_behavior() {
+fn should_preclear_bottom_rows_other_terminal_scroll_chunks_do_not_preclear() {
+    // Other-host scroll chunks must NOT pre-clear the HUD band: Cursor now
+    // detects as Other (recent Cursor builds export no CURSOR_* env hints),
+    // and the legacy per-chunk pre-clear blanked the Claude HUD box at typing
+    // cadence (field "box disappears and reappears" flicker). Transition
+    // pre-clears (overlay/status) are covered below.
     let display = DisplayState {
         banner_height: 4,
         preclear_banner_height: 4,
         ..DisplayState::default()
     };
-    assert!(should_preclear_bottom_rows(
+    let now = Instant::now();
+    assert!(!should_preclear_bottom_rows(
         TerminalHost::Other,
         true,
         &display,
@@ -767,8 +797,31 @@ fn should_preclear_bottom_rows_other_terminal_uses_legacy_behavior() {
         false,
         false,
         false,
-        Instant::now(),
-        Instant::now()
+        now,
+        now - Duration::from_secs(5)
+    ));
+}
+
+#[test]
+fn should_preclear_bottom_rows_other_terminal_keeps_transition_preclear() {
+    let display = DisplayState {
+        banner_height: 4,
+        preclear_banner_height: 4,
+        ..DisplayState::default()
+    };
+    let now = Instant::now();
+    assert!(should_preclear_bottom_rows(
+        TerminalHost::Other,
+        true,
+        &display,
+        true, // status_clear_pending: an actual HUD transition
+        false,
+        false,
+        false,
+        false,
+        false,
+        now,
+        now - Duration::from_secs(5)
     ));
 }
 
@@ -798,11 +851,14 @@ fn preclear_policy_cursor_claude_banner_sets_immediate_redraw_flags() {
         now,
         last_preclear_at: now,
     });
-    let outcome = policy.outcome(true);
-    assert!(policy.should_preclear);
-    assert!(outcome.pre_cleared);
-    assert!(outcome.force_redraw_after_preclear);
-    assert!(outcome.force_full_banner_redraw);
+    // Scroll-chunk pre-clears are retired for Cursor+Claude (field flash fix);
+    // the policy no longer requests one, and without a pre-clear the outcome
+    // carries no forced-redraw flags.
+    assert!(!policy.should_preclear);
+    let outcome = policy.outcome(false);
+    assert!(!outcome.pre_cleared);
+    assert!(!outcome.force_redraw_after_preclear);
+    assert!(!outcome.force_full_banner_redraw);
     assert!(!outcome.needs_redraw);
 }
 
@@ -877,6 +933,7 @@ fn redraw_policy_context<'a>(bytes: &'a [u8]) -> RedrawPolicyContext<'a> {
     let now = Instant::now();
     RedrawPolicyContext {
         family: TerminalHost::Other,
+        runtime_variant: RuntimeVariant::Generic,
         bytes,
         now,
         last_scroll_redraw_at: now,
@@ -890,14 +947,12 @@ fn redraw_policy_context<'a>(bytes: &'a [u8]) -> RedrawPolicyContext<'a> {
         pending_clear_overlay: false,
         pending_overlay_panel_present: false,
         preclear_outcome: PreclearOutcome::default(),
-        codex_jetbrains: false,
-        claude_jetbrains: false,
-        cursor_claude: false,
         flash_sensitive_scroll_profile: false,
         claude_non_scroll_redraw_profile: false,
         claude_jetbrains_non_scroll_cursor_mutation: false,
         claude_jetbrains_composer_keystroke: false,
         claude_jetbrains_destructive_clear: false,
+        codex_destructive_clear: false,
         claude_jetbrains_chunk_touches_cursor_save_restore: false,
         jetbrains_dec_cursor_saved_active: false,
         jetbrains_ansi_cursor_saved_active: false,
@@ -909,8 +964,8 @@ fn redraw_policy_context<'a>(bytes: &'a [u8]) -> RedrawPolicyContext<'a> {
 fn redraw_policy_jetbrains_claude_scroll_defers_immediate_output_redraw() {
     let mut ctx = redraw_policy_context(b"\n");
     ctx.family = TerminalHost::JetBrains;
+    ctx.runtime_variant = RuntimeVariant::JetBrainsClaude;
     ctx.may_scroll_rows = true;
-    ctx.claude_jetbrains = true;
     let policy = RedrawPolicy::resolve(ctx);
     assert!(policy.force_full_banner_redraw);
     assert!(policy.needs_redraw);
@@ -919,23 +974,49 @@ fn redraw_policy_jetbrains_claude_scroll_defers_immediate_output_redraw() {
 }
 
 #[test]
-fn redraw_policy_cursor_claude_non_scroll_cursor_mutation_forces_immediate_redraw() {
+fn redraw_policy_cursor_claude_non_scroll_cursor_mutation_is_throttled() {
+    // Within the min interval (a repaint just happened): a keystroke echo must
+    // NOT force a repaint — the old unthrottled force_full +
+    // force_redraw_after_preclear on every echo was the per-keystroke HUD
+    // flicker in Cursor (field bug).
     let mut ctx = redraw_policy_context(b"\x1b[2K");
     ctx.family = TerminalHost::Cursor;
-    ctx.cursor_claude = true;
+    ctx.runtime_variant = RuntimeVariant::CursorClaude;
     ctx.display_has_enhanced_status = true;
+    ctx.claude_non_scroll_redraw_profile = true;
     let policy = RedrawPolicy::resolve(ctx);
-    assert!(policy.force_full_banner_redraw);
-    assert!(policy.force_redraw_after_preclear);
-    assert!(policy.output_redraw_needed);
+    assert!(!policy.force_full_banner_redraw);
+    assert!(!policy.force_redraw_after_preclear);
+    assert!(!policy.output_redraw_needed);
+    assert!(!policy.needs_redraw);
+}
+
+#[test]
+fn redraw_policy_cursor_claude_non_scroll_cursor_mutation_repaints_when_due() {
+    // Once the profile's min interval has elapsed, the throttled non-scroll
+    // path repaints as a LINE-DIFF (needs_redraw without force_full): a
+    // forced full-row rewrite at typing cadence blinked the full HUD box in
+    // Cursor (field bug). The diff writes zero bytes while content is static.
+    let mut ctx = redraw_policy_context(b"\x1b[2K");
+    ctx.family = TerminalHost::Cursor;
+    ctx.runtime_variant = RuntimeVariant::CursorClaude;
+    ctx.display_has_enhanced_status = true;
+    ctx.claude_non_scroll_redraw_profile = true;
+    ctx.last_scroll_redraw_at = ctx.now - Duration::from_millis(701);
+    let policy = RedrawPolicy::resolve(ctx);
+    assert!(policy.non_scroll_line_mutation);
+    assert!(!policy.force_full_banner_redraw);
     assert!(policy.needs_redraw);
+    assert!(policy.update_last_scroll_redraw_at);
+    assert!(policy.output_redraw_needed);
+    assert!(!policy.force_redraw_after_preclear);
 }
 
 #[test]
 fn redraw_policy_jetbrains_claude_destructive_clear_busy_slot_arms_deferred_repair() {
     let mut ctx = redraw_policy_context(b"ignored");
     ctx.family = TerminalHost::JetBrains;
-    ctx.claude_jetbrains = true;
+    ctx.runtime_variant = RuntimeVariant::JetBrainsClaude;
     ctx.claude_jetbrains_destructive_clear = true;
     ctx.claude_jetbrains_chunk_touches_cursor_save_restore = true;
     let policy = RedrawPolicy::resolve(ctx);
@@ -949,11 +1030,30 @@ fn redraw_policy_jetbrains_claude_destructive_clear_busy_slot_arms_deferred_repa
     assert!(policy.jetbrains_repair_skip_quiet_window);
 }
 
+// Field bug (PyCharm+codex): codex's startup CSI 2J wiped the freshly painted
+// HUD and no codex_jetbrains trigger repainted it — the HUD stayed hidden
+// until the user pressed the HUD hotkey. A destructive clear must arm an
+// idle-gated full repaint (needs_redraw, not an immediate output redraw).
+#[test]
+fn redraw_policy_codex_jetbrains_destructive_clear_arms_idle_gated_repaint() {
+    let mut ctx = redraw_policy_context(b"\x1b[2J\x1b[H");
+    ctx.family = TerminalHost::JetBrains;
+    ctx.runtime_variant = RuntimeVariant::JetBrainsCodex;
+    ctx.codex_destructive_clear = true;
+    let policy = RedrawPolicy::resolve(ctx);
+    assert!(policy.force_full_banner_redraw);
+    assert!(policy.needs_redraw);
+    assert!(policy.update_last_scroll_redraw_at);
+    assert!(!policy.output_redraw_needed);
+    assert!(!policy.force_redraw_after_preclear);
+    assert!(!policy.destructive_clear_repaint);
+}
+
 #[test]
 fn redraw_policy_codex_jetbrains_consumes_preclear_outcome_for_redraw_trigger() {
     let mut ctx = redraw_policy_context(b"ok");
     ctx.family = TerminalHost::JetBrains;
-    ctx.codex_jetbrains = true;
+    ctx.runtime_variant = RuntimeVariant::JetBrainsCodex;
     ctx.preclear_outcome = PreclearOutcome {
         pre_cleared: true,
         ..PreclearOutcome::default()
@@ -1147,7 +1247,10 @@ fn user_input_activity_schedules_cursor_claude_repair_redraw() {
         state.display.enhanced_status = Some(StatusLineState::new());
         assert!(state.handle_message(WriterMessage::UserInputActivity));
         assert!(
-            state.cursor_claude_input_repair_due.is_some(),
+            state
+                .adapter_state
+                .cursor_claude_input_repair_due()
+                .is_some(),
             "cursor+claude user input should schedule repair redraw deadline"
         );
     });
@@ -1163,7 +1266,10 @@ fn user_input_activity_schedules_repair_when_status_is_pending() {
         state.pending.enhanced_status = Some(StatusLineState::new());
         assert!(state.handle_message(WriterMessage::UserInputActivity));
         assert!(
-            state.cursor_claude_input_repair_due.is_some(),
+            state
+                .adapter_state
+                .cursor_claude_input_repair_due()
+                .is_some(),
             "pending enhanced status should still schedule a repair redraw window"
         );
     });
@@ -1179,7 +1285,10 @@ fn user_input_activity_schedules_repair_for_jetbrains_claude() {
         state.display.enhanced_status = Some(StatusLineState::new());
         assert!(state.handle_message(WriterMessage::UserInputActivity));
         assert!(
-            state.cursor_claude_input_repair_due.is_none(),
+            state
+                .adapter_state
+                .cursor_claude_input_repair_due()
+                .is_none(),
             "JetBrains+Claude should avoid delayed repair redraws that can clobber the prompt row"
         );
     });
@@ -1193,11 +1302,15 @@ fn jetbrains_claude_first_pty_output_consumes_startup_screen_clear_flag() {
         state.rows = 24;
         state.cols = 120;
         state.display.enhanced_status = Some(StatusLineState::new());
-        assert!(state.jetbrains_claude_startup_screen_clear_pending);
+        assert!(state
+            .adapter_state
+            .jetbrains_claude_startup_screen_clear_pending());
 
         assert!(state.handle_message(WriterMessage::PtyOutput(b"hello".to_vec())));
         assert!(
-            !state.jetbrains_claude_startup_screen_clear_pending,
+            !state
+                .adapter_state
+                .jetbrains_claude_startup_screen_clear_pending(),
             "JetBrains+Claude should clear the startup viewport only once on first PTY output"
         );
     });
@@ -1211,11 +1324,11 @@ fn cursor_first_pty_output_consumes_startup_screen_clear_flag() {
         state.rows = 24;
         state.cols = 120;
         state.display.enhanced_status = Some(StatusLineState::new());
-        assert!(state.cursor_startup_screen_clear_pending);
+        assert!(state.adapter_state.cursor_startup_screen_clear_pending());
 
         assert!(state.handle_message(WriterMessage::PtyOutput(b"hello".to_vec())));
         assert!(
-            !state.cursor_startup_screen_clear_pending,
+            !state.adapter_state.cursor_startup_screen_clear_pending(),
             "Cursor should clear the startup viewport only once on first PTY output"
         );
     });
@@ -1229,11 +1342,22 @@ fn scheduled_cursor_claude_repair_redraw_fires_without_pending_status_update() {
         state.rows = 24;
         state.cols = 120;
         state.display.enhanced_status = Some(StatusLineState::new());
-        state.cursor_claude_input_repair_due = Some(Instant::now() - Duration::from_millis(1));
+        state
+            .adapter_state
+            .set_cursor_claude_input_repair_due(Some(Instant::now() - Duration::from_millis(1)));
         state.needs_redraw = false;
+        // The repair is a line-diff repaint that honors the normal idle/typing
+        // gates (it no longer forces an immediate full redraw) — settle the
+        // activity clocks so the cycle commits within this call.
+        state.last_output_at = Instant::now() - Duration::from_millis(2_000);
+        state.last_status_draw_at = Instant::now() - Duration::from_millis(2_000);
+        state.last_user_input_at = Instant::now() - Duration::from_millis(2_000);
         state.maybe_redraw_status();
         assert!(
-            state.cursor_claude_input_repair_due.is_none(),
+            state
+                .adapter_state
+                .cursor_claude_input_repair_due()
+                .is_none(),
             "repair redraw deadline should be consumed after redraw"
         );
         assert!(!state.needs_redraw);
@@ -1248,15 +1372,27 @@ fn scheduled_jetbrains_claude_repair_redraw_waits_for_idle_settle() {
         state.rows = 24;
         state.cols = 120;
         state.display.enhanced_status = Some(StatusLineState::new());
-        state.cursor_claude_input_repair_due = Some(Instant::now() - Duration::from_millis(1));
+        state
+            .adapter_state
+            .set_cursor_claude_input_repair_due(Some(Instant::now() - Duration::from_millis(1)));
+        assert!(
+            state
+                .adapter_state
+                .cursor_claude_input_repair_due()
+                .is_none(),
+            "JetBrains+Claude adapter ownership should reject cursor-only repair deadlines"
+        );
         state.last_output_at = Instant::now();
         state.last_status_draw_at = Instant::now() - Duration::from_millis(2_000);
         state.needs_redraw = false;
 
         state.maybe_redraw_status();
         assert!(
-            state.cursor_claude_input_repair_due.is_some(),
-            "JetBrains+Claude should ignore delayed cursor repair deadlines"
+            state
+                .adapter_state
+                .cursor_claude_input_repair_due()
+                .is_none(),
+            "JetBrains+Claude should keep cursor-only delayed repair deadlines impossible"
         );
         assert!(
             !state.needs_redraw,
@@ -1276,10 +1412,15 @@ fn unrelated_redraw_keeps_future_cursor_claude_repair_deadline() {
         state.display.status = Some("ready".to_string());
         state.needs_redraw = true;
         state.force_redraw_after_preclear = true;
-        state.cursor_claude_input_repair_due = Some(Instant::now() + Duration::from_millis(250));
+        state
+            .adapter_state
+            .set_cursor_claude_input_repair_due(Some(Instant::now() + Duration::from_millis(250)));
         state.maybe_redraw_status();
         assert!(
-            state.cursor_claude_input_repair_due.is_some(),
+            state
+                .adapter_state
+                .cursor_claude_input_repair_due()
+                .is_some(),
             "future repair deadline should survive unrelated redraws"
         );
     });
@@ -1639,7 +1780,9 @@ fn cursor_claude_banner_preclear_requests_redraw_on_scrolling_newline_output() {
         state.display.banner_height = 4;
         state.display.preclear_banner_height = 4;
         state.display.force_full_banner_redraw = false;
-        state.cursor_startup_scroll_preclear_pending = false;
+        state
+            .adapter_state
+            .set_cursor_startup_scroll_preclear_pending(false);
         state.last_preclear_at =
             Instant::now() - Duration::from_millis(CURSOR_CLAUDE_BANNER_PRECLEAR_COOLDOWN_MS);
         state.last_scroll_redraw_at = Instant::now();

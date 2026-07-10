@@ -3,7 +3,10 @@
 //! Produces `context_pack.json` and `context_pack.md` outputs from
 //! memory retrieval results with provenance-tagged evidence.
 
-use super::retrieval::{estimate_tokens, execute_query, trim_to_budget, RetrievalQuery};
+use super::retrieval::{
+    build_query_plan, describe_query, estimate_tokens, execute_query_with_signal, select_strategy,
+    trim_to_budget, ContextSignal, RetrievalQuery,
+};
 use super::store::sqlite::MemoryIndex;
 use super::types::*;
 
@@ -16,33 +19,14 @@ pub(crate) fn generate_boot_pack(
     project_id: &str,
     max_tokens: usize,
 ) -> ContextPack {
-    let results = execute_query(index, &RetrievalQuery::Recent(100));
+    let query_type = RetrievalQuery::Recent(100);
+    let signal = ContextSignal::SessionStart { gap_seconds: 0 };
+    let results = execute_query_with_signal(index, &query_type, &signal);
     let (included, used, trimmed) = trim_to_budget(&results, max_tokens);
-
-    let evidence: Vec<PackEvidence> = included
-        .iter()
-        .filter_map(|&i| results.get(i))
-        .map(|r| PackEvidence {
-            event_id: r.event.event_id.clone(),
-            score: r.score,
-            text_preview: truncate_text(&r.event.text, 120),
-            source: r.event.source.as_str().to_string(),
-        })
-        .collect();
-
-    // Extract task refs and decisions from evidence.
-    let mut active_tasks: Vec<String> = Vec::new();
-    let mut recent_decisions: Vec<String> = Vec::new();
-    for r in &results {
-        for task in &r.event.task_refs {
-            if !active_tasks.contains(task) {
-                active_tasks.push(task.clone());
-            }
-        }
-        if r.event.event_type == EventType::Decision {
-            recent_decisions.push(truncate_text(&r.event.text, 200));
-        }
-    }
+    let included_results: Vec<&super::retrieval::RetrievalResult<'_>> =
+        included.iter().filter_map(|&i| results.get(i)).collect();
+    let evidence = build_pack_evidence(&included_results);
+    let (active_tasks, recent_decisions) = collect_tasks_and_decisions(&included_results);
 
     let summary = if evidence.is_empty() {
         "No memory events available for boot context.".to_string()
@@ -63,6 +47,7 @@ pub(crate) fn generate_boot_pack(
         recent_decisions,
         changed_files: Vec::new(),
         open_questions: Vec::new(),
+        retrieval_plan: Some(build_retrieval_plan(&signal, &query_type)),
         token_budget: TokenBudget {
             target: max_tokens,
             used,
@@ -79,32 +64,16 @@ pub(crate) fn generate_task_pack(
     _project_id: &str,
     max_tokens: usize,
 ) -> ContextPack {
-    // Try task reference first, then text search.
-    let query_type = if query.starts_with("MP-") || query.starts_with("mp-") {
-        RetrievalQuery::ByTask {
-            task: query.to_string(),
-            limit: 100,
-        }
-    } else {
-        RetrievalQuery::TextSearch {
-            query: query.to_string(),
-            limit: 100,
-        }
+    let query_type = build_query_from_text(query, 100);
+    let signal = ContextSignal::UserQuery {
+        text: query.to_string(),
     };
-
-    let results = execute_query(index, &query_type);
+    let results = execute_query_with_signal(index, &query_type, &signal);
     let (included, used, trimmed) = trim_to_budget(&results, max_tokens);
+    let included_results: Vec<&super::retrieval::RetrievalResult<'_>> =
+        included.iter().filter_map(|&i| results.get(i)).collect();
 
-    let evidence: Vec<PackEvidence> = included
-        .iter()
-        .filter_map(|&i| results.get(i))
-        .map(|r| PackEvidence {
-            event_id: r.event.event_id.clone(),
-            score: r.score,
-            text_preview: truncate_text(&r.event.text, 120),
-            source: r.event.source.as_str().to_string(),
-        })
-        .collect();
+    let evidence = build_pack_evidence(&included_results);
 
     let summary = if evidence.is_empty() {
         format!("No memory events found for query: {query}")
@@ -125,12 +94,117 @@ pub(crate) fn generate_task_pack(
         recent_decisions: Vec::new(),
         changed_files: Vec::new(),
         open_questions: Vec::new(),
+        retrieval_plan: Some(build_retrieval_plan(&signal, &query_type)),
         token_budget: TokenBudget {
             target: max_tokens,
             used,
             trimmed,
         },
         evidence,
+    }
+}
+
+/// Generate a hybrid context pack that merges focused query results with recent context.
+pub(crate) fn generate_hybrid_pack(
+    index: &MemoryIndex,
+    query: &str,
+    _project_id: &str,
+    max_tokens: usize,
+) -> ContextPack {
+    let query_type = build_query_from_text(query, 100);
+    let signal = ContextSignal::Handoff {
+        source: "session_handoff".to_string(),
+    };
+    let results = execute_query_with_signal(index, &query_type, &signal);
+    let (included, used, trimmed) = trim_to_budget(&results, max_tokens);
+    let included_results: Vec<&super::retrieval::RetrievalResult<'_>> =
+        included.iter().filter_map(|&i| results.get(i)).collect();
+    let evidence = build_pack_evidence(&included_results);
+    let (active_tasks, recent_decisions) = collect_tasks_and_decisions(&included_results);
+
+    let summary = if evidence.is_empty() {
+        format!("No memory events found for hybrid query: {query}")
+    } else {
+        format!(
+            "Hybrid context pack for '{}' with {} evidence items.",
+            query,
+            evidence.len()
+        )
+    };
+
+    ContextPack {
+        query: query.to_string(),
+        generated_at: iso_timestamp(),
+        pack_type: ContextPackType::Hybrid,
+        summary,
+        active_tasks,
+        recent_decisions,
+        changed_files: Vec::new(),
+        open_questions: Vec::new(),
+        retrieval_plan: Some(build_retrieval_plan(&signal, &query_type)),
+        token_budget: TokenBudget {
+            target: max_tokens,
+            used,
+            trimmed,
+        },
+        evidence,
+    }
+}
+
+fn build_query_from_text(query: &str, limit: usize) -> RetrievalQuery {
+    if query.starts_with("MP-") || query.starts_with("mp-") {
+        return RetrievalQuery::ByTask {
+            task: query.to_string(),
+            limit,
+        };
+    }
+    RetrievalQuery::TextSearch {
+        query: query.to_string(),
+        limit,
+    }
+}
+
+fn build_pack_evidence(
+    included_results: &[&super::retrieval::RetrievalResult<'_>],
+) -> Vec<PackEvidence> {
+    included_results
+        .iter()
+        .map(|row| PackEvidence {
+            event_id: row.event.event_id.clone(),
+            score: row.score,
+            text_preview: truncate_text(&row.event.text, 120),
+            source: row.event.source.as_str().to_string(),
+        })
+        .collect()
+}
+
+fn collect_tasks_and_decisions(
+    included_results: &[&super::retrieval::RetrievalResult<'_>],
+) -> (Vec<String>, Vec<String>) {
+    let mut active_tasks = Vec::new();
+    let mut recent_decisions = Vec::new();
+    for result in included_results {
+        for task in &result.event.task_refs {
+            if !active_tasks.contains(task) {
+                active_tasks.push(task.clone());
+            }
+        }
+        if result.event.event_type == EventType::Decision {
+            recent_decisions.push(truncate_text(&result.event.text, 200));
+        }
+    }
+    (active_tasks, recent_decisions)
+}
+
+fn build_retrieval_plan(signal: &ContextSignal, query: &RetrievalQuery) -> RetrievalPlan {
+    let strategy = select_strategy(signal);
+    RetrievalPlan {
+        signal: signal.label().to_string(),
+        strategy: strategy.label().to_string(),
+        queries: build_query_plan(query, signal)
+            .iter()
+            .map(describe_query)
+            .collect(),
     }
 }
 
@@ -148,6 +222,8 @@ pub(crate) fn pack_to_markdown(pack: &ContextPack) -> String {
         match pack.pack_type {
             ContextPackType::Boot => "Boot",
             ContextPackType::Task => "Task",
+            ContextPackType::SurvivalIndex => "Survival Index",
+            ContextPackType::Hybrid => "Hybrid",
         }
     ));
     md.push_str(&format!("- **Query**: {}\n", pack.query));
@@ -160,6 +236,16 @@ pub(crate) fn pack_to_markdown(pack: &ContextPack) -> String {
     md.push_str("## Summary\n\n");
     md.push_str(&pack.summary);
     md.push_str("\n\n");
+
+    if let Some(plan) = &pack.retrieval_plan {
+        md.push_str("## Retrieval Plan\n\n");
+        md.push_str(&format!("- **Signal**: {}\n", plan.signal));
+        md.push_str(&format!("- **Strategy**: {}\n", plan.strategy));
+        if !plan.queries.is_empty() {
+            md.push_str(&format!("- **Queries**: {}\n", plan.queries.join(", ")));
+        }
+        md.push('\n');
+    }
 
     if !pack.active_tasks.is_empty() {
         md.push_str("## Active Tasks\n\n");
@@ -213,6 +299,7 @@ pub(crate) fn default_token_budget() -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::memory::ingest::MemoryIngestor;
     use crate::memory::types::*;
 
     fn sample_index() -> MemoryIndex {
@@ -263,6 +350,7 @@ mod tests {
         assert_eq!(pack.pack_type, ContextPackType::Boot);
         assert!(!pack.evidence.is_empty());
         assert!(pack.summary.contains("evidence"));
+        assert!(pack.retrieval_plan.is_some());
     }
 
     #[test]
@@ -289,9 +377,37 @@ mod tests {
     }
 
     #[test]
+    fn generate_task_pack_from_ingested_mp_metadata() {
+        let mut ingestor = MemoryIngestor::new(
+            "sess_test".to_string(),
+            "proj_test".to_string(),
+            None,
+            MemoryMode::Assist,
+        )
+        .expect("create ingestor");
+        ingestor.ingest_user_input(
+            "Review MP-230 in rust/src/bin/voiceterm/memory/ingest.rs before updating docs",
+        );
+
+        let pack = generate_task_pack(ingestor.index(), "MP-230", "proj_test", 4096);
+        assert_eq!(pack.pack_type, ContextPackType::Task);
+        assert_eq!(pack.evidence.len(), 1);
+        assert!(pack.evidence[0].text_preview.contains("MP-230"));
+    }
+
+    #[test]
     fn generate_task_pack_by_text() {
         let idx = sample_index();
         let pack = generate_task_pack(&idx, "memory", "proj_test", 4096);
+        assert!(!pack.evidence.is_empty());
+    }
+
+    #[test]
+    fn generate_hybrid_pack_has_hybrid_type_and_plan() {
+        let idx = sample_index();
+        let pack = generate_hybrid_pack(&idx, "memory", "proj_test", 4096);
+        assert_eq!(pack.pack_type, ContextPackType::Hybrid);
+        assert!(pack.retrieval_plan.is_some());
         assert!(!pack.evidence.is_empty());
     }
 
@@ -319,6 +435,7 @@ mod tests {
         let parsed: ContextPack = serde_json::from_str(&json).expect("parse json");
         assert_eq!(parsed.pack_type, ContextPackType::Boot);
         assert_eq!(parsed.evidence.len(), pack.evidence.len());
+        assert!(parsed.retrieval_plan.is_some());
     }
 
     #[test]
@@ -328,6 +445,7 @@ mod tests {
         let md = pack_to_markdown(&pack);
         assert!(md.contains("# Context Pack"));
         assert!(md.contains("## Summary"));
+        assert!(md.contains("## Retrieval Plan"));
         assert!(md.contains("## Evidence"));
     }
 
@@ -351,5 +469,52 @@ mod tests {
         let idx = sample_index();
         let pack = generate_boot_pack(&idx, "proj_test", 10); // tiny budget
         assert!(pack.token_budget.used <= 10);
+    }
+
+    #[test]
+    fn boot_pack_summary_only_reports_budgeted_evidence() {
+        let mut idx = MemoryIndex::new();
+        idx.insert(MemoryEvent {
+            event_id: "evt_old".to_string(),
+            session_id: "sess_test".to_string(),
+            project_id: "proj_test".to_string(),
+            ts: "2026-02-19T12:00:00.000Z".to_string(),
+            source: EventSource::PtyInput,
+            event_type: EventType::Decision,
+            role: EventRole::Assistant,
+            text: "older event with enough words to overflow the remaining budget".to_string(),
+            topic_tags: vec!["memory".to_string()],
+            entities: vec![],
+            task_refs: vec!["MP-999".to_string()],
+            artifacts: vec![],
+            importance: 0.8,
+            confidence: 1.0,
+            retrieval_state: RetrievalState::Eligible,
+            hash: None,
+        });
+        idx.insert(MemoryEvent {
+            event_id: "evt_new".to_string(),
+            session_id: "sess_test".to_string(),
+            project_id: "proj_test".to_string(),
+            ts: "2026-02-19T13:00:00.000Z".to_string(),
+            source: EventSource::PtyOutput,
+            event_type: EventType::Decision,
+            role: EventRole::Assistant,
+            text: "ship fix".to_string(),
+            topic_tags: vec!["memory".to_string()],
+            entities: vec![],
+            task_refs: vec!["MP-230".to_string()],
+            artifacts: vec![],
+            importance: 0.9,
+            confidence: 1.0,
+            retrieval_state: RetrievalState::Eligible,
+            hash: None,
+        });
+
+        let pack = generate_boot_pack(&idx, "proj_test", 4);
+        assert_eq!(pack.evidence.len(), 1);
+        assert_eq!(pack.evidence[0].event_id, "evt_new");
+        assert_eq!(pack.active_tasks, vec!["MP-230".to_string()]);
+        assert_eq!(pack.recent_decisions, vec!["ship fix".to_string()]);
     }
 }

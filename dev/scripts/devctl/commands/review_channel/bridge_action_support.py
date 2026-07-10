@@ -1,0 +1,311 @@
+"""Action-only support helpers for bridge-backed `devctl review-channel` flows."""
+
+from __future__ import annotations
+
+from collections.abc import Callable
+from dataclasses import dataclass
+from pathlib import Path
+
+from ...approval_mode import auto_elevated_approval_mode, normalize_approval_mode
+from ...common import display_path
+from ...review_channel.core import (
+    REVIEW_CHANNEL_LAUNCH_RETIREMENT_NOTE,
+)
+from ...review_channel.current_session_projection import bridge_implementer_state_hash
+from ...review_channel.bridge_runtime_state import BridgeStateContext
+from .review_only_scope import is_reviewer_only_launch_scope
+from .bridge_interaction_mode import (
+    launch_interaction_mode_fallback,
+    normalize_visible_terminal_interaction_mode,
+    resolve_launch_interaction_mode,
+)
+from ...review_channel.handoff import extract_bridge_snapshot, handoff_bundle_to_dict
+from ...review_channel.launch import (
+    build_launch_sessions,
+    list_terminal_profiles,
+    resolve_cli_path,
+    resolve_terminal_profile_name,
+)
+from ...review_channel.state import (
+    build_attach_auth_policy,
+    build_service_identity,
+)
+from ...review_channel.launch_records import LaunchSessionRequest
+from ...review_channel.promotion import promote_bridge_instruction
+from ...review_channel.bridge_promotion import (
+    maybe_auto_promote_next_task,
+    promotion_plan_rel_for_session,
+)
+from .bridge_action_events import (
+    BridgeLifecycleEventContext,
+    post_session_lifecycle_event,
+)
+from .launch_conflicts import validate_live_launch_conflicts
+from .bridge_support import (
+    bridge_launch_state,
+    build_bridge_guard_report,
+)
+
+
+@dataclass(frozen=True)
+class BridgePromotionContext:
+    repo_root: Path
+    review_channel_path: Path
+    bridge_path: Path
+    promotion_plan_path: Path | None
+    codex_lanes: list
+    claude_lanes: list
+
+
+@dataclass(frozen=True)
+class BridgeSessionContext:
+    repo_root: Path
+    review_channel_path: Path
+    bridge_path: Path
+    bridge_liveness: dict[str, object]
+    codex_lanes: list
+    claude_lanes: list
+    cursor_lanes: list | None
+    handoff_bundle: object | None
+    promotion_plan_path: Path | None
+    script_dir: Path | None
+    status_dir: Path
+    interaction_mode: str = ""
+
+
+def attach_service_identity(
+    report: dict[str, object],
+    *,
+    repo_root: Path,
+    bridge_path: Path,
+    review_channel_path: Path,
+    status_dir: Path,
+) -> None:
+    """Attach the repo/worktree identity plus attach/auth policy to one report."""
+    service_identity = build_service_identity(
+        repo_root=repo_root,
+        bridge_path=bridge_path,
+        review_channel_path=review_channel_path,
+        output_root=status_dir,
+    )
+    report["service_identity"] = service_identity
+    report["attach_auth_policy"] = build_attach_auth_policy(
+        service_identity=service_identity,
+    )
+
+
+def resolve_terminal_launch_state(
+    args,
+    *,
+    codex_lanes: list,
+    claude_lanes: list,
+    list_terminal_profiles_fn: Callable[[], list[str]] | None = None,
+) -> tuple[str | None, list[str]]:
+    """Resolve the Terminal.app profile and collect launch-readiness warnings."""
+    if list_terminal_profiles_fn is None:
+        list_terminal_profiles_fn = list_terminal_profiles
+    warnings: list[str] = []
+    available_profiles = list_terminal_profiles_fn() if args.terminal == "terminal-app" else []
+    terminal_profile_applied = resolve_terminal_profile_name(
+        args.terminal_profile,
+        available_profiles=available_profiles,
+    )
+    if args.codex_workers > len(codex_lanes):
+        warnings.append(
+            "Requested Codex worker budget exceeds the current lane table; "
+            f"using {len(codex_lanes)} advertised Codex lanes."
+        )
+    if args.claude_workers > len(claude_lanes):
+        warnings.append(
+            "Requested Claude worker budget exceeds the current lane table; "
+            f"using {len(claude_lanes)} advertised Claude lanes."
+        )
+    if args.terminal == "terminal-app" and args.terminal_profile == "auto-dark" and terminal_profile_applied is None:
+        warnings.append(
+            "No known dark Terminal.app profile was found; live launch will "
+            "fall back to the current Terminal default."
+        )
+    if (
+        args.terminal == "terminal-app"
+        and args.terminal_profile not in {"auto-dark", "default", "system", "none"}
+        and available_profiles
+        and terminal_profile_applied not in available_profiles
+    ):
+        warnings.append(
+            f"Requested Terminal profile `{args.terminal_profile}` was not "
+            "found; live launch will fall back to the current Terminal default."
+        )
+        terminal_profile_applied = None
+    return terminal_profile_applied, warnings
+
+
+def resolve_promotion_and_terminal_state(
+    *,
+    args,
+    context: BridgePromotionContext,
+    list_terminal_profiles_fn: Callable[[], list[str]] | None = None,
+    promote_bridge_instruction_fn: Callable[..., object] | None = None,
+    bridge_launch_state_fn: Callable[..., tuple] | None = None,
+) -> tuple[object, str | None, list[str]]:
+    """Resolve terminal warnings or execute the promote-side bridge refresh."""
+    if list_terminal_profiles_fn is None:
+        list_terminal_profiles_fn = list_terminal_profiles
+    if promote_bridge_instruction_fn is None:
+        promote_bridge_instruction_fn = promote_bridge_instruction
+    if bridge_launch_state_fn is None:
+        bridge_launch_state_fn = bridge_launch_state
+
+    promotion = None
+    if args.action != "promote":
+        terminal_profile_applied, warnings = resolve_terminal_launch_state(
+            args,
+            codex_lanes=context.codex_lanes,
+            claude_lanes=context.claude_lanes,
+            list_terminal_profiles_fn=list_terminal_profiles_fn,
+        )
+        promotion, auto_promote_warnings = maybe_auto_promote_next_task(
+            args=args,
+            repo_root=context.repo_root,
+            bridge_path=context.bridge_path,
+            promotion_plan_path=context.promotion_plan_path,
+            promote_bridge_instruction_fn=promote_bridge_instruction_fn,
+        )
+        warnings.extend(auto_promote_warnings)
+        return promotion, terminal_profile_applied, warnings
+
+    if context.promotion_plan_path is None:
+        raise ValueError(
+            "scope_missing: promote action requires a resolved scoped plan path."
+        )
+    expected_instruction_revision = getattr(
+        args,
+        "expected_instruction_revision",
+        None,
+    )
+    expected_implementer_state_hash = getattr(
+        args,
+        "expected_implementer_state_hash",
+        None,
+    )
+    if (
+        (not expected_instruction_revision or not expected_implementer_state_hash)
+        and context.bridge_path.exists()
+    ):
+        snapshot = extract_bridge_snapshot(
+            context.bridge_path.read_text(encoding="utf-8")
+        )
+        if not expected_instruction_revision:
+            expected_instruction_revision = str(
+                snapshot.metadata.get("current_instruction_revision") or ""
+            )
+        if not expected_implementer_state_hash:
+            expected_implementer_state_hash = bridge_implementer_state_hash(
+                snapshot
+            )
+    promotion = promote_bridge_instruction_fn(
+        repo_root=context.repo_root,
+        bridge_path=context.bridge_path,
+        promotion_plan_path=context.promotion_plan_path,
+        expected_instruction_revision=expected_instruction_revision,
+        expected_implementer_state_hash=expected_implementer_state_hash,
+    )
+    bridge_launch_state_fn(
+        args=args,
+        context=BridgeStateContext(
+            repo_root=context.repo_root,
+            review_channel_path=context.review_channel_path,
+            bridge_path=context.bridge_path,
+            status_dir=None,
+        ),
+        bridge_actions={"launch", "rollover"},
+        build_bridge_guard_report_fn=build_bridge_guard_report,
+    )
+    return promotion, None, []
+
+
+def build_bridge_sessions(
+    *,
+    args,
+    context: BridgeSessionContext,
+    resolve_cli_path_fn: Callable[..., object] | None = None,
+    build_launch_sessions_fn: Callable[..., list[dict[str, object]]] | None = None,
+) -> list[dict[str, object]]:
+    """Build session descriptors for launch/rollover actions."""
+    if args.action not in {"launch", "rollover"}:
+        return []
+    if resolve_cli_path_fn is None:
+        resolve_cli_path_fn = resolve_cli_path
+    if build_launch_sessions_fn is None:
+        build_launch_sessions_fn = build_launch_sessions
+
+    effective_cursor_lanes = context.cursor_lanes or []
+    # rev_pkt_2892 Finding 2: pair the launch-roster restriction with the
+    # startup-gate short-circuit; see review_only_scope.py for the helper.
+    effective_codex_lanes = list(context.codex_lanes)
+    effective_claude_lanes = list(context.claude_lanes)
+    if is_reviewer_only_launch_scope(args):
+        effective_claude_lanes = []
+        effective_cursor_lanes = []
+    approval_mode = normalize_approval_mode(
+        auto_elevated_approval_mode(
+            explicit_mode=getattr(args, "approval_mode", None),
+            interaction_mode=context.interaction_mode,
+        ),
+        dangerous=bool(args.dangerous),
+    )
+    effective_resolve_cli_path = resolve_cli_path_fn
+    if resolve_cli_path_fn is resolve_cli_path:
+        effective_resolve_cli_path = _resolve_cli_path_or_provider_name
+    rollover_provider = str(getattr(args, "rollover_provider", "") or "")
+    return build_launch_sessions_fn(
+        request=LaunchSessionRequest(
+            repo_root=context.repo_root,
+            review_channel_path=context.review_channel_path,
+            bridge_path=context.bridge_path,
+            codex_lanes=effective_codex_lanes,
+            claude_lanes=effective_claude_lanes,
+            codex_workers=min(args.codex_workers, len(effective_codex_lanes)),
+            claude_workers=min(args.claude_workers, len(effective_claude_lanes)),
+            cursor_lanes=effective_cursor_lanes,
+            cursor_workers=min(
+                getattr(args, "cursor_workers", len(effective_cursor_lanes)),
+                len(effective_cursor_lanes),
+            ),
+            approval_mode=approval_mode,
+            dangerous=bool(args.dangerous),
+            rollover_threshold_pct=args.rollover_threshold_pct,
+            await_ack_seconds=args.await_ack_seconds,
+            retirement_note=REVIEW_CHANNEL_LAUNCH_RETIREMENT_NOTE,
+            promotion_plan_rel=promotion_plan_rel_for_session(
+                promotion_plan_path=context.promotion_plan_path,
+                repo_root=context.repo_root,
+                display_path_fn=display_path,
+            ),
+            bridge_liveness=context.bridge_liveness,
+            handoff_bundle=handoff_bundle_to_dict(context.handoff_bundle),
+            script_dir=context.script_dir
+            if isinstance(context.script_dir, Path)
+            else None,
+            session_output_root=context.status_dir,
+            worktree_path=context.repo_root,
+            rollover_provider=rollover_provider,
+            interaction_mode=context.interaction_mode,
+            bypass_receipt_id=str(getattr(args, "bypass_receipt_id", "") or ""),
+        ),
+        resolve_cli_path_fn=effective_resolve_cli_path,
+    )
+
+
+def _resolve_cli_path_or_provider_name(provider: str) -> str:
+    """Prefer an absolute CLI path, but keep dry-run/script generation portable.
+
+    Review-channel tests and dry-run/script-only flows should not depend on the
+    current workstation or CI runner already having every provider CLI installed
+    before the script is even written. When the default resolver cannot find a
+    provider binary on PATH, fall back to the provider command name so the
+    generated launcher script still reflects the intended invocation.
+    """
+    try:
+        return resolve_cli_path(provider)
+    except ValueError:
+        return provider

@@ -1,4 +1,5 @@
 use super::*;
+use crate::color_mode::ColorMode;
 
 fn sample_rule(id: &str, priority: i32, condition: RuleCondition) -> StyleRule {
     StyleRule {
@@ -25,9 +26,9 @@ fn sample_context() -> RuleEvalContext {
         audio_level_db: -20.0,
         terminal_width: 120,
         terminal_height: 40,
-        backend: "codex".to_string(),
+        backend: BackendKind::Codex,
         capabilities: vec!["truecolor".to_string(), "mouse_events".to_string()],
-        color_mode: "truecolor".to_string(),
+        color_mode: ColorMode::TrueColor,
     }
 }
 

@@ -1,0 +1,124 @@
+"""Tests for script catalog integrity."""
+
+from __future__ import annotations
+
+import unittest
+
+from dev.scripts.devctl import script_catalog
+
+
+class ScriptCatalogTests(unittest.TestCase):
+    """Protect canonical check-script registry integrity."""
+
+    def test_all_catalog_paths_exist(self) -> None:
+        for name in script_catalog.CHECK_SCRIPT_FILES:
+            path = script_catalog.check_script_path(name)
+            self.assertTrue(path.is_file(), f"missing script path for {name}: {path}")
+
+    def test_check_script_files_have_unique_filenames(self) -> None:
+        filenames = list(script_catalog.CHECK_SCRIPT_FILES.values())
+        self.assertEqual(len(filenames), len(set(filenames)))
+
+    def test_all_probe_catalog_paths_exist(self) -> None:
+        for relative in script_catalog.PROBE_SCRIPT_RELATIVE_PATHS.values():
+            path = script_catalog.REPO_ROOT / relative
+            self.assertTrue(path.is_file(), f"missing probe script path: {path}")
+
+    def test_probe_script_files_have_unique_filenames(self) -> None:
+        filenames = list(script_catalog.PROBE_SCRIPT_FILES.values())
+        self.assertEqual(len(filenames), len(set(filenames)))
+
+    def test_probe_mixed_concerns_is_registered(self) -> None:
+        self.assertIn("probe_mixed_concerns", script_catalog.PROBE_SCRIPT_FILES)
+        self.assertEqual(
+            script_catalog.PROBE_SCRIPT_FILES["probe_mixed_concerns"],
+            "probe_mixed_concerns.py",
+        )
+        self.assertEqual(
+            script_catalog.probe_script_cmd("probe_mixed_concerns")[-1],
+            "dev/scripts/checks/probe_mixed_concerns.py",
+        )
+
+    def test_probe_term_consistency_is_registered(self) -> None:
+        self.assertIn("probe_term_consistency", script_catalog.PROBE_SCRIPT_FILES)
+        self.assertEqual(
+            script_catalog.PROBE_SCRIPT_FILES["probe_term_consistency"],
+            "probe_term_consistency.py",
+        )
+        self.assertEqual(
+            script_catalog.probe_script_cmd("probe_term_consistency")[-1],
+            "dev/scripts/checks/probe_term_consistency.py",
+        )
+
+    def test_probe_split_advisor_is_registered(self) -> None:
+        self.assertIn("probe_split_advisor", script_catalog.PROBE_SCRIPT_FILES)
+        self.assertEqual(
+            script_catalog.PROBE_SCRIPT_FILES["probe_split_advisor"],
+            "probe_split_advisor.py",
+        )
+        self.assertEqual(
+            script_catalog.probe_script_cmd("probe_split_advisor")[-1],
+            "dev/scripts/checks/probe_split_advisor.py",
+        )
+
+    def test_shell_command_helpers_preserve_expected_strings(self) -> None:
+        self.assertEqual(
+            script_catalog.check_script_shell_command("active_plan_sync"),
+            "python3 dev/scripts/checks/check_active_plan_sync.py",
+        )
+        self.assertEqual(
+            script_catalog.check_script_shell_command(
+                "coderabbit_gate",
+                "--branch",
+                "master",
+                env={"CI": "1"},
+            ),
+            "CI=1 python3 dev/scripts/checks/check_coderabbit_gate.py --branch master",
+        )
+        self.assertEqual(
+            script_catalog.probe_script_shell_command("probe_design_smells", "--format", "json"),
+            "python3 dev/scripts/checks/probe_design_smells.py --format json",
+        )
+
+    def test_mutation_bypass_graph_closure_is_registered(self) -> None:
+        self.assertIn(
+            "mutation_bypass_graph_closure",
+            script_catalog.CHECK_SCRIPT_FILES,
+        )
+        self.assertEqual(
+            script_catalog.CHECK_SCRIPT_FILES["mutation_bypass_graph_closure"],
+            "check_mutation_bypass_graph_closure.py",
+        )
+        self.assertEqual(
+            script_catalog.check_script_cmd("mutation_bypass_graph_closure")[-1],
+            "dev/scripts/checks/check_mutation_bypass_graph_closure.py",
+        )
+
+    def test_probe_path_helpers_match_registered_paths(self) -> None:
+        self.assertEqual(
+            script_catalog.probe_script_relative_path("probe_design_smells"),
+            "dev/scripts/checks/probe_design_smells.py",
+        )
+        self.assertTrue(
+            script_catalog.probe_script_path("probe_design_smells").is_file()
+        )
+
+    def test_legacy_check_rewrite_targets_match_relative_paths(self) -> None:
+        expected_targets = set(script_catalog.CHECK_SCRIPT_RELATIVE_PATHS.values())
+        rewrite_targets = set(script_catalog.LEGACY_CHECK_SCRIPT_REWRITES.values())
+        self.assertEqual(rewrite_targets, expected_targets)
+
+    def test_legacy_entrypoint_rewrite_targets_exist(self) -> None:
+        for relative in script_catalog.LEGACY_ENTRYPOINT_SCRIPT_REWRITES.values():
+            path = script_catalog.REPO_ROOT / relative
+            self.assertTrue(path.is_file(), f"missing legacy entrypoint target: {path}")
+
+    def test_aggregate_legacy_rewrite_map_includes_checks_and_entrypoints(self) -> None:
+        expected_keys = set(script_catalog.LEGACY_CHECK_SCRIPT_REWRITES) | set(
+            script_catalog.LEGACY_ENTRYPOINT_SCRIPT_REWRITES
+        )
+        self.assertEqual(set(script_catalog.LEGACY_SCRIPT_PATH_REWRITES), expected_keys)
+
+
+if __name__ == "__main__":
+    unittest.main()

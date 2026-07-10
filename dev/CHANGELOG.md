@@ -7,6 +7,236 @@ Note: Some historical entries reference internal documents that are not publishe
 
 ## [Unreleased]
 
+## [1.2.3] - 2026-07-10
+
+### Fixed (field bugs — Cursor / JetBrains IDE terminals)
+
+- **Claude HUD box flicker in Cursor (typing + streaming)** — root cause:
+  recent Cursor builds stopped exporting `CURSOR_*` env hints
+  (`TERM_PROGRAM` is plain `vscode`), so `detect_terminal_host()`
+  classifies Cursor as `Other` and Claude sessions hit the legacy
+  Other-host per-scroll-chunk HUD pre-clear (blank band now, idle-gated
+  repaint later = visible disappear/reappear). Other hosts now pre-clear
+  only on genuine transitions (overlay panels / pending status clears),
+  mirroring the Cursor branch. (`writer/state/policy.rs`)
+- **HUD prompt-suppression retired on non-rolling hosts (Cursor/Other)**
+  — the approval-hint latch collapsed the HUD to height 0 and released
+  on a 3s debounce (black blink while typing; full/min oscillation with
+  codex). Structural row protection (reserved gap rows + DECSTBM
+  confined to the child viewport) supersedes it; JetBrains keeps its
+  rolling-detector suppression. (`event_loop/prompt_occlusion.rs`)
+- **Codex HUD hidden at start / after clears (any host)** — codex 0.144
+  destructive clears (`2J`/`3J`/RIS) wiped the freshly painted HUD with
+  nothing arming a repaint; destructive clears now arm an idle-gated
+  full repaint. (`writer/state/dispatch_pty.rs`, `policy.rs`)
+- **Dead plain Enter under leaked kitty keyboard protocol** — codex
+  0.144 pushes kitty flags through the relay; dead sessions left panes
+  poisoned so Enter arrived as CSI-u `ESC[13u` and every key double-fired
+  (press+release). The input parser now decodes CSI-u basics (Enter
+  press mapped, releases/repeats consumed), and startup/exit write a
+  kitty-flags reset plus screen clear to de-poison panes.
+  (`input/parser.rs`, `arrow_keys.rs`, `terminal_restore.rs`, `main.rs`)
+- **HUD buttons / overlay clicks dying after banner size changes** —
+  clicks are now hit-tested live against current button geometry instead
+  of a stale registry cache; overlay panels hit-test against their real
+  left-anchored column origin (fixes dead `[Close]` / "Click/Tap select"
+  and the apparent freeze). (`event_loop/input_dispatch.rs`,
+  `overlay/overlay_mouse.rs`)
+- **Cursor+Claude cadence repaints tear-hardened** — the input-repair
+  timer and non-scroll/scroll throttles request line-diff repaints
+  (zero bytes when banner content is unchanged) instead of forced
+  full-row rewrites. (`writer/state/policy.rs`, `redraw.rs`)
+- **Claude status-row corruption / trailing artifacts in Cursor** — the
+  DECSTBM scroll region is confined to the child PTY viewport bottom
+  instead of `rows - banner_height`, so child scrolling can never smear
+  HUD rows. (`writer/render.rs`, `terminal.rs`)
+- **Previous-session screen residue at startup** — startup now writes a
+  full clear (`2J`/`3J`) alongside the kitty reset before the splash.
+  (`main.rs`)
+
+### Changed
+
+- Root-level governance research documents archived to
+  `dev/archive/root-governance-docs/` (THESIS_EVIDENCE, UNIVERSAL_SYSTEM
+  plans/evidence, ZGRAPH research, backlog/bridge/codesmells notes,
+  System_Connection_Flowchart).
+
+### Governance / tooling (from the quality-sweep line)
+
+### Fixed
+
+- `dev/scripts/devctl/commands/vcs/commit.py` +
+  `dev/scripts/checks/startup_authority_contract/runtime_checks.py` —
+  `devctl commit` self-block (LIVE_RUN.md Q1) cleared via narrow
+  `DEVCTL_COMMIT_GATE_BYPASS_STARTUP_AUTHORITY` env var. The governed
+  commit path now works end-to-end instead of falling back to raw
+  `git commit`. Landed in commit `2bd24b1`.
+
+### Added
+
+- `dev/audits/LIVE_RUN.md` automation-gaps section (A1-A10):
+  enumerates every manual step Claude-Code took during the
+  remote_control beta test that the governance system should have
+  automated. A1 auto-commit on green; A2 auto-push when commits
+  accumulate; A3 auto-refresh projections before consistency checks;
+  A4 auto-log findings via governed channel; A5 auto-discover
+  capabilities; A6 distinguish live conductors from orphans; A7
+  governed scheduled-action registry; A8 auto-relaunch on conductor
+  death; A9 sync LIVE_RUN entries into reviewer inbox; A10 first-
+  class `enhancement` packet kind.
+- `dev/audits/LIVE_RUN.md` — running trial log of a remote-control
+  session documenting every finding, every confirmed-working surface,
+  and every unknown / suspected blind spot during the Q1-Q17 issue
+  sweep. Reviewer (Codex) reads from this file to understand session
+  context. Append-only by convention.
+
+### Fixed
+
+- `dev/scripts/devctl/runtime/review_state_models.py` — defensive
+  `_packet_requires_operator_approval` helper that tolerates dict-shaped
+  packets in `ReviewState.packets`, unblocking `review-channel status`,
+  `review-channel doctor`, and `devctl dashboard` when the packet queue
+  contains entries that upstream deserializers left un-hydrated. Hotfix
+  for the crash documented in `LIVE_RUN.md` Q11.
+- `dev/scripts/checks/code_shape/code_shape_policy.py` — removed two
+  stale `PATH_POLICY_OVERRIDES` entries (`commands/sync.py`,
+  `commands/check_phases.py`) that had stayed below the language default
+  soft limit for 30+ days. Both files now fall back to
+  `LANGUAGE_POLICIES[".py"]` via `policy_for_path`.
+- `dev/scripts/devctl/runtime/project_governance_contract.py` — flipped
+  `BridgeConfig.operator_interaction_mode` dataclass default from
+  `"local_terminal"` to `"remote_control"` as a tactical unblock for
+  headless launches in remote-operator mode (`LIVE_RUN.md` Q4).
+
+### Changed
+
+- Replace the temporary Elastic License 2.0 setup with a stricter proprietary
+  evaluation license: no third-party commercial use, production use, hosting,
+  redistribution, or derivative commercialization is allowed without written
+  permission, and package metadata now uses custom-license file references
+  instead of a standard SPDX license identifier.
+
+## [1.2.3] - 2026-04-01
+### Runtime Hardening
+
+- Refactored Theme Studio input handling into page-scoped helpers so keyboard
+  handling, picker edits, and style override adjustments follow one consistent
+  dispatch path with no behavior change.
+- Fix Kitty CSI-u passthrough: unmapped Kitty-encoded key events now pass
+  through to the PTY instead of being silently dropped, restoring keybinding
+  parity with non-Kitty terminals.
+- Clarify CSI-u mapped/unmapped test contract with explicit coverage for both
+  recognized and unrecognized Kitty CSI-u sequences.
+
+### Architecture
+
+- Decompose `main()` into phased lifecycle functions (`load_config_phase`,
+  `prepare_runtime_phase`, `build_state_phase`, `run_runtime_phase`,
+  `shutdown_runtime_phase`) with typed intermediate structs
+  (`LoadedConfigPhase`, `RuntimeBuildInputs`, `RuntimeExecutionPhase`) so each
+  stage is independently testable and easier to reason about.
+- Extract `RuntimeVariant` enum into `runtime_compat` to replace scattered
+  terminal-host × backend-family match arms with a single dispatch type.
+- Extract `WriterAdapterState` into `writer/state/adapter_state.rs`, replacing
+  flat fields with per-variant state structs (`JetBrainsClaudeWriterState`,
+  `CursorClaudeWriterState`, `GenericWriterState`) so each host/provider
+  combination carries only the state it needs.
+- Move inline `main.rs` test module to standalone `main_tests.rs` for clearer
+  separation between production and test code.
+
+### Tooling
+
+- Refresh the bridge-backed typed `review_state.json` projection before
+  `startup-context`, tandem-consistency checks, and governed push/preflight
+  consumers trust live `current_session` freshness, so stale saved review
+  artifacts no longer outrank the repo-owned review status writer.
+- Add `runtime/role_profile.py` with `TandemRole`, `RoleProfile`,
+  `TandemProfile`, and `role_for_provider()` as the provider-agnostic contract
+  for the review/code tandem loop.
+- Add `check_tandem_consistency.py` guard validating role-profile seam
+  alignment across peer-liveness, event-reducer, status-projection, launch,
+  prompt, and handoff modules. Wired into `bundle.tooling`, CI workflows, and
+  quality-policy presets.
+- Wire cursor agent entry into event-reducer `_build_agents` and
+  status-projection bridge review-state so the 3-agent roster becomes 4.
+- Add `pending_cursor` field to `ReviewQueueState` and queue output.
+- Add `doc-authority` and `governance-draft` command surfaces plus the
+  `check_startup_authority_contract.py` and `check_governance_closure.py`
+  guards so the MP-377 startup/governance contract is enforced through the
+  normal tooling/release surfaces instead of hand-checked drift.
+- Add `check_daemon_state_parity.py` so the Rust daemon lifecycle/state seam
+  is checked against the Python runtime models instead of staying manual-only.
+- Modularize `mutants.py` (730-line monolith) into five focused modules:
+  `mutants_config.py` (module registry, shard parsing), `mutants_git.py`
+  (git-diff-based file targeting), `mutants_runner.py` (cargo-mutants
+  invocation), `mutants_results.py` (outcome parsing and rendering),
+  `mutants_plot.py` (hotspot visualization). The CLI entrypoint is now a thin
+  ~160-line dispatcher.
+- Add `--changed` git-aware targeting mode (default when no `--module`/`--file`
+  /`--all`) that uses `git merge-base` + `git diff` to auto-detect changed
+  `.rs` source files, enabling targeted mutation testing on only what changed.
+- Add `--file` flag for explicit workspace-relative file targeting and
+  `--baseline-skip` (on by default) to skip the unreliable sandbox baseline.
+- Eliminate duplicated logic in mutation tooling: reuse `REPO_ROOT`/`SRC_DIR`
+  from `devctl.config`, `find_latest_outcomes_file` from `devctl.common`,
+  timestamp helpers from `checks.check_mutation_score`, and summary constants
+  from `checks.mutation_outcome_parse`.
+- Extract shared Rust guard-script boilerplate (`SRC_DIR` resolution,
+  `count_in_directory`, `format_guard_result`) into `rust_guard_common.py`,
+  reducing duplication across 10+ guard checks.
+- Add `check_bootstrap.py` guard verifying `CLAUDE.md` bootstrap instructions
+  stay current.
+- Consolidate `time_utils.py` with canonical `utc_timestamp()` helper.
+- Render the bootstrap task-router quick map from typed governance authority,
+  derive `CLAUDE.md` guard-limit guidance from live code-shape policy, fix
+  Python 3.10 failure-packet timezone compatibility, and refresh the
+  troubleshooting guidance for stale bridge/live-bundle recovery.
+
+### Operator Console
+
+- Upgrade Operator Console from text-dump panels to structured key-value views
+  with `StatusIndicator` dots (green/orange/red/gray) and `KeyValuePanel`
+  widgets that show structured data at a glance with a "View Raw" toggle for
+  full section text.
+- Add KPI header strip with `AgentSummaryCard` widgets for Codex (Reviewer),
+  Claude (Implementer), and Operator (Human) showing live status, last
+  activity, and a pending-approval count badge.
+- Add PyQt-free status-hint derivation across the Operator Console state layer
+  (`AgentLaneData` plus lane builders) so each agent lane is classified as
+  active/warning/stale/idle from parsed section keywords and timestamps.
+- Clarify the optional desktop companion around guarded `Dry Run` /
+  `Start Swarm` / `Launch Live` workflow expectations so the app stays an
+  honest repo-backed controller instead of a second runtime path.
+
+### Mobile App
+
+- Add a first-party iPhone/iPad app shell under `app/ios/VoiceTermMobileApp`
+  and a simulator sync script (`sync_live_bundle_to_simulator.sh`) so the
+  mobile client can load real `mobile-status` output from the local checkout.
+- Make `devctl mobile-status` fall back to review-channel live data when the
+  autonomy `phone-status` artifact is missing, so the mobile app still shows
+  real Codex/Claude/operator state instead of failing closed.
+- Add a read-only terminal-style lane console on mobile with split/combined
+  Codex, Claude, and Operator views sourced from the same live bundle.
+
+### Documentation
+
+- Align active plan docs (`MASTER_PLAN.md`, `INDEX.md`) with current execution
+  state, reconcile plan boundaries, and scope devctl reporting upgrade.
+- Pull AI-governance startup/review/operator instructions back out of the
+  VoiceTerm end-user guides so product docs stay VoiceTerm-specific while the
+  self-hosting/platform boundary is tracked in the `MP-377` owner docs and
+  audit surfaces.
+- Update `dev/scripts/README.md` and `dev/guides/DEVELOPMENT.md` with new
+  mutation testing module structure and CLI flags.
+- Simplify the main onboarding docs (`README.md`, `QUICK_START.md`,
+  `guides/INSTALL.md`, `guides/USAGE.md`, `guides/CLI_FLAGS.md`) so the short
+  path stays beginner-friendly, advanced companion-app details live behind
+  links, and backend/IDE support wording stays consistent across docs.
+- Refresh the canonical user docs so the optional Operator Console and
+  iPhone/iPad companion surfaces, plus daemon-mode wording for those
+  integrations, are described consistently across install/usage/help paths.
+
 ## [1.1.1] - 2026-03-06
 ## [1.1.0] - 2026-03-05
 ### Runtime Hardening
@@ -614,7 +844,7 @@ Note: Some historical entries reference internal documents that are not publishe
 
 - Retire `.github/workflows/audit_traceability_guard.yml`, remove `dev/scripts/check_audit_traceability.py`, and remove the `make traceability-audit` helper target to simplify active CI/tooling flow around `MASTER_PLAN.md`.
 - Add `dev/scripts/generate-release-notes.sh` plus `devctl release-notes`/`make release-notes` wrappers, and wire `release.sh` to auto-generate `/tmp/voiceterm-release-vX.Y.Z.md` for `gh release create --notes-file`.
-- Add mutation-score badge generation (`dev/scripts/render_mutation_badge.py` + `.github/badges/mutation-score.json`) and switch README mutation badge to a percentage endpoint (red/orange/green by score, `failed` only when outcomes are unavailable or invalid).
+- Add mutation-score badge generation (`dev/scripts/badges/mutation.py` + `.github/badges/mutation-score.json`) and switch README mutation badge to a percentage endpoint (red/orange/green by score, `failed` only when outcomes are unavailable or invalid).
 
 ### Runtime Hardening
 
@@ -1274,7 +1504,7 @@ Note: Some historical entries reference internal documents that are not publishe
 - Major codebase reorganization: `rust_tui/` → `src/`, `docs/` → `guides/` + `dev/`
 - Rename Rust crate from `rust_tui` to `voiceterm` to match project name
 - Add Makefile for common developer commands
-- Add `dev/scripts/mutants.py` for interactive mutation testing
+- Add `dev/scripts/mutation/cli.py` for interactive mutation testing
 
 ### Bug Fixes
 

@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
 
-from ..common import pipe_output, write_output
+from ..common import emit_output, pipe_output, write_output
+from ..time_utils import utc_timestamp
 from ..path_audit import rewrite_legacy_path_references
 
 MAX_MD_CHANGES = 30
@@ -44,7 +44,7 @@ def run(args) -> int:
     rewrite_report = rewrite_legacy_path_references(dry_run=args.dry_run)
     report = {
         "command": "path-rewrite",
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": utc_timestamp(),
         **rewrite_report,
     }
 
@@ -53,7 +53,14 @@ def run(args) -> int:
     else:
         output = _render_md(report)
 
-    write_output(output, args.output)
-    if args.pipe_command:
-        return pipe_output(output, args.pipe_command, args.pipe_args)
+    pipe_rc = emit_output(
+        output,
+        output_path=args.output,
+        pipe_command=args.pipe_command,
+        pipe_args=args.pipe_args,
+        writer=write_output,
+        piper=pipe_output,
+    )
+    if pipe_rc != 0:
+        return pipe_rc
     return 0 if report["ok"] else 1

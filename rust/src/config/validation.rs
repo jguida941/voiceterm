@@ -32,9 +32,90 @@ impl AppConfig {
     /// path canonicalization fails, or when configured binaries/models are
     /// unavailable.
     pub fn validate(&mut self) -> Result<()> {
+        let repo_root = canonical_repo_root()?;
+        self.validate_voice_pipeline_bounds()?;
+
+        self.codex_cmd = sanitize_binary(&self.codex_cmd, "--codex-cmd", &["codex"])?;
+        self.claude_cmd = sanitize_binary(&self.claude_cmd, "--claude-cmd", &["claude"])?;
+        self.python_cmd =
+            sanitize_binary(&self.python_cmd, "--python-cmd", &["python3", "python"])?;
+        self.ffmpeg_cmd = sanitize_binary(&self.ffmpeg_cmd, "--ffmpeg-cmd", &["ffmpeg"])?;
+        self.whisper_cmd = sanitize_binary(
+            &self.whisper_cmd,
+            "--whisper-cmd",
+            &["whisper", "whisper.cpp"],
+        )?;
+
+        self.canonicalize_paths(&repo_root)?;
+        self.validate_whisper_config(&repo_root)?;
+
+        if self.lang.trim().is_empty() {
+            bail!("--lang must not be empty");
+        }
+        if !self.lang.eq_ignore_ascii_case("auto") {
+            if !self
+                .lang
+                .chars()
+                .all(|ch| ch.is_ascii_alphabetic() || ch == '-' || ch == '_')
+            {
+                bail!("--lang must contain only alphabetic characters or '-'/'_' separators");
+            }
+            // Allow locale-style values but only check the leading ISO-639-1 code.
+            let lang_primary = self
+                .lang
+                .split(['-', '_'])
+                .next()
+                .unwrap_or("")
+                .to_ascii_lowercase();
+            if !ISO_639_1_CODES.contains(&lang_primary.as_str()) {
+                bail!(
+                    "--lang must start with a valid ISO-639-1 code or be 'auto', got '{}'",
+                    self.lang
+                );
+            }
+        }
+
+        // Avoid huge argument lists when forwarding to Codex.
+        if self.codex_args.len() > MAX_CODEX_ARGS {
+            bail!(
+                "--codex-arg repeated too many times (max {MAX_CODEX_ARGS}, got {})",
+                self.codex_args.len()
+            );
+        }
+        // Also limit the total byte length to keep argv small.
+        let total_arg_bytes: usize = self.codex_args.iter().map(String::len).sum();
+        if total_arg_bytes > MAX_CODEX_ARG_BYTES {
+            bail!("combined --codex-arg length exceeds {MAX_CODEX_ARG_BYTES} bytes");
+        }
+
+        // The FFmpeg device string is passed straight to the shell, so keep it simple.
+        if let Some(device) = &self.ffmpeg_device {
+            if device.len() > 256
+                || device.chars().any(|ch| matches!(ch, '\n' | '\r'))
+                || device
+                    .chars()
+                    .any(|ch| FORBIDDEN_DEVICE_CHARS.contains(&ch))
+            {
+                bail!(
+                    "--ffmpeg-device must be <=256 characters with no control or shell metacharacters"
+                );
+            }
+        }
+
+        if let Some(device) = &mut self.input_device {
+            let normalized = normalize_input_device_name(device);
+            if normalized.is_empty() {
+                bail!("--input-device must not be empty");
+            }
+            *device = normalized;
+        }
+
+        Ok(())
+    }
+
+    fn validate_voice_pipeline_bounds(&self) -> Result<()> {
         const MIN_RECORD_SECONDS: u64 = 1;
         const MAX_RECORD_SECONDS: u64 = 60;
-        let repo_root = canonical_repo_root()?;
 
         if !(MIN_RECORD_SECONDS..=MAX_RECORD_SECONDS).contains(&self.seconds) {
             bail!(
@@ -42,7 +123,6 @@ impl AppConfig {
                 self.seconds
             );
         }
-
         if !(8_000..=96_000).contains(&self.voice_sample_rate) {
             bail!(
                 "--voice-sample-rate must be between 8000 and 96000 Hz, got {}",
@@ -146,26 +226,21 @@ impl AppConfig {
             bail!("--voice-vad-engine earshot requires building with the 'vad_earshot' feature");
         }
 
-        self.codex_cmd = sanitize_binary(&self.codex_cmd, "--codex-cmd", &["codex"])?;
-        self.claude_cmd = sanitize_binary(&self.claude_cmd, "--claude-cmd", &["claude"])?;
-        self.python_cmd =
-            sanitize_binary(&self.python_cmd, "--python-cmd", &["python3", "python"])?;
-        self.ffmpeg_cmd = sanitize_binary(&self.ffmpeg_cmd, "--ffmpeg-cmd", &["ffmpeg"])?;
-        self.whisper_cmd = sanitize_binary(
-            &self.whisper_cmd,
-            "--whisper-cmd",
-            &["whisper", "whisper.cpp"],
-        )?;
+        Ok(())
+    }
 
+    fn canonicalize_paths(&mut self, repo_root: &Path) -> Result<()> {
         #[cfg(test)]
         ensure_test_pipeline_script(&self.pipeline_script);
-        // Keep helper scripts inside this repo.
-        self.pipeline_script =
-            canonicalize_within_repo(&self.pipeline_script, "pipeline script", &repo_root)?;
 
+        self.pipeline_script =
+            canonicalize_within_repo(&self.pipeline_script, "pipeline script", repo_root)?;
+        Ok(())
+    }
+
+    fn validate_whisper_config(&mut self, repo_root: &Path) -> Result<()> {
         if self.whisper_model_path.is_none() {
-            if let Some(auto_model) =
-                discover_default_whisper_model(&repo_root, &self.whisper_model)
+            if let Some(auto_model) = discover_default_whisper_model(repo_root, &self.whisper_model)
             {
                 self.whisper_model_path = Some(auto_model.to_string_lossy().to_string());
             }
@@ -191,67 +266,6 @@ impl AppConfig {
                 .to_str()
                 .map(ToString::to_string)
                 .ok_or_else(|| anyhow!("whisper model path must be valid UTF-8"))?;
-        }
-
-        if self.lang.trim().is_empty() {
-            bail!("--lang must not be empty");
-        }
-        if !self.lang.eq_ignore_ascii_case("auto") {
-            if !self
-                .lang
-                .chars()
-                .all(|ch| ch.is_ascii_alphabetic() || ch == '-' || ch == '_')
-            {
-                bail!("--lang must contain only alphabetic characters or '-'/'_' separators");
-            }
-            // Allow locale-style values but only check the leading ISO-639-1 code.
-            let lang_primary = self
-                .lang
-                .split(['-', '_'])
-                .next()
-                .unwrap_or("")
-                .to_ascii_lowercase();
-            if !ISO_639_1_CODES.contains(&lang_primary.as_str()) {
-                bail!(
-                    "--lang must start with a valid ISO-639-1 code or be 'auto', got '{}'",
-                    self.lang
-                );
-            }
-        }
-
-        // Avoid huge argument lists when forwarding to Codex.
-        if self.codex_args.len() > MAX_CODEX_ARGS {
-            bail!(
-                "--codex-arg repeated too many times (max {MAX_CODEX_ARGS}, got {})",
-                self.codex_args.len()
-            );
-        }
-        // Also limit the total byte length to keep argv small.
-        let total_arg_bytes: usize = self.codex_args.iter().map(String::len).sum();
-        if total_arg_bytes > MAX_CODEX_ARG_BYTES {
-            bail!("combined --codex-arg length exceeds {MAX_CODEX_ARG_BYTES} bytes");
-        }
-
-        // The FFmpeg device string is passed straight to the shell, so keep it simple.
-        if let Some(device) = &self.ffmpeg_device {
-            if device.len() > 256
-                || device.chars().any(|ch| matches!(ch, '\n' | '\r'))
-                || device
-                    .chars()
-                    .any(|ch| FORBIDDEN_DEVICE_CHARS.contains(&ch))
-            {
-                bail!(
-                    "--ffmpeg-device must be <=256 characters with no control or shell metacharacters"
-                );
-            }
-        }
-
-        if let Some(device) = &mut self.input_device {
-            let normalized = normalize_input_device_name(device);
-            if normalized.is_empty() {
-                bail!("--input-device must not be empty");
-            }
-            *device = normalized;
         }
 
         Ok(())

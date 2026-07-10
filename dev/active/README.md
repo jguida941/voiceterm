@@ -12,5 +12,9 @@ Governance notes:
 
 - `MASTER_PLAN.md` is the tracker authority for active execution state.
 - Non-tracker docs in this directory are scoped specs/runbooks/references.
+- `agent_substrate_architecture_review.md` is a reference-only Plan 4.1
+  review of proof-tick authority, operator/reviewer mode axes, and future
+  any-agent-any-role capability migration; it does not supersede
+  `ai_governance_platform.md`.
 - Do not delete active docs until the associated scope is fully closed and
   tracker/index references are updated in the same change.

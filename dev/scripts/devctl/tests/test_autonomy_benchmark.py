@@ -9,7 +9,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from dev.scripts.devctl.autonomy_benchmark_matrix import build_swarm_command
+from dev.scripts.devctl.autonomy.benchmark_matrix import build_swarm_command
 from dev.scripts.devctl.cli import build_parser
 from dev.scripts.devctl.commands import autonomy_benchmark
 

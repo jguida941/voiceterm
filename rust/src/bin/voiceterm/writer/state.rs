@@ -30,33 +30,7 @@ use crate::theme::Theme;
 use crate::HudStyle;
 
 const OUTPUT_FLUSH_INTERVAL_MS: u64 = 16;
-#[cfg(test)]
-const CURSOR_CLAUDE_BANNER_PRECLEAR_COOLDOWN_MS: u64 = 180;
 const STARTUP_SCREEN_CLEAR: &[u8] = b"\x1b[2J\x1b[H";
-#[cfg(test)]
-const CURSOR_PRECLEAR_COOLDOWN_MS: u64 = 220;
-#[cfg(test)]
-const CLAUDE_JETBRAINS_BANNER_PRECLEAR_COOLDOWN_MS: u64 = 90;
-#[cfg(test)]
-const CLAUDE_JETBRAINS_IDLE_REDRAW_HOLD_MS: u64 = 500;
-#[cfg(test)]
-const JETBRAINS_PRECLEAR_COOLDOWN_MS: u64 = 260;
-#[cfg(test)]
-const CODEX_JETBRAINS_SCROLL_REDRAW_MIN_INTERVAL_MS: u64 = 320;
-#[cfg(test)]
-const CLAUDE_JETBRAINS_SCROLL_REDRAW_MIN_INTERVAL_MS: u64 = 150;
-#[cfg(test)]
-const CLAUDE_CURSOR_SCROLL_REDRAW_MIN_INTERVAL_MS: u64 = 900;
-#[cfg(test)]
-const CURSOR_CLAUDE_TYPING_REDRAW_HOLD_MS: u64 = 450;
-#[cfg(test)]
-const CLAUDE_JETBRAINS_COMPOSER_REPAIR_QUIET_MS: u64 = 700;
-#[cfg(test)]
-const CLAUDE_JETBRAINS_COMPOSER_RECENT_INPUT_MS: u64 = 1500;
-#[cfg(test)]
-const CLAUDE_IDE_NON_SCROLL_REDRAW_MIN_INTERVAL_MS: u64 = 700;
-#[cfg(test)]
-const TYPING_REDRAW_HOLD_MS: u64 = 250;
 
 fn debug_text_preview(text: &str, max_chars: usize) -> String {
     let mut out = String::new();
@@ -131,6 +105,7 @@ fn read_terminal_size() -> io::Result<(u16, u16)> {
     Ok((cols, rows))
 }
 
+use self::adapter_state::WriterAdapterState;
 #[cfg(test)]
 use self::chunk_analysis::bytes_contains_short_cursor_up_csi;
 use self::chunk_analysis::{
@@ -176,20 +151,9 @@ pub(super) struct WriterState {
     last_output_flush_at: Instant,
     last_status_draw_at: Instant,
     last_user_input_at: Instant,
-    cursor_claude_input_repair_due: Option<Instant>,
-    jetbrains_dec_cursor_saved_active: bool,
-    jetbrains_ansi_cursor_saved_active: bool,
-    jetbrains_cursor_restore_settle_until: Option<Instant>,
-    jetbrains_cursor_escape_carry: Vec<u8>,
-    jetbrains_claude_composer_repair_due: Option<Instant>,
-    jetbrains_claude_repair_skip_quiet_window: bool,
-    jetbrains_claude_resize_repair_until: Option<Instant>,
-    jetbrains_claude_startup_screen_clear_pending: bool,
-    cursor_startup_screen_clear_pending: bool,
-    jetbrains_claude_last_destructive_clear_repaint_at: Option<Instant>,
+    adapter_state: WriterAdapterState,
     theme: Theme,
     mouse_enabled: bool,
-    cursor_startup_scroll_preclear_pending: bool,
 }
 
 impl WriterState {
@@ -219,21 +183,9 @@ impl WriterState {
             last_output_flush_at: Instant::now(),
             last_status_draw_at: Instant::now(),
             last_user_input_at: Instant::now() - cursor_timing.typing_redraw_hold(),
-            cursor_claude_input_repair_due: None,
-            jetbrains_dec_cursor_saved_active: false,
-            jetbrains_ansi_cursor_saved_active: false,
-            jetbrains_cursor_restore_settle_until: None,
-            jetbrains_cursor_escape_carry: Vec::new(),
-            jetbrains_claude_composer_repair_due: None,
-            jetbrains_claude_repair_skip_quiet_window: false,
-            jetbrains_claude_resize_repair_until: None,
-            jetbrains_claude_startup_screen_clear_pending: true,
-            cursor_startup_screen_clear_pending: runtime_profile.terminal_family
-                == TerminalHost::Cursor,
-            jetbrains_claude_last_destructive_clear_repaint_at: None,
+            adapter_state: WriterAdapterState::for_runtime_profile(runtime_profile),
             theme: Theme::default(),
             mouse_enabled: false,
-            cursor_startup_scroll_preclear_pending: true,
         }
     }
 
@@ -244,7 +196,7 @@ impl WriterState {
     #[cfg(test)]
     fn set_terminal_family_for_tests(&mut self, terminal_family: TerminalHost) {
         self.runtime_profile = self.runtime_profile.with_terminal_family(terminal_family);
-        self.cursor_startup_screen_clear_pending = terminal_family == TerminalHost::Cursor;
+        self.adapter_state = WriterAdapterState::for_runtime_profile(self.runtime_profile);
     }
 
     fn host_timing(&self) -> HostTimingConfig {
@@ -271,7 +223,8 @@ impl WriterState {
             self.last_preclear_at = now;
         }
         if preclear_outcome.consume_cursor_startup_preclear {
-            self.cursor_startup_scroll_preclear_pending = false;
+            self.adapter_state
+                .set_cursor_startup_scroll_preclear_pending(false);
         }
         if preclear_outcome.force_redraw_after_preclear {
             // Keep redraw in the same cycle as pre-clear so the HUD
@@ -309,17 +262,22 @@ impl WriterState {
             self.last_scroll_redraw_at = now;
         }
         if redraw_policy.update_jetbrains_last_destructive_clear_repaint_at {
-            self.jetbrains_claude_last_destructive_clear_repaint_at = Some(now);
+            self.adapter_state
+                .set_jetbrains_claude_last_destructive_clear_repaint_at(Some(now));
         }
         if redraw_policy.schedule_jetbrains_destructive_clear_repair
-            && self.jetbrains_claude_composer_repair_due.is_none()
+            && self
+                .adapter_state
+                .jetbrains_claude_composer_repair_due()
+                .is_none()
         {
             let repair_due = now
                 + self
                     .host_timing()
                     .claude_composer_repair_delay()
                     .unwrap_or_default();
-            self.jetbrains_claude_composer_repair_due = Some(repair_due);
+            self.adapter_state
+                .set_jetbrains_claude_composer_repair_due(Some(repair_due));
             if claude_hud_debug_enabled() {
                 log_debug(&format!(
                     "[claude-hud-debug] scheduled jetbrains+claude destructive-clear repair redraw (due_in_ms={})",
@@ -328,7 +286,8 @@ impl WriterState {
             }
         }
         if redraw_policy.jetbrains_repair_skip_quiet_window {
-            self.jetbrains_claude_repair_skip_quiet_window = true;
+            self.adapter_state
+                .set_jetbrains_claude_repair_skip_quiet_window(true);
         }
         if redraw_policy.destructive_clear_repaint && claude_hud_debug {
             if redraw_policy.jetbrains_claude_destructive_clear_repaint {
@@ -442,6 +401,7 @@ fn pty_output_may_scroll_rows(
     may_scroll
 }
 
+mod adapter_state;
 mod chunk_analysis;
 mod dispatch;
 mod dispatch_pty;

@@ -8,7 +8,7 @@ import unittest
 from pathlib import Path
 from types import SimpleNamespace
 
-from dev.scripts.devctl.autonomy_run_feedback import (
+from dev.scripts.devctl.autonomy.run_feedback import (
     build_feedback_state,
     summarize_feedback_state,
     update_feedback_state,

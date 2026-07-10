@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import json
 import shutil
-from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from ..common import confirm_or_abort, pipe_output, write_output
+from ..common import confirm_or_abort, emit_output, pipe_output, write_output
+from ..time_utils import utc_timestamp
 from ..config import REPO_ROOT
-from ..integration_federation_policy import (
+from ..integrations.federation_policy import (
     federation_allowed_destination_roots,
     federation_audit_log_path,
     federation_max_files,
@@ -18,7 +18,7 @@ from ..integration_federation_policy import (
     load_federation_policy,
     source_repo_path,
 )
-from ..integration_import_core import (
+from ..integrations.import_core import (
     append_audit_log,
     collect_mapping_plan,
     is_relative_to,
@@ -45,7 +45,7 @@ def run(args) -> int:
     if args.list_profiles:
         payload = {
             "command": "integrations-import",
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": utc_timestamp(),
             "ok": len(errors) == 0,
             "mode": "list-profiles",
             "audit_log": relative_or_str(audit_log_path, repo_root),
@@ -57,11 +57,16 @@ def run(args) -> int:
             output = json.dumps(payload, indent=2)
         else:
             output = render_profiles_md(payload)
-        write_output(output, args.output)
-        if args.pipe_command:
-            pipe_code = pipe_output(output, args.pipe_command, args.pipe_args)
-            if pipe_code != 0:
-                return pipe_code
+        pipe_code = emit_output(
+            output,
+            output_path=args.output,
+            pipe_command=args.pipe_command,
+            pipe_args=args.pipe_args,
+            writer=write_output,
+            piper=pipe_output,
+        )
+        if pipe_code != 0:
+            return pipe_code
         return 0 if payload["ok"] else 1
 
     source_name = str(args.source or "").strip()
@@ -175,7 +180,7 @@ def run(args) -> int:
     mode = "apply" if apply_mode else "preview"
     report = {
         "command": "integrations-import",
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": utc_timestamp(),
         "ok": len(errors) == 0,
         "mode": mode,
         "source": source_name or None,
@@ -225,9 +230,14 @@ def run(args) -> int:
         if args.format == "json"
         else render_import_md(report)
     )
-    write_output(output, args.output)
-    if args.pipe_command:
-        pipe_code = pipe_output(output, args.pipe_command, args.pipe_args)
-        if pipe_code != 0:
-            return pipe_code
+    pipe_code = emit_output(
+        output,
+        output_path=args.output,
+        pipe_command=args.pipe_command,
+        pipe_args=args.pipe_args,
+        writer=write_output,
+        piper=pipe_output,
+    )
+    if pipe_code != 0:
+        return pipe_code
     return 0 if report["ok"] else 1

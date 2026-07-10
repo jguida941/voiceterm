@@ -30,9 +30,10 @@ use crate::help::{
 };
 use crate::input::InputEvent;
 use crate::overlays::{
-    show_dev_panel_overlay, show_help_overlay, show_settings_overlay, show_theme_picker_overlay,
-    show_theme_studio_overlay, show_toast_history_overlay, show_transcript_history_overlay,
-    OverlayMode,
+    show_action_center_overlay, show_cockpit_page_overlay, show_dev_panel_overlay,
+    show_help_overlay, show_memory_browser_overlay, show_review_surface_overlay,
+    show_settings_overlay, show_theme_picker_overlay, show_theme_studio_overlay,
+    show_toast_history_overlay, show_transcript_history_overlay, OverlayMode,
 };
 use crate::prompt::should_auto_trigger;
 use crate::runtime_compat::{self, BackendFamily, TerminalHost};
@@ -69,18 +70,22 @@ use crate::voice_control::{
 };
 use crate::writer::{set_status, WriterMessage};
 use dev_panel_commands::{
-    cancel_running_dev_panel_command, move_dev_panel_selection, poll_dev_command_updates,
-    request_selected_dev_panel_command, select_dev_panel_command_by_index,
+    cancel_running_dev_panel_command, copy_handoff_prompt_to_clipboard,
+    cycle_dev_panel_execution_profile, cycle_memory_mode, load_review, move_dev_panel_selection,
+    poll_dev_command_updates, poll_review, prev_dev_panel_tab, refresh_active_dev_panel_tab,
+    request_selected_dev_panel_command, select_dev_panel_command_by_index, toggle_dev_panel_tab,
 };
 use input_dispatch::{handle_input_event, handle_wake_word_detection};
 use output_dispatch::handle_output_chunk;
 use overlay_dispatch::{
-    close_overlay, open_dev_panel_overlay, open_help_overlay, open_settings_overlay,
-    open_theme_picker_overlay, open_theme_studio_overlay, open_toast_history_overlay,
-    open_transcript_history_overlay, render_dev_panel_overlay_for_state,
-    render_help_overlay_for_state, render_settings_overlay_for_state,
-    render_theme_picker_overlay_for_state, render_theme_studio_overlay_for_state,
-    render_toast_history_overlay_for_state, render_transcript_history_overlay_for_state,
+    close_overlay, open_action_center_overlay, open_dev_panel_overlay, open_help_overlay,
+    open_memory_browser_overlay, open_settings_overlay, open_theme_picker_overlay,
+    open_theme_studio_overlay, open_toast_history_overlay, open_transcript_history_overlay,
+    render_action_center_overlay_for_state, render_dev_panel_overlay_for_state,
+    render_help_overlay_for_state, render_memory_browser_overlay_for_state,
+    render_settings_overlay_for_state, render_theme_picker_overlay_for_state,
+    render_theme_studio_overlay_for_state, render_toast_history_overlay_for_state,
+    render_transcript_history_overlay_for_state,
 };
 use periodic_tasks::run_periodic_tasks;
 use prompt_occlusion::{
@@ -578,7 +583,7 @@ fn write_or_queue_pty_input(
         return true;
     }
     if should_emit_user_input_activity(&deps.backend_label) {
-        let _ = deps.writer_tx.try_send(WriterMessage::UserInputActivity);
+        crate::writer::try_send_message(&deps.writer_tx, WriterMessage::UserInputActivity);
     }
     state.transcript_history.ingest_user_input_bytes(&bytes);
     if let Some(logger) = state.session_memory_logger.as_mut() {

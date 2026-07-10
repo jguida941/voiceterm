@@ -1,42 +1,106 @@
 """Collect git/CI/mutation status for reports."""
 
 import json
-import os
 import shutil
 import subprocess
-from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
-from .config import REPO_ROOT
+from .clippy_pedantic import build_snapshot as build_clippy_pedantic_snapshot
+from .collect_dev_logs import collect_dev_log_summary as _collect_dev_log_summary
+from .config import REPO_ROOT, get_repo_root
+from .quality_scan_mode import is_adoption_scan
+from .runtime.failure_packet import collect_failure_packet as _collect_failure_packet
 
 CI_RUN_FIELDS_EXTENDED = (
-    "status,conclusion,displayTitle,name,event,headBranch,headSha,"
-    "createdAt,updatedAt,url,databaseId"
+    "status,conclusion,displayTitle,name,event,headBranch,headSha," "createdAt,updatedAt,url,databaseId"
 )
 CI_RUN_FIELDS_FALLBACK = "status,conclusion,displayTitle,headSha,createdAt,updatedAt"
+CI_RUN_FALLBACK_MARKERS = (
+    "unknown json field",
+    "accepts the following fields",
+    "invalid value for --json",
+)
+collect_dev_log_summary = _collect_dev_log_summary
 
 
-def collect_git_status(since_ref: str | None = None, head_ref: str = "HEAD") -> Dict:
+def collect_failure_packet() -> dict[str, object] | None:
+    """Return the latest structured failure packet when local artifacts exist."""
+    return _collect_failure_packet(Path(REPO_ROOT))
+
+
+def _build_git_status_payload(
+    *,
+    branch: str,
+    changes: list[dict[str, str]],
+    since_ref: str | None,
+    head_ref: str | None,
+    mode: str,
+) -> dict[str, Any]:
+    changed_paths = {change["path"] for change in changes}
+    payload: dict[str, Any] = {
+        "branch": branch,
+        "changes": changes,
+    }
+    payload["changelog_updated"] = "dev/CHANGELOG.md" in changed_paths
+    payload["master_plan_updated"] = "dev/active/MASTER_PLAN.md" in changed_paths
+    payload["since_ref"] = since_ref
+    payload["head_ref"] = head_ref
+    payload["mode"] = mode
+    return payload
+
+
+def collect_git_status(
+    since_ref: str | None = None,
+    head_ref: str = "HEAD",
+    *,
+    repo_root: str | Path | None = None,
+) -> dict:
     """Return branch and dirty state info from git."""
     if not shutil.which("git"):
         return {"error": "git not found"}
+    resolved_repo_root = Path(repo_root) if repo_root is not None else get_repo_root()
     try:
         branch = subprocess.check_output(
             ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-            cwd=REPO_ROOT,
+            cwd=resolved_repo_root,
             text=True,
         ).strip()
+        if is_adoption_scan(since_ref=since_ref, head_ref=head_ref):
+            tracked_raw = subprocess.check_output(
+                ["git", "ls-files"],
+                cwd=resolved_repo_root,
+                text=True,
+            )
+            untracked_raw = subprocess.check_output(
+                ["git", "ls-files", "--others", "--exclude-standard"],
+                cwd=resolved_repo_root,
+                text=True,
+            )
+            changes = []
+            for line in tracked_raw.splitlines():
+                if line.strip():
+                    changes.append({"status": "A", "path": line.strip()})
+            for line in untracked_raw.splitlines():
+                if line.strip():
+                    changes.append({"status": "??", "path": line.strip()})
+            return _build_git_status_payload(
+                branch=branch,
+                changes=changes,
+                since_ref=None,
+                head_ref=None,
+                mode="adoption-scan",
+            )
         if since_ref:
             status_raw = subprocess.check_output(
                 ["git", "diff", "--name-status", f"{since_ref}...{head_ref}"],
-                cwd=REPO_ROOT,
+                cwd=resolved_repo_root,
                 text=True,
             )
         else:
             status_raw = subprocess.check_output(
                 ["git", "status", "--porcelain", "--untracked-files=all"],
-                cwd=REPO_ROOT,
+                cwd=resolved_repo_root,
                 text=True,
             )
     except subprocess.CalledProcessError as exc:
@@ -57,24 +121,33 @@ def collect_git_status(since_ref: str | None = None, head_ref: str = "HEAD") -> 
         for line in status_raw.splitlines():
             if not line:
                 continue
-            status = line[:2].strip()
+            raw_status = line[:2]
+            status = raw_status.strip()
+            index_status = raw_status[:1]
+            worktree_status = raw_status[1:2]
             path = line[3:]
             if "->" in path:
                 path = path.split("->")[-1].strip()
-            changes.append({"status": status, "path": path})
+            changes.append(
+                {
+                    "status": status,
+                    "path": path,
+                    "raw_status": raw_status,
+                    "index_status": index_status,
+                    "worktree_status": worktree_status,
+                }
+            )
 
-    changed_paths = {change["path"] for change in changes}
-    return {
-        "branch": branch,
-        "changes": changes,
-        "changelog_updated": "dev/CHANGELOG.md" in changed_paths,
-        "master_plan_updated": "dev/active/MASTER_PLAN.md" in changed_paths,
-        "since_ref": since_ref,
-        "head_ref": head_ref,
-    }
+    return _build_git_status_payload(
+        branch=branch,
+        changes=changes,
+        since_ref=since_ref,
+        head_ref=head_ref,
+        mode="commit-range" if since_ref else "working-tree",
+    )
 
 
-def collect_ci_runs(limit: int) -> Dict:
+def collect_ci_runs(limit: int) -> dict:
     """Return recent GitHub Actions runs via gh, if available."""
     if not shutil.which("gh"):
         return {"error": "gh not found"}
@@ -98,63 +171,43 @@ def collect_ci_runs(limit: int) -> Dict:
             runs = json.loads(output)
             if not isinstance(runs, list):
                 return {"error": "gh run list returned non-list payload"}
-            normalized_runs = _normalize_ci_runs(runs)
-            result: Dict[str, Any] = {"runs": normalized_runs}
+            normalized_runs: list[dict[str, Any]] = []
+            for run in runs:
+                if not isinstance(run, dict):
+                    continue
+                row = dict(run)
+                # Legacy `gh` versions can omit these fields; populate stable keys for callers.
+                row.setdefault("name", row.get("displayTitle"))
+                row.setdefault("event", None)
+                row.setdefault("headBranch", None)
+                row.setdefault("url", None)
+                row.setdefault("databaseId", None)
+                normalized_runs.append(row)
+            result: dict[str, Any] = {"runs": normalized_runs}
             if fields != CI_RUN_FIELDS_EXTENDED:
                 result["warning"] = (
-                    "gh run list fallback mode: extended fields unavailable; "
-                    "upgrade gh for full CI run metadata."
+                    "gh run list fallback mode: extended fields unavailable; " "upgrade gh for full CI run metadata."
                 )
             return result
         except subprocess.CalledProcessError as exc:
             last_error = exc
-            if (
-                fields == CI_RUN_FIELDS_EXTENDED
-                and _should_retry_ci_runs_with_fallback(exc)
-            ):
+            output = (exc.output or "").lower()
+            retry_fallback = fields == CI_RUN_FIELDS_EXTENDED and any(
+                marker in output for marker in CI_RUN_FALLBACK_MARKERS
+            )
+            if retry_fallback:
                 continue
-            return {"error": _format_collect_ci_error(exc)}
-        except Exception as exc:
-            last_error = exc
+            if exc.output:
+                return {"error": f"gh run list failed: {exc.output.strip()}"}
             return {"error": f"gh run list failed: {exc}"}
+        except (json.JSONDecodeError, OSError) as exc:
+            last_error = exc
+            return {"error": f"gh run list failed for fields `{fields}`: {exc}"}
     return {"error": f"gh run list failed: {last_error}"}
 
 
-def _normalize_ci_runs(runs: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    normalized: list[dict[str, Any]] = []
-    for run in runs:
-        if not isinstance(run, dict):
-            continue
-        row = dict(run)
-        # Legacy `gh` versions can omit these fields; populate stable keys for callers.
-        row.setdefault("name", row.get("displayTitle"))
-        row.setdefault("event", None)
-        row.setdefault("headBranch", None)
-        row.setdefault("url", None)
-        row.setdefault("databaseId", None)
-        normalized.append(row)
-    return normalized
-
-
-def _should_retry_ci_runs_with_fallback(exc: subprocess.CalledProcessError) -> bool:
-    output = (exc.output or "").lower()
-    fallback_markers = (
-        "unknown json field",
-        "accepts the following fields",
-        "invalid value for --json",
-    )
-    return any(marker in output for marker in fallback_markers)
-
-
-def _format_collect_ci_error(exc: subprocess.CalledProcessError) -> str:
-    output = (exc.output or "").strip()
-    if output:
-        return f"gh run list failed: {output}"
-    return f"gh run list failed: {exc}"
-
-
-def collect_mutation_summary() -> Dict:
-    """Return the latest mutation summary via mutants.py."""
+def collect_mutation_summary() -> dict:
+    """Return the latest mutation summary via the canonical mutation CLI."""
     if not shutil.which("python3"):
         return {"error": "python3 not found"}
 
@@ -168,16 +221,14 @@ def collect_mutation_summary() -> Dict:
     }
     try:
         output = subprocess.check_output(
-            ["python3", "dev/scripts/mutants.py", "--results-only", "--json"],
+            ["python3", "dev/scripts/mutation/cli.py", "--results-only", "--json"],
             cwd=REPO_ROOT,
             text=True,
         )
         payload = output.strip()
         if not payload:
             result = dict(unavailable_result)
-            result["warning"] = (
-                "mutation outcomes are unavailable (empty results payload)"
-            )
+            result["warning"] = "mutation outcomes are unavailable (empty results payload)"
             return result
         if payload.lower().startswith("no results found under"):
             result = dict(unavailable_result)
@@ -197,160 +248,22 @@ def collect_mutation_summary() -> Dict:
         result = dict(unavailable_result)
         result["warning"] = "mutation outcomes are unavailable (invalid JSON payload)"
         return result
-    except Exception as exc:
-        return {"error": f"mutants summary failed: {exc}"}
-
-
-def collect_dev_log_summary(
-    dev_root: str | None = None, session_limit: int = 5
-) -> Dict[str, Any]:
-    """Return aggregate summary for guarded Dev Mode JSONL sessions."""
-    root = _resolve_dev_root(dev_root)
-    sessions_dir = root / "sessions"
-    limit = max(1, int(session_limit))
-
-    summary: Dict[str, Any] = {
-        "dev_root": str(root),
-        "sessions_dir": str(sessions_dir),
-        "sessions_dir_exists": sessions_dir.is_dir(),
-        "session_files_total": 0,
-        "sessions_scanned": 0,
-        "events_scanned": 0,
-        "transcript_events": 0,
-        "empty_events": 0,
-        "error_events": 0,
-        "total_words": 0,
-        "latency_samples": 0,
-        "avg_latency_ms": None,
-        "parse_errors": 0,
-        "latest_event_unix_ms": None,
-        "recent_sessions": [],
-    }
-    if not sessions_dir.is_dir():
-        return summary
-
-    files = _session_files_sorted(sessions_dir)
-    summary["session_files_total"] = len(files)
-    scanned = files[:limit]
-    summary["sessions_scanned"] = len(scanned)
-
-    latency_sum = 0
-    for path in scanned:
-        session_row: Dict[str, Any] = {
-            "file": path.name,
-            "events": 0,
-            "transcript_events": 0,
-            "empty_events": 0,
-            "error_events": 0,
-            "latency_samples": 0,
-            "avg_latency_ms": None,
-            "parse_errors": 0,
-        }
-        session_latency_sum = 0
-        try:
-            with path.open("r", encoding="utf-8") as handle:
-                for raw_line in handle:
-                    line = raw_line.strip()
-                    if not line:
-                        continue
-                    session_row["events"] += 1
-                    summary["events_scanned"] += 1
-                    try:
-                        event = json.loads(line)
-                    except json.JSONDecodeError:
-                        session_row["parse_errors"] += 1
-                        summary["parse_errors"] += 1
-                        continue
-                    if not isinstance(event, dict):
-                        session_row["parse_errors"] += 1
-                        summary["parse_errors"] += 1
-                        continue
-
-                    kind = str(event.get("kind", "")).strip().lower()
-                    if kind == "transcript":
-                        session_row["transcript_events"] += 1
-                        summary["transcript_events"] += 1
-                    elif kind == "empty":
-                        session_row["empty_events"] += 1
-                        summary["empty_events"] += 1
-                    elif kind == "error":
-                        session_row["error_events"] += 1
-                        summary["error_events"] += 1
-
-                    words = _coerce_nonnegative_int(event.get("transcript_words"))
-                    summary["total_words"] += words
-
-                    latency = _coerce_nonnegative_int_or_none(event.get("latency_ms"))
-                    if latency is not None:
-                        session_row["latency_samples"] += 1
-                        summary["latency_samples"] += 1
-                        session_latency_sum += latency
-                        latency_sum += latency
-
-                    timestamp = _coerce_nonnegative_int_or_none(
-                        event.get("timestamp_unix_ms")
-                    )
-                    if timestamp is not None and (
-                        summary["latest_event_unix_ms"] is None
-                        or timestamp > summary["latest_event_unix_ms"]
-                    ):
-                        summary["latest_event_unix_ms"] = timestamp
-        except OSError as exc:
-            session_row["error"] = str(exc)
-
-        if session_row["latency_samples"] > 0:
-            session_row["avg_latency_ms"] = int(
-                session_latency_sum / session_row["latency_samples"]
+    except OSError as exc:
+        return {
+            "error": (
+                "mutants summary failed while running " f"`python3 dev/scripts/mutation/cli.py --results-only --json`: {exc}"
             )
-        summary["recent_sessions"].append(session_row)
-
-    if summary["latency_samples"] > 0:
-        summary["avg_latency_ms"] = int(latency_sum / summary["latency_samples"])
-    latest_ts = summary["latest_event_unix_ms"]
-    if isinstance(latest_ts, int):
-        summary["latest_event_iso"] = _unix_ms_to_iso(latest_ts)
-    else:
-        summary["latest_event_iso"] = None
-    return summary
+        }
 
 
-def _resolve_dev_root(dev_root: str | None) -> Path:
-    if dev_root:
-        return Path(dev_root).expanduser()
-    home = os.environ.get("HOME", "").strip()
-    if home:
-        return Path(home).expanduser() / ".voiceterm" / "dev"
-    return REPO_ROOT / ".voiceterm" / "dev"
-
-
-def _session_files_sorted(sessions_dir: Path) -> list[Path]:
-    files = [path for path in sessions_dir.glob("session-*.jsonl") if path.is_file()]
-    files.sort(
-        key=lambda path: (path.stat().st_mtime_ns, path.name),
-        reverse=True,
+def collect_clippy_pedantic_summary(
+    summary_path: str | None = None,
+    lints_path: str | None = None,
+    policy_path: str | None = None,
+) -> dict[str, Any]:
+    """Return advisory `clippy::pedantic` summary from existing artifacts."""
+    return build_clippy_pedantic_snapshot(
+        summary_path=summary_path,
+        lints_path=lints_path,
+        policy_path=policy_path,
     )
-    return files
-
-
-def _coerce_nonnegative_int(value: Any) -> int:
-    if isinstance(value, bool):
-        return 0
-    if isinstance(value, int):
-        return max(0, value)
-    if isinstance(value, float):
-        return max(0, int(value))
-    return 0
-
-
-def _coerce_nonnegative_int_or_none(value: Any) -> int | None:
-    if value is None or isinstance(value, bool):
-        return None
-    if isinstance(value, int):
-        return max(0, value)
-    if isinstance(value, float):
-        return max(0, int(value))
-    return None
-
-
-def _unix_ms_to_iso(unix_ms: int) -> str:
-    return datetime.fromtimestamp(unix_ms / 1000.0, tz=timezone.utc).isoformat()

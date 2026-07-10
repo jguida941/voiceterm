@@ -7,7 +7,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Tuple
 
-DEFAULT_REPORTS_ROOT_RELATIVE = Path("dev/reports")
+from .repo_packs import active_path_config
+
+# Backward-compat alias sourced from active repo-pack config
+DEFAULT_REPORTS_ROOT_RELATIVE = Path(active_path_config().reports_root_rel)
 
 # Only these roots are considered ephemeral run artifacts.
 MANAGED_REPORT_SUBROOTS: Tuple[Path, ...] = (
@@ -32,6 +35,7 @@ DEFAULT_RETENTION_MAX_AGE_DAYS = 30
 DEFAULT_RETENTION_KEEP_RECENT = 10
 DEFAULT_HYGIENE_WARN_DIR_THRESHOLD = 150
 DEFAULT_HYGIENE_WARN_RECLAIM_BYTES = 512 * 1024 * 1024
+SECONDS_PER_DAY = 24 * 60 * 60
 
 
 def format_bytes(num_bytes: int) -> str:
@@ -149,7 +153,7 @@ def _scan_subroot(
             continue
 
         relative_to_reports = child.relative_to(reports_root)
-        age_days = max(0.0, (now_utc.timestamp() - stat.st_mtime) / 86400.0)
+        age_days = max(0.0, (now_utc.timestamp() - stat.st_mtime) / SECONDS_PER_DAY)
         entries.append(
             {
                 "path": child,

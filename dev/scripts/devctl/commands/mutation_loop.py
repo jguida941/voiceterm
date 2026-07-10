@@ -4,15 +4,15 @@ from __future__ import annotations
 
 import json
 import shutil
-from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from ..common import pipe_output, write_output
+from ..common import emit_output, pipe_output, write_output
+from ..time_utils import utc_timestamp
 from ..config import REPO_ROOT
-from ..loop_comment import coerce_pr_number, upsert_comment
-from ..mutation_loop_policy import evaluate_fix_policy, load_policy
-from ..mutation_loop_render import (
+from ..loops.comment import coerce_pr_number, upsert_comment
+from ..mutation_loop.policy import evaluate_fix_policy, load_policy
+from ..mutation_loop.render import (
     render_attempt_lines,
     render_markdown,
     render_playbook,
@@ -241,7 +241,7 @@ def run(args) -> int:
     report.update(
         {
             "command": "mutation-loop",
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": utc_timestamp(),
             "notify": args.notify,
             "comment_target": args.comment_target,
             "comment_pr_number": args.comment_pr_number,
@@ -277,12 +277,17 @@ def run(args) -> int:
     else:
         output = render_markdown(report)
 
-    write_output(output, args.output)
-    if args.json_output:
-        write_output(json.dumps(report, indent=2), args.json_output)
-    if args.pipe_command:
-        pipe_rc = pipe_output(output, args.pipe_command, args.pipe_args)
-        if pipe_rc != 0:
-            return pipe_rc
+    json_payload = json.dumps(report, indent=2)
+    pipe_rc = emit_output(
+        output,
+        output_path=args.output,
+        pipe_command=args.pipe_command,
+        pipe_args=args.pipe_args,
+        additional_outputs=[(json_payload, args.json_output)] if args.json_output else None,
+        writer=write_output,
+        piper=pipe_output,
+    )
+    if pipe_rc != 0:
+        return pipe_rc
 
     return 0 if report.get("ok") else 1

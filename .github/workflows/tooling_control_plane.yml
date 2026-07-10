@@ -16,6 +16,7 @@ on:
       - develop
     paths:
       - "dev/scripts/**"
+      - "app/**"
       - "README.md"
       - "QUICK_START.md"
       - "DEV_INDEX.md"
@@ -31,7 +32,9 @@ on:
       - "dev/config/markdownlint.yaml"
       - "dev/config/markdownlint.ignore"
       - "dev/config/compat/**"
+      - "dev/config/publication_sync_registry.json"
       - "scripts/macro-packs/**"
+      - "scripts/operator_console.sh"
       - "Makefile"
       - "AGENTS.md"
       - "dev/ARCHITECTURE.md"
@@ -41,9 +44,13 @@ on:
       - "dev/guides/*.md"
       - "dev/scripts/README.md"
       - ".github/workflows/*.yml"
+      - "conftest.py"
+      - "pytest.ini"
+      - "mypy.ini"
   pull_request:
     paths:
       - "dev/scripts/**"
+      - "app/**"
       - "README.md"
       - "QUICK_START.md"
       - "DEV_INDEX.md"
@@ -59,7 +66,9 @@ on:
       - "dev/config/markdownlint.yaml"
       - "dev/config/markdownlint.ignore"
       - "dev/config/compat/**"
+      - "dev/config/publication_sync_registry.json"
       - "scripts/macro-packs/**"
+      - "scripts/operator_console.sh"
       - "Makefile"
       - "AGENTS.md"
       - "dev/ARCHITECTURE.md"
@@ -69,11 +78,15 @@ on:
       - "dev/guides/*.md"
       - "dev/scripts/README.md"
       - ".github/workflows/*.yml"
+      - "conftest.py"
+      - "pytest.ini"
+      - "mypy.ini"
 
 jobs:
   devctl-tests:
     name: devctl unit tests
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
@@ -85,14 +98,101 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Run devctl tests
-        run: python3 -m unittest discover -s dev/scripts/devctl/tests -p "test_*.py"
+      - name: Install test dependencies
+        run: python3 -m pip install --quiet pytest-cov
+
+      - name: Run devctl tests with coverage
+        run: |
+          set -euo pipefail
+          python3 -m pytest dev/scripts/devctl/tests/ -q --tb=short \
+            --junitxml=devctl-tests.junit.xml \
+            --cov=dev/scripts/devctl \
+            --cov=dev/scripts/checks \
+            --cov-report=term-missing:skip-covered \
+            --cov-report=xml:coverage-devctl.xml \
+            --cov-fail-under=40 \
+            2>&1 | tee devctl-tests.pytest.log
+
+      - name: Print devctl coverage summary
+        if: ${{ always() }}
+        run: |
+          set -euo pipefail
+          if [ -f coverage-devctl.xml ]; then
+            echo "Coverage XML generated: coverage-devctl.xml"
+            python3 dev/scripts/workflow_bridge/shell.py print-coverage-summary \
+              --coverage-xml coverage-devctl.xml \
+              --label "Devctl"
+          else
+            echo "No coverage XML found."
+          fi
+
+      - name: Upload devctl coverage artifact
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: coverage-devctl
+          path: |
+            coverage-devctl.xml
+            devctl-tests.junit.xml
+            devctl-tests.pytest.log
+          if-no-files-found: warn
+
+  operator-console-tests:
+    name: operator console unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - name: Setup Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: python3 -m pip install --quiet PyQt6 pytest-cov
+
+      - name: Run operator console tests with coverage
+        run: |
+          set -euo pipefail
+          python3 -m pytest app/operator_console/tests/ -q --tb=short \
+            --junitxml=operator-console-tests.junit.xml \
+            --cov=app/operator_console \
+            --cov-report=term-missing:skip-covered \
+            --cov-report=xml:coverage-operator-console.xml \
+            --cov-fail-under=40 \
+            2>&1 | tee operator-console-tests.pytest.log
+
+      - name: Print operator console coverage summary
+        if: ${{ always() }}
+        run: |
+          set -euo pipefail
+          if [ -f coverage-operator-console.xml ]; then
+            echo "Coverage XML generated: coverage-operator-console.xml"
+            python3 dev/scripts/workflow_bridge/shell.py print-coverage-summary \
+              --coverage-xml coverage-operator-console.xml \
+              --label "Operator console"
+          else
+            echo "No coverage XML found."
+          fi
+
+      - name: Upload operator console coverage artifact
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: coverage-operator-console
+          path: |
+            coverage-operator-console.xml
+            operator-console-tests.junit.xml
+            operator-console-tests.pytest.log
+          if-no-files-found: warn
 
       - name: Smoke devctl ship/pypi/list commands
         run: |
           set -euo pipefail
           VERSION="$(python3 dev/scripts/checks/check_release_version_parity.py --print-version)"
           python3 dev/scripts/devctl.py list --format md
+          python3 dev/scripts/devctl.py render-surfaces --format md
           python3 dev/scripts/devctl.py audit-scaffold --dry-run --force --yes --format md
           python3 dev/scripts/devctl.py pypi --dry-run
           python3 dev/scripts/devctl.py homebrew --version "${VERSION}" --dry-run
@@ -112,6 +212,67 @@ jobs:
           set -euo pipefail
           bash -n dev/scripts/*.sh
           bash -n scripts/*.sh
+
+  # Mypy type-check (non-blocking). Ratchet plan:
+  #   Phase 1 (current) - continue-on-error, lenient defaults, track error count.
+  #   Phase 2           - Enable check_untyped_defs, fix violations.
+  #   Phase 3           - Enable disallow_untyped_defs for new modules.
+  #   Phase 4           - Remove continue-on-error to make blocking.
+  python-typecheck:
+    name: mypy type check (advisory)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - name: Setup Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11"
+
+      - name: Install mypy
+        run: python3 -m pip install --quiet mypy
+
+      - name: Run mypy on devctl tooling
+        run: |
+          set -euo pipefail
+          echo "::group::mypy dev/scripts/devctl"
+          python3 -m mypy dev/scripts/devctl/ \
+            --config-file mypy.ini \
+            --no-error-summary 2>&1 | tee /tmp/mypy-devctl.log || true
+          DEVCTL_ERRORS=$(grep -c '^dev/scripts/devctl/.*: error:' /tmp/mypy-devctl.log || true)
+          echo "::endgroup::"
+          echo "devctl mypy errors: ${DEVCTL_ERRORS}"
+          echo "DEVCTL_ERRORS=${DEVCTL_ERRORS}" >> "${GITHUB_ENV}"
+
+      - name: Run mypy on operator console
+        run: |
+          set -euo pipefail
+          echo "::group::mypy app/operator_console"
+          python3 -m mypy app/operator_console/ \
+            --config-file mypy.ini \
+            --no-error-summary 2>&1 | tee /tmp/mypy-console.log || true
+          CONSOLE_ERRORS=$(grep -c '^app/operator_console/.*: error:' /tmp/mypy-console.log || true)
+          echo "::endgroup::"
+          echo "operator_console mypy errors: ${CONSOLE_ERRORS}"
+          echo "CONSOLE_ERRORS=${CONSOLE_ERRORS}" >> "${GITHUB_ENV}"
+
+      - name: Summarize mypy error counts
+        if: ${{ always() }}
+        run: |
+          set -euo pipefail
+          TOTAL=$(( ${DEVCTL_ERRORS:-0} + ${CONSOLE_ERRORS:-0} ))
+          echo "## Mypy Type-Check Summary (advisory)" >> "${GITHUB_STEP_SUMMARY}"
+          echo "" >> "${GITHUB_STEP_SUMMARY}"
+          echo "| Scope | Errors |" >> "${GITHUB_STEP_SUMMARY}"
+          echo "|---|---|" >> "${GITHUB_STEP_SUMMARY}"
+          echo "| \`dev/scripts/devctl/\` | ${DEVCTL_ERRORS:-0} |" >> "${GITHUB_STEP_SUMMARY}"
+          echo "| \`app/operator_console/\` | ${CONSOLE_ERRORS:-0} |" >> "${GITHUB_STEP_SUMMARY}"
+          echo "| **Total** | **${TOTAL}** |" >> "${GITHUB_STEP_SUMMARY}"
+          echo "" >> "${GITHUB_STEP_SUMMARY}"
+          echo "This job is non-blocking (continue-on-error). Track error count trend to ratchet toward zero." >> "${GITHUB_STEP_SUMMARY}"
+          echo "mypy total errors: ${TOTAL}"
 
   docs-policy:
     name: docs policy + governance guard
@@ -135,6 +296,12 @@ jobs:
       - name: Install markdownlint-cli
         run: npm install -g markdownlint-cli@0.45.0
 
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@631a55b12751854ce901bb631d5902ceb48146f7
+
+      - name: Install ALSA development headers
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev
+
       - name: Resolve commit range and changed files
         id: range
         env:
@@ -145,7 +312,7 @@ jobs:
           PR_HEAD: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
-          python3 dev/scripts/workflow_shell_bridge.py resolve-range \
+          python3 dev/scripts/workflow_bridge/shell.py resolve-range \
             --event-name "${EVENT_NAME}" \
             --push-before "${PUSH_BEFORE}" \
             --push-head "${PUSH_HEAD}" \
@@ -160,7 +327,7 @@ jobs:
         id: docs_signal
         run: |
           set -euo pipefail
-          python3 dev/scripts/workflow_shell_bridge.py evaluate-user-docs-gate \
+          python3 dev/scripts/workflow_bridge/shell.py evaluate-user-docs-gate \
             --changed-files-input /tmp/docs-policy-changed-files.txt \
             --github-output "${GITHUB_OUTPUT}"
 
@@ -186,16 +353,7 @@ jobs:
           fi
 
       - name: Run governance hygiene gate
-        run: python3 dev/scripts/devctl.py hygiene --strict-warnings --format md
-
-      - name: Run AGENTS contract guard
-        run: python3 dev/scripts/checks/check_agents_contract.py
-
-      - name: Run active-plan sync guard
-        run: python3 dev/scripts/checks/check_active_plan_sync.py
-
-      - name: Run multi-agent sync guard
-        run: python3 dev/scripts/checks/check_multi_agent_sync.py
+        run: python3 dev/scripts/devctl.py hygiene --strict-warnings --ignore-warning-source mutation_badge --ignore-warning-source publications --format md
 
       - name: Run orchestrator status guard
         run: python3 dev/scripts/devctl.py orchestrate-status --format md
@@ -203,8 +361,190 @@ jobs:
       - name: Run orchestrator SLA watchdog
         run: python3 dev/scripts/devctl.py orchestrate-watch --stale-minutes 120 --format md
 
+      - name: Run AGENTS contract guard
+        run: python3 dev/scripts/checks/check_agents_contract.py
+
       - name: Run release version parity guard
         run: python3 dev/scripts/checks/check_release_version_parity.py
+
+      - name: Run repo URL parity guard
+        run: python3 dev/scripts/checks/check_repo_url_parity.py
+
+      - name: Run devctl cold-boot import smoke guard
+        run: python3 dev/scripts/checks/check_devctl_cold_boot.py --format md
+
+      - name: Run guard-enforcement inventory gate
+        run: python3 dev/scripts/checks/check_guard_enforcement_inventory.py
+
+      - name: Run ground-truth probe gate
+        run: python3 dev/scripts/checks/check_ground_truth_probe_gate.py
+
+      - name: Run governed-transition graph guard
+        run: python3 dev/scripts/checks/check_governed_transitions.py
+
+      - name: Run memory-not-authority guard
+        run: python3 dev/scripts/checks/check_memory_not_authority.py
+
+      - name: Run commit-body packet anchor guard
+        run: python3 dev/scripts/checks/check_commit_body_packet_anchors.py
+
+      - name: Run commit-message row id resolution guard
+        run: python3 dev/scripts/checks/check_commit_message_row_id_resolves.py
+
+      - name: Run packet PKT-BIND completeness guard
+        run: python3 dev/scripts/checks/check_packet_pkt_bind_completeness.py
+
+      - name: Run plan-index commit continuity guard
+        run: python3 dev/scripts/checks/check_plan_index_commit_continuity.py
+
+      - name: Run plan GOLD-claim resolver guard
+        run: python3 dev/scripts/checks/check_plan_gold_claims_resolve.py
+
+      - name: Run plan metric freshness guard
+        run: python3 dev/scripts/checks/check_plan_metric_freshness.py
+
+      - name: Run feature proof receipt guard
+        run: python3 dev/scripts/checks/check_feature_has_proof_receipt.py
+
+      - name: Run non-trivial output proof guard
+        run: python3 dev/scripts/checks/check_non_trivial_output_proof.py
+
+      - name: Run role-review completion guard
+        run: python3 dev/scripts/checks/check_role_review_completed.py
+
+      - name: Run contract-registry composite-key uniqueness guard
+        run: python3 dev/scripts/checks/check_contract_registry_composite_key_uniqueness.py
+
+      - name: Run packet kind TTL tests
+        run: python3 dev/scripts/devctl.py test-python --suite devctl --path dev/scripts/devctl/tests/runtime/test_packet_kind_ttl.py
+
+      - name: Run task-started ADR precedent guard
+        run: python3 dev/scripts/checks/check_task_started_adr_precedent_linking.py
+
+      - name: Run typed-namespace composition guard
+        run: python3 dev/scripts/checks/check_typed_namespace_composition.py
+
+      - name: Run runtime-state ignore posture guard
+        run: python3 dev/scripts/checks/check_runtime_state_ignore_posture.py
+
+      - name: Run substrate repo-portability guard
+        run: python3 dev/scripts/checks/check_substrate_is_repo_portable.py
+
+      - name: Run substrate commit applied-plan-row guard
+        run: python3 dev/scripts/checks/check_substrate_commits_have_applied_plan_row.py
+
+      - name: Run architecture-surface sync guard
+        run: |
+          set -euo pipefail
+          python3 dev/scripts/checks/check_architecture_surface_sync.py \
+            --since-ref "${{ steps.range.outputs.since }}" \
+            --head-ref "${{ steps.range.outputs.head }}"
+
+      - name: Run review-snapshot freshness guard
+        run: python3 dev/scripts/checks/check_review_snapshot_freshness.py
+
+      - name: Run guide-contract sync guard
+        run: python3 dev/scripts/checks/check_guide_contract_sync.py
+
+      - name: Run instruction-surface sync guard
+        run: python3 dev/scripts/checks/check_instruction_surface_sync.py
+
+      - name: Run bundle-registry DRY guard
+        run: python3 dev/scripts/checks/check_bundle_registry_dry.py
+
+      - name: Run publication sync guard
+        run: python3 dev/scripts/checks/check_publication_sync.py
+
+      - name: Run bundle/workflow parity guard
+        run: python3 dev/scripts/checks/check_bundle_workflow_parity.py
+
+      - name: Run platform-layer-boundaries guard
+        run: python3 dev/scripts/checks/check_platform_layer_boundaries.py
+
+      - name: Run platform-contract closure guard
+        run: python3 dev/scripts/checks/check_platform_contract_closure.py
+
+      - name: Run contract-connectivity guard
+        run: python3 dev/scripts/checks/check_contract_connectivity.py
+
+      - name: Run SYSTEM_MAP contract-registry coverage guard
+        run: python3 dev/scripts/checks/check_systemmap_covers_contract_registry.py
+
+      - name: Run typed-enum connectivity guard
+        run: python3 dev/scripts/checks/check_typed_enum_connectivity.py
+
+      - name: Run platform-contract sync guard
+        run: python3 dev/scripts/checks/check_platform_contract_sync.py
+
+      - name: Run review-channel bridge guard
+        run: python3 dev/scripts/checks/check_review_channel_bridge.py
+
+      - name: Run bridge projection-only guard
+        run: python3 dev/scripts/checks/check_bridge_projection_only.py
+
+      - name: Run runtime bridge projection-separation guard
+        run: python3 dev/scripts/checks/check_runtime_bridge_projection_separation.py
+
+      - name: Run plan-row contract refs guard
+        run: python3 dev/scripts/checks/check_plan_row_contract_refs_resolve.py
+
+      - name: Run context-graph snapshot freshness guard
+        run: python3 dev/scripts/checks/check_context_graph_snapshot_freshness.py
+
+      - name: Run ActionResult status-domain guard
+        run: python3 dev/scripts/checks/check_action_result_status_domain.py
+
+      - name: Run schema fixture handshake guard
+        run: python3 dev/scripts/checks/check_schema_fixture_handshake.py
+
+      - name: Run schema migration spine guard
+        run: python3 dev/scripts/checks/check_schema_migration_spine.py
+
+      - name: Run schema version monotonic guard
+        run: python3 dev/scripts/checks/check_schema_version_monotonic.py
+
+      - name: Run state-store authority guard
+        run: python3 dev/scripts/checks/check_state_store_authority.py
+
+      - name: Run check CLI/test parity guard
+        run: python3 dev/scripts/checks/check_check_cli_test_parity.py
+
+      - name: Run orchestration recommendation-closure guard
+        run: python3 dev/scripts/checks/check_orchestration_recommendation_closure.py
+
+      - name: Run checkpoint-budget shape guard
+        run: python3 dev/scripts/checks/check_checkpoint_budget_shape.py
+
+      - name: Run startup-authority contract guard
+        run: python3 dev/scripts/checks/check_startup_authority_contract.py
+
+      - name: Run review-surface consistency guard
+        run: python3 dev/scripts/checks/check_review_surface_consistency.py
+
+      - name: Run tandem-consistency guard
+        run: python3 dev/scripts/checks/check_tandem_consistency.py
+
+      - name: Run governance-closure guard
+        run: python3 dev/scripts/checks/check_governance_closure.py
+
+      - name: Run commands crowding enforcement
+        run: |
+          set -euo pipefail
+          python3 dev/scripts/checks/check_package_layout.py \
+            --fail-on-baseline-debt \
+            --baseline-debt-root dev/scripts/devctl/commands
+
+      - name: Run active-plan sync guard
+        run: python3 dev/scripts/checks/check_active_plan_sync.py
+
+      - name: Run system-picture freshness guard
+        run: python3 dev/scripts/checks/check_system_picture_freshness.py
+
+      - name: Run multi-agent sync guard
+        run: python3 dev/scripts/checks/check_multi_agent_sync.py
+
+      - name: Run AGENTS bundle render guard
+        run: python3 dev/scripts/checks/check_agents_bundle_render.py
 
       - name: Run CLI flags parity guard
         run: python3 dev/scripts/checks/check_cli_flags_parity.py
@@ -219,14 +559,75 @@ jobs:
             --since-ref "${{ steps.range.outputs.since }}" \
             --head-ref "${{ steps.range.outputs.head }}"
 
+      - name: Run function-duplication non-regression guard
+        run: |
+          set -euo pipefail
+          python3 dev/scripts/checks/check_function_duplication.py \
+            --since-ref "${{ steps.range.outputs.since }}" \
+            --head-ref "${{ steps.range.outputs.head }}"
+
+      - name: Run Python broad-except guard
+        run: |
+          set -euo pipefail
+          python3 dev/scripts/checks/check_python_broad_except.py \
+            --since-ref "${{ steps.range.outputs.since }}" \
+            --head-ref "${{ steps.range.outputs.head }}"
+
+      - name: Run structural complexity guard
+        run: |
+          set -euo pipefail
+          python3 dev/scripts/checks/check_structural_complexity.py \
+            --since-ref "${{ steps.range.outputs.since }}" \
+            --head-ref "${{ steps.range.outputs.head }}"
+
+      - name: Run duplicate types guard
+        run: |
+          set -euo pipefail
+          python3 dev/scripts/checks/check_duplicate_types.py \
+            --since-ref "${{ steps.range.outputs.since }}" \
+            --head-ref "${{ steps.range.outputs.head }}"
+
+      - name: Run package-layout guard
+        run: |
+          set -euo pipefail
+          python3 dev/scripts/checks/check_package_layout.py \
+            --since-ref "${{ steps.range.outputs.since }}" \
+            --head-ref "${{ steps.range.outputs.head }}"
+
+      - name: Run command source validation guard
+        run: |
+          set -euo pipefail
+          python3 dev/scripts/checks/check_command_source_validation.py \
+            --since-ref "${{ steps.range.outputs.since }}" \
+            --head-ref "${{ steps.range.outputs.head }}"
+
+      - name: Run registry path integrity guard
+        run: python3 dev/scripts/checks/check_registry_path_integrity.py
+
+      - name: Run runtime spine closure guard
+        run: python3 dev/scripts/checks/check_runtime_spine_closure.py
+
+      - name: Run provider list parity graph guard
+        run: python3 dev/scripts/checks/check_provider_list_parity_graph.py
+
+      - name: Run pytest runtime policy guard
+        run: python3 dev/scripts/checks/check_pytest_runtime_policy.py
+
+      - name: Run Python subprocess policy guard
+        run: |
+          set -euo pipefail
+          python3 dev/scripts/checks/check_python_subprocess_policy.py \
+            --since-ref "${{ steps.range.outputs.since }}" \
+            --head-ref "${{ steps.range.outputs.head }}"
+
+      - name: Run mutation-bypass graph closure guard
+        run: python3 dev/scripts/checks/check_mutation_bypass_graph_closure.py
+
       - name: Run workflow shell hygiene guard
         run: python3 dev/scripts/checks/check_workflow_shell_hygiene.py
 
       - name: Run workflow action pinning guard
         run: python3 dev/scripts/checks/check_workflow_action_pinning.py
-
-      - name: Run bundle/workflow parity guard
-        run: python3 dev/scripts/checks/check_bundle_workflow_parity.py
 
       - name: Run IDE/provider isolation guard
         run: python3 dev/scripts/checks/check_ide_provider_isolation.py --fail-on-violations
@@ -261,6 +662,20 @@ jobs:
             --since-ref "${{ steps.range.outputs.since }}" \
             --head-ref "${{ steps.range.outputs.head }}"
 
+      - name: Run changed-file Rust compiler warning guard
+        run: |
+          set -euo pipefail
+          python3 dev/scripts/checks/check_rust_compiler_warnings.py \
+            --since-ref "${{ steps.range.outputs.since }}" \
+            --head-ref "${{ steps.range.outputs.head }}"
+
+      - name: Run serde compatibility non-regression guard
+        run: |
+          set -euo pipefail
+          python3 dev/scripts/checks/check_serde_compatibility.py \
+            --since-ref "${{ steps.range.outputs.since }}" \
+            --head-ref "${{ steps.range.outputs.head }}"
+
       - name: Run rust runtime panic-policy non-regression guard
         run: |
           set -euo pipefail
@@ -268,16 +683,92 @@ jobs:
             --since-ref "${{ steps.range.outputs.since }}" \
             --head-ref "${{ steps.range.outputs.head }}"
 
-      - name: Guard root-level accidental CLI artifact files
+      - name: Run facade-wrappers non-regression guard
         run: |
           set -euo pipefail
-          ARTIFACTS="$(find . -maxdepth 1 -type f -name '--*' -print)"
-          if [[ -n "${ARTIFACTS}" ]]; then
-            echo "Unexpected root-level CLI artifact files detected:"
-            echo "${ARTIFACTS}"
-            echo "Remove these files before merging."
-            exit 1
-          fi
+          python3 dev/scripts/checks/check_facade_wrappers.py \
+            --since-ref "${{ steps.range.outputs.since }}" \
+            --head-ref "${{ steps.range.outputs.head }}"
+
+      - name: Run god-class non-regression guard
+        run: |
+          set -euo pipefail
+          python3 dev/scripts/checks/check_god_class.py \
+            --since-ref "${{ steps.range.outputs.since }}" \
+            --head-ref "${{ steps.range.outputs.head }}"
+
+      - name: Run mobile-relay protocol non-regression guard
+        run: |
+          set -euo pipefail
+          python3 dev/scripts/checks/check_mobile_relay_protocol.py \
+            --since-ref "${{ steps.range.outputs.since }}" \
+            --head-ref "${{ steps.range.outputs.head }}"
+
+      - name: Run daemon-state parity guard
+        run: python3 dev/scripts/checks/check_daemon_state_parity.py
+
+      - name: Run nesting-depth non-regression guard
+        run: |
+          set -euo pipefail
+          python3 dev/scripts/checks/check_nesting_depth.py \
+            --since-ref "${{ steps.range.outputs.since }}" \
+            --head-ref "${{ steps.range.outputs.head }}"
+
+      - name: Run parameter-count non-regression guard
+        run: |
+          set -euo pipefail
+          python3 dev/scripts/checks/check_parameter_count.py \
+            --since-ref "${{ steps.range.outputs.since }}" \
+            --head-ref "${{ steps.range.outputs.head }}"
+
+      - name: Run Python dict-schema non-regression guard
+        run: |
+          set -euo pipefail
+          python3 dev/scripts/checks/check_python_dict_schema.py \
+            --since-ref "${{ steps.range.outputs.since }}" \
+            --head-ref "${{ steps.range.outputs.head }}"
+
+      - name: Run Python typed-seams guard
+        run: |
+          set -euo pipefail
+          python3 dev/scripts/checks/check_python_typed_seams.py \
+            --since-ref "${{ steps.range.outputs.since }}" \
+            --head-ref "${{ steps.range.outputs.head }}"
+
+      - name: Run Python global-mutable non-regression guard
+        run: |
+          set -euo pipefail
+          python3 dev/scripts/checks/check_python_global_mutable.py \
+            --since-ref "${{ steps.range.outputs.since }}" \
+            --head-ref "${{ steps.range.outputs.head }}"
+
+      - name: Run Python design-complexity non-regression guard
+        run: |
+          set -euo pipefail
+          python3 dev/scripts/checks/check_python_design_complexity.py \
+            --since-ref "${{ steps.range.outputs.since }}" \
+            --head-ref "${{ steps.range.outputs.head }}"
+
+      - name: Run Python cyclic-imports non-regression guard
+        run: |
+          set -euo pipefail
+          python3 dev/scripts/checks/check_python_cyclic_imports.py \
+            --since-ref "${{ steps.range.outputs.since }}" \
+            --head-ref "${{ steps.range.outputs.head }}"
+
+      - name: Run Python suppression-debt non-regression guard
+        run: |
+          set -euo pipefail
+          python3 dev/scripts/checks/check_python_suppression_debt.py \
+            --since-ref "${{ steps.range.outputs.since }}" \
+            --head-ref "${{ steps.range.outputs.head }}"
+
+      - name: Run structural-similarity non-regression guard
+        run: |
+          set -euo pipefail
+          python3 dev/scripts/checks/check_structural_similarity.py \
+            --since-ref "${{ steps.range.outputs.since }}" \
+            --head-ref "${{ steps.range.outputs.head }}"
 
       - name: Lint key docs
         run: |
@@ -291,6 +782,17 @@ jobs:
             scripts/README.md \
             pypi/README.md \
             app/README.md
+
+      - name: Guard root-level accidental CLI artifact files
+        run: |
+          set -euo pipefail
+          ARTIFACTS="$(find . -maxdepth 1 -type f -name '--*' -print)"
+          if [[ -n "${ARTIFACTS}" ]]; then
+            echo "Unexpected root-level CLI artifact files detected:"
+            echo "${ARTIFACTS}"
+            echo "Remove these files before merging."
+            exit 1
+          fi
 
       - name: Generate remediation audit scaffold on failure
         if: ${{ failure() }}
@@ -312,3 +814,7 @@ jobs:
           name: tooling-control-plane-rust-audit-scaffold
           path: dev/reports/audits/RUST_AUDIT_FINDINGS.md
           if-no-files-found: warn
+
+      - name: Run host process cleanup verify
+        if: ${{ always() }}
+        run: python3 dev/scripts/devctl.py process-cleanup --verify --format md

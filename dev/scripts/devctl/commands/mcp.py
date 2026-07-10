@@ -9,7 +9,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from ..common import pipe_output, write_output
+from ..common import emit_output, pipe_output, write_output
 from ..config import REPO_ROOT
 from .mcp_tools import TOOL_HANDLERS, TOOL_SCHEMAS, to_bool, utc_now
 
@@ -192,41 +192,92 @@ def _build_contract(allowlist: dict) -> dict:
     }
 
 
+def _build_error_payload(error: str) -> dict[str, Any]:
+    return {
+        "command": "mcp",
+        "timestamp": utc_now(),
+        "ok": False,
+        "error": error,
+    }
+
+
+def _render_payload(payload: dict[str, Any], fmt: str) -> str:
+    if fmt == "json":
+        return json.dumps(payload, indent=2)
+    return "# devctl mcp\n\n```json\n" + json.dumps(payload, indent=2) + "\n```"
+
+
+def _render_contract_output(contract: dict[str, Any], fmt: str) -> str:
+    if fmt == "json":
+        return json.dumps(contract, indent=2)
+    lines = [
+        "# devctl mcp",
+        "",
+        f"- protocol_version: {contract['protocol_version']}",
+        f"- server: {contract['server_name']}@{contract['server_version']}",
+        f"- allowlist: {contract['allowlist_path']}",
+        "",
+        "## Tools (read-only)",
+    ]
+    for tool in contract["tools"]:
+        lines.append(f"- {tool['name']}: {tool['description']}")
+    lines.append("")
+    lines.append("## Resources")
+    for resource in contract["resources"]:
+        lines.append(f"- {resource['uri']}: {resource['description']}")
+    lines.append("")
+    lines.append(
+        "Run `python3 dev/scripts/devctl.py mcp --serve-stdio` for MCP stdio transport."
+    )
+    return "\n".join(lines)
+
+
+def _emit_payload(
+    payload: dict[str, Any],
+    *,
+    fmt: str,
+    output_path: str | None,
+    pipe_command: str | None = None,
+    pipe_args: list[str] | None = None,
+) -> int:
+    return emit_output(
+        _render_payload(payload, fmt),
+        output_path=output_path,
+        pipe_command=pipe_command,
+        pipe_args=pipe_args,
+        writer=write_output,
+        piper=pipe_output,
+    )
+
+
 def run(args) -> int:
     """Render MCP contract, invoke read-only tools, or serve stdio MCP transport."""
     allowlist = _load_allowlist()
     if not allowlist.get("ok", False):
-        payload = {
-            "command": "mcp",
-            "timestamp": utc_now(),
-            "ok": False,
-            "error": allowlist.get("error", "allowlist unavailable"),
-        }
-        output = json.dumps(payload, indent=2)
-        write_output(output, getattr(args, "output", None))
+        _emit_payload(
+            _build_error_payload(allowlist.get("error", "allowlist unavailable")),
+            fmt="json",
+            output_path=getattr(args, "output", None),
+        )
         return 1
     allowlist_errors = _validate_allowlist_contract(allowlist)
     if allowlist_errors:
-        payload = {
-            "command": "mcp",
-            "timestamp": utc_now(),
-            "ok": False,
-            "error": "allowlist validation failed: " + "; ".join(allowlist_errors),
-        }
-        output = json.dumps(payload, indent=2)
-        write_output(output, getattr(args, "output", None))
+        _emit_payload(
+            _build_error_payload(
+                "allowlist validation failed: " + "; ".join(allowlist_errors)
+            ),
+            fmt="json",
+            output_path=getattr(args, "output", None),
+        )
         return 1
 
     raw_arguments = getattr(args, "tool_args_json", None)
     if raw_arguments and not getattr(args, "tool", None):
-        payload = {
-            "command": "mcp",
-            "timestamp": utc_now(),
-            "ok": False,
-            "error": "--tool-args-json requires --tool",
-        }
-        output = json.dumps(payload, indent=2)
-        write_output(output, getattr(args, "output", None))
+        _emit_payload(
+            _build_error_payload("--tool-args-json requires --tool"),
+            fmt="json",
+            output_path=getattr(args, "output", None),
+        )
         return 2
 
     if getattr(args, "serve_stdio", False):
@@ -240,24 +291,20 @@ def run(args) -> int:
             try:
                 parsed = json.loads(raw_arguments)
             except json.JSONDecodeError as exc:
-                payload = {
-                    "command": "mcp",
-                    "timestamp": utc_now(),
-                    "ok": False,
-                    "error": f"invalid --tool-args-json payload: {exc}",
-                }
-                output = json.dumps(payload, indent=2)
-                write_output(output, args.output)
+                _emit_payload(
+                    _build_error_payload(f"invalid --tool-args-json payload: {exc}"),
+                    fmt="json",
+                    output_path=args.output,
+                )
                 return 2
             if not isinstance(parsed, dict):
-                payload = {
-                    "command": "mcp",
-                    "timestamp": utc_now(),
-                    "ok": False,
-                    "error": "--tool-args-json must decode to a JSON object",
-                }
-                output = json.dumps(payload, indent=2)
-                write_output(output, args.output)
+                _emit_payload(
+                    _build_error_payload(
+                        "--tool-args-json must decode to a JSON object"
+                    ),
+                    fmt="json",
+                    output_path=args.output,
+                )
                 return 2
             arguments = parsed
         result = call_tool(str(args.tool), arguments, allowlist)
@@ -269,46 +316,26 @@ def run(args) -> int:
             "result": result.get("payload") if result["ok"] else None,
             "error": None if result["ok"] else result["error"],
         }
-        output = (
-            json.dumps(payload, indent=2)
-            if args.format == "json"
-            else "# devctl mcp\n\n```json\n" + json.dumps(payload, indent=2) + "\n```"
+        pipe_code = _emit_payload(
+            payload,
+            fmt=args.format,
+            output_path=args.output,
+            pipe_command=args.pipe_command,
+            pipe_args=args.pipe_args,
         )
-        write_output(output, args.output)
-        if args.pipe_command:
-            pipe_code = pipe_output(output, args.pipe_command, args.pipe_args)
-            if pipe_code != 0:
-                return pipe_code
+        if pipe_code != 0:
+            return pipe_code
         return 0 if result["ok"] else 1
 
     contract = _build_contract(allowlist)
-    if args.format == "json":
-        output = json.dumps(contract, indent=2)
-    else:
-        lines = [
-            "# devctl mcp",
-            "",
-            f"- protocol_version: {contract['protocol_version']}",
-            f"- server: {contract['server_name']}@{contract['server_version']}",
-            f"- allowlist: {contract['allowlist_path']}",
-            "",
-            "## Tools (read-only)",
-        ]
-        for tool in contract["tools"]:
-            lines.append(f"- {tool['name']}: {tool['description']}")
-        lines.append("")
-        lines.append("## Resources")
-        for resource in contract["resources"]:
-            lines.append(f"- {resource['uri']}: {resource['description']}")
-        lines.append("")
-        lines.append(
-            "Run `python3 dev/scripts/devctl.py mcp --serve-stdio` for MCP stdio transport."
-        )
-        output = "\n".join(lines)
-
-    write_output(output, args.output)
-    if args.pipe_command:
-        pipe_code = pipe_output(output, args.pipe_command, args.pipe_args)
-        if pipe_code != 0:
-            return pipe_code
+    pipe_code = emit_output(
+        _render_contract_output(contract, args.format),
+        output_path=args.output,
+        pipe_command=args.pipe_command,
+        pipe_args=args.pipe_args,
+        writer=write_output,
+        piper=pipe_output,
+    )
+    if pipe_code != 0:
+        return pipe_code
     return 0

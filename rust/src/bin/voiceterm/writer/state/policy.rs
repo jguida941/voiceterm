@@ -5,7 +5,7 @@ use super::chunk_analysis::{
 use super::display::{preclear_height, DisplayState};
 #[cfg(test)]
 use crate::runtime_compat::BackendFamily;
-use crate::runtime_compat::{HostTimingConfig, TerminalHost};
+use crate::runtime_compat::{HostTimingConfig, RuntimeVariant, TerminalHost};
 use std::time::{Duration, Instant};
 
 #[derive(Clone, Copy)]
@@ -103,6 +103,7 @@ impl PreclearPolicy {
 #[derive(Clone, Copy)]
 pub(super) struct RedrawPolicyContext<'a> {
     pub(super) family: TerminalHost,
+    pub(super) runtime_variant: RuntimeVariant,
     pub(super) bytes: &'a [u8],
     pub(super) now: Instant,
     pub(super) last_scroll_redraw_at: Instant,
@@ -116,14 +117,12 @@ pub(super) struct RedrawPolicyContext<'a> {
     pub(super) pending_clear_overlay: bool,
     pub(super) pending_overlay_panel_present: bool,
     pub(super) preclear_outcome: PreclearOutcome,
-    pub(super) codex_jetbrains: bool,
-    pub(super) claude_jetbrains: bool,
-    pub(super) cursor_claude: bool,
     pub(super) flash_sensitive_scroll_profile: bool,
     pub(super) claude_non_scroll_redraw_profile: bool,
     pub(super) claude_jetbrains_non_scroll_cursor_mutation: bool,
     pub(super) claude_jetbrains_composer_keystroke: bool,
     pub(super) claude_jetbrains_destructive_clear: bool,
+    pub(super) codex_destructive_clear: bool,
     pub(super) claude_jetbrains_chunk_touches_cursor_save_restore: bool,
     pub(super) jetbrains_dec_cursor_saved_active: bool,
     pub(super) jetbrains_ansi_cursor_saved_active: bool,
@@ -148,6 +147,10 @@ pub(super) struct RedrawPolicy {
 
 impl RedrawPolicy {
     pub(super) fn resolve(ctx: RedrawPolicyContext<'_>) -> Self {
+        let runtime_variant = ctx.runtime_variant;
+        let jetbrains_claude_runtime = runtime_variant.is_jetbrains_claude();
+        let jetbrains_codex_runtime = runtime_variant.is_jetbrains_codex();
+        let cursor_claude_runtime = runtime_variant.is_cursor_claude();
         let mut policy = Self {
             force_full_banner_redraw: ctx.display_force_full_banner_redraw,
             ..Self::default()
@@ -162,7 +165,16 @@ impl RedrawPolicy {
                 last_scroll_redraw_at,
             )
         {
-            policy.force_full_banner_redraw = true;
+            if cursor_claude_runtime {
+                // Cursor+Claude: line-diff repaint (needs_redraw without
+                // force_full). A full 4-row rewrite at scroll cadence blinked
+                // the HUD box in Cursor while replies streamed (field bug);
+                // the diff path writes zero bytes when banner content is
+                // unchanged. Destructive clears below still force full.
+                policy.needs_redraw = true;
+            } else {
+                policy.force_full_banner_redraw = true;
+            }
             policy.update_last_scroll_redraw_at = true;
             last_scroll_redraw_at = ctx.now;
         }
@@ -178,7 +190,14 @@ impl RedrawPolicy {
                 last_scroll_redraw_at,
             );
             if result {
-                policy.force_full_banner_redraw = true;
+                if cursor_claude_runtime {
+                    // Same line-diff contract as the scroll path above: the
+                    // throttled typing-echo repaint blinked the full HUD box
+                    // per burst in Cursor when it forced all rows.
+                    policy.needs_redraw = true;
+                } else {
+                    policy.force_full_banner_redraw = true;
+                }
                 policy.update_last_scroll_redraw_at = true;
             }
             result
@@ -186,16 +205,28 @@ impl RedrawPolicy {
             false
         };
 
-        if ctx.cursor_claude
-            && !ctx.may_scroll_rows
-            && ctx.display_has_enhanced_status
-            && pty_output_can_mutate_cursor_line(ctx.bytes)
-        {
+        // NOTE: Cursor+Claude keystroke echoes (cursor-line mutations) are
+        // deliberately NOT force-repainted here. The throttled non-scroll path
+        // above covers this profile at claude_non_scroll_redraw_min_interval
+        // cadence and the input-repair timer re-arms after typing settles —
+        // both as LINE-DIFF repaints (zero bytes while the banner is static).
+        // Any full-row rewrite tied to typing/streaming cadence blinks the
+        // full HUD box in Cursor (field bug, twice): full repaints belong
+        // only to destructive clears and geometry transitions.
+
+        // Codex (any host): a destructive clear (startup / full-screen
+        // repaint) wipes the HUD rows and nothing else repaints them (field
+        // bug on JetBrains AND Cursor: HUD hidden until the user presses the
+        // HUD hotkey). Arm a full repaint through the idle-gated path
+        // (needs_redraw, NOT output_redraw_needed / force_redraw_after_preclear)
+        // so the quiet-hold coalesces it after the clear storm settles.
+        if ctx.codex_destructive_clear {
             policy.force_full_banner_redraw = true;
-            policy.force_redraw_after_preclear = true;
+            policy.needs_redraw = true;
+            policy.update_last_scroll_redraw_at = true;
         }
 
-        let cursor_claude_destructive_clear_repaint = ctx.cursor_claude
+        let cursor_claude_destructive_clear_repaint = cursor_claude_runtime
             && ctx.display_has_unsuppressed_enhanced_status
             && pty_output_contains_destructive_clear(ctx.bytes);
         policy.jetbrains_claude_destructive_clear_repaint = ctx.claude_jetbrains_destructive_clear;
@@ -203,7 +234,7 @@ impl RedrawPolicy {
             || policy.jetbrains_claude_destructive_clear_repaint;
         if policy.destructive_clear_repaint {
             policy.force_full_banner_redraw = true;
-            let jetbrains_cursor_slot_busy = ctx.claude_jetbrains
+            let jetbrains_cursor_slot_busy = jetbrains_claude_runtime
                 && (ctx.claude_jetbrains_chunk_touches_cursor_save_restore
                     || ctx.jetbrains_dec_cursor_saved_active
                     || ctx.jetbrains_ansi_cursor_saved_active);
@@ -225,8 +256,7 @@ impl RedrawPolicy {
 
         if ctx.preclear_outcome.pre_cleared
             && ctx.family == TerminalHost::JetBrains
-            && !ctx.codex_jetbrains
-            && !ctx.claude_jetbrains
+            && matches!(runtime_variant, RuntimeVariant::Generic)
         {
             let transition_sensitive_preclear = ctx.pending_clear_status
                 || ctx.pending_clear_overlay
@@ -238,7 +268,7 @@ impl RedrawPolicy {
             }
         }
 
-        policy.output_redraw_needed = if ctx.claude_jetbrains {
+        policy.output_redraw_needed = if jetbrains_claude_runtime {
             if ctx.may_scroll_rows {
                 policy.force_full_banner_redraw = true;
                 policy.needs_redraw = true;
@@ -252,7 +282,7 @@ impl RedrawPolicy {
             }
             // JetBrains+Claude redraw is idle-gated; avoid immediate redraw.
             false
-        } else if ctx.codex_jetbrains {
+        } else if jetbrains_codex_runtime {
             if ctx.may_scroll_rows {
                 policy.force_full_banner_redraw = true;
                 policy.needs_redraw = true;
@@ -321,16 +351,31 @@ pub(super) fn should_preclear_bottom_rows(
             if transition_preclear {
                 return now.duration_since(last_preclear_at) >= host_timing.preclear_cooldown();
             }
-            if cursor_claude_banner_preclear {
-                // Cursor+Claude scroll streams can smear HUD rows into transcript
-                // history if we wait for cadence windows; pre-clear every
-                // scrolling chunk and redraw immediately.
-                return true;
-            }
+            // NOTE: Cursor+Claude scroll chunks no longer pre-clear the HUD
+            // band on every chunk. The old per-chunk pre-clear (with the
+            // repaint throttled separately) blanked the HUD for visible
+            // stretches while typing/streaming — the field "HUD disappears
+            // and reappears" flash. Its original job (HUD rows smearing into
+            // transcript history during scrolls) is now handled structurally:
+            // the DECSTBM scroll region is confined to the child viewport, so
+            // host scrolling can never move HUD rows. Transition/startup
+            // pre-clears above keep their existing behavior.
+            let _ = cursor_claude_banner_preclear;
             false
         }
-        // Preserve legacy behavior for non-profiled terminals.
-        TerminalHost::Other => true,
+        // Non-profiled terminals: transition-only pre-clear, like Cursor.
+        // The legacy unconditional per-scroll-chunk pre-clear blanked the HUD
+        // band on every typing/streaming chunk and the idle-gated repaint
+        // restored it later — the field "box disappears and reappears" flicker
+        // for Claude. This branch is what Cursor actually runs today: recent
+        // Cursor builds stopped exporting the CURSOR_* env hints (only
+        // TERM_PROGRAM=vscode remains), so detect_terminal_host() classifies
+        // Cursor as Other. v1.0.95 (user-verified flicker-free) never
+        // pre-cleared non-JetBrains hosts at all.
+        TerminalHost::Other => {
+            (display.overlay_panel.is_some() || status_clear_pending)
+                && now.duration_since(last_preclear_at) >= host_timing.preclear_cooldown()
+        }
     }
 }
 

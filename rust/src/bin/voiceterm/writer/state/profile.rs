@@ -1,5 +1,5 @@
 use crate::runtime_compat::{
-    backend_family_from_env, BackendFamily, HostTimingConfig, TerminalHost,
+    backend_family_from_env, BackendFamily, HostTimingConfig, RuntimeVariant, TerminalHost,
 };
 use std::time::{Duration, Instant};
 
@@ -7,6 +7,7 @@ use std::time::{Duration, Instant};
 pub(super) struct RuntimeProfile {
     pub(super) terminal_family: TerminalHost,
     pub(super) backend_family: BackendFamily,
+    pub(super) runtime_variant: RuntimeVariant,
     pub(super) host_timing: HostTimingConfig,
     pub(super) startup_guard_enabled: bool,
     pub(super) codex_jetbrains: bool,
@@ -21,17 +22,16 @@ pub(super) struct RuntimeProfile {
 impl RuntimeProfile {
     pub(super) fn resolve(terminal_family: TerminalHost, backend_family: BackendFamily) -> Self {
         let host_timing = HostTimingConfig::for_host(terminal_family);
-        let codex_jetbrains =
-            terminal_family == TerminalHost::JetBrains && backend_family == BackendFamily::Codex;
-        let claude_jetbrains =
-            terminal_family == TerminalHost::JetBrains && backend_family == BackendFamily::Claude;
-        let cursor_claude =
-            terminal_family == TerminalHost::Cursor && backend_family == BackendFamily::Claude;
+        let runtime_variant = RuntimeVariant::from_parts(terminal_family, backend_family);
+        let codex_jetbrains = runtime_variant.is_jetbrains_codex();
+        let claude_jetbrains = runtime_variant.is_jetbrains_claude();
+        let cursor_claude = runtime_variant.is_cursor_claude();
         Self {
             terminal_family,
             backend_family,
+            runtime_variant,
             host_timing,
-            startup_guard_enabled: claude_jetbrains,
+            startup_guard_enabled: runtime_variant.is_jetbrains_claude(),
             codex_jetbrains,
             claude_jetbrains,
             cursor_claude,

@@ -1,12 +1,18 @@
 # Memory + Action Studio Plan (Semantic Memory + Agent Overlay)
 
 Date: 2026-02-19
-Status: Queued product lane after Theme completion (execution mirrored in `dev/active/MASTER_PLAN.md` as MP-230..MP-255)
+Status: Memory + Action Studio scoped lane; active design/proof-path work is already underway for the operator-cockpit execution slice under `MP-233`, `MP-238`, and `MP-243` (execution mirrored in `dev/active/MASTER_PLAN.md` as `MP-230..MP-255`). This is not the repo's top-level strategic lane while the extracted-platform work is active.
 Scope: Turn VoiceTerm memory from transcript snippets into a structured, AI-usable
 knowledge and action layer for Codex/Claude terminal workflows
 
 `dev/active/MASTER_PLAN.md` remains the canonical execution tracker. This file
 is the architecture/spec + quality gates for the Memory track.
+
+Execution coverage in this spec:
+`MP-230`, `MP-231`, `MP-232`, `MP-233`, `MP-234`, `MP-235`, `MP-236`,
+`MP-237`, `MP-238`, `MP-239`, `MP-240`, `MP-241`, `MP-242`, `MP-243`,
+`MP-244`, `MP-245`, `MP-246`, `MP-247`, `MP-248`, `MP-249`, `MP-250`,
+`MP-251`, `MP-252`, `MP-253`, `MP-254`, `MP-255`.
 
 ## Product Goal
 
@@ -63,8 +69,17 @@ structured memory substrate that is both human-auditable and machine-queryable.
 
 - Retrieval is deterministic but still basic; no intent planner, no semantic rerank, no graph boosts yet.
 - SQLite DDL contract exists, but runtime index remains in-memory vectors (no live SQLite read/write path).
-- Memory modes (`off`, `capture_only`, `assist`, `paused`, `incognito`) exist in types, but user-facing controls/persistence wiring are incomplete.
-- Context-pack struct/output is present, but several required fields are still missing (`retrieval_plan`, `validation_report`, `source_mix`, contradiction metadata).
+- Live ingest now performs bounded deterministic metadata extraction for `MP-*`
+  refs, obvious repo file paths, and a small topic-tag allowlist, so runtime
+  `ByTopic` / `ByTask` retrieval is no longer blocked on empty metadata alone.
+  Richer semantic tags, symbols, contradiction metadata, and broader
+  query/export surfaces are still missing.
+- The Rust operator cockpit now exposes a dedicated read-only Memory tab with refresh-on-visible-tab wiring plus memory-ingest/review/boot-pack/handoff preview sections, but broader query/export views and dedicated browser navigation are still missing.
+- Memory modes (`off`, `capture_only`, `assist`, `paused`, `incognito`) now restore from persistent config at startup, persist immediately from the dev-panel mode toggle path, and flow through runtime config snapshots, but broader trust/privacy controls and visible controls outside `--dev` remain incomplete.
+- Context-pack struct/output is present and now carries retrieval-plan traces,
+  but several required fields are still missing (`validation_report`,
+  `source_mix`, contradiction metadata).
+- Review/control-plane interop is partially proven through the shared handoff prompt; pack exports plus event-backed attach-by-ref `context_pack_refs` are now wired through the current review/control proof path, but normalized packet-outcome ingestion and wider `controller_state` parity are not wired yet.
 - Action policy logic exists, but action execution/audit is not yet integrated into overlay runtime flows.
 
 ### Missing for Product-Ready Persistent Memory
@@ -85,12 +100,13 @@ They fit inside existing MP scopes (no new MP IDs required).
 |---|---|---|
 | Memory receipts in overlay (`why this was injected`, `keep`, `forget`, `not now`) | Builds trust and gives users direct control over what persists. | `MP-233`, `MP-243`, `MP-247` |
 | Promotion pipeline (`event -> candidate -> validated card`) with explicit approval state | Keeps durable memory clean and reduces noisy auto-saves. | `MP-240` |
-| Adapter profiles for `codex`, `claude`, `gemini` with one canonical pack input | Prevents provider-specific drift while keeping deterministic provenance. | `MP-238`, `MP-242` |
+| Adapter profiles for `codex`, `claude`, `gemini` with one canonical pack input plus routed review/control-plane attachments | Prevents provider-specific drift while keeping deterministic provenance. | `MP-238`, `MP-242` |
 | Scope layers (`session`, `project`, optional `user`) with strict default to project scope | Improves reuse without leaking unrelated context across repos. | `MP-243` |
 | Negative memory controls (`never remember this`, topic/path denylist) | Makes privacy behavior obvious and lowers accidental retention risk. | `MP-243`, `MP-248` |
-| Retrieval usefulness telemetry (`accepted`, `ignored`, `wrong`) tied to evidence IDs | Lets ranking improve from real usage instead of offline scoring only. | `MP-237`, `MP-247` |
+| Retrieval usefulness telemetry (`accepted`, `ignored`, `wrong`) tied to evidence IDs and downstream review outcomes | Lets ranking improve from real usage instead of offline scoring only. | `MP-237`, `MP-247` |
 | Contradiction playbook (`auto-quarantine`, `show both`, `manual resolve`) | Avoids silently injecting conflicting memory claims. | `MP-240` |
 | Cold-start `repo_bootstrap_card` from docs + stable commands + guardrails | Makes first-run memory useful immediately, even before deep history exists. | `MP-232`, `MP-241` |
+| Review/control-plane interop (`context_pack_refs`, packet-to-memory ingest bridge, packet/task lookup) | Keeps review, memory, and operator surfaces on one auditable contract instead of parallel side channels. | `MP-238`, `MP-241`, `MP-243` |
 
 ### Execution Order Update (post-audit)
 
@@ -100,14 +116,103 @@ They fit inside existing MP scopes (no new MP IDs required).
 4. Land `MP-240` validated cards/units before widening retrieval influence on prompts.
 5. Add `MP-237` quality harness as a release blocker before enabling advanced compaction/automation tracks.
 
+### Immediate proving slice (2026-03-09)
+
+This is the master-aligned next execution slice for the current shipped code:
+
+1. Promote the existing operator-cockpit proof path by adding memory query/export views for `task_pack`, `session_handoff`, and the first `survival_index` preview on top of the shipped `boot_pack` snapshot.
+2. Finish `MP-243` runtime trust wiring by loading/saving memory mode through persistent config and surfacing clear capture/retrieval state beyond the current dev-only mode cycle.
+3. Finish the `MP-238` bridge by attaching packs through `context_pack_refs` and ingesting review/control packet outcomes as canonical memory events.
+4. Expand into the full Memory Browser / Action Center overlays only after the operator-cockpit proof can survive handoff, restart, and cross-agent review flows without hidden state.
+
+Progress note (2026-03-09):
+- The Rust Dev panel now includes a dedicated read-only Memory cockpit tab fed
+  by memory ingest state plus review/boot-pack/handoff preview data, with
+  refresh wired through the visible-tab path. This advances the operator
+  proof-path for `MP-233`; the 2026-03-09 follow-up now emits repo-visible
+  `.voiceterm/memory/exports/*.{json,md}` artifacts for `boot_pack`,
+  `task_pack`, `session_handoff`, and the first `survival_index` preview on
+  refresh. Remaining open scope is attach-by-ref `context_pack_refs` interop
+  plus review/control packet-outcome ingest.
+- The bounded `MP-243` persistence slice is now landed: startup restore uses
+  the persisted `memory_mode`, runtime config snapshots preserve/write that
+  mode explicitly, and the dev-panel `m` path saves the new mode immediately
+  so later snapshots reflect the configured state. Remaining `MP-243` closure
+  is now concentrated on trust/privacy UX beyond `--dev` (visible controls,
+  receipts, and negative-memory affordances).
+- Local proof-path revalidation is now green for the shipped Memory tab:
+  `python3 dev/scripts/devctl.py guard-run --cwd rust -- cargo test --bin voiceterm -- --nocapture`
+  passes with the current cockpit slice, and the supporting Rust policy gates
+  (`check_rust_test_shape`, `check_rust_lint_debt`,
+  `check_rust_best_practices`, `check_structural_complexity`) also pass after
+  splitting the overloaded formatter test surface into focused modules.
+
 ### Maintainability Track (Python + Rust)
 
 - Add a `devctl memory` command group (`status`, `query`, `export-pack`, `validate`) so memory ops do not spread across unrelated scripts.
+- Keep `devctl memory` and `devctl review-channel` interop explicit:
+  review-channel posts should be able to attach memory packs by ref, and
+  memory queries should accept review packet/task refs instead of forcing raw
+  event-id discovery.
 - Keep Rust memory runtime focused on capture/index/retrieve; move report-heavy compile/export helpers to Python tooling where possible.
 - Keep one responsibility per module:
   - Rust runtime path: `ingest`, `retrieval`, `context_pack`, `governance`, `action_audit`
   - Python tooling path: audits, quality scoring, benchmark reports, release evidence aggregation
 - Prefer one shared scoring/config surface so retrieval weights are not duplicated across Rust and Python.
+
+### Operator Cockpit Proof Path (2026-03-08)
+
+Goal: prove that memory, review, control-plane, git/tooling artifacts, and
+safe action routing can work together incrementally inside the Rust operator
+surface instead of landing as disconnected subsystems.
+
+Principles:
+
+- use the shipped canonical memory event model and JSONL store now
+- treat the current in-memory index / SQLite contract as the proving substrate
+  rather than waiting for every later retrieval feature
+- expose memory read/query/export value in the operator cockpit before letting
+  memory steer writes or autonomous actions
+- route any memory-derived action suggestion through the same typed action
+  router and approval path as buttons and review packets
+
+Current shipped proof is intentionally narrower than the end-state:
+
+- live today: Control-tab memory status/mode visibility, a dedicated read-only
+  Memory tab backed by ingest/review/boot-pack/handoff previews, Boot-pack-
+  backed Handoff prompt generation, and repo-visible JSON/Markdown exports for
+  `boot_pack`, `task_pack`, `session_handoff`, and the first
+  `survival_index` preview
+- not landed yet: attach-by-ref `context_pack_refs` consumption,
+  packet-outcome ingest parity, and the fuller Memory Browser / Action Center
+  overlays
+
+Piece-by-piece ladder:
+
+1. Memory visibility first
+   - show memory mode, event counts, last ingest/recovery status, and pack
+     availability inside `--dev`
+2. Read/query/export next
+   - surface `boot_pack`, `task_pack`, `session_handoff`, and
+     `survival_index` previews in the operator cockpit and handoff flows
+3. Cross-system linking
+   - ingest review/control/git/devctl outputs as canonical memory events and
+     attach memory packs by `context_pack_refs` from review/control packets
+4. Suggestion phase
+   - let memory help propose prompts, next slices, and candidate actions, but
+     keep execution gated by the shared policy engine
+5. Stronger persistence later
+   - promote live SQLite-backed query/index execution only after the first four
+     layers are stable and the current JSONL + index-contract path proves the
+     operator workflows end to end
+
+Required proving outputs:
+
+- operator-visible memory status page
+- handoff/resume bundle generation backed by canonical packs
+- review/control packet attachments that resolve back to memory evidence IDs
+- audit rows showing when memory influenced a suggestion vs when an action was
+  actually approved/executed
 
 ## Research Intake (2026-03-07): Nontraditional Memory Structures
 
@@ -141,6 +246,457 @@ existing MP scopes.
 3. Tiered hot/warm/cold retrieval policy with clear UX controls (`MP-243`).
 4. Optional late-interaction reranker for technical queries (`MP-252`).
 5. Learned memory-operation policy only after telemetry and approval loops are stable (`MP-247`).
+
+## Research Intake (2026-03-07): Compaction Survival Layer
+
+Context: KV cache compaction techniques (Attention Matching, 50x compression
+without accuracy loss) solve model-internal memory. This intake addresses the
+complementary problem: how VoiceTerm's external memory survives any context
+disruption (compaction, new session, new agent, handoff) and gives AI fast
+context recovery.
+
+Industry signals driving this intake:
+
+- OpenAI Stateful Runtime Environment (Feb 2026): persistent working context
+  including memory, tool state, workflow history across multi-step tasks. Hosted
+  solution; VoiceTerm builds the local-first equivalent.
+- Google Always-On Memory Agent (March 2026): open-sourced LLM-driven persistent
+  memory using structured storage instead of vector databases. Validates
+  JSON-first structured memory over embedding-heavy retrieval.
+- MIT Attention Matching (arXiv:2602.16284, Feb 2026): 50x KV cache compaction
+  in seconds. Solves model-internal memory; external structured memory is the
+  complement that ensures nothing is lost when the model's working memory is
+  compressed.
+
+### Gap analysis: what the current plan is missing
+
+The plan has `boot_pack` and `task_pack` (`context_pack.rs`) but these are
+generated on demand. There is no continuously-maintained compact index that
+exists specifically for AI context recovery after compaction events.
+
+| Current capability | Gap |
+|---|---|
+| `boot_pack` (on-demand, 100 recent events) | Not continuously maintained; stale between generations |
+| `task_pack` (query-driven) | Requires knowing the right query; no "catch me up on everything" mode |
+| Memory Units (task_segment, debug_episode) | Defined but not yet compiled; no auto-compilation pipeline |
+| Memory Cards (validated durable truths) | Defined but no continuous distillation from events to cards |
+| Retrieval states (eligible/quarantined/deprecated) | Exist but not wired into a persistent compact index |
+
+### Proposed addition: Compaction Survival Index
+
+A persistent, auto-maintained compact JSON document (~2K tokens) designed to
+be injected into any new AI conversation to restore full project context.
+
+#### Architecture position
+
+```
+events.jsonl (immutable log, full history)
+    |
+    v  ingest + index
+index.sqlite (fast queries, full metadata)
+    |
+    v  continuous compilation  <-- NEW LAYER
+compaction_index.json (~2K tokens, always current)
+    |
+    v  inject on: new session, context approaching limit, handoff, compaction
+AI context window
+```
+
+#### Compaction index schema (draft)
+
+```json
+{
+  "schema_version": 1,
+  "project_id": "sha256:...",
+  "last_compiled_at": "2026-03-07T14:30:00Z",
+  "compilation_trigger": "event_count_threshold",
+  "active_work": [
+    {
+      "task": "MP-346",
+      "title": "WriterState decomposition",
+      "status": "post-release backlog",
+      "key_decisions": ["PtyAdapter enum pattern"],
+      "last_activity": "2026-03-07T14:00:00Z",
+      "evidence_refs": ["evt_001", "evt_002"]
+    }
+  ],
+  "recent_decisions": [
+    {
+      "claim": "Split WriterState into sub-structs with PtyAdapter enum",
+      "decided_at": "2026-03-07T14:00:00Z",
+      "evidence_refs": ["evt_003"]
+    }
+  ],
+  "code_evolution": [
+    {
+      "file": "writer/state.rs",
+      "trajectory": [["2026-03-01", 2750], ["2026-03-05", 448]],
+      "driver": "MP-346 Phase 2"
+    }
+  ],
+  "open_blockers": [],
+  "user_context": {
+    "skill_level": "architect, learning Rust",
+    "explanation_style": "top-down, junior-to-mid level",
+    "preferences": ["no dumb comments", "split not long", "modules and helpers"]
+  },
+  "drill_down": {
+    "full_context_query": "sqlite://index.sqlite?recent=200",
+    "session_log": ".voiceterm/memory/events.jsonl"
+  }
+}
+```
+
+#### Compilation triggers
+
+- Every N events ingested (default: 25)
+- Time interval (default: 5 minutes of active session)
+- On session end / graceful shutdown
+- On explicit user request (slash command or overlay action)
+
+#### Injection triggers
+
+- New session startup (inject before first AI interaction)
+- Context token count approaching model limit (proactive injection before
+  model-internal compaction)
+- Agent handoff (include in handoff pack)
+- User explicitly requests context refresh
+
+#### New Memory Unit type: CodeEvolution
+
+Extends MP-240 unit types with project evolution tracking:
+
+```
+code_evolution_segment:
+  - file: String (repo-relative path)
+  - metric: String ("lines", "functions", "complexity")
+  - trajectory: Vec<(timestamp, value)>
+  - driver: String (MP reference or description)
+  - evidence_ids: Vec<String>
+```
+
+This supports multi-aspect audit ingestion where the same history is viewable
+from different angles: chronological events, code evolution, decision history,
+quality trajectory.
+
+### Candidate structures to evaluate (additive to existing research intake)
+
+| Structure | What changes in VoiceTerm | Expected gain | Land under |
+|---|---|---|---|
+| Compaction survival index (continuous compilation) | Auto-maintained ~2K token JSON index with links to full store. | AI context recovery after any disruption; cross-session continuity. | `MP-231`, `MP-240`, `MP-243` |
+| Code evolution tracking units | New `code_evolution_segment` unit type with file/metric/trajectory. | Multi-aspect audit and progress visibility. | `MP-240`, `MP-250` |
+| Proactive injection trigger | Monitor context token budget; inject compact index before model compaction. | Prevents information loss during long conversations. | `MP-231`, `MP-243` |
+| LLM-driven memory compilation (Google AOMA approach) | Use the model itself to decide what belongs in compact index vs archive. | Higher-quality compact index than heuristic-only compilation. | `MP-240`, `MP-247` |
+
+### Execution constraints (same as existing research intake)
+
+- Keep canonical event history immutable and auditable.
+- Keep deterministic mode available and default-safe.
+- Require citation parity for any compacted or transformed output.
+- Fail closed when validation/expansion checks fail.
+- Keep user controls first-class.
+- Compact index must round-trip to full evidence via drill-down refs.
+
+### Recommended execution order (extends existing order)
+
+1. Compaction survival index prototype with static compilation rules (`MP-231`).
+2. Wire injection triggers into session startup and context-budget monitor
+   (`MP-243`).
+3. Add `code_evolution_segment` unit type and compiler (`MP-240`, `MP-250`).
+4. Evaluate LLM-driven compilation vs heuristic-only on quality metrics
+   (`MP-247`).
+5. Integration with proactive context-budget injection in runtime event loop
+   (`MP-231`, `MP-243`).
+
+### Architecture relationship to KV cache compaction
+
+KV cache compaction (Attention Matching) operates inside the model at inference
+time. VoiceTerm cannot hook into that layer. Instead, VoiceTerm operates at the
+application layer using the MemGPT virtual-context-management approach:
+
+- Monitor context token usage from the application side.
+- Proactively inject the compact index when approaching limits.
+- Let the model's internal compaction handle the rest, knowing that the
+  structured external memory preserves everything important.
+
+This is complementary, not competing. The model compresses its working memory;
+VoiceTerm ensures the external knowledge survives.
+
+### Evaluation protocol: Compaction Survival Index
+
+Without measurable proof that the survival index helps, it is architecture
+fiction. This section defines how to test it at every level.
+
+#### Industry benchmarks informing this protocol
+
+| Benchmark | What it tests | VoiceTerm relevance |
+|---|---|---|
+| [LongMemEval](https://github.com/xiaowu0162/LongMemEval) (ICLR 2025) | 500 multi-session questions across 115K–1.5M tokens; 5 memory abilities (extraction, multi-session reasoning, temporal reasoning, knowledge updates, abstention) | Directly applicable — our survival index must pass the same ability categories |
+| [LOCOMO](https://mem0.ai/blog/benchmarked-openai-memory-vs-langmem-vs-memgpt-vs-mem0-for-long-term-memory-here-s-how-they-stacked-up) | Single-hop, temporal, multi-hop, open-domain QA against conversation history | A/B scoring methodology (Mem0 beat OpenAI by 26% using this) |
+| [MemoryBench](https://arxiv.org/abs/2510.17281) | Continual learning from feedback; procedural + declarative memory | Key finding: naive RAG outperformed many sophisticated systems — complexity does not equal quality |
+| [Letta Memory Benchmark](https://www.letta.com/blog/benchmarking-ai-agent-memory) | Filesystem-based retrieval vs specialized memory tools | Simple approaches can win; our index must beat "dump last 100 events" baseline |
+| [MemoryAgentBench](https://github.com/HUST-AI-HYZ/MemoryAgentBench) (ICLR 2026) | Incremental multi-turn memory evaluation | Tests whether memory updates correctly over time, not just initial recall |
+
+#### Level 1: Deterministic unit tests (extend existing Rust tests)
+
+Prove the mechanics work — compilation produces correct output, injection
+fires at the right time, drill-down references resolve. Same fixture style
+as existing `context_pack.rs` tests (`sample_event()`, inline helpers).
+
+| Test | What it proves |
+|---|---|
+| `compile_empty_index` | No crash on zero events |
+| `compile_produces_valid_schema` | Output matches JSON schema |
+| `compile_includes_recent_decisions` | Decisions from last N events appear in index |
+| `compile_respects_token_budget` | Output stays under ~2K tokens |
+| `compile_drill_down_refs_resolve` | Every `evidence_ref` maps to a real event in store |
+| `compile_is_idempotent` | Same events in same order produce identical index |
+| `compile_updates_on_new_events` | Index changes when new events are ingested |
+| `compile_triggers_at_threshold` | Fires after 25 events, not 24 |
+| `inject_on_session_start` | New session receives index in first prompt |
+| `inject_on_context_budget_warning` | Fires when token count exceeds 80% of model limit |
+
+#### Level 2: A/B recall tests (the critical proof)
+
+This is the industry-standard test that proves the index actually helps.
+Without this, we cannot claim the feature works.
+
+**Replay fixture**: A scripted multi-session conversation with known facts
+("needles") embedded at specific points.
+
+```
+Session 1: User discusses MP-346, decides on PtyAdapter enum pattern
+Session 2: User works on theme colors, mentions preferring dark mode
+Session 3: User debugs a JetBrains rendering bug, identifies root cause
+[--- COMPACTION EVENT (context wiped) ---]
+Session 4: Ask questions about Sessions 1-3
+```
+
+**Test matrix**:
+
+| Condition | What is injected after compaction |
+|---|---|
+| A (no memory) | Nothing — fresh context |
+| B (boot_pack) | Current `boot_pack` (on-demand, 100 recent events) |
+| C (survival index) | `compaction_index.json` (~2K tokens) |
+| D (both) | Survival index + boot_pack |
+
+**Questions** (covering all 5 LongMemEval abilities):
+
+| ID | Question | Ability tested |
+|---|---|---|
+| Q1 | "What pattern did we decide on for WriterState?" | information extraction |
+| Q2 | "When did we identify the JetBrains rendering bug?" | temporal reasoning |
+| Q3 | "What is the connection between MP-346 and the dark mode preference?" | multi-session reasoning |
+| Q4 | "Did we decide to use React for the overlay?" | abstention (answer is no) |
+| Q5 | "What changed about our approach after the Session 3 debug?" | knowledge update |
+
+**Scoring**: Each answer scored against a gold answer using two-tier method
+(industry consensus from Google, Mem0, LongMemEval):
+
+1. Exact match first (deterministic, fast, no false positives)
+2. LLM-as-Judge fallback for fuzzy answers (semantically correct?)
+3. Score: 0 (wrong), 0.5 (partial), 1.0 (correct)
+
+**Pass criteria**: Condition C must score ≥ 20% higher than Condition A
+across all questions. If it does not, the index is not helping.
+
+#### Level 3: Compaction simulation (end-to-end proof)
+
+Simulates the actual failure mode — context is wiped, only the survival
+index remains, and we verify all key facts are recoverable.
+
+```
+1. Build a 50-event history with 5 embedded "needles" (key facts)
+2. Ingest all events, compile survival index
+3. Simulate compaction: wipe the context (fresh session)
+4. Inject ONLY the survival index (~2K tokens)
+5. For each needle:
+   a. Verify the index contains a reference to the needle's event_id
+   b. Verify the drill-down ref resolves to the actual event in store
+   c. Verify the resolved event contains the key fact text
+6. Pass: all 5 needles recoverable. Fail: any needle lost.
+```
+
+#### Level 4: Cross-IDE continuity test (VoiceTerm-specific)
+
+No existing benchmark tests this because no existing product has this
+problem. VoiceTerm is used across different IDEs and backends, so the
+survival index must work across that boundary.
+
+```
+1. Session in JetBrains + Claude: 20 events, compile index
+2. New session in Cursor + Codex: inject index
+3. Ask: "What was I working on in my last session?"
+4. Score against gold answer (same two-tier method)
+5. Pass: AI correctly identifies prior work context
+```
+
+#### Level 5: CI regression gate
+
+Add a guard script (same pattern as existing `check_rust_*` scripts) that:
+
+1. Runs Level 2 A/B recall test on every PR touching `memory/`
+2. Fails if Condition C scores lower than Condition A
+3. Tracks score over time as a non-regression metric (growth-based, same
+   as existing guard policy)
+
+Acceptance threshold:
+
+```
+SURVIVAL_INDEX_LIFT_MINIMUM = 0.20  # 20% improvement over no-memory baseline
+ABSTENTION_ACCURACY_MINIMUM = 0.90  # 90% correct "I don't know" responses
+DRILL_DOWN_RESOLUTION_RATE  = 1.00  # 100% of evidence_refs must resolve
+```
+
+#### Level 6: Human spot-check (release gate)
+
+For v1 launch, manually test 10 times:
+
+1. Have a real 30-minute VoiceTerm session
+2. Let context compact (or simulate it)
+3. Ask "what were we working on?" in a fresh session
+4. Rate: Did the survival index give the AI enough to continue meaningfully?
+
+Pass: 8/10 sessions produce useful context recovery. If not, iterate on
+compilation logic before shipping.
+
+#### Metrics to track (survival index specific)
+
+| Metric | How to measure | Target |
+|---|---|---|
+| Recall accuracy | % of embedded facts recoverable post-compaction | > 80% |
+| Recall lift | `(with_index - without_index) / without_index` | > 20% |
+| Temporal accuracy | % of "when" questions answered correctly | > 70% |
+| Abstention rate | % correct "I don't know" for unknown facts | > 90% |
+| Index freshness | Seconds since last compilation when queried | < 300s |
+| Token efficiency | Facts recovered per token in the index | maximize |
+| Drill-down resolution | % of `evidence_refs` resolving to real events | 100% |
+| Cross-IDE recall | Accuracy when switching IDE between sessions | > 75% |
+
+#### Key lesson from industry benchmarks
+
+MemoryBench found that many sophisticated memory systems were outperformed
+by naive RAG baselines that stored everything. The survival index must be
+tested against the simplest possible baseline ("dump last 100 events into
+context") to prove it compresses information intelligently rather than
+adding overhead. If the ~2K token index cannot beat a 100-event raw dump
+on recall accuracy, the compilation logic needs work — not more features.
+
+### Retrieval Router (Strategy Selector)
+
+No single retrieval method wins all the time. MemoryBench showed naive RAG
+outperforms sophisticated memory on specific fact recall, while the survival
+index wins on overview/synthesis after context disruption. The retrieval
+router picks the best strategy (or combination) for each situation.
+
+#### Architecture position
+
+```
+Context needed (session start, user query, compaction, handoff)
+        |
+        v
+┌─────────────────────┐
+│  RetrievalRouter     │  picks strategy based on context signals
+│                     │
+│  Signals:           │
+│  - query type       │
+│  - context state    │
+│  - token budget     │
+│  - session gap      │
+└────────┬────────────┘
+         |
+    ┌────┴─────┬──────────┬───────────────┐
+    v          v          v               v
+ RAG        boot_pack  survival_idx   task_pack
+ (text      (recent    (compact       (MP-ref
+  search)    100)       ~2K JSON)      focused)
+    |          |          |               |
+    └────┬─────┴──────────┴───────────────┘
+         v
+   ┌─────────────┐
+   │  Merge +     │  combine, deduplicate by event_id, trim to budget
+   │  Score +     │
+   │  Budget      │
+   └──────┬──────┘
+          v
+    Final context pack → inject into AI prompt
+```
+
+#### When each strategy wins
+
+| Situation | Best strategy | Why |
+|---|---|---|
+| "What exact command did I run?" | RAG (TextSearch) | Specific fact — lexical search finds exact matches |
+| Fresh session startup | boot_pack | Recent 100 events give immediate context, cheap to generate |
+| After compaction / long session gap | survival_index | Only thing with compressed overview of everything |
+| "What have we done on MP-346?" | task_pack | Task-ref query is purpose-built for this |
+| Cross-IDE handoff | survival_index + RAG | Index gives overview, RAG fills specific details |
+| "What were we working on?" (vague) | survival_index | Structured overview beats dumping raw events |
+| "Find all times I used cargo test" | RAG (TextSearch) | Pure keyword recall — unbeatable for exact text |
+
+#### Strategy selection logic
+
+```rust
+enum ContextStrategy {
+    Rag,
+    BootPack,
+    SurvivalIndex,
+    TaskPack,
+    Hybrid,  // merge multiple strategies
+}
+
+fn select_strategy(signal: &ContextSignal) -> ContextStrategy {
+    match signal {
+        // Post-compaction or new session after gap → hybrid
+        ContextSignal::SessionStart { gap_seconds }
+            if *gap_seconds > 3600 => ContextStrategy::Hybrid,
+
+        // Normal session start → boot pack is enough
+        ContextSignal::SessionStart { .. } => ContextStrategy::BootPack,
+
+        // Specific query → RAG or task pack
+        ContextSignal::UserQuery { text }
+            if text.starts_with("MP-") => ContextStrategy::TaskPack,
+        ContextSignal::UserQuery { .. } => ContextStrategy::Rag,
+
+        // Context budget warning → survival index (most compact)
+        ContextSignal::ContextBudgetWarning => ContextStrategy::SurvivalIndex,
+
+        // Agent handoff → survival index + task context
+        ContextSignal::Handoff { .. } => ContextStrategy::Hybrid,
+    }
+}
+```
+
+#### Hybrid merge protocol
+
+When `Hybrid` is selected, the router runs multiple strategies and merges:
+
+1. Start with survival index as baseline (~2K tokens).
+2. Run RAG or task_pack for the specific query.
+3. Deduplicate by `event_id` (survival index refs overlap with RAG results).
+4. Score merged results using existing `RetrievalResult.score`.
+5. Trim to token budget using existing `trim_to_budget()`.
+
+This requires no new infrastructure — `retrieval.rs` already scores and
+deduplicates, `context_pack.rs` already trims to budget.
+
+#### Implementation path (minimal changes)
+
+1. `types.rs`: add `SurvivalIndex` and `Hybrid` to `ContextPackType`.
+2. `retrieval.rs`: add `ContextSignal` enum and `select_strategy()`.
+3. `context_pack.rs`: add `generate_hybrid_pack()` that merges strategies.
+4. No changes to `ingest.rs`, `store/`, `governance.rs`, or `schema.rs`.
+
+#### Evaluation requirement
+
+The router must be A/B tested against each individual strategy to prove
+the hybrid approach outperforms any single method. If the router adds
+complexity without measurably improving recall, remove it and default to
+the single best strategy per situation.
+
+Extends: `MP-231`, `MP-237`, `MP-243`
 
 ## Design Principles (Required)
 
@@ -305,6 +861,15 @@ All memory ingestion must normalize to one event schema:
 }
 ```
 
+Review/control-plane normalization rule:
+
+- `review_event` / `controller_state` artifacts must compile losslessly into
+  this envelope instead of defining competing near-duplicate headers.
+- Freeze explicit mappings for `event_id`, `session_id`, `project_id`,
+  `trace_id`, `source`, `event_type`, and `timestamp_utc -> ts`.
+- Keep routing fields such as `from_agent` / `to_agent` as additional metadata;
+  they do not replace the canonical envelope's `source`.
+
 ### Storage Layers
 
 1. Append log: `.voiceterm/memory/events.jsonl`  
@@ -467,17 +1032,201 @@ Always-on compiler outputs for agent workflows:
 1. `boot_pack`: tiny safe startup context (repo identity, core commands, operating rules)
 2. `task_pack(query)`: evidence-rich working set for the current request
 3. `handoff_pack`: what changed, what failed, what to do next with citations
+4. `survival_index`: continuously maintained compact recovery pack for new
+   sessions, compaction recovery, and cross-agent handoff (default compact
+   attachment only after `MS-G18` passes)
 
 These outputs are the default context contract for Codex/Claude adapters and MCP tools.
+
+Review/control-plane interop rules:
+
+- Review packets and controller artifacts may attach these outputs by ref
+  through `context_pack_refs`; they should not duplicate pack bodies inline.
+- Bridge-era markdown/JSON handoff bundles are transitional projections only;
+  `MP-238` does not count this path as closed until structured
+  `review_state` / `controller_state` artifacts emit and consume the same
+  pack references.
+- When memory capture is active, review outcomes (`packet_posted`,
+  `packet_acked`, `packet_dismissed`, `packet_applied`) must ingest as
+  normalized memory events so handoff/decision history survives compaction,
+  restart, and cross-agent relay.
+- Retrieval usefulness telemetry should incorporate explicit review outcomes
+  with reason-coded mappings instead of treating review resolution as invisible
+  to ranking.
 
 ## Overlay Surfaces (Memory + Actions)
 
 ### 1) Memory Browser
 
-- filter by topic/source/task/date
-- expandable rows (preview + full payload)
-- jump to related files/tasks
-- replay user-safe entries only
+The Memory Browser is a visual overlay that lets users navigate the entire
+memory system — events, RAG results, survival index, decisions, tasks —
+the same way they navigate files on a computer. It runs inside the existing
+VoiceTerm overlay system and works across Codex, Claude, and any backend.
+
+#### Design goal
+
+Users should be able to visually work their way through all stored memory,
+filter by day/topic/task/source, drill into any event, and then inject
+selected context directly into the current AI conversation. This replaces
+"hope the AI remembers" with "I can see what it knows and point it at
+what matters."
+
+#### UI layout (reuses TranscriptHistory overlay pattern)
+
+```
+┌─────────────────── Memory Browser (Ctrl+M) ───────────────────┐
+│  🔍 Search: cargo test___                                     │
+│  ◀ 2026-03-07 ▶   [All] [Decisions] [Commands] [Tasks]       │
+├───────────────────────────────────────────────────────────────┤
+│    14:32  Decision   MP-346: Use PtyAdapter enum pattern      │
+│  > 14:15  Command    cargo test --bin voiceterm (passed)      │
+│    13:58  ChatTurn   Discussed WriterState coupling            │
+│    13:40  ChatTurn   Code smell audit started                  │
+│    13:22  Decision   GuardContext consolidation approved       │
+│    12:01  FileChange rust/src/bin/voiceterm/writer/state.rs    │
+│    11:45  Command    git diff dev/scripts/checks/             │
+├───────────────────────────────────────────────────────────────┤
+│  Preview: cargo test --bin voiceterm                          │
+│  Result: 47 tests passed, 0 failed (1.2s)                    │
+│  Tags: [testing] [voiceterm]  Task: MP-346                   │
+├───────────────────────────────────────────────────────────────┤
+│  [Enter] Inject  [Tab] Expand  [R] RAG search  [I] Index     │
+│  [←→] Day  [↑↓] Navigate  [/] Filter  [Esc] Close            │
+└───────────────────────────────────────────────────────────────┘
+```
+
+#### Component structure (follows existing overlay patterns)
+
+| Component | Existing pattern to reuse | Source |
+|---|---|---|
+| State container | `TranscriptHistoryState` | `transcript_history.rs:210-219` |
+| Scroll + selection | `move_up/down()` + `clamp_scroll()` | `transcript_history.rs:238-284` |
+| Frame rendering | `overlay_frame.rs` utilities | `overlay_frame.rs` |
+| Input dispatch | `overlay.rs` key handler | `event_loop/input_dispatch/overlay.rs` |
+| Overlay mode | `OverlayMode` enum | `overlays.rs:27-36` |
+| Theme integration | `ThemeColors` + `BorderSet` | `theme/mod.rs` |
+
+#### State struct
+
+```rust
+pub struct MemoryBrowserState {
+    // Navigation
+    pub selected: usize,
+    pub scroll_offset: usize,
+
+    // Filtering
+    pub search_query: String,
+    pub date_cursor: chrono::NaiveDate,        // ←→ to change day
+    pub active_filter: EventTypeFilter,        // All, Decisions, Commands, Tasks, etc.
+    pub filtered_events: Vec<usize>,           // indices into full event list
+
+    // Views
+    pub view_mode: BrowserViewMode,            // Timeline, ByTask, ByTopic, SurvivalIndex
+    pub expanded_item: Option<usize>,          // Tab to expand full detail
+
+    // Selection for injection
+    pub selected_for_injection: Vec<String>,    // event_ids user has marked
+}
+
+pub enum BrowserViewMode {
+    Timeline,       // chronological, filterable by day
+    ByTask,         // grouped by MP-ref
+    ByTopic,        // grouped by topic_tag
+    SurvivalIndex,  // shows the compact index with drill-down
+    RagSearch,      // full-text search results with scoring
+}
+
+pub enum EventTypeFilter {
+    All,
+    Decisions,
+    Commands,
+    ChatTurns,
+    FileChanges,
+    TestResults,
+}
+```
+
+#### User workflows
+
+**1. "What did I do yesterday?"**
+- Open browser (Ctrl+M)
+- Press ← to go back one day
+- Scroll through timeline of events
+- See decisions, commands, file changes in chronological order
+
+**2. "Find that cargo test I ran"**
+- Open browser → type "cargo test" in search
+- RAG search runs against event store
+- Results ranked by relevance score
+- Select result → preview shows full output + pass/fail
+
+**3. "Show the AI what I mean"**
+- Browse to relevant events
+- Press Enter on each to mark for injection
+- Selected events highlighted with checkmark
+- Press Ctrl+Enter to inject all selected into current conversation
+- AI receives: "User selected the following context: [events]"
+
+**4. "What does the survival index know?"**
+- Press [I] to switch to SurvivalIndex view
+- Shows the compact JSON rendered as readable cards
+- Each card shows: active work, recent decisions, code evolution
+- Drill-down: Enter on any card expands to full event evidence
+
+**5. "Show me everything about MP-346"**
+- Press [Tab] to switch to ByTask view
+- Tasks listed with event counts
+- Select MP-346 → shows all related events grouped and scored
+
+#### Injection mechanism
+
+When the user selects events and presses inject:
+
+```
+User selects events in Memory Browser
+        |
+        v
+Build injection pack (same format as context_pack.json)
+        |
+        v
+RetrievalRouter receives ContextSignal::UserSelection
+        |
+        v
+Pack injected into next AI prompt as system context
+        |
+        v
+AI sees: "The user pointed you at this context: [selected events]"
+```
+
+This uses the existing `ContextPack` format and `WriterMessage` pipeline.
+No new rendering infrastructure needed — the injection is a formatted
+string sent through the same channel as boot_pack.
+
+#### Implementation path
+
+1. Add `MemoryBrowser` to `OverlayMode` enum in `overlays.rs`.
+2. Add `MemoryBrowserState` struct (follows `TranscriptHistoryState` pattern).
+3. Add `memory_browser.rs` (state + logic) and `memory_browser/render.rs`
+   (formatting, reusing `overlay_frame.rs` utilities).
+4. Add `InputEvent::MemoryBrowserToggle` (Ctrl+M) in `input/event.rs`.
+5. Wire input dispatch in `event_loop/input_dispatch/overlay.rs`.
+6. Add `ContextSignal::UserSelection` to retrieval router.
+7. Connect to existing `MemoryIndex` for queries.
+
+All rendering reuses existing `OverlayPanel`, `overlay_frame`, and
+`WriterMessage::ShowOverlay`. No new terminal rendering primitives needed.
+
+#### Responsive layout
+
+```
+Browser width  = terminal_cols.clamp(50, 100) - 2
+Visible rows   = 7 (matches TranscriptHistory)
+Preview rows   = 3 (selected item detail)
+Chrome rows    = 8 (title + search + date/filter bar + separator + footer)
+Total height   = 18 rows
+```
+
+Extends: `MP-233`, `MP-234`
 
 ### 2) Session Review
 
@@ -552,6 +1301,9 @@ Non-negotiable guardrails:
 - `assist`: capture + retrieval enabled (default)
 - `paused`: keep store immutable until resumed
 - `incognito`: ephemeral session; no durable writeback
+- Current implementation is a dev-panel runtime toggle only; closure requires
+  persisted config, startup restore, visible controls outside `--dev`, and
+  negative-control / receipt UX.
 
 ## Evaluation + Quality Metrics (Mandatory)
 
@@ -782,6 +1534,7 @@ Integration requirement:
 - every `devctl` JSON output should map to canonical memory event types (`command_run`, `summary`, `decision`, `handoff`)
 - release-note artifacts must be stored as immutable artifact refs and linked to tasks/releases
 - change digests should emit both `*.json` (machine) and `*.md` (human) in `.voiceterm/memory/exports/`
+- temporary review/control-plane coordination must ingest cleanly too: today's `bridge.md` bridge, and later `review_state` / `controller_state`, should compile into `session_handoff` and compaction-survival inputs so active blockers, decisions, and next action survive context compaction or agent handoff
 
 ### Git History Compilers (New Memory Outputs)
 
@@ -1014,8 +1767,11 @@ Iteration 1 acceptance:
 
 ### M6 Interop + Model Adapters
 
-- backend adapters for Codex/Claude context-pack injection formats
+- backend adapters for Codex/Claude context-pack injection formats, including
+  receiver-shaped review/control-plane handoff attachments
 - optional export/import for project memory snapshots
+- `devctl memory` / `devctl review-channel` interop for attach-by-ref and
+  packet/task lookup flows
 - read-only MCP remains default while action tools stay gated behind explicit safety evidence
 - staged action-tool MCP exposure after safety + isolation gates are green
 
@@ -1065,6 +1821,9 @@ Iteration 1 acceptance:
 | `MS-G15 Compaction` | Compaction improves or preserves task quality while reducing context cost | Accuracy regresses or citations break under compaction | A/B benchmark reports + threshold checks |
 | `MS-G16 Acceleration` | Hardware-accelerated paths improve throughput/latency without quality regressions | Speedups reduce task success/citation fidelity or bypass safety contracts | benchmark matrix + non-inferiority report + fallback tests |
 | `MS-G17 Symbolic` | Symbolic compaction is reversible, citation-equivalent, and non-inferior vs raw packs | Aliasing drops distinctions, breaks evidence parity, or regresses quality | round-trip fixtures + citation-equivalence tests + non-inferiority report |
+| `MS-G18 Survival Index` | Compaction survival index achieves ≥ 20% recall lift over no-memory baseline, 100% drill-down resolution, ≥ 90% abstention accuracy, and passes cross-IDE continuity | Index does not beat raw event dump, evidence refs break, or cross-IDE recall fails | A/B recall fixtures + compaction simulation tests + cross-IDE replay + human spot-check (8/10) |
+| `MS-G19 Retrieval Router` | Hybrid strategy matches or beats best single strategy on every query class; router adds no measurable latency regression | Hybrid loses to single strategy on any class, or router overhead exceeds 50ms p95 | per-class A/B benchmarks + latency profiling + fallback-to-single tests |
+| `MS-G20 Memory Browser` | All 5 view modes navigable via keyboard, injection delivers selected events into AI context, cross-IDE rendering consistent | Overlay crashes, injection drops events, or rendering breaks on any supported terminal | overlay integration tests + injection roundtrip fixtures + multi-terminal render checks |
 
 ## Interop Contract (Codex + Claude + Future)
 
@@ -1078,6 +1837,11 @@ Required adapter properties:
 - token-budget aware truncation
 - no hidden mutation of canonical evidence ordering without explicit policy
 - every tool response includes source IDs suitable for downstream citations
+- review/control-plane attachments pick the receiver adapter profile
+  (`canonical`, `codex`, `claude`, `gemini`) at projection time while the
+  canonical JSON pack remains the source of truth
+- `context_pack_refs` used by review/control-plane packets must resolve back to
+  canonical pack artifacts and evidence IDs without lossy rewriting
 
 ## Verification Bundle (per Memory PR)
 
@@ -1093,6 +1857,8 @@ Additional memory gates (to add with implementation):
 ```bash
 cd rust && cargo test memory::
 cd rust && cargo test action_center::
+cd rust && cargo test memory::survival_index::   # Level 1-3 survival index tests
+python3 dev/scripts/checks/check_survival_index_recall.py  # Level 4-5 A/B recall gate
 ```
 
 ## Open Decisions (Track Early)
@@ -1117,6 +1883,122 @@ cd rust && cargo test action_center::
 18. What symbolic dictionary scope should be default (`session`, `project`, or `task_pack` only)?
 19. Should symbolic compaction stay export-only first, or be allowed in live prompt injection once `MS-G17` is green?
 
+## Progress Log
+
+- 2026-03-17: Verified the Memory Studio substrate against the current code
+  before folding it into the broader startup/work-intake plan. The repo does
+  already have a working first-generation memory stack: deterministic retrieval
+  query APIs (`Recent`, `ByTopic`, `ByTask`, `TextSearch`, `Timeline`),
+  signal-routed context strategies, `ContextPack` builders with token budgets,
+  a real `SurvivalIndex`, JSONL persistence, and a staged SQLite schema
+  contract over the in-memory index. Accepted correction: the memory lane is
+  not "missing," but it is also not yet the finished shared startup authority.
+  Cross-plan direction is now explicit: governance/runtime evidence should
+  reach this lane through exported receipts / attach-by-ref contracts, and the
+  future `startup-context` surface should compose cached repo-intelligence,
+  governance evidence, and memory exports instead of forcing AI to reread the
+  full doc stack each session.
+- 2026-03-17 bridge task: add one concrete governance-to-memory bridge that
+  serializes findings, run records, and repo-intelligence snapshots into the
+  Rust memory substrate so `startup-context` and `master-report` can consume a
+  single bounded packet instead of stitching evidence together from separate
+  JSONL readers.
+- 2026-03-14: Corrected a partial MP-233/MP-234 overlay prototype so it
+  follows the active Memory Studio proving path instead of creating a parallel
+  executor/UI contract. The shared Memory Browser and Action Center overlays
+  remain valid VoiceTerm runtime surfaces, but the current proof opens them
+  from the Rust operator cockpit (`Memory` tab -> `b`, `Actions` tab -> `a`)
+  rather than intercepting global `Ctrl+B` / `Ctrl+A` bytes. The same sweep
+  removed the raw-shell Action Center executor, kept action execution on the
+  existing typed `dev_command` catalog/approval model, restored the test-harness
+  state shape, and extracted shared overlay helpers/submodules so the new code
+  stays under Rust shape/duplication guard thresholds.
+- 2026-03-09: Tightened the boot-pack proving substrate so summary fields stay
+  provenance-aligned under token pressure. `generate_boot_pack()` now derives
+  `active_tasks` and `recent_decisions` from the same budget-included evidence
+  slice it renders, so packs no longer mention trimmed-out tasks or decisions
+  that are absent from the actual evidence block.
+- 2026-03-09: Landed a bounded live-ingest metadata slice under the existing
+  retrieval/context-pack lane. `memory/ingest.rs` now auto-extracts normalized
+  `MP-*` task refs, obvious repo file-path entities, and a small deterministic
+  topic-tag set from transcript / PTY input / PTY output text before events hit
+  the index, so real runtime `ByTask` / `ByTopic` queries and `task_pack`
+  generation no longer depend on the manual low-level ingest path to populate
+  metadata.
+- 2026-03-09: Reconciled the Memory Studio spec with
+  `dev/active/MASTER_PLAN.md` and the adjacent MP-340 / MP-355 / MP-359 plan
+  docs so the memory lane now states the shipped proof path honestly. Current
+  live proof is limited to operator-cockpit memory mode/status visibility, the
+  read-only Memory tab fed by ingest/review/boot-pack/handoff previews, and
+  Boot-pack-backed handoff prompt generation; `task_pack`,
+  `session_handoff`, and `survival_index` query/export closure still remain
+  open along with persisted `memory_mode`, `context_pack_refs`, and packet-
+  outcome ingest.
+- 2026-03-09: Closed the bounded operator-cockpit query/export sub-slice in
+  the Rust runtime. Memory-tab refresh and visible-tab polling now emit
+  repo-visible `.voiceterm/memory/exports/*.{json,md}` artifacts for
+  `boot_pack`, `task_pack`, `session_handoff`, and `survival_index`, and the
+  Memory tab now labels those refs honestly as real JSON/Markdown outputs
+  instead of planned paths.
+- 2026-03-09: Landed the first attach-by-ref review/control bridge over those
+  exports. Event-backed review packets now carry structured `context_pack_refs`
+  end-to-end, `actions.json` and `latest.md` preserve the same attachments, the
+  Rust review surface renders them from structured artifacts, and the Operator
+  Console approval path round-trips them through typed JSON/Markdown decision
+  artifacts. Remaining bridge work is packet-outcome ingest into canonical
+  memory events plus broader `controller_state` parity across Rust/phone/desktop.
+- 2026-03-09: Landed the first attach-by-ref `context_pack_refs` bridge slice
+  across the structured review path. Event-backed `devctl review-channel`
+  packets now preserve typed pack refs into reduced `review_state` plus
+  `actions.json`, the Rust review artifact parser/operator lane/fresh bootstrap
+  prompt now consume those refs read-only, and the PyQt6 Operator Console now
+  keeps the same refs lossless through approval loading, decision-command JSON,
+  operator-decision artifacts, and approval detail rendering. Remaining
+  `MP-238` scope is controller-state parity plus packet-outcome ingest back into
+  canonical memory events.
+- 2026-03-09: Restored clean tracker ownership for the memory lane by fixing
+  the unrelated `MP-230` numbering collision in `MASTER_PLAN`; Memory Studio
+  now consistently owns `MP-230..MP-255` again across the index, tracker, and
+  spec surfaces.
+- 2026-03-09: Landed the bounded `MP-243` memory-mode persistence slice in the
+  runtime path: startup now restores the persisted mode instead of defaulting,
+  runtime config snapshots preserve/write `memory_mode`, and the dev-panel mode
+  toggle saves immediately so later snapshots reflect the configured state.
+  This closes the persistent-config/startup-restore sub-slice while leaving
+  broader trust/privacy UX outside `--dev` open.
+- 2026-03-09: Landed the first deterministic survival-index retrieval-trace
+  slice for compaction/recovery continuity. Added `memory/survival_index.rs`
+  with bounded task-focus + recent-context query plans, per-query token-budget
+  traces, deduplicated scored evidence rows, and markdown/JSON rendering. The
+  Memory cockpit now exports `survival_index.json` from that structured payload
+  (instead of count-only preview lines), and refresh polling coverage now
+  asserts the export carries both `query_traces` and `evidence`.
+
+## Audit Evidence
+
+Scope note: this evidence block covers the plan-sync and tooling-doc checks for
+the 2026-03-09 memory-lane alignment slice. Broader repo-wide tooling/runtime
+failures remain tracked outside this spec.
+
+| Check | Evidence | Status |
+|---|---|---|
+| `python3 dev/scripts/checks/check_active_plan_sync.py` | `ok: True` after recording the 2026-03-09 Memory Studio progress/audit entries; registry/tracker/spec sync stayed clean (`active_markdown_files=19`, `registry_paths=19`). | done |
+| `python3 dev/scripts/checks/check_multi_agent_sync.py` | `ok: True` after the memory-lane plan-state update; required/master/coordination agent sets still match and no sync errors were reported. | done |
+| `python3 dev/scripts/devctl.py docs-check --strict-tooling` | `ok: True` after the memory-lane plan-state update; tooling-policy, active-plan sync, multi-agent sync, workflow-shell hygiene, and bundle/workflow parity all remained green. | done |
+| `python3 dev/scripts/devctl.py guard-run --cwd rust -- cargo test --bin voiceterm memory_page -- --nocapture` + `python3 dev/scripts/devctl.py guard-run --cwd rust -- cargo test --bin voiceterm background_review_poll_refreshes_memory_when_memory_tab_visible -- --nocapture` | Targeted Rust proof for the Memory cockpit export slice passed (`6` focused tests across cockpit rendering, Enter refresh, visible-tab polling, and `m`-key mode refresh). `guard-run` post-check needed one host-access rerun of `python3 dev/scripts/devctl.py check --profile quick --skip-fmt --skip-clippy --no-parallel` because sandboxed `ps` access blocked the required host-process hygiene step; elevated rerun exited `0` after cleaning one stale repo-related process. | done |
+| `python3 dev/scripts/devctl.py process-cleanup --verify --format md` | `ok: True`; no orphaned/stale repo processes, cleanup target count `0`, and verify stayed green while one recent active Operator Console process was left running and reported as a warning instead of being killed. | done |
+| `python3 dev/scripts/devctl.py guard-run --cwd rust -- cargo test --bin voiceterm memory::context_pack:: -- --nocapture` | `14 passed`; verified the boot-pack budget-alignment fix so `active_tasks` / `recent_decisions` no longer leak trimmed-out retrieval results beyond the rendered evidence slice. | done |
+| `python3 dev/scripts/devctl.py guard-run --cwd rust -- cargo test --bin voiceterm memory:: -- --nocapture` | `109 passed`; verified the deterministic metadata extraction slice across ingest, retrieval, context-pack, governance/store/type regressions, plus the new task-pack proof from live-ingested `MP-*` refs. | done |
+| `python3 dev/scripts/devctl.py guard-run --cwd rust -- cargo test --bin voiceterm persistent_config::tests -- --nocapture` | `16 passed`; verified the persistent-config memory-mode path after the MP-243 startup/persistence slice landed. | done |
+| `python3 dev/scripts/devctl.py guard-run --cwd rust -- cargo test --bin voiceterm memory_mode -- --nocapture` | `10 passed`; verified runtime memory-mode behavior and regression coverage after wiring persisted startup restore + immediate save. | done |
+| `cargo test memory::survival_index:: -- --nocapture` | `5 passed`; verifies deterministic survival-index query planning, fallback retrieval behavior, task/decision extraction, and markdown rendering for compaction-recovery exports. | done |
+| `cargo test dev_panel_overlay::refresh_poll::memory_page_enter -- --nocapture` | `2 passed`; validates Memory cockpit Enter-refresh path and confirms `survival_index.json` includes structured `query_traces` + `evidence` payload keys. | done |
+| `python3 dev/scripts/devctl.py check --profile quick --skip-fmt --skip-clippy --no-parallel` | passed after rerunning with host-process access when the initial guard-run follow-up hit sandboxed `ps`; final quick profile finished green. | done |
+| `cargo test --bin voiceterm` | `1799 passed`; validates the corrected Memory Browser / Action Center cockpit-entry path plus the supporting overlay/input/render refactors against the full VoiceTerm Rust suite. | done |
+| `python3 dev/scripts/checks/check_rust_security_footguns.py --format md` + `python3 dev/scripts/checks/check_rust_lint_debt.py --format md` + `python3 dev/scripts/checks/check_rust_test_shape.py --format md` + `python3 dev/scripts/checks/check_structural_complexity.py --format md` + `python3 dev/scripts/checks/check_rust_best_practices.py --format md` | all `ok: True` on 2026-03-14 after removing the raw-shell executor, restoring the `EventLoopState` fixture shape, and finishing the overlay refactor. | done |
+| `python3 dev/scripts/checks/check_function_duplication.py --format md` + `python3 dev/scripts/checks/check_structural_similarity.py --format md` + `python3 dev/scripts/checks/check_code_shape.py --format md` | Rust-side duplication/similarity/shape regressions from the overlay prototype were closed on 2026-03-14: `function_duplication` now only reports an unrelated Python duplicate, `structural_similarity` is green, and `code_shape` only reports unrelated Python soft-limit findings after extracting `overlay/memory_action_input.rs`. | done |
+| `python3 dev/scripts/devctl.py governance-review --record ...` | recorded the 2026-03-14 correction sweep in `dev/reports/governance/finding_reviews.jsonl`: fixed `rust-security-footguns-guard`, `code-shape-guard`, and `function-duplication-guard` rows for the memory-overlay slice, and deferred the unrelated dirty-tree Python shape/duplication findings encountered during validation. | done |
+
 ## Research References (2026-02-19)
 
 Product docs:
@@ -1136,6 +2018,18 @@ Product docs:
 - ZGraph concept source (local): `/Users/jguida941/Zygraph_Visualizer/ZGraph-Notation/README.md`
 - ZGraph notation whitepaper draft (local): `/Users/jguida941/Zygraph_Visualizer/ZGraph-Notation/ZGraph Notation- A Student-Invented Framework for Adjacency Data Compression and Graph Analysis.txt`
 - ZGraph scientific analysis notes (local): `/Users/jguida941/Zygraph_Visualizer/ZGraph-Notation/ZGraphVisualizer/ZGRAPH_SCIENTIFIC_ANALYSIS_WHITEPAPER.md`
+
+Industry memory architecture (2026):
+
+- OpenAI Stateful Runtime Environment: https://openai.com/index/introducing-the-stateful-runtime-environment-for-agents-in-amazon-bedrock/
+- OpenAI + AWS stateful agent architecture: https://venturebeat.com/orchestration/openais-big-investment-from-aws-comes-with-something-else-new-stateful
+- Google Always-On Memory Agent (open-source): https://venturebeat.com/orchestration/google-pm-open-sources-always-on-memory-agent-ditching-vector-databases-for
+- Google ADK Memory docs: https://google.github.io/adk-docs/sessions/memory/
+- Mem0 universal memory layer: https://mem0.ai/
+- Attention Matching KV cache compaction (MIT, arXiv:2602.16284): https://arxiv.org/abs/2602.16284
+- VentureBeat coverage of Attention Matching: https://venturebeat.com/orchestration/new-kv-cache-compaction-technique-cuts-llm-memory-50x-without-accuracy-loss
+- OpenAI context engineering for personalization: https://developers.openai.com/cookbook/examples/agents_sdk/context_personalization/
+- OpenAI session memory management: https://cookbook.openai.com/examples/agents_sdk/session_memory
 
 Memory/retrieval research:
 

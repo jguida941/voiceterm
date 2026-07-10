@@ -1,6 +1,8 @@
 use crate::audio_meter::format_waveform;
 use crate::config::HudRightPanel;
-use crate::theme::{waveform_bars, GlyphSet, Theme, ThemeColors, VoiceSceneStyle};
+use crate::theme::{
+    pulse_dot_active, pulse_dot_inactive, waveform_bars, Theme, ThemeColors, VoiceSceneStyle,
+};
 
 use super::animation::heartbeat_glyph;
 use super::state::{RecordingState, StatusLineState};
@@ -116,14 +118,16 @@ pub(super) fn format_pulse_dots(level_db: f32, colors: &ThemeColors, dots: usize
     let mut result = String::with_capacity(128);
     result.push_str(colors.dim);
     result.push('[');
+    let dot_on = pulse_dot_active(colors.glyph_set);
+    let dot_off = pulse_dot_inactive(colors.glyph_set);
     for idx in 0..dots {
         if idx < active {
             result.push_str(color);
-            result.push('•');
+            result.push(dot_on);
             result.push_str(colors.reset);
         } else {
             result.push_str(colors.dim);
-            result.push('·');
+            result.push(dot_off);
             result.push_str(colors.reset);
         }
     }
@@ -190,7 +194,7 @@ pub(super) fn format_heartbeat_panel(state: &StatusLineState, colors: &ThemeColo
         state.hud_right_panel_recording_only,
         state.recording_state == RecordingState::Recording,
     );
-    let (glyph, is_peak) = heartbeat_glyph(animate);
+    let (glyph, is_peak) = heartbeat_glyph(animate, colors.glyph_set);
 
     let mut content = String::with_capacity(16);
     let color = heartbeat_color(animate, is_peak, colors);
@@ -249,7 +253,7 @@ pub(super) fn format_minimal_right_panel(
                 state.hud_right_panel_recording_only,
                 recording_active,
             );
-            let (glyph, is_peak) = heartbeat_glyph(animate);
+            let (glyph, is_peak) = heartbeat_glyph(animate, colors.glyph_set);
             let color = if is_peak { colors.info } else { colors.dim };
             format!(
                 "{}[{}{}{}{}]{}",
@@ -299,10 +303,8 @@ pub(super) fn minimal_pulse_dots(level_db: f32, colors: &ThemeColors, dots: usiz
     let normalized = ((level_db + 60.0) / 60.0).clamp(0.0, 1.0);
     let dots = dots.max(1);
     let active = (normalized * dots as f32).round() as usize;
-    let (active_glyph, idle_glyph) = match colors.glyph_set {
-        GlyphSet::Unicode => ('•', '·'),
-        GlyphSet::Ascii => ('*', '.'),
-    };
+    let active_glyph = pulse_dot_active(colors.glyph_set);
+    let idle_glyph = pulse_dot_inactive(colors.glyph_set);
     let color = meter_level_color(level_db, colors);
     let mut result = String::with_capacity(64);
     result.push_str(colors.dim);

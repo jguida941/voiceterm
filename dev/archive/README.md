@@ -15,6 +15,7 @@ This folder stores completed work items pulled from the active master plan.
 - Keep the master plan current by removing completed items and linking the archive entry.
 
 ## Recent entries
+- 2026-03-07-rust-workspace-layout-migration.md
 - 2026-03-05-devctl-mcp-contract-hardening.md
 - 2026-02-17-tooling-control-plane-consolidation.md
 - 2026-02-15-rust-gui-audit.md

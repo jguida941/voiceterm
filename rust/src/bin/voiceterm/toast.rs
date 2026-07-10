@@ -11,9 +11,10 @@ use crate::overlay_frame::{
     centered_title_line, display_width, frame_bottom, frame_top, truncate_display,
 };
 use crate::theme::{
-    overlay_close_symbol, overlay_separator, resolved_overlay_border_set,
-    runtime_style_pack_overrides, BorderSet, GlyphSet, RuntimeToastPositionOverride,
-    RuntimeToastSeverityModeOverride, Theme, ThemeColors,
+    overlay_close_symbol, overlay_separator, resolved_overlay_border_set, resolved_toast_position,
+    resolved_toast_severity_mode, severity_error_icon, severity_info_icon, severity_success_icon,
+    severity_warning_icon, BorderSet, GlyphSet, Theme, ThemeColors, ToastPositionOverride,
+    ToastSeverityMode,
 };
 
 /// Maximum number of toasts kept in the history ring.
@@ -63,22 +64,14 @@ impl ToastSeverity {
         }
     }
 
-    /// Severity icon by glyph set.
+    /// Severity icon by glyph set, resolved through shared theme glyph tables.
     #[must_use]
     pub(crate) fn icon(&self, glyph_set: GlyphSet) -> &'static str {
-        match glyph_set {
-            GlyphSet::Unicode => match self {
-                Self::Info => "ℹ",
-                Self::Success => "✓",
-                Self::Warning => "⚠",
-                Self::Error => "✗",
-            },
-            GlyphSet::Ascii => match self {
-                Self::Info => "i",
-                Self::Success => "+",
-                Self::Warning => "!",
-                Self::Error => "x",
-            },
+        match self {
+            Self::Info => severity_info_icon(glyph_set),
+            Self::Success => severity_success_icon(glyph_set),
+            Self::Warning => severity_warning_icon(glyph_set),
+            Self::Error => severity_error_icon(glyph_set),
         }
     }
 
@@ -266,8 +259,13 @@ impl Default for ToastCenter {
 /// Format a single toast line for inline HUD display.
 #[must_use]
 #[cfg(test)]
-pub(crate) fn format_toast_inline(toast: &Toast, colors: &ThemeColors, max_width: usize) -> String {
-    let (prefix_plain, prefix_styled) = toast_prefix(toast, colors);
+pub(crate) fn format_toast_inline(
+    toast: &Toast,
+    theme: Theme,
+    colors: &ThemeColors,
+    max_width: usize,
+) -> String {
+    let (prefix_plain, prefix_styled) = toast_prefix(toast, colors, theme);
     // Calculate visible content budget: prefix + space + message
     let prefix_width = display_width(&prefix_plain) + 1;
     let msg_budget = max_width.saturating_sub(prefix_width);
@@ -340,14 +338,14 @@ pub(crate) fn format_toast_history_overlay(
     } else {
         // Show most recent entries (up to 10 visible in overlay).
         let visible_count = center.history.len().min(10);
-        let toasts: Vec<&Toast> = if toast_position_prefers_latest_first() {
+        let toasts: Vec<&Toast> = if toast_position_prefers_latest_first(theme) {
             center.history.iter().rev().take(visible_count).collect()
         } else {
             let start = center.history.len().saturating_sub(visible_count);
             center.history.iter().skip(start).collect()
         };
         for toast in toasts {
-            let (prefix_plain, prefix_styled) = toast_prefix(toast, &colors);
+            let (prefix_plain, prefix_styled) = toast_prefix(toast, &colors, theme);
             let plain_content = format!("{prefix_plain} {}", toast.message);
             let clipped = truncate_display(&plain_content, body_width);
             let clipped_width = display_width(&clipped);
@@ -390,20 +388,20 @@ pub(crate) fn toast_history_overlay_height(center: &ToastCenter) -> usize {
     content_rows + 4
 }
 
-fn toast_prefix(toast: &Toast, colors: &ThemeColors) -> (String, String) {
+fn toast_prefix(toast: &Toast, colors: &ThemeColors, theme: Theme) -> (String, String) {
     let icon = toast.severity.icon(colors.glyph_set);
     let label = format!("[{}]", toast.severity.label());
     let severity_color = toast.severity.color(colors);
-    match runtime_style_pack_overrides().toast_severity_mode_override {
-        Some(RuntimeToastSeverityModeOverride::Icon) => (
+    match resolved_toast_severity_mode(theme) {
+        Some(ToastSeverityMode::Icon) => (
             icon.to_string(),
             format!("{severity_color}{icon}{}", colors.reset),
         ),
-        Some(RuntimeToastSeverityModeOverride::Label) => (
+        Some(ToastSeverityMode::Label) => (
             label.clone(),
             format!("{severity_color}{label}{}", colors.reset),
         ),
-        Some(RuntimeToastSeverityModeOverride::IconAndLabel) | None => {
+        Some(ToastSeverityMode::IconAndLabel) | Some(ToastSeverityMode::Theme) | None => {
             let plain = format!("{icon} {label}");
             let styled = format!("{severity_color}{plain}{}", colors.reset);
             (plain, styled)
@@ -411,10 +409,10 @@ fn toast_prefix(toast: &Toast, colors: &ThemeColors) -> (String, String) {
     }
 }
 
-fn toast_position_prefers_latest_first() -> bool {
+fn toast_position_prefers_latest_first(theme: Theme) -> bool {
     matches!(
-        runtime_style_pack_overrides().toast_position_override,
-        Some(RuntimeToastPositionOverride::TopRight | RuntimeToastPositionOverride::TopCenter)
+        resolved_toast_position(theme),
+        Some(ToastPositionOverride::TopRight | ToastPositionOverride::TopCenter)
     )
 }
 
@@ -422,10 +420,16 @@ fn toast_position_prefers_latest_first() -> bool {
 mod tests {
     use super::*;
     use crate::ansi::strip_ansi;
+    use crate::test_env::with_env_overrides;
     use crate::theme::{
         runtime_style_pack_overrides, set_runtime_style_pack_overrides, RuntimeStylePackOverrides,
         RuntimeToastPositionOverride, RuntimeToastSeverityModeOverride,
     };
+
+    const STYLE_PACK_ENV_KEYS: &[&str] = &[
+        "VOICETERM_STYLE_PACK_JSON",
+        "VOICETERM_TEST_ENABLE_STYLE_PACK_ENV",
+    ];
 
     struct RuntimeOverridesGuard {
         previous: RuntimeStylePackOverrides,
@@ -442,6 +446,17 @@ mod tests {
         set_runtime_style_pack_overrides(overrides);
         let _guard = RuntimeOverridesGuard { previous };
         f()
+    }
+
+    fn with_style_pack_payload<T>(payload: &str, f: impl FnOnce() -> T) -> T {
+        with_env_overrides(
+            STYLE_PACK_ENV_KEYS,
+            &[
+                ("VOICETERM_STYLE_PACK_JSON", Some(payload)),
+                ("VOICETERM_TEST_ENABLE_STYLE_PACK_ENV", Some("1")),
+            ],
+            f,
+        )
     }
 
     #[test]
@@ -587,7 +602,7 @@ mod tests {
         let mut center = ToastCenter::new();
         center.push(ToastSeverity::Info, "A".repeat(200));
         let toast = &center.active_toasts()[0];
-        let formatted = format_toast_inline(toast, &colors, 40);
+        let formatted = format_toast_inline(toast, Theme::None, &colors, 40);
         // Should not exceed reasonable display width (excluding ANSI codes).
         assert!(formatted.len() < 300);
     }
@@ -604,10 +619,34 @@ mod tests {
                 let mut center = ToastCenter::new();
                 center.push(ToastSeverity::Warning, "check config");
                 let toast = &center.active_toasts()[0];
-                let formatted = format_toast_inline(toast, &colors, 80);
+                let formatted = format_toast_inline(toast, Theme::None, &colors, 80);
                 let plain = strip_ansi(&formatted);
                 assert!(plain.contains("[WARN]"));
                 assert!(!plain.contains("⚠"));
+            },
+        );
+    }
+
+    #[test]
+    fn format_toast_inline_uses_persisted_severity_mode_payload() {
+        let mut center = ToastCenter::new();
+        center.push(ToastSeverity::Warning, "check config");
+        let toast = center.active_toasts()[0].clone();
+        let baseline = strip_ansi(&format_toast_inline(
+            &toast,
+            Theme::None,
+            &Theme::None.colors(),
+            80,
+        ));
+        assert!(baseline.contains("⚠ [WARN] check config"));
+
+        with_style_pack_payload(
+            r#"{"version":4,"profile":"ops","base_theme":"none","components":{"toast_severity_mode":"label"}}"#,
+            || {
+                let formatted = format_toast_inline(&toast, Theme::None, &Theme::None.colors(), 80);
+                let plain = strip_ansi(&formatted);
+                assert!(plain.starts_with("[WARN] check config"));
+                assert!(!plain.contains('⚠'));
             },
         );
     }
@@ -654,6 +693,30 @@ mod tests {
                 assert!(oldest_idx.is_some());
                 assert!(newest_idx.is_some());
                 assert!(newest_idx.unwrap_or(usize::MAX) < oldest_idx.unwrap_or(0));
+            },
+        );
+    }
+
+    #[test]
+    fn format_toast_history_overlay_uses_persisted_toast_position_payload() {
+        let mut center = ToastCenter::new();
+        center.push(ToastSeverity::Info, "oldest");
+        center.push(ToastSeverity::Warning, "middle");
+        center.push(ToastSeverity::Error, "newest");
+        center.dismiss_all();
+
+        let baseline = format_toast_history_overlay(&center, Theme::None, 60);
+        let baseline_oldest = baseline.find("oldest").expect("baseline oldest toast");
+        let baseline_newest = baseline.find("newest").expect("baseline newest toast");
+        assert!(baseline_oldest < baseline_newest);
+
+        with_style_pack_payload(
+            r#"{"version":4,"profile":"ops","base_theme":"none","surfaces":{"toast_position":"top-right"}}"#,
+            || {
+                let output = format_toast_history_overlay(&center, Theme::None, 60);
+                let oldest_idx = output.find("oldest").expect("persisted oldest toast");
+                let newest_idx = output.find("newest").expect("persisted newest toast");
+                assert!(newest_idx < oldest_idx);
             },
         );
     }

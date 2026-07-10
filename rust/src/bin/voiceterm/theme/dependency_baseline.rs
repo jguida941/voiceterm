@@ -474,8 +474,8 @@ mod tests {
     #[test]
     fn dependency_pin_features_match_cargo_toml() {
         assert_eq!(RATATUI_PIN.features, &["crossterm"]);
-        assert!(RATATUI_PIN.no_default_features);
-        assert!(!CROSSTERM_PIN.no_default_features);
+        assert!(std::hint::black_box(RATATUI_PIN.no_default_features));
+        assert!(!std::hint::black_box(CROSSTERM_PIN.no_default_features));
     }
 
     #[test]

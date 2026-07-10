@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import json
 import shutil
-from datetime import datetime
 from pathlib import Path
 
-from ..common import confirm_or_abort, pipe_output, write_output
+from ..common import confirm_or_abort, emit_output, pipe_output, write_output
+from ..time_utils import utc_timestamp
 from ..config import REPO_ROOT
 from ..reports_retention import (
     DEFAULT_RETENTION_KEEP_RECENT,
@@ -102,7 +102,7 @@ def run(args) -> int:
     ok = not errors
     report = {
         "command": "reports-cleanup",
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": utc_timestamp(),
         "reports_root": plan["reports_root"],
         "reports_root_exists": plan["reports_root_exists"],
         "max_age_days": plan.get("max_age_days", DEFAULT_RETENTION_MAX_AGE_DAYS),
@@ -124,9 +124,14 @@ def run(args) -> int:
     output = (
         json.dumps(report, indent=2) if args.format == "json" else _render_md(report)
     )
-    write_output(output, args.output)
-    if args.pipe_command:
-        pipe_rc = pipe_output(output, args.pipe_command, args.pipe_args)
-        if pipe_rc != 0:
-            return pipe_rc
+    pipe_rc = emit_output(
+        output,
+        output_path=args.output,
+        pipe_command=args.pipe_command,
+        pipe_args=args.pipe_args,
+        writer=write_output,
+        piper=pipe_output,
+    )
+    if pipe_rc != 0:
+        return pipe_rc
     return 0 if ok else 1

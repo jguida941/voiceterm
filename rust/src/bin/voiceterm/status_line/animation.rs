@@ -1,10 +1,9 @@
 //! Status-line animation frames so recording/processing states feel alive.
 
-use crate::theme::{processing_spinner_symbol, ThemeColors};
+use crate::theme::{
+    heartbeat_frames, processing_spinner_symbol, transition_pulse_markers, GlyphSet, ThemeColors,
+};
 use std::time::{SystemTime, UNIX_EPOCH};
-
-const HEARTBEAT_FRAMES: &[char] = &['·', '•', '●', '•'];
-const TRANSITION_PULSE_MARKERS: &[&str] = &["✦", "•"];
 
 // Recording blink tuned to readable cadence:
 // - 0.8 Hz (1250 ms period) keeps attention without looking jittery.
@@ -31,16 +30,22 @@ pub(super) fn get_processing_spinner(colors: &ThemeColors) -> &'static str {
 }
 
 #[inline]
-pub(super) fn heartbeat_frame_index() -> usize {
+pub(super) fn heartbeat_frame_index(glyph_set: GlyphSet) -> usize {
+    let frames = heartbeat_frames(glyph_set);
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default();
-    (now.as_secs() % HEARTBEAT_FRAMES.len() as u64) as usize
+    (now.as_secs() % frames.len() as u64) as usize
 }
 
-pub(super) fn heartbeat_glyph(animate: bool) -> (char, bool) {
-    let frame_idx = if animate { heartbeat_frame_index() } else { 0 };
-    let glyph = HEARTBEAT_FRAMES.get(frame_idx).copied().unwrap_or('·');
+pub(super) fn heartbeat_glyph(animate: bool, glyph_set: GlyphSet) -> (char, bool) {
+    let frames = heartbeat_frames(glyph_set);
+    let frame_idx = if animate {
+        heartbeat_frame_index(glyph_set)
+    } else {
+        0
+    };
+    let glyph = frames.get(frame_idx).copied().unwrap_or(frames[0]);
     (glyph, frame_idx == 2)
 }
 
@@ -58,13 +63,14 @@ fn recording_pulse_on_at(now_ms: u64) -> bool {
     (now_ms % RECORDING_PULSE_PERIOD_MS) < RECORDING_PULSE_ON_MS
 }
 
-pub(super) fn transition_marker(progress: f32) -> &'static str {
+pub(super) fn transition_marker(progress: f32, glyph_set: GlyphSet) -> &'static str {
+    let markers = transition_pulse_markers(glyph_set);
     if progress <= 0.0 {
         ""
     } else if progress > 0.66 {
-        TRANSITION_PULSE_MARKERS[0]
+        markers[0]
     } else if progress > 0.33 {
-        TRANSITION_PULSE_MARKERS[1]
+        markers[1]
     } else {
         ""
     }
@@ -111,8 +117,9 @@ mod tests {
 
     #[test]
     fn heartbeat_frame_index_in_range() {
-        let idx = heartbeat_frame_index();
-        assert!(idx < HEARTBEAT_FRAMES.len());
+        let frames = heartbeat_frames(crate::theme::GlyphSet::Unicode);
+        let idx = heartbeat_frame_index(crate::theme::GlyphSet::Unicode);
+        assert!(idx < frames.len());
     }
 
     #[test]
@@ -128,10 +135,10 @@ mod tests {
 
     #[test]
     fn transition_marker_steps_down() {
-        assert_eq!(transition_marker(0.9), "✦");
-        assert_eq!(transition_marker(0.5), "•");
-        assert_eq!(transition_marker(0.1), "");
-        assert_eq!(transition_marker(0.0), "");
+        assert_eq!(transition_marker(0.9, GlyphSet::Unicode), "✦");
+        assert_eq!(transition_marker(0.5, GlyphSet::Unicode), "•");
+        assert_eq!(transition_marker(0.1, GlyphSet::Unicode), "");
+        assert_eq!(transition_marker(0.0, GlyphSet::Unicode), "");
     }
 
     #[test]
@@ -146,8 +153,14 @@ mod tests {
 
     #[test]
     fn transition_marker_thresholds_are_exclusive() {
-        assert_eq!(transition_marker(0.66), "•");
-        assert_eq!(transition_marker(0.33), "");
+        assert_eq!(transition_marker(0.66, GlyphSet::Unicode), "•");
+        assert_eq!(transition_marker(0.33, GlyphSet::Unicode), "");
+    }
+
+    #[test]
+    fn transition_marker_ascii_fallback() {
+        assert_eq!(transition_marker(0.9, GlyphSet::Ascii), "*");
+        assert_eq!(transition_marker(0.5, GlyphSet::Ascii), "*");
     }
 
     #[test]

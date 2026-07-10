@@ -44,6 +44,8 @@ const GROUPS: &[GroupSpec] = &[
     GroupSpec {
         title: "Voice",
         longs: &[
+            "capture-once",
+            "format",
             "auto-voice",
             "voice-send-mode",
             "wake-word",
@@ -133,6 +135,10 @@ const GROUPS: &[GroupSpec] = &[
             "dev",
             "dev-log",
             "dev-path",
+            "daemon",
+            "ws-port",
+            "no-ws",
+            "socket-path",
             "json-ipc",
             "help",
             "version",
@@ -621,6 +627,7 @@ mod tests {
         assert!(rendered.contains("Appearance"));
         assert!(rendered.contains("Diagnostics"));
         assert!(rendered.contains("--backend"));
+        assert!(rendered.contains("--capture-once"));
         assert!(rendered.contains("--voice-send-mode"));
     }
 

@@ -73,19 +73,26 @@ pub(super) fn handle_input_event(
                 refresh_button_registry_if_mouse(state, deps);
             }
             InputEvent::Bytes(bytes) => {
+                voiceterm::log_debug_content(&format!(
+                    "[input-debug] bytes_event: len={}, hex={}, hud_focus={:?}",
+                    bytes.len(),
+                    bytes
+                        .iter()
+                        .take(24)
+                        .map(|b| format!("{b:02x}"))
+                        .collect::<Vec<_>>()
+                        .join(" "),
+                    state.status_state.hud_button_focus
+                ));
                 if state.ui.suppress_startup_escape_input && is_arrow_escape_noise(&bytes) {
+                    log_debug("[input-debug] bytes_event consumed as startup escape noise");
                     return;
                 }
                 if let Some(keys) = parse_arrow_keys_only(&bytes) {
                     let preserve_caret = should_preserve_terminal_caret_navigation(state);
-                    let hud_focus_active = state.status_state.hud_button_focus.is_some();
                     let mut moved = false;
                     for key in keys {
-                        let direction = hud_navigation_direction_from_arrow(
-                            key,
-                            preserve_caret,
-                            hud_focus_active,
-                        );
+                        let direction = hud_navigation_direction_from_arrow(key, preserve_caret);
                         if direction != 0
                             && advance_hud_button_focus(
                                 &mut state.status_state,
@@ -187,6 +194,10 @@ pub(super) fn handle_input_event(
                 });
             }
             InputEvent::EnterKey => {
+                log_debug(&format!(
+                    "[input-debug] enter_key: hud_focus={:?}, overlay={:?}",
+                    state.status_state.hud_button_focus, state.ui.overlay_mode
+                ));
                 // Treat Enter as prompt-resolution input, but defer HUD re-enable
                 // to periodic/output reconciliation to avoid same-frame occlusion
                 // over approval options and tool cards.
@@ -222,6 +233,7 @@ pub(super) fn handle_input_event(
                         state.theme,
                     );
                 }
+                log_debug("[input-debug] enter_key: forwarding 0x0d to child pty");
                 if !write_or_queue_pty_input(state, deps, vec![0x0d]) {
                     *running = false;
                 } else {
@@ -233,11 +245,47 @@ pub(super) fn handle_input_event(
                 *running = false;
             }
             InputEvent::MouseClick { x, y } => {
+                // Hit-test against LIVE state instead of the cached registry:
+                // the cache went stale (or empty) across suppression/overlay/
+                // recording-state transitions, so clicks died after the first
+                // response streamed (field bug: "clicking works at session
+                // start, breaks after sending a message").
+                let hud_y = state
+                    .ui
+                    .terminal_rows
+                    .saturating_sub(y)
+                    .saturating_add(1);
+                let banner_rows = crate::status_line::status_banner_height_for_state(
+                    state.ui.terminal_cols as usize,
+                    &state.status_state,
+                ) as u16;
+                let hit = if (1..=banner_rows).contains(&hud_y) {
+                    crate::status_line::get_button_positions(
+                        &state.status_state,
+                        state.theme,
+                        state.ui.terminal_cols as usize,
+                    )
+                    .into_iter()
+                    .find(|pos| pos.row == hud_y && x >= pos.start_x && x <= pos.end_x)
+                    .map(|pos| pos.action)
+                } else {
+                    None
+                };
+                log_debug(&format!(
+                    "[input-debug] mouse_click: x={}, y={}, rows={}, hud_y={}, banner_rows={}, mouse_enabled={}, hit={:?}",
+                    x,
+                    y,
+                    state.ui.terminal_rows,
+                    hud_y,
+                    banner_rows,
+                    state.status_state.mouse_enabled,
+                    hit
+                ));
                 if !state.status_state.mouse_enabled {
                     return;
                 }
 
-                if let Some(action) = deps.button_registry.find_at(x, y, state.ui.terminal_rows) {
+                if let Some(action) = hit {
                     if action == ButtonAction::ThemePicker {
                         reset_theme_studio_selection(state);
                     }
@@ -435,15 +483,12 @@ fn should_send_staged_text_hotkey(state: &EventLoopState) -> bool {
     state.config.voice_send_mode == VoiceSendMode::Insert && state.status_state.insert_pending_send
 }
 
-fn hud_navigation_direction_from_arrow(
-    key: ArrowKey,
-    preserve_terminal_caret: bool,
-    hud_focus_active: bool,
-) -> i32 {
+fn hud_navigation_direction_from_arrow(key: ArrowKey, preserve_terminal_caret: bool) -> i32 {
+    // Only Left/Right navigate horizontal HUD buttons. Up/Down always pass
+    // through to the wrapped terminal so Claude/Cursor keeps input ownership.
+    // Vertical overlays (Settings, Review, etc.) handle their own Up/Down
+    // through the separate overlay input handler.
     match key {
-        // Keep up/down available for backend prompt menus unless HUD focus is active.
-        ArrowKey::Up if hud_focus_active => -1,
-        ArrowKey::Down if hud_focus_active => 1,
         ArrowKey::Left if !preserve_terminal_caret => -1,
         ArrowKey::Right if !preserve_terminal_caret => 1,
         _ => 0,
@@ -594,22 +639,23 @@ mod tests {
     }
 
     #[rstest]
-    #[case(ArrowKey::Left, false, false, -1)]
-    #[case(ArrowKey::Right, false, false, 1)]
-    #[case(ArrowKey::Left, true, false, 0)]
-    #[case(ArrowKey::Right, true, false, 0)]
-    #[case(ArrowKey::Up, false, true, -1)]
-    #[case(ArrowKey::Down, false, true, 1)]
-    #[case(ArrowKey::Up, false, false, 0)]
-    #[case(ArrowKey::Down, false, false, 0)]
+    #[case(ArrowKey::Left, false, -1)]
+    #[case(ArrowKey::Right, false, 1)]
+    #[case(ArrowKey::Left, true, 0)]
+    #[case(ArrowKey::Right, true, 0)]
+    // Up/Down always pass through to the terminal (direction 0), regardless of
+    // HUD focus state, so Claude/Cursor keeps vertical input ownership.
+    #[case(ArrowKey::Up, false, 0)]
+    #[case(ArrowKey::Down, false, 0)]
+    #[case(ArrowKey::Up, true, 0)]
+    #[case(ArrowKey::Down, true, 0)]
     fn hud_navigation_direction_from_arrow_matches_input_ownership_contract(
         #[case] key: ArrowKey,
         #[case] preserve_terminal_caret: bool,
-        #[case] hud_focus_active: bool,
         #[case] expected_direction: i32,
     ) {
         assert_eq!(
-            hud_navigation_direction_from_arrow(key, preserve_terminal_caret, hud_focus_active),
+            hud_navigation_direction_from_arrow(key, preserve_terminal_caret),
             expected_direction
         );
     }
@@ -629,12 +675,12 @@ mod tests {
             should_preserve_terminal_caret_navigation_for_input(VoiceSendMode::Insert, true);
         assert!(preserve, "host={host}, provider={provider}");
         assert_eq!(
-            hud_navigation_direction_from_arrow(ArrowKey::Left, preserve, false),
+            hud_navigation_direction_from_arrow(ArrowKey::Left, preserve),
             0,
             "host={host}, provider={provider}"
         );
         assert_eq!(
-            hud_navigation_direction_from_arrow(ArrowKey::Right, preserve, false),
+            hud_navigation_direction_from_arrow(ArrowKey::Right, preserve),
             0,
             "host={host}, provider={provider}"
         );
@@ -655,12 +701,12 @@ mod tests {
             should_preserve_terminal_caret_navigation_for_input(VoiceSendMode::Insert, false);
         assert!(!preserve, "host={host}, provider={provider}");
         assert_eq!(
-            hud_navigation_direction_from_arrow(ArrowKey::Left, preserve, false),
+            hud_navigation_direction_from_arrow(ArrowKey::Left, preserve),
             -1,
             "host={host}, provider={provider}"
         );
         assert_eq!(
-            hud_navigation_direction_from_arrow(ArrowKey::Right, preserve, false),
+            hud_navigation_direction_from_arrow(ArrowKey::Right, preserve),
             1,
             "host={host}, provider={provider}"
         );

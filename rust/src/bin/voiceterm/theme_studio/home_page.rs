@@ -158,6 +158,40 @@ pub(crate) fn format_theme_studio(view: &ThemeStudioView, width: usize) -> Strin
     lines.join("\n")
 }
 
+struct ThemeStudioRow {
+    label: &'static str,
+    value: String,
+    tip: &'static str,
+    read_only: bool,
+}
+
+fn theme_studio_row_editable(
+    label: &'static str,
+    value: String,
+    tip: &'static str,
+) -> ThemeStudioRow {
+    ThemeStudioRow {
+        label,
+        value,
+        tip,
+        read_only: false,
+    }
+}
+
+fn theme_studio_row_readonly(
+    label: &'static str,
+    value: String,
+    tip: &'static str,
+    read_only: bool,
+) -> ThemeStudioRow {
+    ThemeStudioRow {
+        label,
+        value,
+        tip,
+        read_only,
+    }
+}
+
 fn format_theme_studio_option_line(
     view: &ThemeStudioView,
     colors: &ThemeColors,
@@ -166,14 +200,19 @@ fn format_theme_studio_option_line(
     inner_width: usize,
 ) -> String {
     const LABEL_WIDTH: usize = 20;
-    let (label, value, _tip, read_only) = theme_studio_row(view, item);
+    let row = theme_studio_row(view, item);
     let marker = if selected {
         overlay_row_marker(colors.glyph_set)
     } else {
         " "
     };
-    let row_text = format!("{marker} {:<width$} {value}", label, width = LABEL_WIDTH);
-    format_theme_studio_menu_row(colors, inner_width, &row_text, selected, read_only)
+    let row_text = format!(
+        "{marker} {:<width$} {}",
+        row.label,
+        row.value,
+        width = LABEL_WIDTH
+    );
+    format_theme_studio_menu_row(colors, inner_width, &row_text, selected, row.read_only)
 }
 
 fn format_theme_studio_tip_row(
@@ -182,8 +221,8 @@ fn format_theme_studio_tip_row(
     inner_width: usize,
 ) -> String {
     let selected_item = theme_studio_item_at(view.selected);
-    let (_label, _value, tip, _read_only) = theme_studio_row(view, &selected_item);
-    let text = format!(" tip: {tip}");
+    let row = theme_studio_row(view, &selected_item);
+    let text = format!(" tip: {}", row.tip);
     let clipped = truncate_display(&text, inner_width);
     let pad = " ".repeat(inner_width.saturating_sub(display_width(&clipped)));
     format!(
@@ -234,132 +273,110 @@ fn format_theme_studio_menu_row(
     )
 }
 
-fn theme_studio_row(
-    view: &ThemeStudioView,
-    item: &ThemeStudioItem,
-) -> (&'static str, String, String, bool) {
+fn theme_studio_row(view: &ThemeStudioView, item: &ThemeStudioItem) -> ThemeStudioRow {
     match item {
-        ThemeStudioItem::ThemePicker => (
+        ThemeStudioItem::ThemePicker => theme_studio_row_editable(
             "Theme picker",
             button_label("Open"),
-            "Open classic palette browser for quick theme apply.".to_string(),
-            false,
+            "Open classic palette browser for quick theme apply.",
         ),
-        ThemeStudioItem::HudStyle => (
+        ThemeStudioItem::HudStyle => theme_studio_row_editable(
             "HUD style",
             button_label(&view.hud_style.to_string()),
-            "Cycle HUD style (Full, Minimal, Hidden).".to_string(),
-            false,
+            "Cycle HUD style (Full, Minimal, Hidden).",
         ),
-        ThemeStudioItem::HudBorders => (
+        ThemeStudioItem::HudBorders => theme_studio_row_editable(
             "HUD borders",
             button_label(&view.hud_border_style.to_string()),
-            "Cycle Full HUD border style presets.".to_string(),
-            false,
+            "Cycle Full HUD border style presets.",
         ),
-        ThemeStudioItem::HudPanel => (
+        ThemeStudioItem::HudPanel => theme_studio_row_editable(
             "Right panel",
             button_label(&view.hud_right_panel.to_string()),
-            "Cycle right-panel mode (Ribbon, Dots, Heartbeat, Off).".to_string(),
-            false,
+            "Cycle right-panel mode (Ribbon, Dots, Heartbeat, Off).",
         ),
-        ThemeStudioItem::HudAnimate => (
+        ThemeStudioItem::HudAnimate => theme_studio_row_editable(
             "Panel animation",
             button_label(panel_animation_mode_label(
                 view.hud_right_panel_recording_only,
             )),
-            "Toggle panel animation mode (recording-only/always).".to_string(),
-            false,
+            "Toggle panel animation mode (recording-only/always).",
         ),
-        ThemeStudioItem::ColorsGlyphs => (
+        ThemeStudioItem::ColorsGlyphs => theme_studio_row_editable(
             "Glyph profile",
             button_label(glyph_profile_label(view.glyph_set_override)),
-            "Cycle glyph profile (theme/unicode/ascii).".to_string(),
-            false,
+            "Cycle glyph profile (theme/unicode/ascii).",
         ),
-        ThemeStudioItem::LayoutMotion => (
+        ThemeStudioItem::LayoutMotion => theme_studio_row_editable(
             "Indicator set",
             button_label(indicator_set_label(view.indicator_set_override)),
-            "Cycle indicator set (theme/ascii/dot/diamond).".to_string(),
-            false,
+            "Cycle indicator set (theme/ascii/dot/diamond).",
         ),
-        ThemeStudioItem::ProgressSpinner => (
+        ThemeStudioItem::ProgressSpinner => theme_studio_row_editable(
             "Progress spinner",
             button_label(progress_spinner_label(view.progress_style_override)),
-            "Cycle spinner style (theme/braille/dots/line/block).".to_string(),
-            false,
+            "Cycle spinner style (theme/braille/dots/line/block).",
         ),
-        ThemeStudioItem::ProgressBars => (
+        ThemeStudioItem::ProgressBars => theme_studio_row_editable(
             "Progress bars",
             button_label(progress_bar_family_label(view.progress_bar_family_override)),
-            "Cycle bar family (theme/bar/compact/blocks/braille).".to_string(),
-            false,
+            "Cycle bar family (theme/bar/compact/blocks/braille).",
         ),
-        ThemeStudioItem::ThemeBorders => (
+        ThemeStudioItem::ThemeBorders => theme_studio_row_editable(
             "Theme borders",
             button_label(theme_border_label(view.border_style_override)),
-            "Cycle theme border profile (theme/single/rounded/double/heavy/none).".to_string(),
-            false,
+            "Cycle theme border profile (theme/single/rounded/double/heavy/none).",
         ),
-        ThemeStudioItem::VoiceScene => (
+        ThemeStudioItem::VoiceScene => theme_studio_row_editable(
             "Voice scene",
             button_label(voice_scene_label(view.voice_scene_style_override)),
-            "Cycle scene style (theme/pulse/static/minimal).".to_string(),
-            false,
+            "Cycle scene style (theme/pulse/static/minimal).",
         ),
-        ThemeStudioItem::ToastPosition => (
+        ThemeStudioItem::ToastPosition => theme_studio_row_editable(
             "Toast position",
             button_label(toast_position_label(view.toast_position_override)),
-            "Cycle toast placement (theme/top-right/bottom-right/top-center/bottom-center)."
-                .to_string(),
-            false,
+            "Cycle toast placement (theme/top-right/bottom-right/top-center/bottom-center).",
         ),
-        ThemeStudioItem::StartupSplash => (
+        ThemeStudioItem::StartupSplash => theme_studio_row_editable(
             "Startup splash",
             button_label(startup_style_label(view.startup_style_override)),
-            "Cycle splash style (theme/full/minimal/hidden).".to_string(),
-            false,
+            "Cycle splash style (theme/full/minimal/hidden).",
         ),
-        ThemeStudioItem::ToastSeverity => (
+        ThemeStudioItem::ToastSeverity => theme_studio_row_editable(
             "Toast severity",
             button_label(toast_severity_mode_label(view.toast_severity_mode_override)),
-            "Cycle toast severity display (theme/icon/label/icon+label).".to_string(),
-            false,
+            "Cycle toast severity display (theme/icon/label/icon+label).",
         ),
-        ThemeStudioItem::BannerStyle => (
+        ThemeStudioItem::BannerStyle => theme_studio_row_editable(
             "Banner style",
             button_label(banner_style_label(view.banner_style_override)),
-            "Cycle startup banner style (theme/full/compact/minimal/hidden).".to_string(),
-            false,
+            "Cycle startup banner style (theme/full/compact/minimal/hidden).",
         ),
-        ThemeStudioItem::UndoEdit => (
+        ThemeStudioItem::UndoEdit => theme_studio_row_readonly(
             "Undo edit",
             button_label(if view.undo_available { "Undo" } else { "Empty" }),
-            "Revert the most recent style-pack override edit.".to_string(),
+            "Revert the most recent style-pack override edit.",
             !view.undo_available,
         ),
-        ThemeStudioItem::RedoEdit => (
+        ThemeStudioItem::RedoEdit => theme_studio_row_readonly(
             "Redo edit",
             button_label(if view.redo_available { "Redo" } else { "Empty" }),
-            "Re-apply the most recently undone override edit.".to_string(),
+            "Re-apply the most recently undone override edit.",
             !view.redo_available,
         ),
-        ThemeStudioItem::RollbackEdits => (
+        ThemeStudioItem::RollbackEdits => theme_studio_row_readonly(
             "Rollback edits",
             button_label(if view.runtime_overrides_dirty {
                 "Rollback"
             } else {
                 "Clean"
             }),
-            "Reset all runtime style-pack overrides to theme defaults.".to_string(),
+            "Reset all runtime style-pack overrides to theme defaults.",
             !view.runtime_overrides_dirty,
         ),
-        ThemeStudioItem::Close => (
-            "Close",
-            button_label("Close"),
-            "Dismiss Theme Studio.".to_string(),
-            false,
-        ),
+        ThemeStudioItem::Close => {
+            theme_studio_row_editable("Close", button_label("Close"), "Dismiss Theme Studio.")
+        }
     }
 }
 

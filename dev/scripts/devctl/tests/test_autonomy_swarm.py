@@ -9,7 +9,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from dev.scripts.devctl import autonomy_swarm_helpers
+from dev.scripts.devctl.autonomy import swarm_helpers as autonomy_swarm_helpers
 from dev.scripts.devctl.cli import build_parser
 from dev.scripts.devctl.commands import autonomy_swarm
 
@@ -114,6 +114,97 @@ class AutonomySwarmCommandTests(unittest.TestCase):
             rc = autonomy_swarm.run(args)
 
             self.assertEqual(rc, 2)
+
+    @patch("dev.scripts.devctl.commands.autonomy_swarm.build_coordination_snapshot")
+    def test_mutable_swarm_requires_safe_fanout(self, coordination_mock) -> None:
+        coordination_mock.return_value = SimpleNamespace(
+            safe_to_fanout=False,
+            fanout_posture="single_agent_only",
+            resync_reasons=("reviewed_hash_stale",),
+        )
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            args = make_args(
+                output_root=str(Path(tmp_dir) / "swarms"),
+                mode="fix-only",
+                fix_command="echo fix",
+                dry_run=False,
+            )
+
+            rc = autonomy_swarm.run(args)
+
+            self.assertEqual(rc, 2)
+            coordination_mock.assert_called_once()
+
+    @patch("dev.scripts.devctl.commands.autonomy_swarm._run_one_agent")
+    @patch("dev.scripts.devctl.commands.autonomy_swarm.recommend_agent_count")
+    @patch("dev.scripts.devctl.commands.autonomy_swarm.collect_refactor_metadata")
+    @patch("dev.scripts.devctl.commands.autonomy_swarm.build_coordination_snapshot")
+    def test_mutable_swarm_runs_when_fanout_is_safe(
+        self,
+        coordination_mock,
+        metadata_mock,
+        recommend_mock,
+        run_one_agent_mock,
+    ) -> None:
+        coordination_mock.return_value = SimpleNamespace(
+            safe_to_fanout=True,
+            fanout_posture="active_fanout",
+            resync_reasons=(),
+        )
+        metadata_mock.return_value = (
+            {
+                "files_changed": 1,
+                "lines_changed": 8,
+                "prompt_tokens": 500,
+                "difficulty_hits": [],
+            },
+            [],
+        )
+        recommend_mock.return_value = (
+            1,
+            ["heuristic selected 1 agent"],
+            {
+                "base": 1.0,
+                "lines_factor": 0.01,
+                "files_factor": 0.1,
+                "difficulty_factor": 0.0,
+                "prompt_factor": 0.1,
+                "raw_score": 1.21,
+                "token_cap": None,
+            },
+        )
+        run_one_agent_mock.return_value = {
+            "agent": "AGENT-1",
+            "index": 1,
+            "returncode": 0,
+            "ok": True,
+            "resolved": True,
+            "reason": "resolved",
+            "rounds_completed": 1,
+            "tasks_completed": 1,
+            "report_json": "a.json",
+            "report_md": "a.md",
+            "stdout_log": "out.log",
+            "stderr_log": "err.log",
+        }
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            output_path = Path(tmp_dir) / "swarm.json"
+            args = make_args(
+                output_root=str(Path(tmp_dir) / "swarms"),
+                output=str(output_path),
+                mode="plan-then-fix",
+                fix_command="echo fix",
+                dry_run=False,
+            )
+
+            rc = autonomy_swarm.run(args)
+
+            self.assertEqual(rc, 0)
+            coordination_mock.assert_called_once()
+            payload = json.loads(output_path.read_text(encoding="utf-8"))
+            self.assertEqual(payload["summary"]["executed_agents"], 1)
 
     @patch("dev.scripts.devctl.commands.autonomy_swarm.recommend_agent_count")
     @patch("dev.scripts.devctl.commands.autonomy_swarm.collect_refactor_metadata")
@@ -419,7 +510,7 @@ class AutonomySwarmCommandTests(unittest.TestCase):
 
 
 class AutonomySwarmHelperTests(unittest.TestCase):
-    @patch("dev.scripts.devctl.autonomy_swarm_helpers.subprocess.run")
+    @patch("dev.scripts.devctl.autonomy.swarm_helpers.subprocess.run")
     def test_diff_stats_falls_back_to_working_tree_when_range_empty(
         self, run_mock
     ) -> None:

@@ -4,28 +4,29 @@ from __future__ import annotations
 
 import json
 import shutil
-from datetime import datetime
-from typing import Any, Dict
+from typing import Any
 
-from ..common import pipe_output, write_output
+from ..common import emit_output, pipe_output, write_output
 from ..config import REPO_ROOT
-from ..triage_loop_escalation import (
+from ..time_utils import utc_timestamp
+from ..triage.loop_escalation import (
     publish_review_escalation_comment as _publish_review_escalation_comment_support,
 )
-from ..triage_loop_policy import evaluate_fix_policy, load_policy
-from ..triage_loop_render import build_master_plan_proposal, render_markdown
-from ..triage_loop_support import (
+from ..triage.loop_policy import evaluate_fix_policy, load_policy
+from ..triage.loop_render import build_master_plan_proposal, render_markdown
+from ..triage.loop_support import (
     build_dry_run_report,
     default_mp_proposal_path,
     mode_fix_command,
     non_blocking_connectivity_report,
-)
-from ..triage_loop_support import (
-    publish_notification_comment as _publish_notification_comment_support,
-)
-from ..triage_loop_support import (
     resolve_path,
     write_report_bundle,
+)
+from ..triage.loop_support import (
+    preflight_github_connectivity as _preflight_github_connectivity_support,
+)
+from ..triage.loop_support import (
+    publish_notification_comment as _publish_notification_comment_support,
 )
 
 try:
@@ -41,42 +42,32 @@ except ModuleNotFoundError:
         looks_like_connectivity_error as _looks_like_connectivity_error,
     )
 
+from ..repo_packs.process_helpers import resolve_repo, run_capture
+
 try:
     from dev.scripts.checks.coderabbit_ralph_loop_core import (
         execute_loop,
         gh_json,
         normalize_sha,
-        resolve_repo,
-        run_capture,
     )
 except ModuleNotFoundError:
     from checks.coderabbit_ralph_loop_core import (
         execute_loop,
         gh_json,
         normalize_sha,
-        resolve_repo,
-        run_capture,
     )
 
 
 def _is_non_blocking_local_connectivity_error(message: str) -> bool:
-    return (
-        bool(message)
-        and _looks_like_connectivity_error(message)
-        and not _is_ci_environment()
-    )
+    return bool(message) and _looks_like_connectivity_error(message) and not _is_ci_environment()
 
 
 def _preflight_github_connectivity() -> str | None:
-    rc, stdout, stderr = run_capture(
-        ["gh", "api", "rate_limit", "--jq", ".resources.core.remaining"]
+    return _preflight_github_connectivity_support(
+        run_capture,
+        is_ci_environment_fn=_is_ci_environment,
+        looks_like_connectivity_error_fn=_looks_like_connectivity_error,
     )
-    if rc == 0:
-        return None
-    message = (stderr or stdout or "gh api rate_limit failed").strip()
-    if _is_non_blocking_local_connectivity_error(message):
-        return message
-    return None
 
 
 def _publish_notification_comment(report: dict[str, Any], args) -> dict[str, Any]:
@@ -103,9 +94,7 @@ def run(args) -> int:
     """Run a bounded CodeRabbit medium/high backlog loop and emit reports."""
     repo = resolve_repo(args.repo)
     if not repo:
-        print(
-            "Error: unable to resolve repository (pass --repo or set GITHUB_REPOSITORY)."
-        )
+        print("Error: unable to resolve repository (pass --repo or set GITHUB_REPOSITORY).")
         return 2
     if args.max_attempts < 1:
         print("Error: --max-attempts must be >= 1")
@@ -135,12 +124,10 @@ def run(args) -> int:
     if fix_block_reason:
         warnings.append(fix_block_reason)
     if args.mode in {"plan-then-fix", "fix-only"} and not effective_fix_command:
-        warnings.append(
-            f"mode={args.mode} requested but no --fix-command configured; backlog can only be reported."
-        )
+        warnings.append(f"mode={args.mode} requested but no --fix-command configured; backlog can only be reported.")
 
     if args.dry_run:
-        loop_report: Dict[str, Any] = build_dry_run_report(
+        loop_report: dict[str, Any] = build_dry_run_report(
             repo=repo,
             args=args,
             effective_fix_command=effective_fix_command,
@@ -151,8 +138,7 @@ def run(args) -> int:
         connectivity_error = _preflight_github_connectivity()
         if connectivity_error:
             warnings.append(
-                "unable to reach GitHub API from local environment; "
-                "triage-loop treated as non-blocking outside CI."
+                "unable to reach GitHub API from local environment; " "triage-loop treated as non-blocking outside CI."
             )
             loop_report = non_blocking_connectivity_report(
                 repo=repo,
@@ -181,8 +167,7 @@ def run(args) -> int:
     reason_text = str(loop_report.get("reason") or "")
     if _is_non_blocking_local_connectivity_error(reason_text):
         warnings.append(
-            "nested triage-loop reported GitHub connectivity failure; "
-            "converted to non-blocking local result."
+            "nested triage-loop reported GitHub connectivity failure; " "converted to non-blocking local result."
         )
         loop_report = {
             **loop_report,
@@ -190,11 +175,11 @@ def run(args) -> int:
             "reason": "gh_unreachable_local_non_blocking",
         }
 
-    report: Dict[str, Any] = dict(loop_report)
+    report: dict[str, Any] = dict(loop_report)
     report.update(
         {
             "command": "triage-loop",
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": utc_timestamp(),
             "mode": args.mode,
             "notify": args.notify,
             "comment_target": args.comment_target,
@@ -261,19 +246,19 @@ def run(args) -> int:
             "mp_proposal": str(proposal_path),
         }
 
-    output = (
-        json.dumps(report, indent=2)
-        if args.format == "json"
-        else render_markdown(report)
-    )
+    output = json.dumps(report, indent=2) if args.format == "json" else render_markdown(report)
 
-    write_output(output, args.output)
-    if args.json_output:
-        json_payload = json.dumps(report, indent=2)
-        write_output(json_payload, args.json_output)
-    if args.pipe_command:
-        pipe_rc = pipe_output(output, args.pipe_command, args.pipe_args)
-        if pipe_rc != 0:
-            return pipe_rc
+    json_payload = json.dumps(report, indent=2)
+    pipe_rc = emit_output(
+        output,
+        output_path=args.output,
+        pipe_command=args.pipe_command,
+        pipe_args=args.pipe_args,
+        additional_outputs=[(json_payload, args.json_output)] if args.json_output else None,
+        writer=write_output,
+        piper=pipe_output,
+    )
+    if pipe_rc != 0:
+        return pipe_rc
 
     return 0 if report.get("ok") else 1

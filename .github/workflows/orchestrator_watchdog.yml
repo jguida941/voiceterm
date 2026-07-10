@@ -19,6 +19,7 @@ jobs:
     if: ${{ vars.ORCHESTRATOR_WATCHDOG_MODE != '' && vars.ORCHESTRATOR_WATCHDOG_MODE != 'off' }}
     name: multi-agent sla watchdog
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     env:
       WATCHDOG_MODE: ${{ vars.ORCHESTRATOR_WATCHDOG_MODE }}
     steps:

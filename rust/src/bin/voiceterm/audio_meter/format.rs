@@ -1,6 +1,11 @@
 //! Audio meter formatting so live levels are readable across glyph profiles.
 
-use crate::theme::{progress_glyph_profile, waveform_bars, GlyphSet, Theme, ThemeColors};
+#[cfg(test)]
+use crate::theme::GlyphSet;
+use crate::theme::{
+    meter_peak_marker, meter_threshold_marker, progress_glyph_profile, waveform_bars, Theme,
+    ThemeColors,
+};
 
 use super::{AudioLevel, MeterConfig};
 
@@ -22,10 +27,7 @@ fn format_level_meter_with_colors(
 ) -> String {
     let range = config.max_db - config.min_db;
     let glyphs = progress_glyph_profile(colors);
-    let peak_marker = match colors.glyph_set {
-        GlyphSet::Unicode => '│',
-        GlyphSet::Ascii => '|',
-    };
+    let peak_marker = meter_peak_marker(colors.glyph_set);
 
     // Calculate bar position (0.0 to 1.0)
     let rms_pos = ((level.rms_db - config.min_db) / range).clamp(0.0, 1.0);
@@ -124,10 +126,7 @@ pub fn format_mic_meter_display(
     let threshold_char = (threshold_pos * config.width as f32) as usize;
     let mut threshold_line = " ".repeat(9); // "Ambient  " width
     threshold_line.push_str(&" ".repeat(threshold_char));
-    let threshold_marker = match colors.glyph_set {
-        GlyphSet::Unicode => '▲',
-        GlyphSet::Ascii => '^',
-    };
+    let threshold_marker = meter_threshold_marker(colors.glyph_set);
     threshold_line.push_str(&format!(
         "{}{threshold_marker}{}",
         colors.info, colors.reset

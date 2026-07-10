@@ -23,9 +23,9 @@ use detector::{resolve_wake_vad_threshold_db, AudioWakeDetector, WakeListenOutco
 
 // Re-export matcher and detector items used by tests (via `use super::*`).
 #[cfg(test)]
-pub(self) use detector::sensitivity_to_wake_vad_threshold_db;
+use detector::sensitivity_to_wake_vad_threshold_db;
 #[cfg(test)]
-pub(self) use matcher::{
+use matcher::{
     canonicalize_hotword_tokens, contains_hotword_phrase, detect_wake_event,
     normalize_for_hotword_match, transcript_matches_hotword,
 };
@@ -133,6 +133,26 @@ impl WakeListener {
 
     fn set_prioritize_send_window(&self, enabled: bool) {
         self.prioritize_send_flag.store(enabled, Ordering::Relaxed);
+    }
+
+    fn try_join(self) -> std::result::Result<(), Self> {
+        let WakeListener {
+            stop_flag,
+            pause_flag,
+            capture_stop_flag,
+            prioritize_send_flag,
+            handle,
+        } = self;
+        match join_thread_with_timeout("wake-word", handle) {
+            Ok(()) => Ok(()),
+            Err(handle) => Err(Self {
+                stop_flag,
+                pause_flag,
+                capture_stop_flag,
+                prioritize_send_flag,
+                handle,
+            }),
+        }
     }
 }
 
@@ -250,21 +270,8 @@ impl WakeWordRuntime {
             return;
         }
         if let Some(listener) = self.listener.take() {
-            let WakeListener {
-                stop_flag,
-                pause_flag,
-                capture_stop_flag,
-                prioritize_send_flag,
-                handle,
-            } = listener;
-            if let Err(handle) = join_thread_with_timeout("wake-word", handle) {
-                self.listener = Some(WakeListener {
-                    stop_flag,
-                    pause_flag,
-                    capture_stop_flag,
-                    prioritize_send_flag,
-                    handle,
-                });
+            if let Err(listener) = listener.try_join() {
+                self.listener = Some(listener);
                 return;
             }
         }
@@ -325,26 +332,13 @@ impl WakeWordRuntime {
             return true;
         };
         listener.request_stop();
-        let WakeListener {
-            stop_flag,
-            pause_flag,
-            capture_stop_flag,
-            prioritize_send_flag,
-            handle,
-        } = listener;
-        match join_thread_with_timeout("wake-word", handle) {
+        match listener.try_join() {
             Ok(()) => {
                 self.active_settings = None;
                 true
             }
-            Err(handle) => {
-                self.listener = Some(WakeListener {
-                    stop_flag,
-                    pause_flag,
-                    capture_stop_flag,
-                    prioritize_send_flag,
-                    handle,
-                });
+            Err(listener) => {
+                self.listener = Some(listener);
                 self.start_retry_after =
                     Some(Instant::now() + Duration::from_millis(WAKE_LISTENER_RETRY_BACKOFF_MS));
                 log_debug(

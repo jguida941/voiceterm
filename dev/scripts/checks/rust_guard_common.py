@@ -1,91 +1,10 @@
-"""Shared helpers for Rust guard scripts."""
+"""Backward-compat shim -- use `rust_analysis.rust_guard_common`."""
+# shim-owner: tooling/code-governance
+# shim-reason: preserve the stable Rust guard-common import surface during package extraction
+# shim-expiry: 2026-09-30
+# shim-target: dev/scripts/checks/rust_analysis/rust_guard_common.py
 
-from __future__ import annotations
-
-import subprocess
-from pathlib import Path
-
-
-def run_git(
-    repo_root: Path,
-    args: list[str],
-    *,
-    check: bool = True,
-) -> subprocess.CompletedProcess[str]:
-    """Run git with a stable error contract used by guard scripts."""
-    result = subprocess.run(
-        args,
-        cwd=repo_root,
-        text=True,
-        capture_output=True,
-        check=False,
-    )
-    if check and result.returncode != 0:
-        raise RuntimeError(
-            (result.stderr or result.stdout).strip() or "git command failed"
-        )
-    return result
-
-
-def validate_ref(run_git_fn, ref: str) -> None:
-    """Ensure a ref resolves before commit-range checks run."""
-    run_git_fn(["git", "rev-parse", "--verify", ref], check=True)
-
-
-def is_test_path(path: Path) -> bool:
-    """Return True when a Rust path is test-only."""
-    normalized = f"/{path.as_posix()}/"
-    name = path.name
-    return (
-        "/tests/" in normalized
-        or name == "tests.rs"
-        or name.endswith("_test.rs")
-        or name.endswith("_tests.rs")
-    )
-
-
-def read_text_from_ref(run_git_fn, path: Path, ref: str) -> str | None:
-    """Read repo-relative file text from a git ref."""
-    spec = f"{ref}:{path.as_posix()}"
-    result = run_git_fn(["git", "show", spec], check=False)
-    if result.returncode == 0:
-        return result.stdout
-
-    stderr = result.stderr.strip().lower()
-    missing_markers = ("does not exist in", "exists on disk, but not in", "fatal: path")
-    if any(marker in stderr for marker in missing_markers):
-        return None
-    raise RuntimeError(result.stderr.strip() or f"failed to read {spec}")
-
-
-def read_text_from_worktree(repo_root: Path, path: Path) -> str | None:
-    """Read repo-relative file text from the worktree."""
-    absolute = repo_root / path
-    if not absolute.exists():
-        return None
-    return absolute.read_text(encoding="utf-8", errors="replace")
-
-
-class GuardContext:
-    """Bound repo-root context for guard scripts."""
-
-    def __init__(self, repo_root: Path) -> None:
-        self.repo_root = repo_root
-
-    def run_git(
-        self, args: list[str], *, check: bool = True
-    ) -> subprocess.CompletedProcess[str]:
-        """Run git with this context's repo root."""
-        return run_git(self.repo_root, args, check=check)
-
-    def validate_ref(self, ref: str) -> None:
-        """Ensure a ref resolves."""
-        validate_ref(self.run_git, ref)
-
-    def read_text_from_ref(self, path: Path, ref: str) -> str | None:
-        """Read file text from a git ref."""
-        return read_text_from_ref(self.run_git, path, ref)
-
-    def read_text_from_worktree(self, path: Path) -> str | None:
-        """Read file text from the worktree."""
-        return read_text_from_worktree(self.repo_root, path)
+try:
+    from rust_analysis.rust_guard_common import *
+except ModuleNotFoundError:  # pragma: no cover - repo-package fallback
+    from dev.scripts.checks.rust_analysis.rust_guard_common import *

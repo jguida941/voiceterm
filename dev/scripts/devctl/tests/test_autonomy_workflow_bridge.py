@@ -28,7 +28,7 @@ class AutonomyWorkflowBridgeTests(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls.script = load_module(
             "autonomy_workflow_bridge",
-            "dev/scripts/autonomy_workflow_bridge.py",
+            "dev/scripts/workflow_bridge/autonomy.py",
         )
 
     def test_resolve_controller_dispatch_defaults_to_env_fallbacks(self) -> None:

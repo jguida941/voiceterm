@@ -9,11 +9,12 @@ Why this exists:
 from __future__ import annotations
 
 import json
-from datetime import datetime
 
-from ..common import build_env, pipe_output, run_cmd, write_output
+from ..common import build_env, emit_output, pipe_output, run_cmd, write_output
+from ..runtime.audit_report_contracts import SecurityReport
+from ..time_utils import utc_timestamp
 from ..config import REPO_ROOT, SRC_DIR
-from ..security_tiers import (
+from ..security.tiers import (
     CORE_SCANNER_IDS,
     EXPENSIVE_SCANNER_IDS,
     annotate_step_metadata,
@@ -32,12 +33,9 @@ from .security_steps import (
 )
 
 
-def run(args) -> int:
-    """Run local security checks and return a non-zero code on failures."""
+def _collect_security_steps(args, env: dict, rustsec_output) -> tuple[list[dict], list[str]]:
     steps: list[dict] = []
     warnings: list[str] = []
-    env = build_env(args)
-    rustsec_output = resolve_rustsec_output(args.rustsec_output)
     rustsec_step, rustsec_warnings = run_rustsec_audit_step(
         rustsec_output,
         dry_run=args.dry_run,
@@ -67,6 +65,67 @@ def run(args) -> int:
         )
         policy_step = annotate_step_metadata(policy_step, tier="core", blocking=True)
     steps.append(policy_step)
+    return steps, warnings
+
+
+def _render_security_output(args, report: dict, *, success: bool, rustsec_output) -> str:
+    warnings = report["warnings"]
+    steps = report["steps"]
+    if args.format == "json":
+        return json.dumps(report, indent=2)
+    if args.format == "md":
+        lines = ["# devctl security", ""]
+        lines.append(f"- contract_id: {report.get('contract_id')}")
+        lines.append(f"- schema_version: {report.get('schema_version')}")
+        lines.append(f"- command: {report.get('command')}")
+        lines.append(f"- timestamp: {report.get('timestamp')}")
+        lines.append(f"- ok: {report.get('ok')}")
+        lines.append(f"- rustsec_output: {report.get('rustsec_output')}")
+        lines.append(f"- scanner_tier: {report.get('scanner_tier')}")
+        lines.append(f"- python_scope: {report.get('python_scope')}")
+        lines.append(f"- expensive_policy: {report.get('expensive_policy')}")
+        if warnings:
+            lines.append("- warnings:")
+            lines.extend(f"  - {warning}" for warning in warnings)
+        lines.append("")
+        lines.append(format_steps_md(steps))
+        return "\n".join(lines)
+    lines = [
+        f"devctl security rustsec_output={rustsec_output}",
+        "",
+        (
+            f"scanner_tier={args.scanner_tier} "
+            f"python_scope={getattr(args, 'python_scope', 'auto')} "
+            f"expensive_policy={args.expensive_policy}"
+        ),
+    ]
+    for step in steps:
+        blocking_failure = step_is_blocking_failure(step)
+        if step.get("skipped"):
+            status = "SKIP"
+        elif step["returncode"] == 0:
+            status = "OK"
+        elif blocking_failure:
+            status = "FAIL"
+        else:
+            status = "WARN"
+        lines.append(f"[{status}] {step['name']} (exit={step['returncode']})")
+        if step.get("error"):
+            lines.append(f"  reason: {step['error']}")
+    if warnings:
+        lines.append("")
+        lines.append("Warnings:")
+        lines.extend(f"- {warning}" for warning in warnings)
+    lines.append("")
+    lines.append(f"overall={success} exit_code={0 if success else 1}")
+    return "\n".join(lines)
+
+
+def run(args) -> int:
+    """Run local security checks and return a non-zero code on failures."""
+    env = build_env(args)
+    rustsec_output = resolve_rustsec_output(args.rustsec_output)
+    steps, warnings = _collect_security_steps(args, env, rustsec_output)
     core_enabled = args.scanner_tier in ("core", "all")
     run_zizmor = bool(args.with_zizmor)
     run_codeql_alerts = bool(args.with_codeql_alerts)
@@ -112,67 +171,34 @@ def run(args) -> int:
         steps.extend(expensive_steps)
         warnings.extend(expensive_warnings)
     success = not any(step_is_blocking_failure(step) for step in steps)
-    report = {
-        "command": "security",
-        "timestamp": datetime.now().isoformat(),
-        "ok": success,
-        "rustsec_output": str(rustsec_output),
-        "scanner_tier": args.scanner_tier,
-        "python_scope": getattr(args, "python_scope", "auto"),
-        "since_ref": getattr(args, "since_ref", None),
-        "head_ref": getattr(args, "head_ref", "HEAD"),
-        "expensive_policy": args.expensive_policy,
-        "core_scanners": list(CORE_SCANNER_IDS),
-        "expensive_scanners": list(EXPENSIVE_SCANNER_IDS),
-        "warnings": warnings,
-        "steps": steps,
-    }
-    if args.format == "json":
-        output = json.dumps(report, indent=2)
-    elif args.format == "md":
-        lines = ["# devctl security", ""]
-        lines.append(f"- ok: {success}")
-        lines.append(f"- rustsec_output: {rustsec_output}")
-        lines.append(f"- scanner_tier: {args.scanner_tier}")
-        lines.append(f"- python_scope: {getattr(args, 'python_scope', 'auto')}")
-        lines.append(f"- expensive_policy: {args.expensive_policy}")
-        if warnings:
-            lines.append("- warnings:")
-            lines.extend(f"  - {warning}" for warning in warnings)
-        lines.append("")
-        lines.append(format_steps_md(steps))
-        output = "\n".join(lines)
-    else:
-        lines = [
-            f"devctl security rustsec_output={rustsec_output}",
-            "",
-            (
-                f"scanner_tier={args.scanner_tier} "
-                f"python_scope={getattr(args, 'python_scope', 'auto')} "
-                f"expensive_policy={args.expensive_policy}"
-            ),
-        ]
-        for step in steps:
-            blocking_failure = step_is_blocking_failure(step)
-            if step.get("skipped"):
-                status = "SKIP"
-            elif step["returncode"] == 0:
-                status = "OK"
-            elif blocking_failure:
-                status = "FAIL"
-            else:
-                status = "WARN"
-            lines.append(f"[{status}] {step['name']} (exit={step['returncode']})")
-            if step.get("error"):
-                lines.append(f"  reason: {step['error']}")
-        if warnings:
-            lines.append("")
-            lines.append("Warnings:")
-            lines.extend(f"- {warning}" for warning in warnings)
-        lines.append("")
-        lines.append(f"overall={success} exit_code={0 if success else 1}")
-        output = "\n".join(lines)
-    write_output(output, args.output)
-    if args.pipe_command:
-        return pipe_output(output, args.pipe_command, args.pipe_args)
+    report = SecurityReport(
+        timestamp=utc_timestamp(),
+        ok=success,
+        rustsec_output=str(rustsec_output),
+        scanner_tier=args.scanner_tier,
+        python_scope=getattr(args, "python_scope", "auto"),
+        since_ref=getattr(args, "since_ref", None),
+        head_ref=getattr(args, "head_ref", "HEAD"),
+        expensive_policy=args.expensive_policy,
+        core_scanners=tuple(CORE_SCANNER_IDS),
+        expensive_scanners=tuple(EXPENSIVE_SCANNER_IDS),
+        warnings=tuple(warnings),
+        steps=tuple(steps),
+    ).to_dict()
+    output = _render_security_output(
+        args,
+        report,
+        success=success,
+        rustsec_output=rustsec_output,
+    )
+    pipe_rc = emit_output(
+        output,
+        output_path=args.output,
+        pipe_command=args.pipe_command,
+        pipe_args=args.pipe_args,
+        writer=write_output,
+        piper=pipe_output,
+    )
+    if pipe_rc != 0:
+        return pipe_rc
     return 0 if success else 1
