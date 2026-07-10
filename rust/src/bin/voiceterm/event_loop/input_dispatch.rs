@@ -245,10 +245,41 @@ pub(super) fn handle_input_event(
                 *running = false;
             }
             InputEvent::MouseClick { x, y } => {
-                let hit = deps.button_registry.find_at(x, y, state.ui.terminal_rows);
+                // Hit-test against LIVE state instead of the cached registry:
+                // the cache went stale (or empty) across suppression/overlay/
+                // recording-state transitions, so clicks died after the first
+                // response streamed (field bug: "clicking works at session
+                // start, breaks after sending a message").
+                let hud_y = state
+                    .ui
+                    .terminal_rows
+                    .saturating_sub(y)
+                    .saturating_add(1);
+                let banner_rows = crate::status_line::status_banner_height_for_state(
+                    state.ui.terminal_cols as usize,
+                    &state.status_state,
+                ) as u16;
+                let hit = if (1..=banner_rows).contains(&hud_y) {
+                    crate::status_line::get_button_positions(
+                        &state.status_state,
+                        state.theme,
+                        state.ui.terminal_cols as usize,
+                    )
+                    .into_iter()
+                    .find(|pos| pos.row == hud_y && x >= pos.start_x && x <= pos.end_x)
+                    .map(|pos| pos.action)
+                } else {
+                    None
+                };
                 log_debug(&format!(
-                    "[input-debug] mouse_click: x={}, y={}, rows={}, mouse_enabled={}, hit={:?}",
-                    x, y, state.ui.terminal_rows, state.status_state.mouse_enabled, hit
+                    "[input-debug] mouse_click: x={}, y={}, rows={}, hud_y={}, banner_rows={}, mouse_enabled={}, hit={:?}",
+                    x,
+                    y,
+                    state.ui.terminal_rows,
+                    hud_y,
+                    banner_rows,
+                    state.status_state.mouse_enabled,
+                    hit
                 ));
                 if !state.status_state.mouse_enabled {
                     return;

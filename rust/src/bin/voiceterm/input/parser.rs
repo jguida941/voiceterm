@@ -236,16 +236,17 @@ fn is_csi_u_numeric(buffer: &[u8]) -> bool {
     if buffer[0] != 0x1b || buffer[1] != b'[' || buffer[buffer.len() - 1] != b'u' {
         return false;
     }
+    // ':' carries kitty subparameters (mods:event-type, alternate keys).
     buffer[2..buffer.len() - 1]
         .iter()
-        .all(|b| b.is_ascii_digit() || *b == b';')
+        .all(|b| b.is_ascii_digit() || *b == b';' || *b == b':')
 }
 
 /// Parse a CSI-u keyboard event (e.g., ESC [ 114 ; 5 u for Ctrl+R).
 #[inline]
 fn parse_csi_u_event(buffer: &[u8]) -> Option<InputEvent> {
-    // Smallest supported mapped key is '?' => ESC [ 63 ; 5 u (7 bytes).
-    if buffer.len() < 7
+    // Smallest mapped key is kitty Enter => ESC [ 1 3 u (5 bytes).
+    if buffer.len() < 5
         || buffer[0] != 0x1b
         || buffer[1] != b'['
         || buffer[buffer.len() - 1] != b'u'
@@ -255,7 +256,32 @@ fn parse_csi_u_event(buffer: &[u8]) -> Option<InputEvent> {
     let params = &buffer[2..buffer.len() - 1];
     let mut parts = params.split(|b| *b == b';');
     let code = parts.next().and_then(parse_csi_u_number)?;
-    let modifiers = parts.next().and_then(parse_csi_u_number).unwrap_or(0);
+    // Second field is `modifiers`, optionally with a kitty event-type
+    // subparameter: `mods:event` (1=press, 2=repeat, 3=release).
+    let (modifiers, event_type) = match parts.next() {
+        Some(field) => {
+            let mut sub = field.split(|b| *b == b':');
+            let mods = sub.next().and_then(parse_csi_u_number).unwrap_or(0);
+            let event = sub.next().and_then(parse_csi_u_number).unwrap_or(1);
+            (mods, event)
+        }
+        None => (0, 1),
+    };
+    // Repeat/release events never trigger VoiceTerm actions (a keystroke
+    // would fire twice); they fall through and are forwarded to the wrapped
+    // CLI, which may want them.
+    if event_type != 1 {
+        return None;
+    }
+
+    // Kitty-armed terminals (codex pushes the protocol) report plain Enter as
+    // CSI-u 13 instead of bare 0x0d. Map the unmodified press to EnterKey so
+    // VoiceTerm's Enter semantics (submit, HUD/overlay activation) keep
+    // working; modified variants (Shift+Enter etc.) stay verbatim for the
+    // wrapped CLI.
+    if code == 13 && (modifiers == 0 || modifiers == 1) {
+        return Some(InputEvent::EnterKey);
+    }
 
     // Kitty/CSI-u modifier mask uses bit 2^2 (4) for Ctrl.
     if modifiers & 4 == 0 {
@@ -728,5 +754,58 @@ mod tests {
         parser.consume_bytes(&[32, 42, 37], &mut out);
         parser.flush_pending(&mut out);
         assert_eq!(out, vec![InputEvent::MouseClick { x: 10, y: 5 }]);
+    }
+
+    // Field bug (Cursor+codex): kitty-armed terminals report plain Enter as
+    // CSI-u 13 — voiceterm treated it as opaque bytes, so its own Enter
+    // semantics (submit, overlay activation) went dead and only Shift+Enter
+    // (legacy encoding) worked.
+    #[test]
+    fn input_parser_maps_kitty_enter_press_to_enter_key() {
+        let mut parser = InputParser::new();
+        let mut out = Vec::new();
+        parser.consume_bytes(b"\x1b[13u", &mut out);
+        parser.flush_pending(&mut out);
+        assert_eq!(out, vec![InputEvent::EnterKey]);
+
+        // Explicit press subparam maps too.
+        let mut out = Vec::new();
+        parser.consume_bytes(b"\x1b[13;1:1u", &mut out);
+        parser.flush_pending(&mut out);
+        assert_eq!(out, vec![InputEvent::EnterKey]);
+    }
+
+    #[test]
+    fn input_parser_forwards_kitty_enter_release_and_modified_variants() {
+        // Release event: forwarded verbatim for the wrapped CLI, no EnterKey.
+        let mut parser = InputParser::new();
+        let mut out = Vec::new();
+        parser.consume_bytes(b"\x1b[13;1:3u", &mut out);
+        parser.flush_pending(&mut out);
+        assert_eq!(out, vec![InputEvent::Bytes(b"\x1b[13;1:3u".to_vec())]);
+
+        // Shift+Enter stays verbatim (the wrapped CLI distinguishes it).
+        let mut parser = InputParser::new();
+        let mut out = Vec::new();
+        parser.consume_bytes(b"\x1b[13;2u", &mut out);
+        parser.flush_pending(&mut out);
+        assert_eq!(out, vec![InputEvent::Bytes(b"\x1b[13;2u".to_vec())]);
+    }
+
+    #[test]
+    fn input_parser_ignores_kitty_hotkey_release_events() {
+        // Ctrl+R release must not fire the voice trigger a second time.
+        let mut parser = InputParser::new();
+        let mut out = Vec::new();
+        parser.consume_bytes(b"\x1b[114;5:3u", &mut out);
+        parser.flush_pending(&mut out);
+        assert_eq!(out, vec![InputEvent::Bytes(b"\x1b[114;5:3u".to_vec())]);
+
+        // Ctrl+R press (with explicit :1) still fires.
+        let mut parser = InputParser::new();
+        let mut out = Vec::new();
+        parser.consume_bytes(b"\x1b[114;5:1u", &mut out);
+        parser.flush_pending(&mut out);
+        assert_eq!(out, vec![InputEvent::VoiceTrigger]);
     }
 }
