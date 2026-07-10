@@ -165,7 +165,16 @@ impl RedrawPolicy {
                 last_scroll_redraw_at,
             )
         {
-            policy.force_full_banner_redraw = true;
+            if cursor_claude_runtime {
+                // Cursor+Claude: line-diff repaint (needs_redraw without
+                // force_full). A full 4-row rewrite at scroll cadence blinked
+                // the HUD box in Cursor while replies streamed (field bug);
+                // the diff path writes zero bytes when banner content is
+                // unchanged. Destructive clears below still force full.
+                policy.needs_redraw = true;
+            } else {
+                policy.force_full_banner_redraw = true;
+            }
             policy.update_last_scroll_redraw_at = true;
             last_scroll_redraw_at = ctx.now;
         }
@@ -181,7 +190,14 @@ impl RedrawPolicy {
                 last_scroll_redraw_at,
             );
             if result {
-                policy.force_full_banner_redraw = true;
+                if cursor_claude_runtime {
+                    // Same line-diff contract as the scroll path above: the
+                    // throttled typing-echo repaint blinked the full HUD box
+                    // per burst in Cursor when it forced all rows.
+                    policy.needs_redraw = true;
+                } else {
+                    policy.force_full_banner_redraw = true;
+                }
                 policy.update_last_scroll_redraw_at = true;
             }
             result
@@ -191,11 +207,12 @@ impl RedrawPolicy {
 
         // NOTE: Cursor+Claude keystroke echoes (cursor-line mutations) are
         // deliberately NOT force-repainted here. The throttled non-scroll path
-        // above already covers this profile at claude_non_scroll_redraw_min_interval
-        // cadence, and the 140ms cursor_claude input-repair repaints once typing
-        // settles. An unthrottled force_full + force_redraw_after_preclear on
-        // every echo caused visible per-keystroke HUD flicker in Cursor (field
-        // bug) by bypassing the typing-defer on each keypress.
+        // above covers this profile at claude_non_scroll_redraw_min_interval
+        // cadence and the input-repair timer re-arms after typing settles —
+        // both as LINE-DIFF repaints (zero bytes while the banner is static).
+        // Any full-row rewrite tied to typing/streaming cadence blinks the
+        // full HUD box in Cursor (field bug, twice): full repaints belong
+        // only to destructive clears and geometry transitions.
 
         // Codex (any host): a destructive clear (startup / full-screen
         // repaint) wipes the HUD rows and nothing else repaints them (field

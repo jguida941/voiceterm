@@ -962,7 +962,9 @@ fn redraw_policy_cursor_claude_non_scroll_cursor_mutation_is_throttled() {
 #[test]
 fn redraw_policy_cursor_claude_non_scroll_cursor_mutation_repaints_when_due() {
     // Once the profile's min interval has elapsed, the throttled non-scroll
-    // path repaints (without bypassing the typing-defer).
+    // path repaints as a LINE-DIFF (needs_redraw without force_full): a
+    // forced full-row rewrite at typing cadence blinked the full HUD box in
+    // Cursor (field bug). The diff writes zero bytes while content is static.
     let mut ctx = redraw_policy_context(b"\x1b[2K");
     ctx.family = TerminalHost::Cursor;
     ctx.runtime_variant = RuntimeVariant::CursorClaude;
@@ -971,7 +973,8 @@ fn redraw_policy_cursor_claude_non_scroll_cursor_mutation_repaints_when_due() {
     ctx.last_scroll_redraw_at = ctx.now - Duration::from_millis(701);
     let policy = RedrawPolicy::resolve(ctx);
     assert!(policy.non_scroll_line_mutation);
-    assert!(policy.force_full_banner_redraw);
+    assert!(!policy.force_full_banner_redraw);
+    assert!(policy.needs_redraw);
     assert!(policy.update_last_scroll_redraw_at);
     assert!(policy.output_redraw_needed);
     assert!(!policy.force_redraw_after_preclear);
@@ -1311,6 +1314,12 @@ fn scheduled_cursor_claude_repair_redraw_fires_without_pending_status_update() {
             .adapter_state
             .set_cursor_claude_input_repair_due(Some(Instant::now() - Duration::from_millis(1)));
         state.needs_redraw = false;
+        // The repair is a line-diff repaint that honors the normal idle/typing
+        // gates (it no longer forces an immediate full redraw) — settle the
+        // activity clocks so the cycle commits within this call.
+        state.last_output_at = Instant::now() - Duration::from_millis(2_000);
+        state.last_status_draw_at = Instant::now() - Duration::from_millis(2_000);
+        state.last_user_input_at = Instant::now() - Duration::from_millis(2_000);
         state.maybe_redraw_status();
         assert!(
             state

@@ -68,12 +68,15 @@ impl WriterState {
         if !repair_ready {
             return false;
         }
-        self.display.force_full_banner_redraw = true;
-        self.force_redraw_after_preclear = true;
+        // Line-diff repaint only: forcing a full rewrite here made the HUD box
+        // blink at typing cadence in Cursor (field bug). If the banner content
+        // is unchanged the diff writes zero bytes.
         self.needs_redraw = true;
         self.adapter_state.set_cursor_claude_input_repair_due(None);
         if claude_hud_debug_enabled() {
-            log_debug("[claude-hud-debug] scheduled cursor+claude HUD repair redraw fired");
+            log_debug(
+                "[claude-hud-debug] scheduled cursor+claude HUD repair redraw fired (line-diff)",
+            );
         }
         true
     }
