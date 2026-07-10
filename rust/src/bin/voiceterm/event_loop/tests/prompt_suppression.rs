@@ -85,7 +85,11 @@ fn handle_output_chunk_bash_approval_card_suppresses_hud() {
 }
 
 #[test]
-fn nonrolling_explicit_approval_card_suppresses_without_backend_label() {
+// Non-rolling hosts (Cursor/Other) no longer suppress the HUD: the child PTY
+// reservation + confined scroll region keep the child's approval UI and the
+// HUD on disjoint rows, and the latch only produced black-blink suppress/
+// release cycles in the field.
+fn nonrolling_explicit_approval_card_does_not_suppress() {
     let _rolling_override = install_prompt_rolling_override(false);
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
     deps.backend_label = "test".to_string();
@@ -105,8 +109,8 @@ fn nonrolling_explicit_approval_card_suppresses_without_backend_label() {
 
     assert!(running);
     assert!(
-        state.status_state.prompt_suppressed,
-        "explicit approval card must suppress HUD even if backend label guard is unavailable"
+        !state.status_state.prompt_suppressed,
+        "non-rolling hosts never suppress the HUD (structural row protection)"
     );
 }
 
@@ -142,7 +146,7 @@ fn nonrolling_approval_card_does_not_suppress_for_codex_backend() {
 }
 
 #[test]
-fn nonrolling_long_wrapped_approval_card_still_suppresses() {
+fn nonrolling_long_wrapped_approval_card_does_not_suppress() {
     let _rolling_override = install_prompt_rolling_override(false);
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
     deps.backend_label = "test".to_string();
@@ -170,13 +174,13 @@ fn nonrolling_long_wrapped_approval_card_still_suppresses() {
 
     assert!(running);
     assert!(
-        state.status_state.prompt_suppressed,
-        "wrapped approval cards must still suppress HUD on non-rolling hosts"
+        !state.status_state.prompt_suppressed,
+        "non-rolling hosts never suppress the HUD (structural row protection)"
     );
 }
 
 #[test]
-fn nonrolling_prompt_question_line_suppresses_before_numbered_options() {
+fn nonrolling_prompt_question_line_does_not_suppress() {
     let _rolling_override = install_prompt_rolling_override(false);
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
     deps.backend_label = "test".to_string();
@@ -196,8 +200,8 @@ fn nonrolling_prompt_question_line_suppresses_before_numbered_options() {
 
     assert!(running);
     assert!(
-        state.status_state.prompt_suppressed,
-        "prompt question line should suppress immediately before numbered options land"
+        !state.status_state.prompt_suppressed,
+        "non-rolling hosts never suppress the HUD (structural row protection)"
     );
 }
 
@@ -228,7 +232,7 @@ fn nonrolling_tool_activity_hint_does_not_suppress_without_approval_card() {
 }
 
 #[test]
-fn nonrolling_stale_explicit_text_does_not_retrigger_suppression() {
+fn nonrolling_approval_flow_never_suppresses() {
     let _rolling_override = install_prompt_rolling_override(false);
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
     deps.backend_label = "test".to_string();
@@ -246,10 +250,7 @@ fn nonrolling_stale_explicit_text_does_not_retrigger_suppression() {
         &mut running,
     );
     assert!(running);
-    assert!(
-        state.status_state.prompt_suppressed,
-        "approval card should suppress HUD in non-rolling mode"
-    );
+    assert!(!state.status_state.prompt_suppressed);
 
     handle_input_event(
         &mut state,
@@ -258,8 +259,6 @@ fn nonrolling_stale_explicit_text_does_not_retrigger_suppression() {
         InputEvent::Bytes(b"1".to_vec()),
         &mut running,
     );
-    assert!(running);
-
     handle_output_chunk(
         &mut state,
         &mut timers,
@@ -267,30 +266,9 @@ fn nonrolling_stale_explicit_text_does_not_retrigger_suppression() {
         b"Approval accepted. Continuing execution...\n".to_vec(),
         &mut running,
     );
-    assert!(running);
-
     let now = Instant::now();
-    run_periodic_tasks(
-        &mut state,
-        &mut timers,
-        &mut deps,
-        now + Duration::from_millis(20),
-    );
-    assert!(
-        state.status_state.prompt_suppressed,
-        "sticky hold should keep HUD suppressed for rapid back-to-back approval cards"
-    );
-
-    run_periodic_tasks(
-        &mut state,
-        &mut timers,
-        &mut deps,
-        now + Duration::from_millis(1200),
-    );
-    assert!(
-        !state.status_state.prompt_suppressed,
-        "HUD should unsuppress after sticky hold elapses and approval window remains drained"
-    );
+    run_periodic_tasks(&mut state, &mut timers, &mut deps, now + Duration::from_millis(20));
+    assert!(!state.status_state.prompt_suppressed);
 
     handle_output_chunk(
         &mut state,
@@ -302,12 +280,12 @@ fn nonrolling_stale_explicit_text_does_not_retrigger_suppression() {
     assert!(running);
     assert!(
         !state.status_state.prompt_suppressed,
-        "stale explicit phrase without numbered approval options must not resuppress HUD"
+        "the HUD stays visible through the entire approval flow"
     );
 }
 
 #[test]
-fn nonrolling_release_arm_defers_on_echo_chunk_until_substantial_output() {
+fn nonrolling_echo_and_substantial_output_never_suppress() {
     let _rolling_override = install_prompt_rolling_override(false);
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
     deps.backend_label = "test".to_string();
@@ -324,8 +302,7 @@ fn nonrolling_release_arm_defers_on_echo_chunk_until_substantial_output() {
         b"This command requires approval\nDo you want to proceed?\n1. Yes\n2. No\n".to_vec(),
         &mut running,
     );
-    assert!(running);
-    assert!(state.status_state.prompt_suppressed);
+    assert!(!state.status_state.prompt_suppressed);
 
     handle_input_event(
         &mut state,
@@ -334,26 +311,14 @@ fn nonrolling_release_arm_defers_on_echo_chunk_until_substantial_output() {
         InputEvent::Bytes(b"1".to_vec()),
         &mut running,
     );
-    assert!(running);
-
-    // A tiny post-input echo should not clear the approval window immediately.
-    handle_output_chunk(
-        &mut state,
-        &mut timers,
-        &mut deps,
-        b"1\n".to_vec(),
-        &mut running,
-    );
+    handle_output_chunk(&mut state, &mut timers, &mut deps, b"1\n".to_vec(), &mut running);
     run_periodic_tasks(
         &mut state,
         &mut timers,
         &mut deps,
         Instant::now() + Duration::from_millis(25),
     );
-    assert!(
-        state.status_state.prompt_suppressed,
-        "HUD should stay suppressed until substantial post-input output confirms prompt exit"
-    );
+    assert!(!state.status_state.prompt_suppressed);
 
     handle_output_chunk(
         &mut state,
@@ -362,32 +327,17 @@ fn nonrolling_release_arm_defers_on_echo_chunk_until_substantial_output() {
         b"Approval accepted. Continuing execution...\n".to_vec(),
         &mut running,
     );
-    let now = Instant::now();
     run_periodic_tasks(
         &mut state,
         &mut timers,
         &mut deps,
-        now + Duration::from_millis(50),
+        Instant::now() + Duration::from_millis(1200),
     );
-    assert!(
-        state.status_state.prompt_suppressed,
-        "sticky hold should prevent early unsuppress after substantial output"
-    );
-
-    run_periodic_tasks(
-        &mut state,
-        &mut timers,
-        &mut deps,
-        now + Duration::from_millis(1200),
-    );
-    assert!(
-        !state.status_state.prompt_suppressed,
-        "HUD should unsuppress after sticky hold elapses and no approval card remains"
-    );
+    assert!(!state.status_state.prompt_suppressed);
 }
 
 #[test]
-fn nonrolling_sticky_hold_covers_rapid_consecutive_approvals() {
+fn nonrolling_rapid_consecutive_approval_cards_never_suppress() {
     let _rolling_override = install_prompt_rolling_override(false);
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
     deps.backend_label = "test".to_string();
@@ -397,93 +347,35 @@ fn nonrolling_sticky_hold_covers_rapid_consecutive_approvals() {
     state.ui.terminal_cols = 80;
 
     let mut running = true;
-    handle_output_chunk(
-        &mut state,
-        &mut timers,
-        &mut deps,
-        b"This command requires approval\nDo you want to proceed?\n1. Yes\n2. No\n".to_vec(),
-        &mut running,
-    );
-    assert!(running);
-    assert!(state.status_state.prompt_suppressed);
-
-    handle_input_event(
-        &mut state,
-        &mut timers,
-        &mut deps,
-        InputEvent::Bytes(b"1".to_vec()),
-        &mut running,
-    );
-    assert!(running);
-
-    handle_output_chunk(
-        &mut state,
-        &mut timers,
-        &mut deps,
-        b"Approval accepted. Continuing execution...\n".to_vec(),
-        &mut running,
-    );
-    let first_now = Instant::now();
-    run_periodic_tasks(
-        &mut state,
-        &mut timers,
-        &mut deps,
-        first_now + Duration::from_millis(100),
-    );
-    assert!(
-        state.status_state.prompt_suppressed,
-        "first sticky hold should prevent unsuppress while next approval card may arrive"
-    );
-
-    handle_output_chunk(
-        &mut state,
-        &mut timers,
-        &mut deps,
-        b"This command requires approval\nDo you want to proceed?\n1. Yes\n2. No\n".to_vec(),
-        &mut running,
-    );
-    assert!(running);
-    assert!(
-        state.status_state.prompt_suppressed,
-        "second approval card should stay in suppressed state without an unsuppress gap"
-    );
-
-    handle_input_event(
-        &mut state,
-        &mut timers,
-        &mut deps,
-        InputEvent::Bytes(b"1".to_vec()),
-        &mut running,
-    );
-    assert!(running);
-
-    handle_output_chunk(
-        &mut state,
-        &mut timers,
-        &mut deps,
-        b"Approval accepted. Final step complete.\n".to_vec(),
-        &mut running,
-    );
-
-    let second_now = Instant::now();
-    run_periodic_tasks(
-        &mut state,
-        &mut timers,
-        &mut deps,
-        second_now + Duration::from_millis(100),
-    );
-    assert!(state.status_state.prompt_suppressed);
-
-    run_periodic_tasks(
-        &mut state,
-        &mut timers,
-        &mut deps,
-        second_now + Duration::from_millis(1200),
-    );
-    assert!(
-        !state.status_state.prompt_suppressed,
-        "HUD should restore once final sticky hold elapses"
-    );
+    for _ in 0..3 {
+        handle_output_chunk(
+            &mut state,
+            &mut timers,
+            &mut deps,
+            b"This command requires approval\nDo you want to proceed?\n1. Yes\n2. No\n".to_vec(),
+            &mut running,
+        );
+        assert!(running);
+        assert!(
+            !state.status_state.prompt_suppressed,
+            "rapid consecutive approval cards never blank the HUD"
+        );
+        handle_input_event(
+            &mut state,
+            &mut timers,
+            &mut deps,
+            InputEvent::Bytes(b"1".to_vec()),
+            &mut running,
+        );
+        handle_output_chunk(
+            &mut state,
+            &mut timers,
+            &mut deps,
+            b"Approval accepted. Continuing execution...\n".to_vec(),
+            &mut running,
+        );
+        assert!(!state.status_state.prompt_suppressed);
+    }
 }
 
 #[test]
