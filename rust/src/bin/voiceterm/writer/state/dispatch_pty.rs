@@ -73,6 +73,21 @@ impl WriterState {
         true
     }
 
+    /// Codex (any host): its startup/full-screen repaints (CSI 2J) wipe the
+    /// freshly painted HUD, and no codex-side trigger repaints it (field bug
+    /// on JetBrains AND Cursor: HUD absent until the user presses the HUD
+    /// hotkey). Codex reflow frames ALSO erase to end-of-screen with bare
+    /// `CSI J` from a row above the HUD (field bug: Cursor HUD blank at
+    /// startup until the first message) — those reach the banner rows just
+    /// like a full clear. Either form arms an idle-gated repaint while a HUD
+    /// is displayed or pending.
+    fn codex_hud_wipe_detected(&self, bytes: &[u8]) -> bool {
+        self.runtime_profile.destructive_clear_repaint_profile
+            && (self.display.enhanced_status.is_some() || self.pending.enhanced_status.is_some())
+            && (pty_output_contains_destructive_clear(bytes)
+                || pty_output_contains_erase_display(bytes))
+    }
+
     fn analyze_pty_chunk(&mut self, bytes: &[u8]) -> PtyChunkAnalysis {
         let profile = self.runtime_profile;
         let runtime_variant = profile.runtime_variant;
@@ -125,14 +140,7 @@ impl WriterState {
         let claude_jetbrains_destructive_clear = claude_jetbrains
             && claude_jetbrains_full_hud_active
             && pty_output_contains_destructive_clear(bytes);
-        // Codex (any host): its startup/full-screen repaints (CSI 2J) wipe the
-        // freshly painted HUD, and no codex-side trigger repaints it (field
-        // bug on JetBrains AND Cursor: HUD absent until the user presses the
-        // HUD hotkey). Arm an idle-gated repaint whenever a destructive clear
-        // lands while a HUD is displayed or pending.
-        let codex_destructive_clear = profile.destructive_clear_repaint_profile
-            && (self.display.enhanced_status.is_some() || self.pending.enhanced_status.is_some())
-            && pty_output_contains_destructive_clear(bytes);
+        let codex_destructive_clear = self.codex_hud_wipe_detected(bytes);
         if codex_destructive_clear && claude_hud_debug_enabled() {
             log_debug("[hud-debug] codex destructive clear detected; arming idle-gated repaint");
         }

@@ -256,6 +256,53 @@ fn resize_accepts_small_geometry_for_non_claude_backends() {
     });
 }
 
+// Field bug (Cursor+codex): codex's startup reflow ends with a bare
+// `CSI row;1H` + `CSI J` erase-to-end-of-screen that wipes the freshly
+// painted HUD rows AFTER the 2J-detected repaint already landed — the HUD
+// stayed blank until the first message triggered another repaint. Bare
+// erase-below must arm the same idle-gated repaint as a full clear.
+#[test]
+fn codex_erase_below_arms_idle_gated_hud_repaint() {
+    with_backend_label_env(Some("codex"), || {
+        let mut state = WriterState::new();
+        state.set_terminal_family_for_tests(TerminalHost::Cursor);
+        state.rows = 42;
+        state.cols = 192;
+        state.display.enhanced_status = Some(StatusLineState::new());
+        state.needs_redraw = false;
+
+        assert!(state.handle_pty_output(b"\x1b[27;1H\x1b[J\x1b[27;2H\x1b[0m\x1b[K".to_vec()));
+
+        assert!(
+            state.needs_redraw,
+            "codex erase-below must arm an idle-gated HUD repaint"
+        );
+        assert!(
+            state.display.force_full_banner_redraw,
+            "repaint after an erase-below must rewrite all banner rows"
+        );
+    });
+}
+
+#[test]
+fn claude_erase_below_does_not_arm_codex_repaint_path() {
+    with_backend_label_env(Some("claude"), || {
+        let mut state = WriterState::new();
+        state.set_terminal_family_for_tests(TerminalHost::Cursor);
+        state.rows = 42;
+        state.cols = 192;
+        state.display.enhanced_status = Some(StatusLineState::new());
+        state.needs_redraw = false;
+
+        state.handle_pty_output(b"\x1b[27;1H\x1b[J".to_vec());
+
+        assert!(
+            !state.display.force_full_banner_redraw,
+            "claude does not use the codex destructive-clear repaint profile"
+        );
+    });
+}
+
 #[test]
 fn status_clear_height_only_when_banner_shrinks() {
     assert_eq!(status_clear_height_for_redraw(4, 4), 0);
