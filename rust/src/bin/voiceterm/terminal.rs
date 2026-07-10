@@ -112,6 +112,22 @@ fn startup_pty_rows(rows: u16, cols: u16, hud_style: HudStyle) -> u16 {
     rows.saturating_sub(reserved).max(1)
 }
 
+/// The child's believed bottom row for the plain (no-overlay) banner state —
+/// the SAME row-aware math `apply_pty_winsize` uses to size the PTY. The
+/// writer confines the DECSTBM scroll region to this bottom so the child's own
+/// bottom row (e.g. Claude's status bar) can never scroll into — or share a
+/// host row with — the HUD band or the reserved gap rows above it.
+pub(crate) fn child_viewport_rows_for_banner(
+    rows: u16,
+    cols: u16,
+    hud_style: HudStyle,
+    prompt_suppressed: bool,
+) -> u16 {
+    let reserved =
+        adjusted_reserved_rows(rows, cols, OverlayMode::None, hud_style, prompt_suppressed);
+    rows.saturating_sub(reserved).max(1)
+}
+
 pub(crate) fn reserved_rows_for_mode(
     mode: OverlayMode,
     cols: u16,

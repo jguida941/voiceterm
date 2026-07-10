@@ -19,7 +19,21 @@ fn map_arrow_final(byte: u8) -> Option<ArrowKey> {
     }
 }
 
-fn parse_arrow_sequence(bytes: &[u8], start: usize) -> Option<(ArrowKey, usize)> {
+/// True when a kitty keyboard-protocol event-type subparameter marks the
+/// sequence as a REPEAT (2) or RELEASE (3) event — `CSI 1 ; mods : event {ABCD}`.
+/// Terminals in kitty mode (pushed by wrapped CLIs like codex) report those as
+/// separate sequences; counting them as presses makes one keystroke move twice.
+fn kitty_params_are_repeat_or_release(params: &[u8]) -> bool {
+    let Some(colon) = params.iter().rposition(|b| *b == b':') else {
+        return false;
+    };
+    params.len() == colon + 2 && matches!(params.get(colon + 1), Some(b'2') | Some(b'3'))
+}
+
+/// Parse one arrow sequence starting at `start`. Returns `Some((None, next))`
+/// for a recognized arrow that must be consumed but NOT acted on (kitty
+/// repeat/release events).
+fn parse_arrow_sequence(bytes: &[u8], start: usize) -> Option<(Option<ArrowKey>, usize)> {
     if start.checked_add(1).is_none_or(|idx| idx >= bytes.len()) || bytes[start] != 0x1b {
         return None;
     }
@@ -27,14 +41,16 @@ fn parse_arrow_sequence(bytes: &[u8], start: usize) -> Option<(ArrowKey, usize)>
         b'O' => {
             let idx = start.checked_add(2)?;
             let key = map_arrow_final(*bytes.get(idx)?)?;
-            Some((key, idx + 1))
+            Some((Some(key), idx + 1))
         }
         b'[' => {
-            let mut idx = start.checked_add(2)?;
+            let params_start = start.checked_add(2)?;
+            let mut idx = params_start;
             while idx < bytes.len() {
                 let byte = bytes[idx];
                 if let Some(key) = map_arrow_final(byte) {
-                    return Some((key, idx + 1));
+                    let press = !kitty_params_are_repeat_or_release(&bytes[params_start..idx]);
+                    return Some((press.then_some(key), idx + 1));
                 }
                 if (0x40..=0x7e).contains(&byte) {
                     return None;
@@ -56,7 +72,9 @@ pub(crate) fn parse_arrow_keys(bytes: &[u8]) -> Vec<ArrowKey> {
     let mut idx: usize = 0;
     while bytes.get(idx).is_some() {
         if let Some((key, next_idx)) = parse_arrow_sequence(bytes, idx) {
-            keys.push(key);
+            if let Some(key) = key {
+                keys.push(key);
+            }
             idx = next_idx;
         } else {
             idx += 1;
@@ -73,7 +91,11 @@ pub(crate) fn parse_arrow_keys_only(bytes: &[u8]) -> Option<Vec<ArrowKey>> {
     let mut idx: usize = 0;
     while idx < bytes.len() {
         let (key, next_idx) = parse_arrow_sequence(bytes, idx)?;
-        keys.push(key);
+        // Repeat/release events are recognized (so the chunk still counts as
+        // arrows-only and is consumed) but produce no movement.
+        if let Some(key) = key {
+            keys.push(key);
+        }
         idx = next_idx;
     }
     Some(keys)
@@ -145,14 +167,45 @@ mod tests {
         assert_eq!(keys, vec![ArrowKey::Right, ArrowKey::Left]);
     }
 
+    // Field bug: terminals stuck in (or legitimately using) the kitty keyboard
+    // protocol report key RELEASE as a separate `CSI 1;mods:3 {ABCD}` sequence;
+    // counting it as a press made every arrow move twice. Releases/repeats are
+    // consumed but produce no movement.
     #[test]
-    fn parse_arrow_keys_accepts_colon_parameterized_sequences() {
+    fn parse_arrow_keys_only_ignores_kitty_release_and_repeat_events() {
+        // Press + release pair for Right: one movement only.
+        let press_release = [
+            0x1b, b'[', b'C', //
+            0x1b, b'[', b'1', b';', b'1', b':', b'3', b'C',
+        ];
+        let keys = parse_arrow_keys_only(&press_release).expect("arrows-only chunk");
+        assert_eq!(keys, vec![ArrowKey::Right]);
+
+        // Repeat events (:2) also don't double-move.
+        let repeat = [0x1b, b'[', b'1', b';', b'1', b':', b'2', b'D'];
+        let keys = parse_arrow_keys_only(&repeat).expect("arrows-only chunk");
+        assert!(keys.is_empty());
+
+        // Kitty press events with an explicit :1 subparam still move.
+        let kitty_press = [0x1b, b'[', b'1', b';', b'1', b':', b'1', b'D'];
+        let keys = parse_arrow_keys_only(&kitty_press).expect("arrows-only chunk");
+        assert_eq!(keys, vec![ArrowKey::Left]);
+    }
+
+    #[test]
+    fn parse_arrow_keys_consumes_kitty_release_and_repeat_without_moving() {
+        // :3 = release, :2 = repeat (kitty event types). These used to count as
+        // presses — one physical keystroke moved twice (field bug).
         let bytes = [
             0x1b, b'[', b'1', b';', b'1', b':', b'3', b'A', 0x1b, b'[', b'1', b';', b'1', b':',
             b'2', b'D',
         ];
         let keys = parse_arrow_keys(&bytes);
-        assert_eq!(keys, vec![ArrowKey::Up, ArrowKey::Left]);
+        assert!(keys.is_empty());
+
+        // Plain modifier-parameterized presses (no event subparam) still move.
+        let press = [0x1b, b'[', b'1', b';', b'2', b'A'];
+        assert_eq!(parse_arrow_keys(&press), vec![ArrowKey::Up]);
     }
 
     #[test]

@@ -73,7 +73,19 @@ pub(super) fn handle_input_event(
                 refresh_button_registry_if_mouse(state, deps);
             }
             InputEvent::Bytes(bytes) => {
+                voiceterm::log_debug_content(&format!(
+                    "[input-debug] bytes_event: len={}, hex={}, hud_focus={:?}",
+                    bytes.len(),
+                    bytes
+                        .iter()
+                        .take(24)
+                        .map(|b| format!("{b:02x}"))
+                        .collect::<Vec<_>>()
+                        .join(" "),
+                    state.status_state.hud_button_focus
+                ));
                 if state.ui.suppress_startup_escape_input && is_arrow_escape_noise(&bytes) {
+                    log_debug("[input-debug] bytes_event consumed as startup escape noise");
                     return;
                 }
                 if let Some(keys) = parse_arrow_keys_only(&bytes) {
@@ -182,6 +194,10 @@ pub(super) fn handle_input_event(
                 });
             }
             InputEvent::EnterKey => {
+                log_debug(&format!(
+                    "[input-debug] enter_key: hud_focus={:?}, overlay={:?}",
+                    state.status_state.hud_button_focus, state.ui.overlay_mode
+                ));
                 // Treat Enter as prompt-resolution input, but defer HUD re-enable
                 // to periodic/output reconciliation to avoid same-frame occlusion
                 // over approval options and tool cards.
@@ -217,6 +233,7 @@ pub(super) fn handle_input_event(
                         state.theme,
                     );
                 }
+                log_debug("[input-debug] enter_key: forwarding 0x0d to child pty");
                 if !write_or_queue_pty_input(state, deps, vec![0x0d]) {
                     *running = false;
                 } else {
@@ -228,11 +245,16 @@ pub(super) fn handle_input_event(
                 *running = false;
             }
             InputEvent::MouseClick { x, y } => {
+                let hit = deps.button_registry.find_at(x, y, state.ui.terminal_rows);
+                log_debug(&format!(
+                    "[input-debug] mouse_click: x={}, y={}, rows={}, mouse_enabled={}, hit={:?}",
+                    x, y, state.ui.terminal_rows, state.status_state.mouse_enabled, hit
+                ));
                 if !state.status_state.mouse_enabled {
                     return;
                 }
 
-                if let Some(action) = deps.button_registry.find_at(x, y, state.ui.terminal_rows) {
+                if let Some(action) = hit {
                     if action == ButtonAction::ThemePicker {
                         reset_theme_studio_selection(state);
                     }

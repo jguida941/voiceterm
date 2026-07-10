@@ -150,11 +150,18 @@ pub(super) fn write_status_line(
 }
 
 /// Write a multi-line status banner at the bottom of the terminal.
+///
+/// `scroll_bottom` is the child viewport's bottom row (the PTY's believed last
+/// row, from `terminal::child_viewport_rows_for_banner`); the DECSTBM scroll
+/// region is confined to it so child output can never scroll across the
+/// reserved gap rows or the HUD band. It is clamped so the region never
+/// includes the banner rows themselves.
 pub(super) fn write_status_banner(
     stdout: &mut dyn Write,
     banner: &StatusBanner,
     rows: u16,
     cols: u16,
+    scroll_bottom: u16,
     previous_lines: Option<&[String]>,
 ) -> io::Result<()> {
     if rows == 0 || cols == 0 || banner.height == 0 {
@@ -210,7 +217,7 @@ pub(super) fn write_status_banner(
     // card text.  The PTY row reduction (startup_pty_geometry + apply_pty_winsize)
     // is sufficient for JetBrains — skip the scroll region there.
     if family != TerminalHost::JetBrains {
-        let scroll_bottom = rows.saturating_sub(height as u16);
+        let scroll_bottom = scroll_bottom.min(rows.saturating_sub(height as u16)).max(1);
         if scroll_bottom >= 1 {
             sequence.extend_from_slice(format!("\x1b[1;{scroll_bottom}r").as_bytes());
         }
@@ -565,7 +572,7 @@ mod tests {
             "bottom".to_string(),
         ]);
 
-        write_status_banner(&mut buf, &banner, 24, 80, None).unwrap();
+        write_status_banner(&mut buf, &banner, 24, 80, 20, None).unwrap();
         let output = String::from_utf8_lossy(&buf);
         assert!(output.contains("\u{1b}[21;1H\u{1b}[0m"));
         assert!(output.contains("\u{1b}[K"));
@@ -576,7 +583,7 @@ mod tests {
         let mut buf = Vec::new();
         let banner = StatusBanner::new(vec!["minimal hud".to_string()]);
 
-        write_status_banner(&mut buf, &banner, 24, 80, None).unwrap();
+        write_status_banner(&mut buf, &banner, 24, 80, 23, None).unwrap();
         let output = String::from_utf8_lossy(&buf);
         assert!(output.contains("\u{1b}[24;1H\u{1b}[0m"));
         assert!(output.contains("\u{1b}[K"));
@@ -609,7 +616,7 @@ mod tests {
             "bottom".to_string(),
         ]);
 
-        write_status_banner(&mut buf, &banner, 24, 80, Some(&previous)).unwrap();
+        write_status_banner(&mut buf, &banner, 24, 80, 20, Some(&previous)).unwrap();
         let output = String::from_utf8_lossy(&buf);
 
         // Only row 22 (the main row in a 4-line banner at 24 rows) should redraw.
@@ -617,6 +624,50 @@ mod tests {
         assert!(!output.contains("\u{1b}[21;1H"));
         assert!(!output.contains("\u{1b}[23;1H"));
         assert!(!output.contains("\u{1b}[24;1H"));
+    }
+
+    // Field bug (Cursor+Claude): the scroll region used rows − banner_height
+    // while the child PTY was shrunk by banner_height + gap rows, leaving the
+    // child's own status row INSIDE the scrollable area — stale HUD glyphs
+    // scrolled onto it and interleaved with Claude's status bar. The region
+    // must confine scrolling to the caller-provided child viewport bottom.
+    #[test]
+    fn write_status_banner_confines_scroll_region_to_child_viewport() {
+        let mut buf = Vec::new();
+        let banner = StatusBanner::new(vec![
+            "top".to_string(),
+            "main".to_string(),
+            "shortcuts".to_string(),
+            "bottom".to_string(),
+        ]);
+
+        // Child viewport ends at row 24 (e.g. 40 rows − banner 4 − gap 12).
+        write_status_banner(&mut buf, &banner, 40, 80, 24, None).unwrap();
+        let output = String::from_utf8_lossy(&buf);
+        assert!(
+            output.contains("\u{1b}[1;24r"),
+            "region must end at the child's bottom row"
+        );
+        assert!(
+            !output.contains("\u{1b}[1;36r"),
+            "legacy rows-minus-banner bottom must not be used"
+        );
+    }
+
+    #[test]
+    fn write_status_banner_clamps_scroll_region_below_banner_rows() {
+        let mut buf = Vec::new();
+        let banner = StatusBanner::new(vec![
+            "top".to_string(),
+            "main".to_string(),
+            "shortcuts".to_string(),
+            "bottom".to_string(),
+        ]);
+
+        // A too-large child bottom must never let the region cover the HUD.
+        write_status_banner(&mut buf, &banner, 24, 80, 24, None).unwrap();
+        let output = String::from_utf8_lossy(&buf);
+        assert!(output.contains("\u{1b}[1;20r"));
     }
 
     #[test]

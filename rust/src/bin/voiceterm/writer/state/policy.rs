@@ -122,6 +122,7 @@ pub(super) struct RedrawPolicyContext<'a> {
     pub(super) claude_jetbrains_non_scroll_cursor_mutation: bool,
     pub(super) claude_jetbrains_composer_keystroke: bool,
     pub(super) claude_jetbrains_destructive_clear: bool,
+    pub(super) codex_jetbrains_destructive_clear: bool,
     pub(super) claude_jetbrains_chunk_touches_cursor_save_restore: bool,
     pub(super) jetbrains_dec_cursor_saved_active: bool,
     pub(super) jetbrains_ansi_cursor_saved_active: bool,
@@ -188,13 +189,24 @@ impl RedrawPolicy {
             false
         };
 
-        if cursor_claude_runtime
-            && !ctx.may_scroll_rows
-            && ctx.display_has_enhanced_status
-            && pty_output_can_mutate_cursor_line(ctx.bytes)
-        {
+        // NOTE: Cursor+Claude keystroke echoes (cursor-line mutations) are
+        // deliberately NOT force-repainted here. The throttled non-scroll path
+        // above already covers this profile at claude_non_scroll_redraw_min_interval
+        // cadence, and the 140ms cursor_claude input-repair repaints once typing
+        // settles. An unthrottled force_full + force_redraw_after_preclear on
+        // every echo caused visible per-keystroke HUD flicker in Cursor (field
+        // bug) by bypassing the typing-defer on each keypress.
+
+        // Codex on JetBrains: a destructive clear (startup / full-screen
+        // repaint) wipes the HUD rows and nothing else repaints them (field
+        // bug: HUD hidden until the user presses the HUD hotkey). Arm a full
+        // repaint through the idle-gated path (needs_redraw, NOT
+        // output_redraw_needed / force_redraw_after_preclear) so the codex
+        // quiet-hold coalesces it after the clear storm settles.
+        if ctx.codex_jetbrains_destructive_clear {
             policy.force_full_banner_redraw = true;
-            policy.force_redraw_after_preclear = true;
+            policy.needs_redraw = true;
+            policy.update_last_scroll_redraw_at = true;
         }
 
         let cursor_claude_destructive_clear_repaint = cursor_claude_runtime
@@ -322,12 +334,16 @@ pub(super) fn should_preclear_bottom_rows(
             if transition_preclear {
                 return now.duration_since(last_preclear_at) >= host_timing.preclear_cooldown();
             }
-            if cursor_claude_banner_preclear {
-                // Cursor+Claude scroll streams can smear HUD rows into transcript
-                // history if we wait for cadence windows; pre-clear every
-                // scrolling chunk and redraw immediately.
-                return true;
-            }
+            // NOTE: Cursor+Claude scroll chunks no longer pre-clear the HUD
+            // band on every chunk. The old per-chunk pre-clear (with the
+            // repaint throttled separately) blanked the HUD for visible
+            // stretches while typing/streaming — the field "HUD disappears
+            // and reappears" flash. Its original job (HUD rows smearing into
+            // transcript history during scrolls) is now handled structurally:
+            // the DECSTBM scroll region is confined to the child viewport, so
+            // host scrolling can never move HUD rows. Transition/startup
+            // pre-clears above keep their existing behavior.
+            let _ = cursor_claude_banner_preclear;
             false
         }
         // Preserve legacy behavior for non-profiled terminals.

@@ -485,6 +485,20 @@ fn prepare_runtime_phase(mut loaded: LoadedConfigPhase) -> Result<RuntimeBuildIn
         sensitivity_db: loaded.config.app.voice_vad_threshold_db,
         backend: loaded.backend.label.clone(),
     };
+    {
+        // Start from a sane pane: a previous wrapped-CLI session may have left
+        // the HOST terminal stuck in kitty keyboard mode (leaked push — keys
+        // then arrive as CSI-u escape codes and releases double-fire in every
+        // later process), and old session content otherwise stays on screen.
+        // Reset the keyboard protocol and clear screen + scrollback before we
+        // draw anything.
+        use std::io::Write as _;
+        let mut stdout = std::io::stdout();
+        let _ = stdout.write_all(voiceterm::terminal_restore::KITTY_KEYBOARD_RESET);
+        let _ = stdout.write_all(b"\x1b[2J\x1b[3J\x1b[H");
+        let _ = stdout.flush();
+    }
+
     if !should_skip_banner(env::var("VOICETERM_NO_STARTUP_BANNER").is_ok()) {
         show_startup_splash(&banner_config, loaded.theme)?;
     }

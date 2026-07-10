@@ -374,12 +374,20 @@ fn feed_detector_and_apply_latch(
                 .occlusion_detector
                 .feed_output(APPROVAL_SUPPRESSION_CANONICAL_FEED);
         }
-    } else if signals.prompt_context.prompt_guard_enabled
+    } else if runtime_compat::BackendFamily::from_label(&deps.backend_label)
+        != runtime_compat::BackendFamily::Codex
+        && signals.prompt_context.prompt_guard_enabled
         && signals.approval.non_rolling_approval_hint
         && !(state.prompt.non_rolling_release_armed
             && !signals.approval.explicit_approval_hint_chunk
             && !signals.approval.numbered_approval_hint_chunk)
     {
+        // Codex is excluded above: its per-command approval cards match the
+        // approval-hint heuristics on ordinary output, driving a suppress →
+        // 3s debounce → release oscillation (HUD box flipping full/collapsed
+        // in Cursor). Suppression also buys codex nothing — its PTY row
+        // budget is identical suppressed or not (terminal.rs keeps the stable
+        // codex row budget), so the HUD never occludes codex's approval UI.
         if claude_hud_debug_enabled() {
             if signals.approval.explicit_approval_hint {
                 log_debug(

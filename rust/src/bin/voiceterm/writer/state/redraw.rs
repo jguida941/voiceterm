@@ -342,6 +342,18 @@ impl WriterState {
         if clear_height > 0 {
             let _ = clear_status_banner(&mut self.stdout, self.rows, clear_height);
         }
+        if crate::hud_debug::claude_hud_debug_enabled() && self.display.banner_height != banner.height
+        {
+            log_debug(&format!(
+                "[hud-debug] banner height transition {} -> {} (clear_height={}, force_full={}, after_preclear={}, suppressed={})",
+                self.display.banner_height,
+                banner.height,
+                clear_height,
+                self.display.force_full_banner_redraw,
+                self.force_redraw_after_preclear,
+                state.prompt_suppressed
+            ));
+        }
         self.display.banner_height = banner.height;
         // Track last non-zero height so pre-clear keeps working during
         // prompt suppression (when format_status_banner returns height 0).
@@ -367,11 +379,18 @@ impl WriterState {
         } else {
             None
         };
+        let scroll_bottom = crate::terminal::child_viewport_rows_for_banner(
+            self.rows,
+            self.cols,
+            state.hud_style,
+            state.prompt_suppressed,
+        );
         let _ = write_status_banner(
             &mut self.stdout,
             &banner,
             self.rows,
             self.cols,
+            scroll_bottom,
             previous_lines,
         );
         self.display.banner_lines = banner.lines.clone();

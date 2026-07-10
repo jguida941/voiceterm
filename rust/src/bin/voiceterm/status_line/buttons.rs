@@ -719,3 +719,49 @@ fn pill_bracket_color<'a>(colors: &'a ThemeColors, highlight: &'a str, focused: 
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod probe_tests {
+    use super::*;
+    use crate::status_line::format_status_banner;
+
+    #[test]
+    fn probe_button_positions_full_hud() {
+        let mut state = StatusLineState::new();
+        state.hud_style = HudStyle::Full;
+        state.mouse_enabled = true;
+        for width in [120usize, 160] {
+            let positions = get_button_positions(&state, Theme::Dracula, width);
+            eprintln!("== width={width} ==");
+            for p in &positions {
+                eprintln!(
+                    "  row={} x={}..{} action={:?}",
+                    p.row, p.start_x, p.end_x, p.action
+                );
+            }
+            let banner = format_status_banner(&state, Theme::Dracula, width);
+            eprintln!("  banner height={}", banner.height);
+            for (i, l) in banner.lines.iter().enumerate() {
+                let plain: String = strip_ansi(l).chars().take(110).collect();
+                eprintln!("   line[{i}] {plain}");
+            }
+        }
+    }
+
+    fn strip_ansi(s: &str) -> String {
+        let mut out = String::new();
+        let mut in_esc = false;
+        for ch in s.chars() {
+            if in_esc {
+                if ch.is_ascii_alphabetic() {
+                    in_esc = false;
+                }
+            } else if ch == '\u{1b}' {
+                in_esc = true;
+            } else {
+                out.push(ch);
+            }
+        }
+        out
+    }
+}

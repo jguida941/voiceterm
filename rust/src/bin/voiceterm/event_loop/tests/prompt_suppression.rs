@@ -110,6 +110,37 @@ fn nonrolling_explicit_approval_card_suppresses_without_backend_label() {
     );
 }
 
+// Field bug (Cursor+codex): codex's routine approval cards tripped the
+// non-rolling latch on ordinary output, driving a suppress→release oscillation
+// (HUD box flipping full/collapsed every few seconds). Codex is excluded from
+// the latch — suppression buys it nothing (its PTY row budget is unchanged
+// while suppressed) and the flip-flop is pure visual churn.
+#[test]
+fn nonrolling_approval_card_does_not_suppress_for_codex_backend() {
+    let _rolling_override = install_prompt_rolling_override(false);
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    deps.backend_label = "codex".to_string();
+    state.prompt.occlusion_detector = crate::prompt::PromptOcclusionDetector::new(true);
+    state.status_state.hud_style = HudStyle::Full;
+    state.ui.terminal_rows = 24;
+    state.ui.terminal_cols = 80;
+
+    let mut running = true;
+    handle_output_chunk(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        b"This command requires approval\nDo you want to proceed?\n1. Yes\n2. Yes, and don't ask again for this command\n".to_vec(),
+        &mut running,
+    );
+
+    assert!(running);
+    assert!(
+        !state.status_state.prompt_suppressed,
+        "codex approval cards must not suppress the HUD (oscillation fix)"
+    );
+}
+
 #[test]
 fn nonrolling_long_wrapped_approval_card_still_suppresses() {
     let _rolling_override = install_prompt_rolling_override(false);

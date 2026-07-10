@@ -268,7 +268,9 @@ fn status_clear_height_only_when_banner_shrinks() {
 #[case(TerminalHost::JetBrains, BackendMatrixCase::Claude, true)]
 #[case(TerminalHost::JetBrains, BackendMatrixCase::Other, false)]
 #[case(TerminalHost::Cursor, BackendMatrixCase::Codex, false)]
-#[case(TerminalHost::Cursor, BackendMatrixCase::Claude, true)]
+// Cursor+Claude scroll chunks no longer pre-clear (field flash fix): the
+// confined scroll region already prevents HUD smear.
+#[case(TerminalHost::Cursor, BackendMatrixCase::Claude, false)]
 #[case(TerminalHost::Cursor, BackendMatrixCase::Other, false)]
 #[case(TerminalHost::Other, BackendMatrixCase::Codex, true)]
 #[case(TerminalHost::Other, BackendMatrixCase::Claude, true)]
@@ -696,7 +698,11 @@ fn should_preclear_bottom_rows_cursor_claude_preclears_once_for_startup_scroll()
 }
 
 #[test]
-fn should_preclear_bottom_rows_cursor_claude_preclears_banner_without_cadence_gate() {
+fn should_preclear_bottom_rows_cursor_claude_scroll_chunks_no_longer_preclear() {
+    // Field fix: the per-scroll-chunk HUD pre-clear blanked the bar for
+    // visible stretches while typing/streaming in Cursor+Claude (the repaint
+    // ran on a separate throttle). The scroll region is now confined to the
+    // child viewport, so the smear this defended against cannot occur.
     let mut status = StatusLineState::new();
     status.prompt_suppressed = false;
     let display = DisplayState {
@@ -706,7 +712,7 @@ fn should_preclear_bottom_rows_cursor_claude_preclears_banner_without_cadence_ga
         ..DisplayState::default()
     };
     let now = Instant::now();
-    assert!(should_preclear_bottom_rows(
+    assert!(!should_preclear_bottom_rows(
         TerminalHost::Cursor,
         true,
         &display,
@@ -813,11 +819,14 @@ fn preclear_policy_cursor_claude_banner_sets_immediate_redraw_flags() {
         now,
         last_preclear_at: now,
     });
-    let outcome = policy.outcome(true);
-    assert!(policy.should_preclear);
-    assert!(outcome.pre_cleared);
-    assert!(outcome.force_redraw_after_preclear);
-    assert!(outcome.force_full_banner_redraw);
+    // Scroll-chunk pre-clears are retired for Cursor+Claude (field flash fix);
+    // the policy no longer requests one, and without a pre-clear the outcome
+    // carries no forced-redraw flags.
+    assert!(!policy.should_preclear);
+    let outcome = policy.outcome(false);
+    assert!(!outcome.pre_cleared);
+    assert!(!outcome.force_redraw_after_preclear);
+    assert!(!outcome.force_full_banner_redraw);
     assert!(!outcome.needs_redraw);
 }
 
@@ -911,6 +920,7 @@ fn redraw_policy_context<'a>(bytes: &'a [u8]) -> RedrawPolicyContext<'a> {
         claude_jetbrains_non_scroll_cursor_mutation: false,
         claude_jetbrains_composer_keystroke: false,
         claude_jetbrains_destructive_clear: false,
+        codex_jetbrains_destructive_clear: false,
         claude_jetbrains_chunk_touches_cursor_save_restore: false,
         jetbrains_dec_cursor_saved_active: false,
         jetbrains_ansi_cursor_saved_active: false,
@@ -932,16 +942,39 @@ fn redraw_policy_jetbrains_claude_scroll_defers_immediate_output_redraw() {
 }
 
 #[test]
-fn redraw_policy_cursor_claude_non_scroll_cursor_mutation_forces_immediate_redraw() {
+fn redraw_policy_cursor_claude_non_scroll_cursor_mutation_is_throttled() {
+    // Within the min interval (a repaint just happened): a keystroke echo must
+    // NOT force a repaint — the old unthrottled force_full +
+    // force_redraw_after_preclear on every echo was the per-keystroke HUD
+    // flicker in Cursor (field bug).
     let mut ctx = redraw_policy_context(b"\x1b[2K");
     ctx.family = TerminalHost::Cursor;
     ctx.runtime_variant = RuntimeVariant::CursorClaude;
     ctx.display_has_enhanced_status = true;
+    ctx.claude_non_scroll_redraw_profile = true;
     let policy = RedrawPolicy::resolve(ctx);
+    assert!(!policy.force_full_banner_redraw);
+    assert!(!policy.force_redraw_after_preclear);
+    assert!(!policy.output_redraw_needed);
+    assert!(!policy.needs_redraw);
+}
+
+#[test]
+fn redraw_policy_cursor_claude_non_scroll_cursor_mutation_repaints_when_due() {
+    // Once the profile's min interval has elapsed, the throttled non-scroll
+    // path repaints (without bypassing the typing-defer).
+    let mut ctx = redraw_policy_context(b"\x1b[2K");
+    ctx.family = TerminalHost::Cursor;
+    ctx.runtime_variant = RuntimeVariant::CursorClaude;
+    ctx.display_has_enhanced_status = true;
+    ctx.claude_non_scroll_redraw_profile = true;
+    ctx.last_scroll_redraw_at = ctx.now - Duration::from_millis(701);
+    let policy = RedrawPolicy::resolve(ctx);
+    assert!(policy.non_scroll_line_mutation);
     assert!(policy.force_full_banner_redraw);
-    assert!(policy.force_redraw_after_preclear);
+    assert!(policy.update_last_scroll_redraw_at);
     assert!(policy.output_redraw_needed);
-    assert!(policy.needs_redraw);
+    assert!(!policy.force_redraw_after_preclear);
 }
 
 #[test]
@@ -960,6 +993,25 @@ fn redraw_policy_jetbrains_claude_destructive_clear_busy_slot_arms_deferred_repa
     assert!(policy.update_last_scroll_redraw_at);
     assert!(policy.schedule_jetbrains_destructive_clear_repair);
     assert!(policy.jetbrains_repair_skip_quiet_window);
+}
+
+// Field bug (PyCharm+codex): codex's startup CSI 2J wiped the freshly painted
+// HUD and no codex_jetbrains trigger repainted it — the HUD stayed hidden
+// until the user pressed the HUD hotkey. A destructive clear must arm an
+// idle-gated full repaint (needs_redraw, not an immediate output redraw).
+#[test]
+fn redraw_policy_codex_jetbrains_destructive_clear_arms_idle_gated_repaint() {
+    let mut ctx = redraw_policy_context(b"\x1b[2J\x1b[H");
+    ctx.family = TerminalHost::JetBrains;
+    ctx.runtime_variant = RuntimeVariant::JetBrainsCodex;
+    ctx.codex_jetbrains_destructive_clear = true;
+    let policy = RedrawPolicy::resolve(ctx);
+    assert!(policy.force_full_banner_redraw);
+    assert!(policy.needs_redraw);
+    assert!(policy.update_last_scroll_redraw_at);
+    assert!(!policy.output_redraw_needed);
+    assert!(!policy.force_redraw_after_preclear);
+    assert!(!policy.destructive_clear_repaint);
 }
 
 #[test]
