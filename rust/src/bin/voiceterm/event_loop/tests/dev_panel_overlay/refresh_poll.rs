@@ -470,6 +470,13 @@ fn handoff_enter_refresh_force_reloads_review_and_git() {
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
     state.config.dev_mode = true;
     state.ui.overlay_mode = OverlayMode::DevPanel;
+    // Self-contained review artifact: the repo root no longer ships a
+    // bridge.md, so point the loader's working-dir fallback at a fixture.
+    let fixture = super::provision_bridge_fixture(
+        "handoff-enter",
+        "# Review Bridge\n\n## Current Verdict\n\n- fixture verdict\n",
+    );
+    state.working_dir = fixture.to_string_lossy().into_owned();
     let mut running = true;
 
     // Pre-load the review artifact by visiting the Review tab first.

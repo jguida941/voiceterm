@@ -267,7 +267,12 @@ fn nonrolling_approval_flow_never_suppresses() {
         &mut running,
     );
     let now = Instant::now();
-    run_periodic_tasks(&mut state, &mut timers, &mut deps, now + Duration::from_millis(20));
+    run_periodic_tasks(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        now + Duration::from_millis(20),
+    );
     assert!(!state.status_state.prompt_suppressed);
 
     handle_output_chunk(
@@ -311,7 +316,13 @@ fn nonrolling_echo_and_substantial_output_never_suppress() {
         InputEvent::Bytes(b"1".to_vec()),
         &mut running,
     );
-    handle_output_chunk(&mut state, &mut timers, &mut deps, b"1\n".to_vec(), &mut running);
+    handle_output_chunk(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        b"1\n".to_vec(),
+        &mut running,
+    );
     run_periodic_tasks(
         &mut state,
         &mut timers,

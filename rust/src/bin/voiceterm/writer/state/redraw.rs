@@ -345,7 +345,8 @@ impl WriterState {
         if clear_height > 0 {
             let _ = clear_status_banner(&mut self.stdout, self.rows, clear_height);
         }
-        if crate::hud_debug::claude_hud_debug_enabled() && self.display.banner_height != banner.height
+        if crate::hud_debug::claude_hud_debug_enabled()
+            && self.display.banner_height != banner.height
         {
             log_debug(&format!(
                 "[hud-debug] banner height transition {} -> {} (clear_height={}, force_full={}, after_preclear={}, suppressed={})",

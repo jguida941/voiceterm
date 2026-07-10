@@ -477,7 +477,14 @@ fn run_periodic_tasks_skips_background_poll_when_never_loaded() {
 fn background_review_poll_emits_toast_on_changed_content() {
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
 
-    // Pre-load with dummy content that definitely differs from the real
+    // Fixture artifact on disk (repo root no longer ships a bridge.md).
+    let fixture = super::provision_bridge_fixture(
+        "toast-changed",
+        "# Review Bridge\n\n## Current Verdict\n\n- fixture verdict on disk\n",
+    );
+    state.working_dir = fixture.to_string_lossy().into_owned();
+
+    // Pre-load with dummy content that definitely differs from the fixture
     // bridge.md on disk, so poll_review sees a content change.
     state
         .dev_panel_commands
@@ -505,7 +512,14 @@ fn background_review_poll_emits_toast_on_changed_content() {
 fn background_review_poll_does_not_repeat_toast_on_unchanged_content() {
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
 
-    // Pre-load with dummy content → first poll will load the real file.
+    // Fixture artifact on disk (repo root no longer ships a bridge.md).
+    let fixture = super::provision_bridge_fixture(
+        "toast-unchanged",
+        "# Review Bridge\n\n## Current Verdict\n\n- stable fixture verdict\n",
+    );
+    state.working_dir = fixture.to_string_lossy().into_owned();
+
+    // Pre-load with dummy content → first poll will load the fixture file.
     state
         .dev_panel_commands
         .review_mut()

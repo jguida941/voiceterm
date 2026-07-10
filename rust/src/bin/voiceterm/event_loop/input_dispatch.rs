@@ -250,11 +250,7 @@ pub(super) fn handle_input_event(
                 // recording-state transitions, so clicks died after the first
                 // response streamed (field bug: "clicking works at session
                 // start, breaks after sending a message").
-                let hud_y = state
-                    .ui
-                    .terminal_rows
-                    .saturating_sub(y)
-                    .saturating_add(1);
+                let hud_y = state.ui.terminal_rows.saturating_sub(y).saturating_add(1);
                 let banner_rows = crate::status_line::status_banner_height_for_state(
                     state.ui.terminal_cols as usize,
                     &state.status_state,
