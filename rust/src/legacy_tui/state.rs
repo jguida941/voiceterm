@@ -577,11 +577,7 @@ impl CodexApp {
                 state_change!(self, status, message);
                 false
             }
-            CodexEventKind::FatalError {
-                message,
-                disable_pty: _,
-                ..
-            } => {
+            CodexEventKind::FatalError { message, .. } => {
                 state_change!(self, status, format!("Codex failed: {message}"));
                 state_change!(self, {
                     self.input.clear();
