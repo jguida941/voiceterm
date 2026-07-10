@@ -1176,8 +1176,8 @@
   it through `devctl review-snapshot --write` when the projection must move.
 - Deferred work lives in `dev/deferred/` and must be explicitly reactivated here before implementation.
 
-## Status Snapshot (2026-04-13)
-- Last tagged release: `v1.2.3` (2026-04-01)
+## Status Snapshot (2026-07-10)
+- Last tagged release: `v1.2.3` (2026-07-10)
 - Current release target: `post-v1.2.3 planning`
 - Active development branch: `develop`
 - Current `MP-377` execution branch: `feature/governance-quality-sweep`
