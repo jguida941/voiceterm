@@ -920,7 +920,7 @@ fn redraw_policy_context<'a>(bytes: &'a [u8]) -> RedrawPolicyContext<'a> {
         claude_jetbrains_non_scroll_cursor_mutation: false,
         claude_jetbrains_composer_keystroke: false,
         claude_jetbrains_destructive_clear: false,
-        codex_jetbrains_destructive_clear: false,
+        codex_destructive_clear: false,
         claude_jetbrains_chunk_touches_cursor_save_restore: false,
         jetbrains_dec_cursor_saved_active: false,
         jetbrains_ansi_cursor_saved_active: false,
@@ -1004,7 +1004,7 @@ fn redraw_policy_codex_jetbrains_destructive_clear_arms_idle_gated_repaint() {
     let mut ctx = redraw_policy_context(b"\x1b[2J\x1b[H");
     ctx.family = TerminalHost::JetBrains;
     ctx.runtime_variant = RuntimeVariant::JetBrainsCodex;
-    ctx.codex_jetbrains_destructive_clear = true;
+    ctx.codex_destructive_clear = true;
     let policy = RedrawPolicy::resolve(ctx);
     assert!(policy.force_full_banner_redraw);
     assert!(policy.needs_redraw);

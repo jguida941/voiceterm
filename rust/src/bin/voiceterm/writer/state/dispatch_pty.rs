@@ -17,7 +17,7 @@ struct PtyChunkAnalysis {
     claude_jetbrains_synchronized_cursor_rewrite: bool,
     claude_jetbrains_non_scroll_cursor_mutation: bool,
     claude_jetbrains_destructive_clear: bool,
-    codex_jetbrains_destructive_clear: bool,
+    codex_destructive_clear: bool,
     claude_jetbrains_recent_destructive_clear_repaint: bool,
     claude_jetbrains_chunk_touches_cursor_save_restore: bool,
     cursor_claude_startup_preclear: bool,
@@ -125,16 +125,17 @@ impl WriterState {
         let claude_jetbrains_destructive_clear = claude_jetbrains
             && claude_jetbrains_full_hud_active
             && pty_output_contains_destructive_clear(bytes);
-        // Codex on JetBrains: its startup/full-screen repaints (CSI 2J) wipe
-        // the freshly painted HUD, and no other codex_jetbrains trigger
-        // repaints it (field bug: HUD absent until the user presses the HUD
-        // hotkey). Arm an idle-gated repaint whenever a destructive clear
+        // Codex (any host): its startup/full-screen repaints (CSI 2J) wipe the
+        // freshly painted HUD, and no codex-side trigger repaints it (field
+        // bug on JetBrains AND Cursor: HUD absent until the user presses the
+        // HUD hotkey). Arm an idle-gated repaint whenever a destructive clear
         // lands while a HUD is displayed or pending.
-        let codex_jetbrains_destructive_clear = codex_jetbrains
+        let codex_destructive_clear = profile.backend_family
+            == crate::runtime_compat::BackendFamily::Codex
             && (self.display.enhanced_status.is_some() || self.pending.enhanced_status.is_some())
             && pty_output_contains_destructive_clear(bytes);
-        if codex_jetbrains_destructive_clear && claude_hud_debug_enabled() {
-            log_debug("[hud-debug] codex_jetbrains destructive clear detected; arming idle-gated repaint");
+        if codex_destructive_clear && claude_hud_debug_enabled() {
+            log_debug("[hud-debug] codex destructive clear detected; arming idle-gated repaint");
         }
         let claude_jetbrains_recent_destructive_clear_repaint = claude_jetbrains
             && self
@@ -198,7 +199,7 @@ impl WriterState {
             claude_jetbrains_synchronized_cursor_rewrite,
             claude_jetbrains_non_scroll_cursor_mutation,
             claude_jetbrains_destructive_clear,
-            codex_jetbrains_destructive_clear,
+            codex_destructive_clear,
             claude_jetbrains_recent_destructive_clear_repaint,
             claude_jetbrains_chunk_touches_cursor_save_restore,
             cursor_claude_startup_preclear,
@@ -410,7 +411,7 @@ impl WriterState {
                     .claude_jetbrains_non_scroll_cursor_mutation,
                 claude_jetbrains_composer_keystroke: analysis.claude_jetbrains_composer_keystroke,
                 claude_jetbrains_destructive_clear: analysis.claude_jetbrains_destructive_clear,
-                codex_jetbrains_destructive_clear: analysis.codex_jetbrains_destructive_clear,
+                codex_destructive_clear: analysis.codex_destructive_clear,
                 claude_jetbrains_chunk_touches_cursor_save_restore: analysis
                     .claude_jetbrains_chunk_touches_cursor_save_restore,
                 jetbrains_dec_cursor_saved_active: self

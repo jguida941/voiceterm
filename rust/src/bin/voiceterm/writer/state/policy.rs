@@ -122,7 +122,7 @@ pub(super) struct RedrawPolicyContext<'a> {
     pub(super) claude_jetbrains_non_scroll_cursor_mutation: bool,
     pub(super) claude_jetbrains_composer_keystroke: bool,
     pub(super) claude_jetbrains_destructive_clear: bool,
-    pub(super) codex_jetbrains_destructive_clear: bool,
+    pub(super) codex_destructive_clear: bool,
     pub(super) claude_jetbrains_chunk_touches_cursor_save_restore: bool,
     pub(super) jetbrains_dec_cursor_saved_active: bool,
     pub(super) jetbrains_ansi_cursor_saved_active: bool,
@@ -197,13 +197,13 @@ impl RedrawPolicy {
         // every echo caused visible per-keystroke HUD flicker in Cursor (field
         // bug) by bypassing the typing-defer on each keypress.
 
-        // Codex on JetBrains: a destructive clear (startup / full-screen
+        // Codex (any host): a destructive clear (startup / full-screen
         // repaint) wipes the HUD rows and nothing else repaints them (field
-        // bug: HUD hidden until the user presses the HUD hotkey). Arm a full
-        // repaint through the idle-gated path (needs_redraw, NOT
-        // output_redraw_needed / force_redraw_after_preclear) so the codex
-        // quiet-hold coalesces it after the clear storm settles.
-        if ctx.codex_jetbrains_destructive_clear {
+        // bug on JetBrains AND Cursor: HUD hidden until the user presses the
+        // HUD hotkey). Arm a full repaint through the idle-gated path
+        // (needs_redraw, NOT output_redraw_needed / force_redraw_after_preclear)
+        // so the quiet-hold coalesces it after the clear storm settles.
+        if ctx.codex_destructive_clear {
             policy.force_full_banner_redraw = true;
             policy.needs_redraw = true;
             policy.update_last_scroll_redraw_at = true;
