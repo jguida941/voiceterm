@@ -47,14 +47,15 @@ pub(super) fn handle_overlay_mouse_click(
     if overlay_width == 0 {
         return;
     }
-    let centered_overlay_left = cols.saturating_sub(overlay_width) / 2 + 1;
-    let centered_overlay_right = centered_overlay_left.saturating_add(overlay_width);
+    // Panels are rendered LEFT-ANCHORED at column 1 (write_overlay_panel
+    // emits CSI {row};1H); the click map must use the same origin. The old
+    // centered-origin math shifted every click by (cols - width)/2 in wide
+    // panes (field bug: overlay clicks work in narrow panes, die in wide
+    // ones - "Click/Tap select" dead, [Close] unclickable, feels frozen).
+    let _ = cols;
     let x_usize = x as usize;
-    let centered_hit = x_usize >= centered_overlay_left && x_usize < centered_overlay_right;
-    let rel_x = if centered_hit {
+    let rel_x = if x_usize >= 1 && x_usize <= overlay_width {
         x_usize
-            .saturating_sub(centered_overlay_left)
-            .saturating_add(1)
     } else {
         return;
     };

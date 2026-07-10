@@ -523,28 +523,27 @@ fn settings_overlay_row_y(state: &EventLoopState, item: SettingsItem) -> u16 {
 }
 
 fn centered_overlay_click_x(state: &EventLoopState) -> u16 {
-    let cols = resolved_cols(state.ui.terminal_cols) as usize;
-    let overlay_width = settings_overlay_width_for_terminal(cols);
-    let centered_left = cols.saturating_sub(overlay_width) / 2 + 1;
-    u16::try_from(centered_left.saturating_add(2)).expect("overlay x fits in u16")
+    // Panels are left-anchored at column 1; a click a couple of columns in
+    // lands inside the frame.
+    let _ = state;
+    3
 }
 
 fn centered_settings_overlay_rel_x_to_screen_x(state: &EventLoopState, rel_x: usize) -> u16 {
-    let cols = resolved_cols(state.ui.terminal_cols) as usize;
-    let overlay_width = settings_overlay_width_for_terminal(cols);
-    let centered_left = cols.saturating_sub(overlay_width) / 2 + 1;
-    let x = centered_left.saturating_add(rel_x).saturating_sub(1);
-    u16::try_from(x).expect("overlay x fits in u16")
+    // Left-anchored panels: panel-relative columns ARE screen columns.
+    let _ = state;
+    u16::try_from(rel_x).expect("overlay x fits in u16")
 }
 
 fn centered_overlay_left_gutter_x(terminal_cols: u16, overlay_width: usize) -> u16 {
+    // Left-anchored panels have no left gutter; the gutter sits just past the
+    // panel's right edge.
     let cols = resolved_cols(terminal_cols) as usize;
-    let centered_left = cols.saturating_sub(overlay_width) / 2 + 1;
     assert!(
-        centered_left > 1,
-        "test requires a centered overlay with a left gutter"
+        cols > overlay_width,
+        "test requires a terminal wider than the overlay"
     );
-    u16::try_from(centered_left.saturating_sub(1)).expect("overlay gutter x fits in u16")
+    u16::try_from(overlay_width.saturating_add(1)).expect("overlay gutter x fits in u16")
 }
 
 fn settings_slider_click_x(state: &EventLoopState, slider_offset: usize) -> u16 {
@@ -567,9 +566,10 @@ fn settings_overlay_footer_close_click(state: &EventLoopState) -> (u16, u16) {
         .saturating_sub(1);
 
     let cols = resolved_cols(state.ui.terminal_cols) as usize;
-    let overlay_width = settings_overlay_width_for_terminal(cols);
+    let _overlay_width = settings_overlay_width_for_terminal(cols);
     let inner_width = settings_overlay_inner_width_for_terminal(cols);
-    let centered_left = cols.saturating_sub(overlay_width) / 2 + 1;
+    // Panels render left-anchored at column 1.
+    let centered_left = 1usize;
 
     let footer_title = settings_overlay_footer(&state.theme.colors());
     let title_len = crate::overlay_frame::display_width(&footer_title);
@@ -605,9 +605,10 @@ fn dev_panel_footer_close_click(state: &EventLoopState) -> (u16, u16) {
         .saturating_sub(1);
 
     let cols = resolved_cols(state.ui.terminal_cols) as usize;
-    let overlay_width = panel_width(cols);
+    let _overlay_width = panel_width(cols);
     let inner_width = panel_inner_width(cols);
-    let centered_left = cols.saturating_sub(overlay_width) / 2 + 1;
+    // Panels render left-anchored at column 1.
+    let centered_left = 1usize;
 
     let footer_title =
         dev_panel_active_footer(&state.theme.colors(), &state.dev_panel_commands, cols);
@@ -642,11 +643,9 @@ fn theme_picker_overlay_row_y(state: &EventLoopState, option_index: usize) -> u1
 }
 
 fn centered_theme_picker_rel_x_to_screen_x(state: &EventLoopState, rel_x: usize) -> u16 {
-    let cols = resolved_cols(state.ui.terminal_cols) as usize;
-    let overlay_width = theme_picker_total_width_for_terminal(cols);
-    let centered_left = cols.saturating_sub(overlay_width) / 2 + 1;
-    let x = centered_left.saturating_add(rel_x).saturating_sub(1);
-    u16::try_from(x).expect("overlay x fits in u16")
+    // Panels render left-anchored: panel-relative columns ARE screen columns.
+    let _ = state;
+    u16::try_from(rel_x).expect("overlay x fits in u16")
 }
 
 fn theme_studio_overlay_row_y(state: &EventLoopState, option_index: usize) -> u16 {
@@ -662,11 +661,9 @@ fn theme_studio_overlay_row_y(state: &EventLoopState, option_index: usize) -> u1
 }
 
 fn centered_theme_studio_rel_x_to_screen_x(state: &EventLoopState, rel_x: usize) -> u16 {
-    let cols = resolved_cols(state.ui.terminal_cols) as usize;
-    let overlay_width = theme_studio_total_width_for_terminal(cols);
-    let centered_left = cols.saturating_sub(overlay_width) / 2 + 1;
-    let x = centered_left.saturating_add(rel_x).saturating_sub(1);
-    u16::try_from(x).expect("overlay x fits in u16")
+    // Panels render left-anchored: panel-relative columns ARE screen columns.
+    let _ = state;
+    u16::try_from(rel_x).expect("overlay x fits in u16")
 }
 
 fn hud_button_click_coords(
