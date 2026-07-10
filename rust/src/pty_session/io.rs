@@ -38,10 +38,8 @@ pub(super) fn split_incomplete_escape(buffer: &mut Vec<u8>) -> Option<Vec<u8>> {
                 return Some(buffer.split_off(esc_idx));
             }
         }
-        b'(' | b')' => {
-            if esc_idx + 2 >= buffer.len() {
-                return Some(buffer.split_off(esc_idx));
-            }
+        b'(' | b')' if esc_idx + 2 >= buffer.len() => {
+            return Some(buffer.split_off(esc_idx));
         }
         _ => {}
     }

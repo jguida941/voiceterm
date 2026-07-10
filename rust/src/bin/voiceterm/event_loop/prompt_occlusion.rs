@@ -350,8 +350,8 @@ fn apply_suppression_from_chunk_signals(
 /// Feed detector and apply non-rolling/rolling latch suppression.
 fn feed_detector_and_apply_latch(
     state: &mut EventLoopState,
-    timers: &mut EventLoopTimers,
-    deps: &mut EventLoopDeps,
+    _timers: &mut EventLoopTimers,
+    _deps: &mut EventLoopDeps,
     data: &[u8],
     signals: &OutputChunkSignals,
 ) {

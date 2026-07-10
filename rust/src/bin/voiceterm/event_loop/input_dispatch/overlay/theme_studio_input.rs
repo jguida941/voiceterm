@@ -397,18 +397,16 @@ fn handle_color_picker_text_input(
                 false
             }
         }
-        b'0'..=b'9' | b'a'..=b'f' | b'A'..=b'F' => {
-            if picker.hex_entry_mode && picker.hex_buffer.len() < COLOR_PICKER_HEX_MAX_LEN {
-                if picker.hex_buffer.is_empty() {
-                    picker.hex_buffer.push('#');
-                }
-                picker
-                    .hex_buffer
-                    .push((bytes[0] as char).to_ascii_lowercase());
-                true
-            } else {
-                false
+        b'0'..=b'9' | b'a'..=b'f' | b'A'..=b'F'
+            if picker.hex_entry_mode && picker.hex_buffer.len() < COLOR_PICKER_HEX_MAX_LEN =>
+        {
+            if picker.hex_buffer.is_empty() {
+                picker.hex_buffer.push('#');
             }
+            picker
+                .hex_buffer
+                .push((bytes[0] as char).to_ascii_lowercase());
+            true
         }
         _ => false,
     }
@@ -483,12 +481,8 @@ fn apply_theme_studio_adjustment(
                 false
             }
         }
-        ThemeStudioItem::RollbackEdits => {
-            if direction == 0 {
-                theme_studio_rollback_runtime_override_edits(state)
-            } else {
-                false
-            }
+        ThemeStudioItem::RollbackEdits if direction == 0 => {
+            theme_studio_rollback_runtime_override_edits(state)
         }
         _ => false,
     }

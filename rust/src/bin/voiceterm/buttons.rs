@@ -5,15 +5,25 @@
 use std::sync::{Arc, RwLock};
 
 /// A clickable button region on the HUD.
+///
+/// Mouse clicks are now hit-tested live against current banner geometry in
+/// input_dispatch (the cached registry went stale across HUD state changes —
+/// field bug: clicks died after the first response streamed). The registry is
+/// still written on every HUD render for state bookkeeping, but its read-side
+/// consumers are gone; the position fields stay for the writers' contract.
 #[derive(Debug, Clone)]
 pub struct Button {
     /// Start x position (1-based, inclusive)
+    #[allow(dead_code)]
     pub start_x: u16,
     /// End x position (1-based, inclusive)
+    #[allow(dead_code)]
     pub end_x: u16,
     /// Y position (row, 1-based)
+    #[allow(dead_code)]
     pub y: u16,
     /// Event to emit when clicked
+    #[allow(dead_code)]
     pub event: ButtonAction,
 }
 
@@ -95,12 +105,18 @@ impl ButtonRegistry {
     }
 
     /// Get the HUD's vertical offset from terminal bottom.
+    ///
+    /// Production clicks are hit-tested live in input_dispatch against
+    /// current banner geometry (the cached registry went stale across HUD
+    /// state changes); these readers remain for the registry's own tests.
+    #[cfg(test)]
     pub fn hud_offset(&self) -> u16 {
         self.hud_bottom_offset.read().map(|o| *o).unwrap_or(0)
     }
 
     /// Find a button at the given terminal coordinates.
     /// Returns the action if a button was clicked.
+    #[cfg(test)]
     pub fn find_at(&self, x: u16, y: u16, terminal_height: u16) -> Option<ButtonAction> {
         let buttons = self.buttons.read().ok()?;
         let hud_offset = self.hud_offset();
