@@ -363,8 +363,19 @@ pub(super) fn should_preclear_bottom_rows(
             let _ = cursor_claude_banner_preclear;
             false
         }
-        // Preserve legacy behavior for non-profiled terminals.
-        TerminalHost::Other => true,
+        // Non-profiled terminals: transition-only pre-clear, like Cursor.
+        // The legacy unconditional per-scroll-chunk pre-clear blanked the HUD
+        // band on every typing/streaming chunk and the idle-gated repaint
+        // restored it later — the field "box disappears and reappears" flicker
+        // for Claude. This branch is what Cursor actually runs today: recent
+        // Cursor builds stopped exporting the CURSOR_* env hints (only
+        // TERM_PROGRAM=vscode remains), so detect_terminal_host() classifies
+        // Cursor as Other. v1.0.95 (user-verified flicker-free) never
+        // pre-cleared non-JetBrains hosts at all.
+        TerminalHost::Other => {
+            (display.overlay_panel.is_some() || status_clear_pending)
+                && now.duration_since(last_preclear_at) >= host_timing.preclear_cooldown()
+        }
     }
 }
 

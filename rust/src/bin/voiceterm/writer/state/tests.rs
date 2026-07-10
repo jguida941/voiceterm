@@ -272,9 +272,12 @@ fn status_clear_height_only_when_banner_shrinks() {
 // confined scroll region already prevents HUD smear.
 #[case(TerminalHost::Cursor, BackendMatrixCase::Claude, false)]
 #[case(TerminalHost::Cursor, BackendMatrixCase::Other, false)]
-#[case(TerminalHost::Other, BackendMatrixCase::Codex, true)]
-#[case(TerminalHost::Other, BackendMatrixCase::Claude, true)]
-#[case(TerminalHost::Other, BackendMatrixCase::Other, true)]
+// Other-host scroll chunks no longer pre-clear (field flash fix): Cursor now
+// identifies as Other (no CURSOR_* env hints since recent Cursor builds), and
+// the legacy per-chunk pre-clear blanked the Claude HUD box at typing cadence.
+#[case(TerminalHost::Other, BackendMatrixCase::Codex, false)]
+#[case(TerminalHost::Other, BackendMatrixCase::Claude, false)]
+#[case(TerminalHost::Other, BackendMatrixCase::Other, false)]
 fn should_preclear_bottom_rows_matrix_matches_host_provider_contract(
     #[case] family: TerminalHost,
     #[case] backend: BackendMatrixCase,
@@ -772,13 +775,19 @@ fn should_preclear_bottom_rows_cursor_preclears_for_pending_status_clear() {
 }
 
 #[test]
-fn should_preclear_bottom_rows_other_terminal_uses_legacy_behavior() {
+fn should_preclear_bottom_rows_other_terminal_scroll_chunks_do_not_preclear() {
+    // Other-host scroll chunks must NOT pre-clear the HUD band: Cursor now
+    // detects as Other (recent Cursor builds export no CURSOR_* env hints),
+    // and the legacy per-chunk pre-clear blanked the Claude HUD box at typing
+    // cadence (field "box disappears and reappears" flicker). Transition
+    // pre-clears (overlay/status) are covered below.
     let display = DisplayState {
         banner_height: 4,
         preclear_banner_height: 4,
         ..DisplayState::default()
     };
-    assert!(should_preclear_bottom_rows(
+    let now = Instant::now();
+    assert!(!should_preclear_bottom_rows(
         TerminalHost::Other,
         true,
         &display,
@@ -788,8 +797,31 @@ fn should_preclear_bottom_rows_other_terminal_uses_legacy_behavior() {
         false,
         false,
         false,
-        Instant::now(),
-        Instant::now()
+        now,
+        now - Duration::from_secs(5)
+    ));
+}
+
+#[test]
+fn should_preclear_bottom_rows_other_terminal_keeps_transition_preclear() {
+    let display = DisplayState {
+        banner_height: 4,
+        preclear_banner_height: 4,
+        ..DisplayState::default()
+    };
+    let now = Instant::now();
+    assert!(should_preclear_bottom_rows(
+        TerminalHost::Other,
+        true,
+        &display,
+        true, // status_clear_pending: an actual HUD transition
+        false,
+        false,
+        false,
+        false,
+        false,
+        now,
+        now - Duration::from_secs(5)
     ));
 }
 
