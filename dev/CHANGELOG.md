@@ -7,6 +7,8 @@ Note: Some historical entries reference internal documents that are not publishe
 
 ## [Unreleased]
 
+## [1.2.4] - 2026-07-12
+
 ### Fixed
 
 - **Whisper sound-event annotations leaking into transcripts** — the
