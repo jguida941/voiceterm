@@ -33,6 +33,44 @@ fn append_whisper_segment(transcript: &mut String, segment: &str) {
     transcript.push_str(segment);
 }
 
+/// Stock phrases Whisper decodes from silence or ambient noise (keyboard
+/// clatter, breaths, room tone) rather than from actual speech.
+pub(crate) fn is_silence_hallucination(text: &str) -> bool {
+    const PHRASES: &[&str] = &[
+        "you",
+        "thank you",
+        "thanks for watching",
+        "thank you for watching",
+        "thank you so much for watching",
+        "please subscribe",
+        "subtitles by the amara org community",
+    ];
+    let mut normalized = String::with_capacity(text.len());
+    for ch in text.chars() {
+        if ch.is_alphanumeric() {
+            normalized.extend(ch.to_lowercase());
+        } else if !normalized.is_empty() && !normalized.ends_with(' ') {
+            normalized.push(' ');
+        }
+    }
+    PHRASES.contains(&normalized.trim_end())
+}
+
+/// Drop hallucinated stock phrases at the utterance boundaries, where noise
+/// before or after real speech produces them. Interior segments are kept so
+/// genuinely dictated phrases inside a longer utterance survive.
+fn trim_hallucinated_boundary_segments(segments: &[String]) -> &[String] {
+    let mut start = 0;
+    let mut end = segments.len();
+    while start < end && is_silence_hallucination(&segments[start]) {
+        start += 1;
+    }
+    while end > start && is_silence_hallucination(&segments[end - 1]) {
+        end -= 1;
+    }
+    &segments[start..end]
+}
+
 #[cfg(unix)]
 mod platform {
     use crate::config::AppConfig;
@@ -121,6 +159,10 @@ mod platform {
             params.set_print_special(false);
             params.set_print_realtime(false);
             params.set_translate(false);
+            // Suppress non-speech tokens at decode time so sound-event
+            // annotations like "(keyboard clicking)" or "[typing sounds]"
+            // are never generated in the first place.
+            params.set_suppress_nst(true);
             // We only need raw text for command prompts; skipping timestamp decoding
             // trims inference work and lowers end-to-end transcript latency.
             params.set_no_timestamps(true);
@@ -138,12 +180,17 @@ mod platform {
                 log_debug("Whisper returned a negative segment count");
                 return Ok(transcript);
             }
-            // Whisper splits output into small segments; stitch them together.
+            let mut segments = Vec::new();
             for i in 0..num_segments {
                 match state.full_get_segment_text_lossy(i) {
-                    Ok(text) => super::append_whisper_segment(&mut transcript, &text),
+                    Ok(text) => segments.push(text),
                     Err(err) => log_debug(&format!("Failed to read whisper segment {i}: {err}")),
                 }
+            }
+            // Whisper splits output into small segments; stitch them together,
+            // dropping hallucinated stock phrases at the utterance boundaries.
+            for segment in super::trim_hallucinated_boundary_segments(&segments) {
+                super::append_whisper_segment(&mut transcript, segment);
             }
             // Filter out Whisper's [BLANK_AUDIO] token
             let filtered = transcript.replace("[BLANK_AUDIO]", "");
@@ -269,6 +316,44 @@ mod tests {
         append_whisper_segment(&mut transcript, "  world  ");
         append_whisper_segment(&mut transcript, ".");
         assert_eq!(transcript, "hello world.");
+    }
+
+    #[test]
+    fn silence_hallucination_matches_stock_phrases() {
+        assert!(is_silence_hallucination("Thank you."));
+        assert!(is_silence_hallucination(" THANK YOU "));
+        assert!(is_silence_hallucination("Thanks for watching!"));
+        assert!(is_silence_hallucination(
+            "Subtitles by the Amara.org community"
+        ));
+        assert!(is_silence_hallucination("you"));
+        assert!(!is_silence_hallucination("thank you for fixing that bug"));
+        assert!(!is_silence_hallucination("run the tests"));
+        assert!(!is_silence_hallucination(""));
+    }
+
+    #[test]
+    fn boundary_hallucination_segments_are_dropped() {
+        let segments = vec![
+            "Thank you.".to_string(),
+            "Hello Handshake!".to_string(),
+            "Thank you.".to_string(),
+        ];
+        let kept: Vec<&str> = trim_hallucinated_boundary_segments(&segments)
+            .iter()
+            .map(String::as_str)
+            .collect();
+        assert_eq!(kept, vec!["Hello Handshake!"]);
+
+        let all_noise = vec!["Thank you.".to_string(), "you".to_string()];
+        assert!(trim_hallucinated_boundary_segments(&all_noise).is_empty());
+
+        let interior = vec![
+            "run tests".to_string(),
+            "Thank you.".to_string(),
+            "then deploy".to_string(),
+        ];
+        assert_eq!(trim_hallucinated_boundary_segments(&interior).len(), 3);
     }
 
     #[cfg(unix)]

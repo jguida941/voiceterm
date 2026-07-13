@@ -7,6 +7,38 @@ Note: Some historical entries reference internal documents that are not publishe
 
 ## [Unreleased]
 
+### Fixed
+
+- **Whisper sound-event annotations leaking into transcripts** — the
+  transcript sanitizer used an enumerated noise-word list, so any tag not on
+  it (`(keyboard clicking)`, `[typing sounds]`, `(gunshot)`, `*sighs*`)
+  passed straight into the terminal and disrupted voice mode. Non-speech
+  tokens are now suppressed at decode time (`suppress_nst`), and the
+  sanitizer strips every bracketed, parenthesized, starred, or `♪`-wrapped
+  span regardless of wording, including trailing unclosed markers.
+  (`stt.rs`, `voice.rs`)
+- **Stock noise hallucinations injected as text** — phrases Whisper decodes
+  from keyboard clatter or room tone (`Thank you.`, `Thanks for watching!`,
+  bare `you`) are dropped at utterance boundaries, and a capture that is
+  nothing but such a phrase now yields an empty transcript instead of
+  reaching the terminal. (`stt.rs`, `voice.rs`)
+- **Sighs and sneezes spelled out as words** — Whisper renders a sigh as
+  `Ahhh.` and a sneeze as `Achoo!`; these two shapes (elongated `ahh+`,
+  `a/ah/at + choo`) are now filtered as tokens. Deliberately narrow so real
+  words (`ah`, `choose`, `ssh`) are untouched. (`voice.rs`)
+
+### Changed
+
+- **macOS builds pin bindgen to Apple's libclang** — a Homebrew llvm 22 on
+  `PATH` made bindgen emit opaque whisper.cpp structs, failing
+  `whisper-rs-sys` layout asserts at compile time; the Makefile now exports
+  `LIBCLANG_PATH` to the CommandLineTools libclang on Darwin (overridable
+  via `make LIBCLANG_PATH=...`). (`Makefile`)
+- **GitHub language stats classify the repo as Rust** — `.gitattributes`
+  marks Python as non-detectable and dev tooling as vendored for Linguist,
+  so the language bar reflects the Rust core instead of the Python dev
+  scripts. (`.gitattributes`)
+
 ## [1.2.3] - 2026-07-10
 
 ### Fixed (field bugs — Cursor / JetBrains IDE terminals)

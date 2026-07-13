@@ -436,7 +436,14 @@ fn sanitize_transcript(text: &str) -> String {
     if trimmed.is_empty() {
         return String::new();
     }
-    const NON_SPEECH_PATTERN: &str = r"(?i)\[\s*\]|\(\s*\)|\[(?:\s*(?:silence|noise|inaudible|blank_audio|blank audio|music|laughter|applause|cough|breath(?:ing)?|wind|wind blowing|background|background noise|siren(?:s)?|siren wailing|engine|engine revving|water|water splashing|water spashing|splash(?:ing)?)\s*)\]|\((?:\s*(?:silence|noise|inaudible|blank audio|music|laughter|applause|cough|breath(?:ing)?|wind|wind blowing|background|background noise|siren(?:s)?|siren wailing|engine|engine revving|water|water splashing|water spashing|splash(?:ing)?)\s*)\)";
+    // Whisper renders non-speech events as bracketed, parenthesized, starred,
+    // or note-wrapped annotations ("(keyboard clicking)", "[typing sounds]",
+    // "*sighs*", "♪ ... ♪"). Its sound vocabulary is open-ended, so no
+    // enumerated word list can keep up; real dictation never arrives wrapped
+    // in these markers, so strip every such span outright. Trailing unclosed
+    // markers from truncated decodes are stripped as well.
+    const NON_SPEECH_PATTERN: &str =
+        r"\[[^\]]*\]|\([^)]*\)|\*[^*]*\*|♪[^♪]*♪|♪|\[[^\]]*$|\([^)]*$|\*[^*]*$";
     static NON_SPEECH_RE: OnceLock<Option<Regex>> = OnceLock::new();
     let re = NON_SPEECH_RE.get_or_init(|| match Regex::new(NON_SPEECH_PATTERN) {
         Ok(compiled) => Some(compiled),
@@ -451,10 +458,46 @@ fn sanitize_transcript(text: &str) -> String {
         Some(re) => re.replace_all(trimmed, " ").into_owned(),
         None => trimmed.to_string(),
     };
-    without_markers
+    let cleaned = without_markers
         .split_whitespace()
+        .filter(|token| !is_vocal_noise_token(token))
         .collect::<Vec<_>>()
-        .join(" ")
+        .join(" ");
+    // A capture of pure noise decodes into stock phrases like "Thank you." —
+    // return nothing instead of injecting them into the terminal.
+    if stt::is_silence_hallucination(&cleaned) {
+        return String::new();
+    }
+    cleaned
+}
+
+/// True for the vocal noises Whisper spells out as words: an elongated sigh
+/// ("Ahh", "Ahhh.") or a sneeze ("Achoo!"). Deliberately narrow — only these
+/// two reported shapes — so real dictation is never swallowed.
+fn is_vocal_noise_token(token: &str) -> bool {
+    const VOCAL_NOISE_PATTERN: &str = r"(?x)^(?:
+        a{2,}h+|a+h{2,}     # aah, ahh, ahhh (sigh; plain 'ah' stays)
+        |(?:a|ah|at)choo+   # achoo, ahchoo, atchoo (sneeze)
+    )$";
+    static VOCAL_NOISE_RE: OnceLock<Option<Regex>> = OnceLock::new();
+    let re = VOCAL_NOISE_RE.get_or_init(|| match Regex::new(VOCAL_NOISE_PATTERN) {
+        Ok(compiled) => Some(compiled),
+        Err(err) => {
+            log_debug(&format!(
+                "is_vocal_noise_token: failed to compile vocal-noise regex: {err}"
+            ));
+            None
+        }
+    });
+    let Some(re) = re else {
+        return false;
+    };
+    let bare: String = token
+        .chars()
+        .filter(|c| c.is_alphanumeric())
+        .flat_map(char::to_lowercase)
+        .collect();
+    !bare.is_empty() && re.is_match(&bare)
 }
 
 /// Emit structured metrics for perf_smoke consumption.
@@ -553,9 +596,64 @@ mod tests {
     }
 
     #[test]
-    fn sanitize_transcript_keeps_meaningful_parenthetical_content() {
-        let cleaned = sanitize_transcript("say (hello world) now");
-        assert_eq!(cleaned, "say (hello world) now");
+    fn sanitize_transcript_strips_arbitrary_sound_annotations() {
+        assert_eq!(
+            sanitize_transcript("Hello Handshake! (keyboard clicking)"),
+            "Hello Handshake!"
+        );
+        assert_eq!(
+            sanitize_transcript("Hello Handshake! [typing sounds] *sighs*"),
+            "Hello Handshake!"
+        );
+        assert_eq!(
+            sanitize_transcript("fix the bug (gunshot) please"),
+            "fix the bug please"
+        );
+        assert_eq!(
+            sanitize_transcript("♪ dramatic music ♪ run make"),
+            "run make"
+        );
+    }
+
+    #[test]
+    fn sanitize_transcript_strips_trailing_unclosed_annotations() {
+        assert_eq!(
+            sanitize_transcript("deploy now (keyboard clicking"),
+            "deploy now"
+        );
+        assert_eq!(sanitize_transcript("deploy now [typing"), "deploy now");
+    }
+
+    #[test]
+    fn sanitize_transcript_strips_sigh_and_sneeze_words() {
+        assert_eq!(sanitize_transcript("Ahhh."), "");
+        assert_eq!(sanitize_transcript("Achoo!"), "");
+        assert_eq!(
+            sanitize_transcript("run the tests ahhh please"),
+            "run the tests please"
+        );
+        assert_eq!(sanitize_transcript("Achoo! deploy it."), "deploy it.");
+    }
+
+    #[test]
+    fn sanitize_transcript_keeps_real_words_that_resemble_noises() {
+        assert_eq!(sanitize_transcript("ah right, do it"), "ah right, do it");
+        assert_eq!(
+            sanitize_transcript("choose the option"),
+            "choose the option"
+        );
+        assert_eq!(
+            sanitize_transcript("ssh into the server"),
+            "ssh into the server"
+        );
+    }
+
+    #[test]
+    fn sanitize_transcript_drops_whole_transcript_hallucinations() {
+        assert_eq!(sanitize_transcript("Thank you."), "");
+        assert_eq!(sanitize_transcript(" Thanks for watching! "), "");
+        assert_eq!(sanitize_transcript("(keyboard clicking) Thank you."), "");
+        assert_eq!(sanitize_transcript("♪ ♪"), "");
     }
 
     #[test]

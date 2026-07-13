@@ -3,6 +3,16 @@
 
 .PHONY: help build run doctor fmt fmt-check lint check test test-bin test-perf test-mem test-mem-loop parser-fuzz security-audit bench ci prepush mutants mutants-all mutants-audio mutants-config mutants-voice mutants-pty mutants-results mutants-raw dev-check dev-ci dev-prepush dev-mutants dev-mutants-results dev-mutation-score dev-docs-check dev-hygiene dev-active-sync dev-list dev-status dev-report release release-notes homebrew pypi ship model-base model-small model-tiny clean clean-tests
 
+# On macOS, pin bindgen to Apple's libclang. Homebrew's bleeding-edge llvm
+# (e.g. clang 22) can shadow it and makes bindgen emit opaque structs for
+# whisper.cpp headers, which fails whisper-rs-sys layout asserts at compile
+# time. Override with `make LIBCLANG_PATH=...` if needed.
+ifeq ($(shell uname),Darwin)
+ifneq ($(wildcard /Library/Developer/CommandLineTools/usr/lib/libclang.dylib),)
+export LIBCLANG_PATH ?= /Library/Developer/CommandLineTools/usr/lib
+endif
+endif
+
 # Default target
 help:
 	@echo "VoiceTerm Developer Commands"
