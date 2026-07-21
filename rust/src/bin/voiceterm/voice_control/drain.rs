@@ -46,6 +46,8 @@ pub(crate) struct VoiceDrainContext<'a, S: TranscriptSession> {
     pub voice_manager: &'a mut VoiceManager,
     pub config: &'a OverlayConfig,
     pub voice_macros: &'a VoiceMacros,
+    /// Wrapped provider label used for provider-specific transcript delivery.
+    pub backend_label: &'a str,
     pub session: &'a mut S,
     pub writer_tx: &'a Sender<WriterMessage>,
     pub status_clear_deadline: &'a mut Option<Instant>,
@@ -76,6 +78,7 @@ pub(crate) fn drain_voice_messages<S: TranscriptSession>(ctx: &mut VoiceDrainCon
     let voice_manager = &mut *ctx.voice_manager;
     let config = ctx.config;
     let voice_macros = ctx.voice_macros;
+    let backend_label = ctx.backend_label;
     let session = &mut *ctx.session;
     let writer_tx = ctx.writer_tx;
     let status_clear_deadline = &mut *ctx.status_clear_deadline;
@@ -133,6 +136,7 @@ pub(crate) fn drain_voice_messages<S: TranscriptSession>(ctx: &mut VoiceDrainCon
                 voice_manager,
                 config,
                 voice_macros,
+                backend_label,
                 session,
                 writer_tx,
                 status_clear_deadline,

@@ -89,20 +89,33 @@ pub(super) fn handle_input_event(
                     return;
                 }
                 if let Some(keys) = parse_arrow_keys_only(&bytes) {
-                    let preserve_caret = should_preserve_terminal_caret_navigation(state);
+                    let backend_family = BackendFamily::from_label(&deps.backend_label);
+                    // Codex enables kitty keyboard reporting, which emits a
+                    // separate release/repeat frame after the press. The arrow
+                    // parser intentionally returns an empty list for those
+                    // recognized frames. Consume them in Codex mode so they do
+                    // not clear HUD focus and reset every next Left/Right press
+                    // to the first/last button. Claude keeps its existing path.
+                    if backend_family == BackendFamily::Codex && keys.is_empty() {
+                        return;
+                    }
+                    let preserve_caret =
+                        should_preserve_terminal_caret_navigation(state, &deps.backend_label);
                     let mut moved = false;
+                    let mut consumed = false;
                     for key in keys {
                         let direction = hud_navigation_direction_from_arrow(key, preserve_caret);
-                        if direction != 0
-                            && advance_hud_button_focus(
+                        if direction != 0 {
+                            consumed = true;
+                            if advance_hud_button_focus(
                                 &mut state.status_state,
                                 state.ui.overlay_mode,
                                 state.ui.terminal_cols,
                                 state.theme,
                                 direction,
-                            )
-                        {
-                            moved = true;
+                            ) {
+                                moved = true;
+                            }
                         }
                     }
                     if moved {
@@ -114,6 +127,8 @@ pub(super) fn handle_input_event(
                             state.ui.terminal_cols,
                             state.theme,
                         );
+                    }
+                    if consumed {
                         return;
                     }
                 }
@@ -491,18 +506,26 @@ fn hud_navigation_direction_from_arrow(key: ArrowKey, preserve_terminal_caret: b
     }
 }
 
-fn should_preserve_terminal_caret_navigation(state: &EventLoopState) -> bool {
+fn should_preserve_terminal_caret_navigation(state: &EventLoopState, backend_label: &str) -> bool {
     should_preserve_terminal_caret_navigation_for_input(
+        runtime_compat::detect_terminal_host(),
+        backend_label,
         state.config.voice_send_mode,
         state.status_state.insert_pending_send,
     )
 }
 
 fn should_preserve_terminal_caret_navigation_for_input(
+    terminal_host: TerminalHost,
+    backend_label: &str,
     send_mode: VoiceSendMode,
     insert_pending_send: bool,
 ) -> bool {
-    send_mode == VoiceSendMode::Insert && insert_pending_send
+    let backend_family = BackendFamily::from_label(backend_label);
+    (terminal_host == TerminalHost::Cursor && backend_family == BackendFamily::Claude)
+        || (backend_family != BackendFamily::Codex
+            && send_mode == VoiceSendMode::Insert
+            && insert_pending_send)
 }
 
 fn resume_auto_voice_if_wake_triggered(state: &mut EventLoopState) {
@@ -619,17 +642,27 @@ mod tests {
     use rstest::rstest;
 
     #[rstest]
-    #[case(VoiceSendMode::Insert, true, true)]
-    #[case(VoiceSendMode::Insert, false, false)]
-    #[case(VoiceSendMode::Auto, true, false)]
-    #[case(VoiceSendMode::Auto, false, false)]
+    #[case(TerminalHost::Other, "claude", VoiceSendMode::Insert, true, true)]
+    #[case(TerminalHost::Other, "claude", VoiceSendMode::Insert, false, false)]
+    #[case(TerminalHost::Other, "claude", VoiceSendMode::Auto, true, false)]
+    #[case(TerminalHost::Other, "claude", VoiceSendMode::Auto, false, false)]
+    #[case(TerminalHost::Other, "codex", VoiceSendMode::Insert, true, false)]
+    #[case(TerminalHost::Cursor, "claude", VoiceSendMode::Auto, false, true)]
+    #[case(TerminalHost::Cursor, "codex", VoiceSendMode::Auto, false, false)]
     fn should_preserve_terminal_caret_navigation_matches_send_mode_contract(
+        #[case] terminal_host: TerminalHost,
+        #[case] backend_label: &str,
         #[case] send_mode: VoiceSendMode,
         #[case] insert_pending_send: bool,
         #[case] expected: bool,
     ) {
         assert_eq!(
-            should_preserve_terminal_caret_navigation_for_input(send_mode, insert_pending_send),
+            should_preserve_terminal_caret_navigation_for_input(
+                terminal_host,
+                backend_label,
+                send_mode,
+                insert_pending_send,
+            ),
             expected
         );
     }
@@ -657,18 +690,20 @@ mod tests {
     }
 
     #[rstest]
-    #[case("cursor", "codex")]
     #[case("cursor", "claude")]
-    #[case("jetbrains", "codex")]
     #[case("jetbrains", "claude")]
-    #[case("other", "codex")]
     #[case("other", "claude")]
-    fn insert_pending_preserves_caret_across_supported_host_provider_matrix(
-        #[case] host: &str,
-        #[case] provider: &str,
-    ) {
-        let preserve =
-            should_preserve_terminal_caret_navigation_for_input(VoiceSendMode::Insert, true);
+    fn insert_pending_preserves_caret_for_claude_hosts(#[case] host: &str, #[case] provider: &str) {
+        let preserve = should_preserve_terminal_caret_navigation_for_input(
+            match host {
+                "cursor" => TerminalHost::Cursor,
+                "jetbrains" => TerminalHost::JetBrains,
+                _ => TerminalHost::Other,
+            },
+            provider,
+            VoiceSendMode::Insert,
+            true,
+        );
         assert!(preserve, "host={host}, provider={provider}");
         assert_eq!(
             hud_navigation_direction_from_arrow(ArrowKey::Left, preserve),
@@ -683,27 +718,65 @@ mod tests {
     }
 
     #[rstest]
-    #[case("cursor", "codex")]
-    #[case("cursor", "claude")]
-    #[case("jetbrains", "codex")]
-    #[case("jetbrains", "claude")]
-    #[case("other", "codex")]
-    #[case("other", "claude")]
+    #[case("cursor")]
+    #[case("jetbrains")]
+    #[case("other")]
+    fn codex_insert_pending_keeps_horizontal_hud_navigation(#[case] host: &str) {
+        let preserve = should_preserve_terminal_caret_navigation_for_input(
+            match host {
+                "cursor" => TerminalHost::Cursor,
+                "jetbrains" => TerminalHost::JetBrains,
+                _ => TerminalHost::Other,
+            },
+            "codex",
+            VoiceSendMode::Insert,
+            true,
+        );
+        assert!(!preserve, "host={host}");
+        assert_eq!(
+            hud_navigation_direction_from_arrow(ArrowKey::Left, preserve),
+            -1
+        );
+        assert_eq!(
+            hud_navigation_direction_from_arrow(ArrowKey::Right, preserve),
+            1
+        );
+    }
+
+    #[rstest]
+    #[case("cursor", "codex", false)]
+    #[case("cursor", "claude", true)]
+    #[case("jetbrains", "codex", false)]
+    #[case("jetbrains", "claude", false)]
+    #[case("other", "codex", false)]
+    #[case("other", "claude", false)]
     fn insert_without_pending_routes_horizontal_arrows_to_hud_navigation(
         #[case] host: &str,
         #[case] provider: &str,
+        #[case] expected_preserve: bool,
     ) {
-        let preserve =
-            should_preserve_terminal_caret_navigation_for_input(VoiceSendMode::Insert, false);
-        assert!(!preserve, "host={host}, provider={provider}");
+        let preserve = should_preserve_terminal_caret_navigation_for_input(
+            match host {
+                "cursor" => TerminalHost::Cursor,
+                "jetbrains" => TerminalHost::JetBrains,
+                _ => TerminalHost::Other,
+            },
+            provider,
+            VoiceSendMode::Insert,
+            false,
+        );
+        assert_eq!(
+            preserve, expected_preserve,
+            "host={host}, provider={provider}"
+        );
         assert_eq!(
             hud_navigation_direction_from_arrow(ArrowKey::Left, preserve),
-            -1,
+            if expected_preserve { 0 } else { -1 },
             "host={host}, provider={provider}"
         );
         assert_eq!(
             hud_navigation_direction_from_arrow(ArrowKey::Right, preserve),
-            1,
+            if expected_preserve { 0 } else { 1 },
             "host={host}, provider={provider}"
         );
     }

@@ -1,4 +1,39 @@
 use super::*;
+
+#[test]
+fn deferred_writer_waits_for_explicit_flush_even_when_bytes_contain_newlines() {
+    let mut output = DeferredWriter::new(Vec::new());
+
+    output.write_all(b"pre-clear\npty-frame\n").unwrap();
+    output.write_all(b"hud-repaint").unwrap();
+    assert!(
+        output.inner().is_empty(),
+        "newline-bearing PTY output must remain buffered until the HUD joins the batch"
+    );
+
+    output.flush().unwrap();
+    assert_eq!(output.inner(), b"pre-clear\npty-frame\nhud-repaint");
+}
+
+#[test]
+fn writer_output_buffers_only_jetbrains_codex() {
+    let jetbrains_codex = WriterOutput::for_runtime_profile(RuntimeProfile::resolve(
+        TerminalHost::JetBrains,
+        BackendFamily::Codex,
+    ));
+    let jetbrains_claude = WriterOutput::for_runtime_profile(RuntimeProfile::resolve(
+        TerminalHost::JetBrains,
+        BackendFamily::Claude,
+    ));
+    let cursor_codex = WriterOutput::for_runtime_profile(RuntimeProfile::resolve(
+        TerminalHost::Cursor,
+        BackendFamily::Codex,
+    ));
+
+    assert!(jetbrains_codex.is_jetbrains_codex_buffered());
+    assert!(!jetbrains_claude.is_jetbrains_codex_buffered());
+    assert!(!cursor_codex.is_jetbrains_codex_buffered());
+}
 use crate::config::HudBorderStyle;
 use crate::runtime_compat::RuntimeVariant;
 use crate::test_env::env_lock;
@@ -67,13 +102,17 @@ fn backend_flags_for_matrix(
         family == TerminalHost::Cursor && backend == BackendMatrixCase::Claude;
     let claude_jetbrains_banner_preclear =
         family == TerminalHost::JetBrains && backend == BackendMatrixCase::Claude;
-    let claude_jetbrains_cup_preclear_safe = claude_jetbrains_banner_preclear;
+    let jetbrains_cup_preclear_safe = family == TerminalHost::JetBrains
+        && matches!(
+            backend,
+            BackendMatrixCase::Codex | BackendMatrixCase::Claude
+        );
     (
         codex_jetbrains,
         cursor_claude_startup_preclear,
         cursor_claude_banner_preclear,
         claude_jetbrains_banner_preclear,
-        claude_jetbrains_cup_preclear_safe,
+        jetbrains_cup_preclear_safe,
     )
 }
 
@@ -256,6 +295,36 @@ fn resize_accepts_small_geometry_for_non_claude_backends() {
     });
 }
 
+#[test]
+fn resize_jetbrains_codex_preserves_anchor_and_defers_repaint_until_settled() {
+    with_backend_label_env(Some("codex"), || {
+        let mut state = WriterState::new();
+        state.set_terminal_family_for_tests(TerminalHost::JetBrains);
+        state.rows = 24;
+        state.cols = 80;
+        state.display.enhanced_status = Some(StatusLineState::new());
+        state.display.banner_height = 4;
+        state.display.preclear_banner_height = 4;
+        state.display.banner_anchor_row = Some(21);
+
+        assert!(state.handle_message(WriterMessage::Resize {
+            rows: 30,
+            cols: 100
+        }));
+
+        assert_eq!(state.rows, 30);
+        assert_eq!(state.cols, 100);
+        assert_eq!(state.display.banner_anchor_row, Some(21));
+        assert!(state.display.force_full_banner_redraw);
+        assert!(state.needs_redraw);
+        assert!(!state.force_redraw_after_preclear);
+        assert!(state
+            .adapter_state
+            .jetbrains_codex_resize_settle_until()
+            .is_some_and(|until| until > Instant::now()));
+    });
+}
+
 // Field bug (Cursor+codex): codex's startup reflow ends with a bare
 // `CSI row;1H` + `CSI J` erase-to-end-of-screen that wipes the freshly
 // painted HUD rows AFTER the 2J-detected repaint already landed — the HUD
@@ -311,7 +380,7 @@ fn status_clear_height_only_when_banner_shrinks() {
 }
 
 #[rstest]
-#[case(TerminalHost::JetBrains, BackendMatrixCase::Codex, false)]
+#[case(TerminalHost::JetBrains, BackendMatrixCase::Codex, true)]
 #[case(TerminalHost::JetBrains, BackendMatrixCase::Claude, true)]
 #[case(TerminalHost::JetBrains, BackendMatrixCase::Other, false)]
 #[case(TerminalHost::Cursor, BackendMatrixCase::Codex, false)]
@@ -341,7 +410,7 @@ fn should_preclear_bottom_rows_matrix_matches_host_provider_contract(
         cursor_claude_startup_preclear,
         cursor_claude_banner_preclear,
         claude_jetbrains_banner_preclear,
-        claude_jetbrains_cup_preclear_safe,
+        jetbrains_cup_preclear_safe,
     ) = backend_flags_for_matrix(family, backend);
     let actual = should_preclear_bottom_rows(
         family,
@@ -352,7 +421,7 @@ fn should_preclear_bottom_rows_matrix_matches_host_provider_contract(
         cursor_claude_startup_preclear,
         cursor_claude_banner_preclear,
         claude_jetbrains_banner_preclear,
-        claude_jetbrains_cup_preclear_safe,
+        jetbrains_cup_preclear_safe,
         now,
         now - Duration::from_secs(1),
     );
@@ -494,6 +563,30 @@ fn should_preclear_bottom_rows_jetbrains_codex_skips_preclear_even_on_transition
         false,
         Instant::now(),
         Instant::now() - Duration::from_millis(JETBRAINS_PRECLEAR_COOLDOWN_MS)
+    ));
+}
+
+#[test]
+fn should_preclear_bottom_rows_jetbrains_codex_accepts_safe_cup_frame() {
+    let display = DisplayState {
+        enhanced_status: Some(StatusLineState::new()),
+        banner_height: 4,
+        preclear_banner_height: 4,
+        ..DisplayState::default()
+    };
+    let now = Instant::now();
+    assert!(should_preclear_bottom_rows(
+        TerminalHost::JetBrains,
+        true,
+        &display,
+        false,
+        true,
+        false,
+        false,
+        false,
+        true,
+        now,
+        now
     ));
 }
 
@@ -890,7 +983,7 @@ fn preclear_policy_cursor_claude_banner_sets_immediate_redraw_flags() {
         cursor_claude_startup_preclear: false,
         cursor_claude_banner_preclear: true,
         claude_jetbrains_banner_preclear: false,
-        claude_jetbrains_cup_preclear_safe: false,
+        jetbrains_cup_preclear_safe: false,
         claude_jetbrains_legacy_preclear_safe: false,
         in_resize_repair_window: false,
         preclear_blocked_for_recent_input: false,
@@ -927,7 +1020,7 @@ fn preclear_policy_jetbrains_claude_resize_window_forces_repair_flags() {
         cursor_claude_startup_preclear: false,
         cursor_claude_banner_preclear: false,
         claude_jetbrains_banner_preclear: true,
-        claude_jetbrains_cup_preclear_safe: false,
+        jetbrains_cup_preclear_safe: false,
         claude_jetbrains_legacy_preclear_safe: false,
         in_resize_repair_window: true,
         preclear_blocked_for_recent_input: false,
@@ -938,6 +1031,40 @@ fn preclear_policy_jetbrains_claude_resize_window_forces_repair_flags() {
     let outcome = policy.outcome(true);
     assert!(policy.should_preclear);
     assert!(outcome.pre_cleared);
+    assert!(outcome.force_redraw_after_preclear);
+    assert!(outcome.force_full_banner_redraw);
+    assert!(outcome.needs_redraw);
+}
+
+#[test]
+fn preclear_policy_jetbrains_codex_safe_frame_forces_atomic_repaint() {
+    let display = DisplayState {
+        enhanced_status: Some(StatusLineState::new()),
+        banner_height: 4,
+        preclear_banner_height: 4,
+        ..DisplayState::default()
+    };
+    let now = Instant::now();
+    let policy = PreclearPolicy::resolve(PreclearPolicyContext {
+        family: TerminalHost::JetBrains,
+        display: &display,
+        status_clear_pending: false,
+        may_scroll_rows: true,
+        codex_jetbrains: true,
+        cursor_claude_startup_preclear: false,
+        cursor_claude_banner_preclear: false,
+        claude_jetbrains_banner_preclear: false,
+        jetbrains_cup_preclear_safe: true,
+        claude_jetbrains_legacy_preclear_safe: false,
+        in_resize_repair_window: false,
+        preclear_blocked_for_recent_input: false,
+        claude_jetbrains_destructive_clear: false,
+        now,
+        last_preclear_at: now,
+    });
+    assert!(policy.should_preclear);
+    assert!(policy.use_cup_only_clear);
+    let outcome = policy.outcome(true);
     assert!(outcome.force_redraw_after_preclear);
     assert!(outcome.force_full_banner_redraw);
     assert!(outcome.needs_redraw);
@@ -961,7 +1088,7 @@ fn preclear_policy_outcome_without_preclear_disables_post_preclear_flags() {
         cursor_claude_startup_preclear: false,
         cursor_claude_banner_preclear: true,
         claude_jetbrains_banner_preclear: false,
-        claude_jetbrains_cup_preclear_safe: false,
+        jetbrains_cup_preclear_safe: false,
         claude_jetbrains_legacy_preclear_safe: false,
         in_resize_repair_window: false,
         preclear_blocked_for_recent_input: false,
@@ -1000,6 +1127,7 @@ fn redraw_policy_context<'a>(bytes: &'a [u8]) -> RedrawPolicyContext<'a> {
         claude_jetbrains_composer_keystroke: false,
         claude_jetbrains_destructive_clear: false,
         codex_destructive_clear: false,
+        codex_jetbrains_resize_settling: false,
         claude_jetbrains_chunk_touches_cursor_save_restore: false,
         jetbrains_dec_cursor_saved_active: false,
         jetbrains_ansi_cursor_saved_active: false,
@@ -1077,12 +1205,11 @@ fn redraw_policy_jetbrains_claude_destructive_clear_busy_slot_arms_deferred_repa
     assert!(policy.jetbrains_repair_skip_quiet_window);
 }
 
-// Field bug (PyCharm+codex): codex's startup CSI 2J wiped the freshly painted
-// HUD and no codex_jetbrains trigger repainted it — the HUD stayed hidden
-// until the user pressed the HUD hotkey. A destructive clear must arm an
-// idle-gated full repaint (needs_redraw, not an immediate output redraw).
+// Field bug (PyCharm+codex): a full clear removes both the conversation and
+// HUD rows, so it is safe to re-anchor immediately when Codex does not own the
+// shared JediTerm cursor-save slot.
 #[test]
-fn redraw_policy_codex_jetbrains_destructive_clear_arms_idle_gated_repaint() {
+fn redraw_policy_codex_jetbrains_destructive_clear_repaints_immediately() {
     let mut ctx = redraw_policy_context(b"\x1b[2J\x1b[H");
     ctx.family = TerminalHost::JetBrains;
     ctx.runtime_variant = RuntimeVariant::JetBrainsCodex;
@@ -1092,8 +1219,65 @@ fn redraw_policy_codex_jetbrains_destructive_clear_arms_idle_gated_repaint() {
     assert!(policy.needs_redraw);
     assert!(policy.update_last_scroll_redraw_at);
     assert!(!policy.output_redraw_needed);
-    assert!(!policy.force_redraw_after_preclear);
+    assert!(policy.force_redraw_after_preclear);
     assert!(!policy.destructive_clear_repaint);
+}
+
+#[test]
+fn redraw_policy_codex_jetbrains_unprecleared_scroll_stays_idle_gated() {
+    let mut ctx = redraw_policy_context(b"\rworking");
+    ctx.family = TerminalHost::JetBrains;
+    ctx.runtime_variant = RuntimeVariant::JetBrainsCodex;
+    ctx.may_scroll_rows = true;
+    let policy = RedrawPolicy::resolve(ctx);
+    assert!(policy.force_full_banner_redraw);
+    assert!(policy.needs_redraw);
+    assert!(!policy.force_redraw_after_preclear);
+}
+
+#[test]
+fn redraw_policy_codex_jetbrains_precleared_scroll_repaints_immediately() {
+    let mut ctx = redraw_policy_context(b"\x1b[1;1Hworking\r\n");
+    ctx.family = TerminalHost::JetBrains;
+    ctx.runtime_variant = RuntimeVariant::JetBrainsCodex;
+    ctx.may_scroll_rows = true;
+    ctx.preclear_outcome = PreclearOutcome {
+        pre_cleared: true,
+        force_redraw_after_preclear: true,
+        force_full_banner_redraw: true,
+        needs_redraw: true,
+        ..PreclearOutcome::default()
+    };
+    let policy = RedrawPolicy::resolve(ctx);
+    assert!(policy.force_full_banner_redraw);
+    assert!(policy.needs_redraw);
+    assert!(policy.force_redraw_after_preclear);
+}
+
+#[test]
+fn redraw_policy_codex_jetbrains_busy_cursor_slot_defers_destructive_clear_repaint() {
+    let mut ctx = redraw_policy_context(b"\x1b[2J\x1b[H");
+    ctx.family = TerminalHost::JetBrains;
+    ctx.runtime_variant = RuntimeVariant::JetBrainsCodex;
+    ctx.codex_destructive_clear = true;
+    ctx.jetbrains_dec_cursor_saved_active = true;
+    let policy = RedrawPolicy::resolve(ctx);
+    assert!(policy.force_full_banner_redraw);
+    assert!(policy.needs_redraw);
+    assert!(!policy.force_redraw_after_preclear);
+}
+
+#[test]
+fn redraw_policy_codex_jetbrains_resize_settle_blocks_immediate_reanchor() {
+    let mut ctx = redraw_policy_context(b"\x1b[2J\x1b[H");
+    ctx.family = TerminalHost::JetBrains;
+    ctx.runtime_variant = RuntimeVariant::JetBrainsCodex;
+    ctx.codex_destructive_clear = true;
+    ctx.codex_jetbrains_resize_settling = true;
+    let policy = RedrawPolicy::resolve(ctx);
+    assert!(policy.force_full_banner_redraw);
+    assert!(policy.needs_redraw);
+    assert!(!policy.force_redraw_after_preclear);
 }
 
 #[test]

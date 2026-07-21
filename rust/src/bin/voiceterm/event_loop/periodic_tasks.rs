@@ -10,6 +10,8 @@ const CLAUDE_GEOMETRY_COLLAPSE_ROWS_MAX: u16 = 2;
 const CLAUDE_GEOMETRY_COLLAPSE_MIN_PREVIOUS_ROWS: u16 = 10;
 const CLAUDE_GEOMETRY_COLLAPSE_CONFIRMATIONS_REQUIRED: u8 = 2;
 const CLAUDE_GEOMETRY_COLLAPSE_STABILIZE_MS: u64 = 350;
+const JETBRAINS_CODEX_RESIZE_CONFIRMATIONS_REQUIRED: u8 = 2;
+const JETBRAINS_CODEX_RESIZE_STABILIZE_MS: u64 = 350;
 
 fn normalize_measured_terminal_size(
     cached_cols: u16,
@@ -96,17 +98,53 @@ fn stable_geometry_sample_or_none(
     rows: u16,
     now: Instant,
 ) -> Option<(u16, u16)> {
+    let jetbrains_codex_resize = runtime_compat::detect_terminal_host() == TerminalHost::JetBrains
+        && BackendFamily::from_label(&deps.backend_label) == BackendFamily::Codex
+        && (cols != state.ui.terminal_cols || rows != state.ui.terminal_rows);
+    if jetbrains_codex_resize {
+        // JediTerm reports every intermediate split-pane pixel drag as a
+        // terminal geometry change. Codex then performs a full reflow for each
+        // sample, racing the HUD renderer and leaving detached border rows.
+        // Require one repeated sample (or a short stable interval) so only the
+        // final drag geometry reaches the PTY and writer.
+        return stabilize_pending_geometry_sample(
+            timers,
+            cols,
+            rows,
+            now,
+            JETBRAINS_CODEX_RESIZE_CONFIRMATIONS_REQUIRED,
+            Duration::from_millis(JETBRAINS_CODEX_RESIZE_STABILIZE_MS),
+        );
+    }
     if !is_transient_claude_geometry_collapse(state, deps, cols, rows) {
         timers.pending_terminal_geometry_sample = None;
         return Some((cols, rows));
     }
 
+    stabilize_pending_geometry_sample(
+        timers,
+        cols,
+        rows,
+        now,
+        CLAUDE_GEOMETRY_COLLAPSE_CONFIRMATIONS_REQUIRED,
+        Duration::from_millis(CLAUDE_GEOMETRY_COLLAPSE_STABILIZE_MS),
+    )
+}
+
+fn stabilize_pending_geometry_sample(
+    timers: &mut EventLoopTimers,
+    cols: u16,
+    rows: u16,
+    now: Instant,
+    confirmations_required: u8,
+    stabilize_for_required: Duration,
+) -> Option<(u16, u16)> {
     match timers.pending_terminal_geometry_sample.as_mut() {
         Some(sample) if sample.cols == cols && sample.rows == rows => {
             sample.confirmations = sample.confirmations.saturating_add(1);
             let stable_for = now.saturating_duration_since(sample.first_seen_at);
-            if sample.confirmations >= CLAUDE_GEOMETRY_COLLAPSE_CONFIRMATIONS_REQUIRED
-                || stable_for >= Duration::from_millis(CLAUDE_GEOMETRY_COLLAPSE_STABILIZE_MS)
+            if sample.confirmations >= confirmations_required
+                || stable_for >= stabilize_for_required
             {
                 timers.pending_terminal_geometry_sample = None;
                 Some((cols, rows))

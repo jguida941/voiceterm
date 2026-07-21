@@ -102,6 +102,151 @@ fn arrow_left_and_right_focus_different_buttons_from_none() {
 }
 
 #[test]
+fn codex_arrow_release_does_not_clear_focus_or_restart_navigation() {
+    let _hook = install_try_send_hook(hook_count_writes);
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    deps.backend_label = "codex".to_string();
+    state.ui.terminal_cols = 160;
+    state.status_state.hud_button_focus = None;
+    let mut running = true;
+
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::Bytes(b"\x1b[C".to_vec()),
+        &mut running,
+    );
+    assert_eq!(
+        state.status_state.hud_button_focus,
+        Some(ButtonAction::VoiceTrigger)
+    );
+
+    // Kitty release for Right: recognized and consumed without moving.
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::Bytes(b"\x1b[1;1:3C".to_vec()),
+        &mut running,
+    );
+    assert_eq!(
+        state.status_state.hud_button_focus,
+        Some(ButtonAction::VoiceTrigger)
+    );
+
+    // The next press advances from rec to ptt instead of restarting at rec.
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::Bytes(b"\x1b[C".to_vec()),
+        &mut running,
+    );
+    assert!(running);
+    assert_eq!(
+        state.status_state.hud_button_focus,
+        Some(ButtonAction::ToggleAutoVoice)
+    );
+    HOOK_CALLS.with(|calls| assert_eq!(calls.get(), 0));
+}
+
+#[test]
+fn codex_up_down_exit_hud_focus_and_return_input_to_composer() {
+    let _hook = install_try_send_hook(hook_count_writes);
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    deps.backend_label = "codex".to_string();
+    state.status_state.hud_button_focus = Some(ButtonAction::ToggleSendMode);
+    let mut running = true;
+
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::Bytes(b"\x1b[A".to_vec()),
+        &mut running,
+    );
+
+    assert!(running);
+    assert!(state.status_state.hud_button_focus.is_none());
+    HOOK_CALLS.with(|calls| assert_eq!(calls.get(), 1));
+}
+
+#[test]
+fn codex_up_without_hud_focus_keeps_normal_composer_history_behavior() {
+    let _hook = install_try_send_hook(hook_count_writes);
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    deps.backend_label = "codex".to_string();
+    state.status_state.hud_button_focus = None;
+    let mut running = true;
+
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::Bytes(b"\x1b[A".to_vec()),
+        &mut running,
+    );
+
+    assert!(running);
+    assert!(state.status_state.hud_button_focus.is_none());
+    HOOK_CALLS.with(|calls| assert_eq!(calls.get(), 1));
+}
+
+#[test]
+fn cursor_claude_horizontal_arrows_bypass_hud_for_child_selectors() {
+    let _host = install_terminal_host_override(TerminalHost::Cursor);
+    let _hook = install_try_send_hook(hook_count_writes);
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    deps.backend_label = "claude".to_string();
+    state.config.voice_send_mode = crate::config::VoiceSendMode::Auto;
+    state.status_state.hud_button_focus = Some(ButtonAction::ToggleSendMode);
+    let mut running = true;
+
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::Bytes(b"\x1b[D".to_vec()),
+        &mut running,
+    );
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::Bytes(b"\x1b[C".to_vec()),
+        &mut running,
+    );
+
+    assert!(running);
+    assert!(state.status_state.hud_button_focus.is_none());
+    HOOK_CALLS.with(|calls| assert_eq!(calls.get(), 2));
+}
+
+#[test]
+fn jetbrains_claude_horizontal_arrows_keep_hud_navigation() {
+    let _host = install_terminal_host_override(TerminalHost::JetBrains);
+    let _hook = install_try_send_hook(hook_count_writes);
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    deps.backend_label = "claude".to_string();
+    state.config.voice_send_mode = crate::config::VoiceSendMode::Auto;
+    state.status_state.hud_button_focus = None;
+    let mut running = true;
+
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::Bytes(b"\x1b[C".to_vec()),
+        &mut running,
+    );
+
+    assert!(running);
+    assert!(state.status_state.hud_button_focus.is_some());
+    HOOK_CALLS.with(|calls| assert_eq!(calls.get(), 0));
+}
+
+#[test]
 fn insert_mode_with_pending_text_forwards_left_and_right_arrows_to_pty() {
     let _hook = install_try_send_hook(hook_count_writes);
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);

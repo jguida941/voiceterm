@@ -425,16 +425,22 @@ pub(super) fn track_cursor_save_restore(
             }
             b'[' => {
                 idx += 2;
+                let parameters_start = idx;
                 let mut saw_final = false;
                 while idx < stream.len() {
                     let byte = stream[idx];
                     idx += 1;
                     if (0x40..=0x7e).contains(&byte) {
                         saw_final = true;
-                        if byte == b's' {
+                        // ANSI cursor save/restore are the parameterless CSI s/u
+                        // forms. Parameterized CSI-u sequences belong to other
+                        // protocols (notably kitty keyboard negotiation) and must
+                        // not make VoiceTerm believe the app owns a cursor slot.
+                        let parameterless = idx - 1 == parameters_start;
+                        if parameterless && byte == b's' {
                             ansi_active_state = true;
                             saw_save = true;
-                        } else if byte == b'u' {
+                        } else if parameterless && byte == b'u' {
                             ansi_active_state = false;
                             saw_restore = true;
                         }

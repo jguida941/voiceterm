@@ -9,6 +9,7 @@ pub(super) struct TranscriptDeliveryContext<'a, S: TranscriptSession> {
     pub(super) voice_manager: &'a mut VoiceManager,
     pub(super) config: &'a OverlayConfig,
     pub(super) voice_macros: &'a VoiceMacros,
+    pub(super) backend_label: &'a str,
     pub(super) session: &'a mut S,
     pub(super) writer_tx: &'a Sender<WriterMessage>,
     pub(super) status_clear_deadline: &'a mut Option<Instant>,
@@ -30,6 +31,36 @@ pub(super) struct TranscriptDeliveryContext<'a, S: TranscriptSession> {
     pub(super) sound_on_complete: bool,
     pub(super) transcript_history: &'a mut crate::transcript_history::TranscriptHistory,
     pub(super) memory_ingestor: Option<&'a mut crate::memory::MemoryIngestor>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum TranscriptRoute {
+    Deliver(VoiceSendMode),
+    Queue,
+}
+
+fn resolve_transcript_route(
+    backend_label: &str,
+    ready: bool,
+    pending_empty: bool,
+    requested_mode: VoiceSendMode,
+) -> TranscriptRoute {
+    if ready && pending_empty {
+        return TranscriptRoute::Deliver(requested_mode);
+    }
+
+    // Codex owns a live composer even while a turn is running. Sending the
+    // transcript without Enter places it in that composer immediately; keeping
+    // it in VoiceTerm's prompt-readiness queue makes the user's words appear to
+    // vanish until Codex finishes. Claude retains the existing readiness queue.
+    if crate::runtime_compat::BackendFamily::from_label(backend_label)
+        == crate::runtime_compat::BackendFamily::Codex
+        && !ready
+    {
+        return TranscriptRoute::Deliver(VoiceSendMode::Insert);
+    }
+
+    TranscriptRoute::Queue
 }
 
 pub(super) fn handle_transcript_message<S: TranscriptSession>(
@@ -150,25 +181,33 @@ fn queue_or_deliver_transcript<S: TranscriptSession>(
         .map(|note| format!(", {note}"))
         .unwrap_or_default();
 
-    if ready && ctx.pending_transcripts.is_empty() {
-        let mut io = crate::transcript::TranscriptIo {
-            session: ctx.session,
-            writer_tx: ctx.writer_tx,
-            status_clear_deadline: ctx.status_clear_deadline,
-            current_status: ctx.current_status,
-            status_state: ctx.status_state,
-        };
-        let sent_newline = crate::transcript::deliver_transcript(
-            &text,
-            transcript_mode,
-            &mut io,
-            0,
-            delivery_note.as_deref(),
-        );
-        if sent_newline {
-            *ctx.last_enter_at = Some(ctx.now);
+    match resolve_transcript_route(
+        ctx.backend_label,
+        ready,
+        ctx.pending_transcripts.is_empty(),
+        transcript_mode,
+    ) {
+        TranscriptRoute::Deliver(delivery_mode) => {
+            let mut io = crate::transcript::TranscriptIo {
+                session: ctx.session,
+                writer_tx: ctx.writer_tx,
+                status_clear_deadline: ctx.status_clear_deadline,
+                current_status: ctx.current_status,
+                status_state: ctx.status_state,
+            };
+            let sent_newline = crate::transcript::deliver_transcript(
+                &text,
+                delivery_mode,
+                &mut io,
+                0,
+                delivery_note.as_deref(),
+            );
+            if sent_newline {
+                *ctx.last_enter_at = Some(ctx.now);
+            }
+            return;
         }
-        return;
+        TranscriptRoute::Queue => {}
     }
 
     let dropped = crate::transcript::push_pending_transcript(
@@ -219,5 +258,37 @@ fn queue_or_deliver_transcript<S: TranscriptSession>(
             &status,
             None,
         );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn codex_busy_transcript_is_staged_in_live_composer() {
+        assert_eq!(
+            resolve_transcript_route("codex", false, true, VoiceSendMode::Auto),
+            TranscriptRoute::Deliver(VoiceSendMode::Insert)
+        );
+    }
+
+    #[test]
+    fn claude_busy_transcript_keeps_existing_readiness_queue() {
+        assert_eq!(
+            resolve_transcript_route("claude", false, true, VoiceSendMode::Auto),
+            TranscriptRoute::Queue
+        );
+    }
+
+    #[test]
+    fn ready_transcript_keeps_requested_mode_for_both_providers() {
+        for backend in ["codex", "claude"] {
+            assert_eq!(
+                resolve_transcript_route(backend, true, true, VoiceSendMode::Auto),
+                TranscriptRoute::Deliver(VoiceSendMode::Auto),
+                "backend={backend}"
+            );
+        }
     }
 }

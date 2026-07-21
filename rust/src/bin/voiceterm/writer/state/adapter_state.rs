@@ -25,7 +25,16 @@ pub(super) struct JetBrainsClaudeWriterState {
 }
 
 #[derive(Debug, Clone, Default)]
-pub(super) struct JetBrainsCodexWriterState;
+pub(super) struct JetBrainsCodexWriterState {
+    /// Codex and VoiceTerm share JediTerm's single DEC cursor-save slot.
+    /// Track saves that span PTY chunks so a HUD repaint never overwrites it.
+    pub(super) dec_cursor_saved_active: bool,
+    pub(super) ansi_cursor_saved_active: bool,
+    pub(super) cursor_escape_carry: Vec<u8>,
+    /// Hold HUD repaints while JetBrains is still delivering resize geometry
+    /// and Codex is reflowing its full-screen viewport.
+    pub(super) resize_settle_until: Option<Instant>,
+}
 
 #[derive(Debug, Clone)]
 pub(super) struct CursorClaudeWriterState {
@@ -56,7 +65,9 @@ impl WriterAdapterState {
                 startup_screen_clear_pending: true,
                 ..JetBrainsClaudeWriterState::default()
             }),
-            RuntimeVariant::JetBrainsCodex => Self::JetBrainsCodex(JetBrainsCodexWriterState),
+            RuntimeVariant::JetBrainsCodex => {
+                Self::JetBrainsCodex(JetBrainsCodexWriterState::default())
+            }
             RuntimeVariant::CursorClaude => Self::CursorClaude(CursorClaudeWriterState::default()),
             RuntimeVariant::Generic => Self::Generic(GenericWriterState {
                 cursor_startup_screen_clear_pending: profile.terminal_family
@@ -111,26 +122,32 @@ impl WriterAdapterState {
     pub(super) fn jetbrains_dec_cursor_saved_active(&self) -> bool {
         match self {
             Self::JetBrainsClaude(state) => state.dec_cursor_saved_active,
-            Self::JetBrainsCodex(_) | Self::CursorClaude(_) | Self::Generic(_) => false,
+            Self::JetBrainsCodex(state) => state.dec_cursor_saved_active,
+            Self::CursorClaude(_) | Self::Generic(_) => false,
         }
     }
 
     pub(super) fn set_jetbrains_dec_cursor_saved_active(&mut self, active: bool) {
-        if let Self::JetBrainsClaude(state) = self {
-            state.dec_cursor_saved_active = active;
+        match self {
+            Self::JetBrainsClaude(state) => state.dec_cursor_saved_active = active,
+            Self::JetBrainsCodex(state) => state.dec_cursor_saved_active = active,
+            Self::CursorClaude(_) | Self::Generic(_) => {}
         }
     }
 
     pub(super) fn jetbrains_ansi_cursor_saved_active(&self) -> bool {
         match self {
             Self::JetBrainsClaude(state) => state.ansi_cursor_saved_active,
-            Self::JetBrainsCodex(_) | Self::CursorClaude(_) | Self::Generic(_) => false,
+            Self::JetBrainsCodex(state) => state.ansi_cursor_saved_active,
+            Self::CursorClaude(_) | Self::Generic(_) => false,
         }
     }
 
     pub(super) fn set_jetbrains_ansi_cursor_saved_active(&mut self, active: bool) {
-        if let Self::JetBrainsClaude(state) = self {
-            state.ansi_cursor_saved_active = active;
+        match self {
+            Self::JetBrainsClaude(state) => state.ansi_cursor_saved_active = active,
+            Self::JetBrainsCodex(state) => state.ansi_cursor_saved_active = active,
+            Self::CursorClaude(_) | Self::Generic(_) => {}
         }
     }
 
@@ -150,19 +167,24 @@ impl WriterAdapterState {
     pub(super) fn jetbrains_cursor_escape_carry(&self) -> &[u8] {
         match self {
             Self::JetBrainsClaude(state) => state.cursor_escape_carry.as_slice(),
-            Self::JetBrainsCodex(_) | Self::CursorClaude(_) | Self::Generic(_) => &[],
+            Self::JetBrainsCodex(state) => state.cursor_escape_carry.as_slice(),
+            Self::CursorClaude(_) | Self::Generic(_) => &[],
         }
     }
 
     pub(super) fn set_jetbrains_cursor_escape_carry(&mut self, carry: Vec<u8>) {
-        if let Self::JetBrainsClaude(state) = self {
-            state.cursor_escape_carry = carry;
+        match self {
+            Self::JetBrainsClaude(state) => state.cursor_escape_carry = carry,
+            Self::JetBrainsCodex(state) => state.cursor_escape_carry = carry,
+            Self::CursorClaude(_) | Self::Generic(_) => {}
         }
     }
 
     pub(super) fn clear_jetbrains_cursor_escape_carry(&mut self) {
-        if let Self::JetBrainsClaude(state) = self {
-            state.cursor_escape_carry.clear();
+        match self {
+            Self::JetBrainsClaude(state) => state.cursor_escape_carry.clear(),
+            Self::JetBrainsCodex(state) => state.cursor_escape_carry.clear(),
+            Self::CursorClaude(_) | Self::Generic(_) => {}
         }
     }
 
@@ -202,6 +224,19 @@ impl WriterAdapterState {
     pub(super) fn set_jetbrains_claude_resize_repair_until(&mut self, until: Option<Instant>) {
         if let Self::JetBrainsClaude(state) = self {
             state.resize_repair_until = until;
+        }
+    }
+
+    pub(super) fn jetbrains_codex_resize_settle_until(&self) -> Option<Instant> {
+        match self {
+            Self::JetBrainsCodex(state) => state.resize_settle_until,
+            Self::JetBrainsClaude(_) | Self::CursorClaude(_) | Self::Generic(_) => None,
+        }
+    }
+
+    pub(super) fn set_jetbrains_codex_resize_settle_until(&mut self, until: Option<Instant>) {
+        if let Self::JetBrainsCodex(state) = self {
+            state.resize_settle_until = until;
         }
     }
 

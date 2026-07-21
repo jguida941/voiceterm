@@ -286,6 +286,7 @@ fn drain_voice_messages_once(
         voice_manager: &mut deps.voice_manager,
         config: &state.config,
         voice_macros: &deps.voice_macros,
+        backend_label: &deps.backend_label,
         session: &mut deps.session,
         writer_tx: &deps.writer_tx,
         status_clear_deadline: &mut timers.status_clear_deadline,

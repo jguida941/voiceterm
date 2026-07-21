@@ -18,7 +18,7 @@ pub(super) struct PreclearPolicyContext<'a> {
     pub(super) cursor_claude_startup_preclear: bool,
     pub(super) cursor_claude_banner_preclear: bool,
     pub(super) claude_jetbrains_banner_preclear: bool,
-    pub(super) claude_jetbrains_cup_preclear_safe: bool,
+    pub(super) jetbrains_cup_preclear_safe: bool,
     pub(super) claude_jetbrains_legacy_preclear_safe: bool,
     pub(super) in_resize_repair_window: bool,
     pub(super) preclear_blocked_for_recent_input: bool,
@@ -57,7 +57,7 @@ impl PreclearPolicy {
             ctx.cursor_claude_startup_preclear,
             ctx.cursor_claude_banner_preclear,
             ctx.claude_jetbrains_banner_preclear,
-            ctx.claude_jetbrains_cup_preclear_safe,
+            ctx.jetbrains_cup_preclear_safe,
             ctx.now,
             ctx.last_preclear_at,
         );
@@ -68,12 +68,15 @@ impl PreclearPolicy {
             && !ctx.preclear_blocked_for_recent_input;
         Self {
             should_preclear,
-            use_cup_only_clear: should_preclear && ctx.claude_jetbrains_cup_preclear_safe,
-            force_redraw_after_preclear: ctx.cursor_claude_banner_preclear
+            use_cup_only_clear: should_preclear && ctx.jetbrains_cup_preclear_safe,
+            force_redraw_after_preclear: (ctx.codex_jetbrains && ctx.jetbrains_cup_preclear_safe)
+                || ctx.cursor_claude_banner_preclear
                 || (ctx.claude_jetbrains_banner_preclear && ctx.in_resize_repair_window),
-            force_full_banner_redraw: ctx.cursor_claude_banner_preclear
+            force_full_banner_redraw: (ctx.codex_jetbrains && ctx.jetbrains_cup_preclear_safe)
+                || ctx.cursor_claude_banner_preclear
                 || ctx.claude_jetbrains_banner_preclear,
-            needs_redraw: ctx.claude_jetbrains_banner_preclear,
+            needs_redraw: (ctx.codex_jetbrains && ctx.jetbrains_cup_preclear_safe)
+                || ctx.claude_jetbrains_banner_preclear,
             consume_cursor_startup_preclear: ctx.cursor_claude_startup_preclear,
         }
     }
@@ -123,6 +126,7 @@ pub(super) struct RedrawPolicyContext<'a> {
     pub(super) claude_jetbrains_composer_keystroke: bool,
     pub(super) claude_jetbrains_destructive_clear: bool,
     pub(super) codex_destructive_clear: bool,
+    pub(super) codex_jetbrains_resize_settling: bool,
     pub(super) claude_jetbrains_chunk_touches_cursor_save_restore: bool,
     pub(super) jetbrains_dec_cursor_saved_active: bool,
     pub(super) jetbrains_ansi_cursor_saved_active: bool,
@@ -283,9 +287,24 @@ impl RedrawPolicy {
             // JetBrains+Claude redraw is idle-gated; avoid immediate redraw.
             false
         } else if jetbrains_codex_runtime {
-            if ctx.may_scroll_rows {
+            if ctx.may_scroll_rows || ctx.codex_destructive_clear {
                 policy.force_full_banner_redraw = true;
                 policy.needs_redraw = true;
+                // Repaint in the same cycle only when the old HUD was safely
+                // blanked before a cursor-anchored Codex frame, or after a
+                // destructive clear that already removed every stale row.
+                // Repainting after an arbitrary scrolling chunk drags old HUD
+                // rows into JetBrains scrollback as separated frame artifacts.
+                let cursor_slot_idle = !ctx.jetbrains_dec_cursor_saved_active
+                    && !ctx.jetbrains_ansi_cursor_saved_active;
+                let safe_scrolling_reanchor =
+                    ctx.may_scroll_rows && ctx.preclear_outcome.pre_cleared;
+                if !ctx.codex_jetbrains_resize_settling
+                    && cursor_slot_idle
+                    && (safe_scrolling_reanchor || ctx.codex_destructive_clear)
+                {
+                    policy.force_redraw_after_preclear = true;
+                }
             }
             ctx.preclear_outcome.pre_cleared
                 || policy.non_scroll_line_mutation
@@ -313,7 +332,7 @@ pub(super) fn should_preclear_bottom_rows(
     cursor_claude_startup_preclear: bool,
     cursor_claude_banner_preclear: bool,
     claude_jetbrains_banner_preclear: bool,
-    claude_jetbrains_cup_preclear_safe: bool,
+    jetbrains_cup_preclear_safe: bool,
     now: Instant,
     last_preclear_at: Instant,
 ) -> bool {
@@ -328,14 +347,21 @@ pub(super) fn should_preclear_bottom_rows(
                 // with absolute cursor positioning. This allows a CUP-only
                 // pre-clear (no DEC save/restore slot collision) without
                 // risking prompt/input jumps to row 1.
-                return claude_jetbrains_cup_preclear_safe
+                return jetbrains_cup_preclear_safe
                     && host_timing
                         .claude_banner_preclear_cooldown()
                         .is_some_and(|cooldown| now.duration_since(last_preclear_at) >= cooldown);
             }
-            // Codex and other backends: keep conservative transition-only pre-clear.
+            if codex_jetbrains {
+                // A CUP-anchored Codex frame can safely follow a cursor-free
+                // bottom-band clear. Blank the HUD before that frame scrolls so
+                // the subsequent immediate repaint cannot leave old HUD rows in
+                // conversation history. Unsafe relative-cursor chunks remain
+                // idle-gated.
+                return jetbrains_cup_preclear_safe;
+            }
+            // Other backends: keep conservative transition-only pre-clear.
             (status_clear_pending || display.overlay_panel.is_some())
-                && !codex_jetbrains
                 && now.duration_since(last_preclear_at) >= host_timing.preclear_cooldown()
         }
         // Cursor should avoid banner pre-clear because it can visibly jitter the

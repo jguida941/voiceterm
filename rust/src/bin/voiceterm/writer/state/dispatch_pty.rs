@@ -1,6 +1,9 @@
 use super::*;
 use crate::runtime_compat::RuntimeVariant;
 
+const SYNCHRONIZED_UPDATE_BEGIN: &[u8] = b"\x1b[?2026h";
+const SYNCHRONIZED_UPDATE_END: &[u8] = b"\x1b[?2026l";
+
 #[derive(Clone, Copy)]
 struct PtyChunkAnalysis {
     runtime_variant: RuntimeVariant,
@@ -9,6 +12,7 @@ struct PtyChunkAnalysis {
     startup_screen_clear: bool,
     may_scroll_rows: bool,
     codex_jetbrains: bool,
+    codex_jetbrains_resize_settling: bool,
     claude_hud_debug: bool,
     claude_non_scroll_redraw_profile: bool,
     scroll_redraw_min_interval: Option<Duration>,
@@ -19,11 +23,11 @@ struct PtyChunkAnalysis {
     claude_jetbrains_destructive_clear: bool,
     codex_destructive_clear: bool,
     claude_jetbrains_recent_destructive_clear_repaint: bool,
-    claude_jetbrains_chunk_touches_cursor_save_restore: bool,
+    jetbrains_chunk_touches_cursor_save_restore: bool,
     cursor_claude_startup_preclear: bool,
     cursor_claude_banner_preclear: bool,
     claude_jetbrains_banner_preclear: bool,
-    claude_jetbrains_cup_preclear_safe: bool,
+    jetbrains_cup_preclear_safe: bool,
     claude_jetbrains_legacy_preclear_safe: bool,
     preclear_blocked_for_recent_input: bool,
     in_resize_repair_window: bool,
@@ -38,6 +42,7 @@ struct PtyPreclearStage {
 struct PtyWriteStage {
     should_reassert_mouse_tracking: bool,
     chunk_contains_newline: bool,
+    codex_jetbrains_sync_end_deferred: bool,
 }
 
 enum PtyWriteError {
@@ -112,6 +117,11 @@ impl WriterState {
             profile.treat_cr_as_scroll,
         );
         let now = Instant::now();
+        let codex_jetbrains_resize_settling = codex_jetbrains
+            && self
+                .adapter_state
+                .jetbrains_codex_resize_settle_until()
+                .is_some_and(|until| now < until);
 
         let claude_jetbrains_recent_input = claude_jetbrains
             && claude_jetbrains_has_recent_input(now, self.last_user_input_at, self.host_timing());
@@ -155,8 +165,11 @@ impl WriterState {
                             .claude_destructive_clear_repaint_cooldown()
                             .unwrap_or_default()
                 });
-        let claude_jetbrains_chunk_touches_cursor_save_restore =
-            self.track_jetbrains_cursor_save_restore(bytes, now, claude_jetbrains);
+        let jetbrains_chunk_touches_cursor_save_restore = self.track_jetbrains_cursor_save_restore(
+            bytes,
+            now,
+            claude_jetbrains || codex_jetbrains,
+        );
 
         let cursor_claude_startup_preclear =
             cursor_claude && self.adapter_state.cursor_startup_scroll_preclear_pending();
@@ -165,9 +178,14 @@ impl WriterState {
         // This avoids stacked ghost rows in JetBrains+Claude.
         let claude_jetbrains_banner_preclear =
             claude_jetbrains && self.display.overlay_panel.is_none();
-        let claude_jetbrains_cup_preclear_safe = claude_jetbrains_banner_preclear
-            && (pty_chunk_starts_with_absolute_cursor_position(bytes)
-                || claude_jetbrains_synchronized_cursor_rewrite);
+        let cursor_slot_idle = !self.adapter_state.jetbrains_dec_cursor_saved_active()
+            && !self.adapter_state.jetbrains_ansi_cursor_saved_active();
+        let jetbrains_cup_preclear_safe = !codex_jetbrains_resize_settling
+            && cursor_slot_idle
+            && ((claude_jetbrains_banner_preclear
+                && (pty_chunk_starts_with_absolute_cursor_position(bytes)
+                    || claude_jetbrains_synchronized_cursor_rewrite))
+                || (codex_jetbrains && pty_chunk_starts_with_absolute_cursor_position(bytes)));
         let preclear_blocked_for_recent_input = claude_jetbrains
             && should_defer_non_urgent_redraw_for_recent_input(
                 terminal_family,
@@ -176,8 +194,8 @@ impl WriterState {
             );
         let claude_jetbrains_legacy_preclear_safe = claude_jetbrains_banner_preclear
             && may_scroll_rows
-            && !claude_jetbrains_cup_preclear_safe
-            && !claude_jetbrains_chunk_touches_cursor_save_restore
+            && !jetbrains_cup_preclear_safe
+            && !jetbrains_chunk_touches_cursor_save_restore
             && !self.adapter_state.jetbrains_dec_cursor_saved_active()
             && !self.adapter_state.jetbrains_ansi_cursor_saved_active()
             && now.duration_since(self.last_preclear_at)
@@ -198,6 +216,7 @@ impl WriterState {
             startup_screen_clear,
             may_scroll_rows,
             codex_jetbrains,
+            codex_jetbrains_resize_settling,
             claude_hud_debug,
             claude_non_scroll_redraw_profile: profile.claude_non_scroll_redraw_profile,
             scroll_redraw_min_interval: profile.scroll_redraw_min_interval,
@@ -208,11 +227,11 @@ impl WriterState {
             claude_jetbrains_destructive_clear,
             codex_destructive_clear,
             claude_jetbrains_recent_destructive_clear_repaint,
-            claude_jetbrains_chunk_touches_cursor_save_restore,
+            jetbrains_chunk_touches_cursor_save_restore,
             cursor_claude_startup_preclear,
             cursor_claude_banner_preclear,
             claude_jetbrains_banner_preclear,
-            claude_jetbrains_cup_preclear_safe,
+            jetbrains_cup_preclear_safe,
             claude_jetbrains_legacy_preclear_safe,
             preclear_blocked_for_recent_input,
             in_resize_repair_window,
@@ -223,9 +242,9 @@ impl WriterState {
         &mut self,
         bytes: &[u8],
         now: Instant,
-        claude_jetbrains: bool,
+        track_jetbrains_cursor_state: bool,
     ) -> bool {
-        if !claude_jetbrains {
+        if !track_jetbrains_cursor_state {
             return false;
         }
         let (
@@ -273,7 +292,7 @@ impl WriterState {
                 cursor_claude_startup_preclear: analysis.cursor_claude_startup_preclear,
                 cursor_claude_banner_preclear: analysis.cursor_claude_banner_preclear,
                 claude_jetbrains_banner_preclear: analysis.claude_jetbrains_banner_preclear,
-                claude_jetbrains_cup_preclear_safe: analysis.claude_jetbrains_cup_preclear_safe,
+                jetbrains_cup_preclear_safe: analysis.jetbrains_cup_preclear_safe,
                 claude_jetbrains_legacy_preclear_safe: analysis
                     .claude_jetbrains_legacy_preclear_safe,
                 in_resize_repair_window: analysis.in_resize_repair_window,
@@ -328,7 +347,26 @@ impl WriterState {
             && pty_output_contains_erase_display(bytes);
         let should_reassert_mouse_tracking =
             self.mouse_enabled && pty_chunk_disables_mouse_tracking(bytes);
-        let write_result = if preclear_stage.pre_clear.is_empty()
+        let codex_cursor_slot_idle = !self.adapter_state.jetbrains_dec_cursor_saved_active()
+            && !self.adapter_state.jetbrains_ansi_cursor_saved_active();
+        let codex_jetbrains_atomic_reanchor = analysis.codex_jetbrains
+            && !analysis.codex_jetbrains_resize_settling
+            && self.display.has_any()
+            && codex_cursor_slot_idle
+            && (preclear_stage.preclear_outcome.pre_cleared || analysis.codex_destructive_clear);
+        let atomic_frame_prefix = codex_jetbrains_atomic_reanchor
+            .then(|| build_open_codex_synchronized_frame(bytes, &preclear_stage.pre_clear))
+            .flatten();
+        let codex_jetbrains_sync_end_deferred = atomic_frame_prefix.is_some();
+        let write_result = if let Some(mut combined) = atomic_frame_prefix {
+            if reset_before_chunk_for_erase_display {
+                combined.extend_from_slice(SGR_RESET);
+            }
+            if should_reassert_mouse_tracking {
+                append_mouse_enable_sequence(&mut combined);
+            }
+            self.stdout.write_all(&combined)
+        } else if preclear_stage.pre_clear.is_empty()
             && !should_reassert_mouse_tracking
             && !reset_before_chunk_for_erase_display
         {
@@ -359,6 +397,10 @@ impl WriterState {
             self.stdout.write_all(&combined)
         };
         if let Err(err) = write_result {
+            if codex_jetbrains_sync_end_deferred {
+                let _ = self.stdout.write_all(SYNCHRONIZED_UPDATE_END);
+                let _ = self.stdout.flush();
+            }
             return Err(PtyWriteError::ChunkWrite(err));
         }
         if should_reassert_mouse_tracking {
@@ -367,6 +409,7 @@ impl WriterState {
         Ok(PtyWriteStage {
             should_reassert_mouse_tracking,
             chunk_contains_newline: bytes.contains(&b'\n'),
+            codex_jetbrains_sync_end_deferred,
         })
     }
 
@@ -419,8 +462,9 @@ impl WriterState {
                 claude_jetbrains_composer_keystroke: analysis.claude_jetbrains_composer_keystroke,
                 claude_jetbrains_destructive_clear: analysis.claude_jetbrains_destructive_clear,
                 codex_destructive_clear: analysis.codex_destructive_clear,
+                codex_jetbrains_resize_settling: analysis.codex_jetbrains_resize_settling,
                 claude_jetbrains_chunk_touches_cursor_save_restore: analysis
-                    .claude_jetbrains_chunk_touches_cursor_save_restore,
+                    .jetbrains_chunk_touches_cursor_save_restore,
                 jetbrains_dec_cursor_saved_active: self
                     .adapter_state
                     .jetbrains_dec_cursor_saved_active(),
@@ -435,7 +479,7 @@ impl WriterState {
 
     fn arm_jetbrains_chunk_repair_markers(&mut self, analysis: &PtyChunkAnalysis) {
         let immediate_keystroke_repaint = analysis.claude_jetbrains_composer_keystroke
-            && !analysis.claude_jetbrains_chunk_touches_cursor_save_restore
+            && !analysis.jetbrains_chunk_touches_cursor_save_restore
             && !self.adapter_state.jetbrains_dec_cursor_saved_active()
             && !self.adapter_state.jetbrains_ansi_cursor_saved_active();
         if immediate_keystroke_repaint {
@@ -518,6 +562,7 @@ impl WriterState {
         // If we force redraw-after-preclear, skip this flush.
         // That keeps PTY bytes and HUD redraw in one batch and prevents flicker.
         if !self.force_redraw_after_preclear
+            && !write_stage.codex_jetbrains_sync_end_deferred
             && (analysis.now.duration_since(self.last_output_flush_at)
                 >= Duration::from_millis(OUTPUT_FLUSH_INTERVAL_MS)
                 || write_stage.chunk_contains_newline
@@ -532,6 +577,20 @@ impl WriterState {
         // Keep overlays/HUD responsive during long PTY output bursts.
         // Without this, timeout-based redraws can starve.
         self.maybe_redraw_status();
+        if write_stage.codex_jetbrains_sync_end_deferred {
+            if let Err(err) = self.stdout.write_all(SYNCHRONIZED_UPDATE_END) {
+                log_debug(&format!(
+                    "JetBrains+Codex synchronized frame close failed: {err}"
+                ));
+            }
+            if let Err(err) = self.stdout.flush() {
+                log_debug(&format!(
+                    "JetBrains+Codex synchronized frame flush failed: {err}"
+                ));
+            } else {
+                self.last_output_flush_at = analysis.now;
+            }
+        }
         if analysis.claude_hud_debug {
             log_debug(&format!(
                 "[claude-hud-debug] writer pty post (needs_redraw={}, force_full_after={}, force_after_preclear_after={}, banner_height={}, preclear_banner_height={})",
@@ -542,5 +601,42 @@ impl WriterState {
                 self.display.preclear_banner_height
             ));
         }
+    }
+}
+
+/// Keep a complete Codex synchronized update open until VoiceTerm repaints the
+/// HUD. The caller appends the final ESU marker after `maybe_redraw_status()`.
+fn build_open_codex_synchronized_frame(bytes: &[u8], pre_clear: &[u8]) -> Option<Vec<u8>> {
+    if !bytes.starts_with(SYNCHRONIZED_UPDATE_BEGIN) || !bytes.ends_with(SYNCHRONIZED_UPDATE_END) {
+        return None;
+    }
+    let payload_end = bytes.len() - SYNCHRONIZED_UPDATE_END.len();
+    let mut combined = Vec::with_capacity(bytes.len() + pre_clear.len());
+    combined.extend_from_slice(SYNCHRONIZED_UPDATE_BEGIN);
+    combined.extend_from_slice(pre_clear);
+    combined.extend_from_slice(&bytes[SYNCHRONIZED_UPDATE_BEGIN.len()..payload_end]);
+    Some(combined)
+}
+
+#[cfg(test)]
+mod atomic_frame_tests {
+    use super::*;
+
+    #[test]
+    fn codex_synchronized_frame_keeps_update_open_for_hud_repaint() {
+        let bytes = b"\x1b[?2026h\x1b[1;1Hworking\x1b[?2026l";
+        let pre_clear = b"\x1b[23;1H\x1b[2K";
+
+        let output = build_open_codex_synchronized_frame(bytes, pre_clear).unwrap();
+
+        assert_eq!(output, b"\x1b[?2026h\x1b[23;1H\x1b[2K\x1b[1;1Hworking");
+        assert!(!output.ends_with(SYNCHRONIZED_UPDATE_END));
+    }
+
+    #[test]
+    fn incomplete_or_unframed_codex_output_is_not_rewritten() {
+        assert!(build_open_codex_synchronized_frame(b"working", b"clear").is_none());
+        assert!(build_open_codex_synchronized_frame(b"\x1b[?2026hworking", b"clear").is_none());
+        assert!(build_open_codex_synchronized_frame(b"working\x1b[?2026l", b"clear").is_none());
     }
 }

@@ -198,13 +198,15 @@ pub(crate) fn apply_pty_winsize(
         return;
     }
     let backend = runtime_compat::backend_family_from_env();
-    let reserved = adjusted_reserved_rows(rows, cols, mode, hud_style, prompt_suppressed);
+    let effective_mode = effective_pty_winsize_mode(backend, mode);
+    let reserved = adjusted_reserved_rows(rows, cols, effective_mode, hud_style, prompt_suppressed);
     let pty_rows = rows.saturating_sub(reserved).max(1);
     if claude_hud_debug_enabled() {
         log_debug(&format!(
-            "[claude-hud-debug] apply_pty_winsize (backend={:?}, mode={:?}, rows={}, cols={}, reserved_rows={}, pty_rows={}, hud_style={:?}, prompt_suppressed={})",
+            "[claude-hud-debug] apply_pty_winsize (backend={:?}, mode={:?}, effective_mode={:?}, rows={}, cols={}, reserved_rows={}, pty_rows={}, hud_style={:?}, prompt_suppressed={})",
             backend,
             mode,
+            effective_mode,
             rows,
             cols,
             reserved,
@@ -219,7 +221,23 @@ pub(crate) fn apply_pty_winsize(
             ));
         }
     }
+    // Codex repaints and reflows its entire conversation on every SIGWINCH,
+    // even when the dimensions are unchanged. Overlay transitions keep its
+    // normal HUD viewport, so avoid issuing the redundant ioctl/signal. Actual
+    // host resizes still differ and continue through this path. Claude keeps
+    // its existing overlay row-budget and resize behavior untouched.
+    if backend == BackendFamily::Codex && session.current_winsize() == (pty_rows, cols) {
+        return;
+    }
     let _ = session.set_winsize(pty_rows, cols);
+}
+
+fn effective_pty_winsize_mode(backend: BackendFamily, requested_mode: OverlayMode) -> OverlayMode {
+    if backend == BackendFamily::Codex && requested_mode != OverlayMode::None {
+        OverlayMode::None
+    } else {
+        requested_mode
+    }
 }
 
 fn adjusted_reserved_rows(
@@ -526,6 +544,32 @@ mod tests {
             reserved_rows_for_mode(OverlayMode::Settings, cols, HudStyle::Full, false),
             settings_overlay_height()
         );
+    }
+
+    #[test]
+    fn codex_overlay_transitions_keep_the_stable_hud_viewport() {
+        for mode in [
+            OverlayMode::Settings,
+            OverlayMode::Help,
+            OverlayMode::ThemeStudio,
+            OverlayMode::TranscriptHistory,
+        ] {
+            assert_eq!(
+                effective_pty_winsize_mode(runtime_compat::BackendFamily::Codex, mode),
+                OverlayMode::None,
+                "mode={mode:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn claude_overlay_transitions_keep_existing_resize_contract() {
+        for mode in [OverlayMode::Settings, OverlayMode::Help] {
+            assert_eq!(
+                effective_pty_winsize_mode(runtime_compat::BackendFamily::Claude, mode),
+                mode
+            );
+        }
     }
 
     #[test]

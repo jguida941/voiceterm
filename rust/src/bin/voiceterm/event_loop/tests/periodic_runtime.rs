@@ -73,6 +73,39 @@ fn run_periodic_tasks_cursor_sigwinch_is_debounced_before_resize_apply() {
 }
 
 #[test]
+fn run_periodic_tasks_jetbrains_codex_waits_for_stable_resize_sample() {
+    let _host = install_terminal_host_override(TerminalHost::JetBrains);
+    let _hooks = install_sigwinch_hooks(hook_take_sigwinch_true, hook_terminal_size_100x30);
+    let (mut state, mut timers, mut deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    deps.backend_label = "codex".to_string();
+    state.ui.terminal_cols = 80;
+    state.ui.terminal_rows = 24;
+
+    let first_tick = Instant::now();
+    timers.last_terminal_geometry_poll = first_tick - Duration::from_millis(1000);
+    run_periodic_tasks(&mut state, &mut timers, &mut deps, first_tick);
+    assert!(
+        writer_rx.recv_timeout(Duration::from_millis(100)).is_err(),
+        "first JetBrains+Codex resize sample must not trigger a reflow"
+    );
+    assert_eq!(state.ui.terminal_cols, 80);
+    assert_eq!(state.ui.terminal_rows, 24);
+
+    let settled_tick = first_tick + Duration::from_millis(250);
+    run_periodic_tasks(&mut state, &mut timers, &mut deps, settled_tick);
+    let msg = writer_rx
+        .recv_timeout(Duration::from_millis(200))
+        .expect("repeated JetBrains+Codex geometry should apply after settling");
+    match msg {
+        WriterMessage::Resize { rows, cols } => {
+            assert_eq!(rows, 30);
+            assert_eq!(cols, 100);
+        }
+        other => panic!("unexpected writer message: {other:?}"),
+    }
+}
+
+#[test]
 fn run_periodic_tasks_geometry_poll_without_sigwinch_triggers_resize() {
     let _hooks = install_sigwinch_hooks(hook_take_sigwinch_false, hook_terminal_size_100x30);
     let (mut state, mut timers, mut deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);

@@ -128,12 +128,12 @@ fn track_cursor_save_restore_handles_split_escape_sequences() {
     assert!(carry.is_empty());
 
     let (dec_active, ansi_active, saw_save, saw_restore, carry) =
-        track_cursor_save_restore(dec_active, ansi_active, &carry, b"\x1b[0");
+        track_cursor_save_restore(dec_active, ansi_active, &carry, b"\x1b[");
     assert!(dec_active);
     assert!(!ansi_active);
     assert!(!saw_save);
     assert!(!saw_restore);
-    assert_eq!(carry, b"\x1b[0");
+    assert_eq!(carry, b"\x1b[");
 
     let (dec_active, ansi_active, saw_save, saw_restore, carry) =
         track_cursor_save_restore(dec_active, ansi_active, &carry, b"u");
@@ -146,8 +146,12 @@ fn track_cursor_save_restore_handles_split_escape_sequences() {
 
 #[test]
 fn track_cursor_save_restore_ignores_csi_parameter_bytes() {
-    let (dec_active, ansi_active, saw_save, saw_restore, carry) =
-        track_cursor_save_restore(false, false, b"", b"\x1b[38;5;196mcolor\x1b[0m");
+    let (dec_active, ansi_active, saw_save, saw_restore, carry) = track_cursor_save_restore(
+        false,
+        false,
+        b"",
+        b"\x1b[38;5;196mcolor\x1b[0m\x1b[>1u\x1b[0u",
+    );
     assert!(!dec_active);
     assert!(!ansi_active);
     assert!(!saw_save);
@@ -372,6 +376,78 @@ fn jetbrains_claude_destructive_clear_reanchors_hud_immediately_when_cursor_slot
                 .jetbrains_claude_repair_skip_quiet_window(),
             "destructive-clear follow-up repair should bypass quiet window"
         );
+    });
+}
+
+#[test]
+fn jetbrains_codex_streaming_output_keeps_hud_repainted_without_idle_gap() {
+    with_backend_label_env(Some("codex"), || {
+        let mut state = jetbrains_state(26, 120);
+        let mut hud = StatusLineState::new();
+        hud.hud_style = HudStyle::Full;
+        state.display.enhanced_status = Some(hud);
+        state.display.banner_height = 4;
+        state.display.preclear_banner_height = 4;
+        state.display.force_full_banner_redraw = false;
+
+        let previous_preclear = state.last_preclear_at;
+        assert!(state.handle_message(WriterMessage::PtyOutput(
+            b"\x1b[?2026h\x1b[1;1H\rworking\rthinking\x1b[?2026l".to_vec()
+        )));
+        assert!(
+            state.last_preclear_at > previous_preclear,
+            "cursor-anchored Codex frames must blank the old HUD before repaint"
+        );
+        assert!(
+            !state.needs_redraw,
+            "JetBrains+Codex must commit the HUD repair in the output cycle"
+        );
+        assert!(
+            !state.force_redraw_after_preclear,
+            "the immediate-repair marker must be consumed after repaint"
+        );
+        assert!(!state.display.banner_lines.is_empty());
+    });
+}
+
+#[test]
+fn jetbrains_codex_relative_scroll_defers_repaint_to_avoid_hud_ghosts() {
+    with_backend_label_env(Some("codex"), || {
+        let mut state = jetbrains_state(26, 120);
+        let mut hud = StatusLineState::new();
+        hud.hud_style = HudStyle::Full;
+        state.display.enhanced_status = Some(hud);
+        state.display.banner_height = 4;
+        state.display.preclear_banner_height = 4;
+        state.display.force_full_banner_redraw = false;
+        let previous_preclear = state.last_preclear_at;
+
+        assert!(state.handle_message(WriterMessage::PtyOutput(b"\rworking\rthinking".to_vec())));
+        assert_eq!(state.last_preclear_at, previous_preclear);
+        assert!(state.needs_redraw);
+        assert!(state.display.force_full_banner_redraw);
+        assert!(!state.force_redraw_after_preclear);
+    });
+}
+
+#[test]
+fn jetbrains_codex_tracks_cursor_save_across_chunks_before_repainting() {
+    with_backend_label_env(Some("codex"), || {
+        let mut state = jetbrains_state(26, 120);
+        state.display.enhanced_status = Some(StatusLineState::new());
+        state.display.banner_height = 4;
+        state.display.preclear_banner_height = 4;
+
+        assert!(state.handle_message(WriterMessage::PtyOutput(b"\x1b7".to_vec())));
+        assert!(state.adapter_state.jetbrains_dec_cursor_saved_active());
+
+        assert!(state.handle_message(WriterMessage::PtyOutput(b"\x1b[1;1Hworking\r\n".to_vec())));
+        assert!(state.adapter_state.jetbrains_dec_cursor_saved_active());
+        assert!(state.needs_redraw);
+        assert!(!state.force_redraw_after_preclear);
+
+        assert!(state.handle_message(WriterMessage::PtyOutput(b"\x1b8".to_vec())));
+        assert!(!state.adapter_state.jetbrains_dec_cursor_saved_active());
     });
 }
 

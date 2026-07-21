@@ -7,6 +7,61 @@ Note: Some historical entries reference internal documents that are not publishe
 
 ## [Unreleased]
 
+## [1.2.5] - 2026-07-21
+
+### Stability status
+
+- **Field-validated terminal compatibility release** — the corrected flows
+  were manually verified with both Codex and Claude across Cursor and
+  JetBrains terminals. No known bugs remain in the tested interaction matrix.
+  If an issue appears, report it at
+  <https://github.com/jguida941/voiceterm/issues> with the terminal, backend,
+  VoiceTerm version, reproduction steps, and a screenshot or recording.
+
+### Fixed
+
+- **Codex speech no longer queues behind an active response** — transcripts
+  captured while Codex is thinking, responding, or running tools are inserted
+  directly into the visible Codex composer so they can be edited immediately.
+  Claude retains its established delivery and queue semantics.
+- **Codex HUD arrow navigation is reliable** — Left/Right now traverse every
+  visible VoiceTerm button in order, while Kitty keyboard release/repeat
+  frames are ignored instead of clearing focus or restarting navigation.
+- **Codex composer and history keep vertical-arrow ownership** — Up/Down leave
+  HUD focus and pass through to Codex, restoring composer/history navigation
+  after a message has been sent without disturbing horizontal HUD controls.
+- **Cursor+Claude slash selectors receive Left/Right** — Cursor's ordinary
+  arrow escape sequences no longer get captured as VoiceTerm HUD navigation
+  in Claude sessions, so `/` command selectors such as the effort picker can
+  be adjusted normally. JetBrains+Claude HUD behavior remains unchanged.
+- **Settings and history overlays no longer repaint the conversation** —
+  Codex-mode VoiceTerm overlays use isolated screen state and buffer child PTY
+  output while open, preventing settings, transcript history, help, and studio
+  panels from overwriting the chat or forcing a top-to-bottom scroll flash.
+- **JetBrains keeps the Codex HUD visible during work** — safe repaint gating
+  prevents the HUD from disappearing for the full duration of thinking,
+  streaming, tool use, or coding and then returning only when Codex becomes
+  idle.
+- **Random HUD fragments and detached borders are eliminated** — Codex output
+  is repainted only on safe absolute-positioned frames, with synchronized
+  updates keeping the child frame and HUD presentation atomic instead of
+  scattering stale HUD rows through the transcript.
+- **JetBrains pane dragging and terminal resizing settle cleanly** — rapid
+  intermediate resize events are coalesced, old HUD anchors are retained until
+  the geometry stabilizes, and one final redraw places the HUD at the new
+  bottom edge without orphaned borders or resize flicker.
+- **Cursor and JetBrains terminal state remains stable after Codex UI events**
+  — cursor positioning, screen restoration, and HUD redraw bookkeeping now
+  stay coordinated across full-screen selectors, streamed output, overlays,
+  and terminal geometry changes.
+
+### Validation
+
+- 1,848 VoiceTerm tests pass, including new regression coverage for Codex
+  transcript delivery, arrow ownership, overlay isolation, synchronized HUD
+  frames, JetBrains resize settling, and Cursor+Claude selector navigation.
+- Rust formatting and Clippy with warnings denied pass on the release source.
+
 ## [1.2.4] - 2026-07-12
 
 ### Fixed

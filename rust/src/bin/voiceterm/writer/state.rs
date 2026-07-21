@@ -115,6 +115,7 @@ use self::chunk_analysis::{
     pty_output_contains_destructive_clear, pty_output_contains_erase_display,
     track_cursor_save_restore,
 };
+use self::codex_overlay::CodexOverlayIsolation;
 #[cfg(test)]
 use self::display::should_use_previous_banner_lines;
 use self::display::{
@@ -135,8 +136,90 @@ use self::profile::{
     claude_jetbrains_has_recent_input, is_transient_jetbrains_claude_geometry_collapse,
     RuntimeProfile,
 };
+
+/// `Stdout` is line-buffered on terminals, so a PTY chunk containing a newline
+/// can become visible even when VoiceTerm deliberately postpones `flush()`
+/// until after its HUD repaint. JetBrains+Codex needs true explicit-flush
+/// buffering so pre-clear, PTY output, and the replacement HUD reach JediTerm
+/// as one write. Other runtime variants keep the direct stdout path unchanged.
+struct DeferredWriter<W: Write> {
+    inner: W,
+    pending: Vec<u8>,
+}
+
+impl<W: Write> DeferredWriter<W> {
+    fn new(inner: W) -> Self {
+        Self {
+            inner,
+            pending: Vec::new(),
+        }
+    }
+
+    #[cfg(test)]
+    fn inner(&self) -> &W {
+        &self.inner
+    }
+}
+
+impl<W: Write> Write for DeferredWriter<W> {
+    fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+        self.pending.extend_from_slice(bytes);
+        Ok(bytes.len())
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        if !self.pending.is_empty() {
+            self.inner.write_all(&self.pending)?;
+            self.pending.clear();
+        }
+        self.inner.flush()
+    }
+}
+
+impl<W: Write> Drop for DeferredWriter<W> {
+    fn drop(&mut self) {
+        let _ = self.flush();
+    }
+}
+
+enum WriterOutput {
+    Direct(io::Stdout),
+    JetBrainsCodex(DeferredWriter<io::Stdout>),
+}
+
+impl WriterOutput {
+    fn for_runtime_profile(profile: RuntimeProfile) -> Self {
+        if profile.runtime_variant.is_jetbrains_codex() {
+            Self::JetBrainsCodex(DeferredWriter::new(io::stdout()))
+        } else {
+            Self::Direct(io::stdout())
+        }
+    }
+
+    #[cfg(test)]
+    fn is_jetbrains_codex_buffered(&self) -> bool {
+        matches!(self, Self::JetBrainsCodex(_))
+    }
+}
+
+impl Write for WriterOutput {
+    fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+        match self {
+            Self::Direct(stdout) => stdout.write(bytes),
+            Self::JetBrainsCodex(stdout) => stdout.write(bytes),
+        }
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        match self {
+            Self::Direct(stdout) => stdout.flush(),
+            Self::JetBrainsCodex(stdout) => stdout.flush(),
+        }
+    }
+}
+
 pub(super) struct WriterState {
-    stdout: io::Stdout,
+    stdout: WriterOutput,
     runtime_profile: RuntimeProfile,
     display: DisplayState,
     pending: PendingState,
@@ -154,6 +237,7 @@ pub(super) struct WriterState {
     adapter_state: WriterAdapterState,
     theme: Theme,
     mouse_enabled: bool,
+    codex_overlay_isolation: CodexOverlayIsolation,
 }
 
 impl WriterState {
@@ -168,7 +252,7 @@ impl WriterState {
             .scroll_redraw_min_interval
             .unwrap_or_default();
         Self {
-            stdout: io::stdout(),
+            stdout: WriterOutput::for_runtime_profile(runtime_profile),
             runtime_profile,
             display: DisplayState::default(),
             pending: PendingState::default(),
@@ -186,6 +270,7 @@ impl WriterState {
             adapter_state: WriterAdapterState::for_runtime_profile(runtime_profile),
             theme: Theme::default(),
             mouse_enabled: false,
+            codex_overlay_isolation: CodexOverlayIsolation::default(),
         }
     }
 
@@ -196,6 +281,7 @@ impl WriterState {
     #[cfg(test)]
     fn set_terminal_family_for_tests(&mut self, terminal_family: TerminalHost) {
         self.runtime_profile = self.runtime_profile.with_terminal_family(terminal_family);
+        self.stdout = WriterOutput::for_runtime_profile(self.runtime_profile);
         self.adapter_state = WriterAdapterState::for_runtime_profile(self.runtime_profile);
     }
 
@@ -403,6 +489,7 @@ fn pty_output_may_scroll_rows(
 
 mod adapter_state;
 mod chunk_analysis;
+mod codex_overlay;
 mod dispatch;
 mod dispatch_pty;
 pub(super) mod display;

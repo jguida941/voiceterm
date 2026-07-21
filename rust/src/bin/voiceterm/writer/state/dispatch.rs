@@ -1,9 +1,14 @@
 use super::*;
 
+const JETBRAINS_CODEX_RESIZE_SETTLE_MS: u64 = 400;
+
 impl WriterState {
     pub(super) fn dispatch_message(&mut self, message: WriterMessage) -> bool {
         match message {
-            WriterMessage::PtyOutput(bytes) => self.handle_pty_output(bytes),
+            WriterMessage::PtyOutput(bytes) => match self.buffer_codex_overlay_output(bytes) {
+                Ok(()) => true,
+                Err(bytes) => self.handle_pty_output(bytes),
+            },
             WriterMessage::TerminalBytes(bytes) => {
                 if let Err(err) = self.stdout.write_all(&bytes) {
                     log_debug(&format!("terminal control write failed: {err}"));
@@ -38,6 +43,7 @@ impl WriterState {
                 true
             }
             WriterMessage::ShowOverlay { content, height } => {
+                self.begin_codex_overlay_isolation();
                 self.pending.overlay_panel = Some(OverlayPanel { content, height });
                 self.pending.clear_overlay = false;
                 self.needs_redraw = true;
@@ -45,6 +51,23 @@ impl WriterState {
                 true
             }
             WriterMessage::ClearOverlay => {
+                if let Some(buffered_pty) = self.end_codex_overlay_isolation() {
+                    // The alternate screen disappears atomically, revealing the
+                    // untouched conversation. Clear only writer bookkeeping;
+                    // never erase overlay rows on the restored primary screen.
+                    self.pending.overlay_panel = None;
+                    self.pending.clear_overlay = false;
+                    self.display.overlay_panel = None;
+                    self.display.banner_lines.clear();
+                    self.display.force_full_banner_redraw = true;
+
+                    if !buffered_pty.is_empty() && !self.handle_pty_output(buffered_pty) {
+                        return false;
+                    }
+                    self.needs_redraw = true;
+                    self.maybe_redraw_status();
+                    return true;
+                }
                 self.pending.overlay_panel = None;
                 self.pending.clear_overlay = true;
                 self.needs_redraw = true;
@@ -132,13 +155,15 @@ impl WriterState {
         if self.rows == rows && self.cols == cols {
             return true;
         }
+        let now = Instant::now();
+        let jetbrains_codex = self.runtime_profile.runtime_variant.is_jetbrains_codex();
         if claude_hud_debug_enabled() && self.runtime_profile.cursor_claude {
             log_debug(&format!(
                 "[claude-hud-debug] writer received Resize (old_rows={}, old_cols={}, new_rows={}, new_cols={})",
                 self.rows, self.cols, rows, cols
             ));
         }
-        if self.rows > 0 {
+        if self.rows > 0 && !jetbrains_codex {
             // Clear HUD/overlay at the old terminal geometry before moving to the new one.
             // This prevents stale frames when startup rows are briefly reported incorrectly.
             if let Some(anchor_row) = self.display.banner_anchor_row {
@@ -163,6 +188,19 @@ impl WriterState {
             self.display.banner_anchor_row = None;
             self.display.force_full_banner_redraw = true;
             let _ = self.stdout.flush();
+        }
+        if jetbrains_codex {
+            // A host resize and Codex's resulting SIGWINCH reflow race on two
+            // producer threads. Clearing or repainting at the old coordinates
+            // during that race leaves detached HUD borders in JediTerm. Keep
+            // the previous anchor so the settled repaint can scrub it, and do
+            // not write terminal rows during the active resize burst.
+            self.display.force_full_banner_redraw = true;
+            self.adapter_state
+                .set_jetbrains_codex_resize_settle_until(Some(
+                    now + Duration::from_millis(JETBRAINS_CODEX_RESIZE_SETTLE_MS),
+                ));
+            self.last_output_at = now;
         }
         self.rows = rows;
         self.cols = cols;
@@ -190,7 +228,7 @@ impl WriterState {
             .set_jetbrains_claude_repair_skip_quiet_window(false);
         if self.display.has_any() || self.pending.has_any() {
             self.needs_redraw = true;
-            self.force_redraw_after_preclear = true;
+            self.force_redraw_after_preclear = !jetbrains_codex;
         }
         if self.runtime_profile.claude_jetbrains {
             self.adapter_state
@@ -261,6 +299,9 @@ impl WriterState {
     }
 
     fn handle_shutdown_message(&mut self) -> bool {
+        // Never leave a Codex-only overlay screen active on shutdown. The
+        // process-wide guard remains a second recovery path for panics/errors.
+        let _ = self.end_codex_overlay_isolation();
         // Disable mouse before exiting to restore terminal state.
         disable_mouse(&mut self.stdout, &mut self.mouse_enabled);
         false

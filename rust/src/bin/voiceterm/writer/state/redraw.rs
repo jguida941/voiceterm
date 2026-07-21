@@ -148,6 +148,9 @@ impl WriterState {
             jetbrains_cursor_restore_settle_until: self
                 .adapter_state
                 .jetbrains_cursor_restore_settle_until(),
+            jetbrains_codex_resize_settle_until: self
+                .adapter_state
+                .jetbrains_codex_resize_settle_until(),
         });
         if idle_timing.clear_cursor_restore_settle_until {
             self.adapter_state
@@ -439,6 +442,14 @@ impl WriterState {
         {
             self.adapter_state
                 .set_jetbrains_claude_resize_repair_until(None);
+        }
+        if self
+            .adapter_state
+            .jetbrains_codex_resize_settle_until()
+            .is_some_and(|until| context.now >= until)
+        {
+            self.adapter_state
+                .set_jetbrains_codex_resize_settle_until(None);
         }
         if self
             .adapter_state

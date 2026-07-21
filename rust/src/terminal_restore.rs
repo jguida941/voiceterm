@@ -48,9 +48,7 @@ impl TerminalRestoreGuard {
     ///
     /// Returns an error if alternate-screen activation fails.
     pub fn enter_alt_screen(&self, stdout: &mut impl Write) -> io::Result<()> {
-        execute!(stdout, EnterAlternateScreen)?;
-        ALT_SCREEN_ENABLED.store(true, Ordering::SeqCst);
-        Ok(())
+        enter_alt_screen_tracked(stdout)
     }
 
     #[allow(
@@ -94,6 +92,35 @@ impl Drop for TerminalRestoreGuard {
 /// these sequences. Pops on an empty stack are ignored per the kitty spec.
 pub const KITTY_KEYBOARD_RESET: &[u8] = b"\x1b[=0;1u\x1b[<1u\x1b[<1u\x1b[<1u\x1b[<1u";
 
+/// Enter the terminal's alternate screen and include it in panic/exit recovery.
+///
+/// This is exposed for serialized terminal writers that need a temporary,
+/// non-destructive surface without owning the process-wide restore guard.
+pub fn enter_alt_screen_tracked(stdout: &mut impl Write) -> io::Result<()> {
+    execute!(stdout, EnterAlternateScreen)?;
+    ALT_SCREEN_ENABLED.store(true, Ordering::SeqCst);
+    Ok(())
+}
+
+/// Leave a tracked alternate screen and restore the primary screen contents.
+///
+/// The tracked flag is cleared only after the terminal accepts the sequence,
+/// allowing the process-wide restore path to retry after a write failure.
+pub fn leave_alt_screen_tracked(stdout: &mut impl Write) -> io::Result<()> {
+    if ALT_SCREEN_ENABLED
+        .compare_exchange(true, false, Ordering::SeqCst, Ordering::SeqCst)
+        .is_err()
+    {
+        return Ok(());
+    }
+    if let Err(err) = execute!(stdout, LeaveAlternateScreen) {
+        // Preserve recovery authority so a later guard/drop can retry.
+        ALT_SCREEN_ENABLED.store(true, Ordering::SeqCst);
+        return Err(err);
+    }
+    Ok(())
+}
+
 /// Restore terminal raw mode, mouse capture, alt-screen, and cursor visibility.
 pub fn restore_terminal() {
     if RAW_MODE_ENABLED.swap(false, Ordering::SeqCst) {
@@ -103,8 +130,8 @@ pub fn restore_terminal() {
     if MOUSE_CAPTURE_ENABLED.swap(false, Ordering::SeqCst) {
         let _ = execute!(stdout, DisableMouseCapture);
     }
-    if ALT_SCREEN_ENABLED.swap(false, Ordering::SeqCst) {
-        let _ = execute!(stdout, LeaveAlternateScreen);
+    if ALT_SCREEN_ENABLED.load(Ordering::SeqCst) {
+        let _ = leave_alt_screen_tracked(&mut stdout);
     }
     // Never leave the pane in kitty keyboard mode, even when the wrapped CLI
     // pushed it and died without popping (relayed pushes land on the HOST).

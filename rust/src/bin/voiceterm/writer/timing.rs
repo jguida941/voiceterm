@@ -27,6 +27,7 @@ pub(super) struct IdleRedrawTimingContext {
     pub(super) jetbrains_dec_cursor_saved_active: bool,
     pub(super) jetbrains_ansi_cursor_saved_active: bool,
     pub(super) jetbrains_cursor_restore_settle_until: Option<Instant>,
+    pub(super) jetbrains_codex_resize_settle_until: Option<Instant>,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -53,6 +54,18 @@ pub(super) fn resolve_idle_redraw_timing(ctx: IdleRedrawTimingContext) -> IdleRe
         && !ctx.pending_clear_status
         && !ctx.suppression_transition_pending;
     let claude_jetbrains = ctx.runtime_variant.is_jetbrains_claude();
+    let codex_jetbrains = ctx.runtime_variant.is_jetbrains_codex();
+    if codex_jetbrains
+        && ctx
+            .jetbrains_codex_resize_settle_until
+            .is_some_and(|until| ctx.now < until)
+    {
+        // Never paint into a viewport while JetBrains is still resizing and
+        // Codex is concurrently reflowing. The final quiet tick repaints once
+        // at the settled geometry and scrubs the retained prior anchor.
+        timing.defer_redraw = true;
+        return timing;
+    }
     let jetbrains_composer_repair_armed =
         claude_jetbrains && ctx.jetbrains_composer_repair_due.is_some();
     let jetbrains_composer_repair_ready = ctx
@@ -114,11 +127,17 @@ pub(super) fn resolve_idle_redraw_timing(ctx: IdleRedrawTimingContext) -> IdleRe
         && !ctx.force_redraw_after_preclear
         && !ctx.in_resize_repair_window
         && clean_pending_state;
-    let codex_jetbrains = ctx.runtime_variant.is_jetbrains_codex();
     let codex_jetbrains_idle_gated_redraw = codex_jetbrains
         && ctx.display_force_full_banner_redraw
         && !ctx.force_redraw_after_preclear
-        && clean_pending_state;
+        // Enhanced-status ticks may arrive throughout a Codex output burst.
+        // They must not bypass the safety gate and repaint an uncleared HUD
+        // into active JetBrains scrollback. Explicit overlay/clear transitions
+        // remain priority operations.
+        && !ctx.pending_overlay_panel_present
+        && !ctx.pending_clear_overlay
+        && !ctx.pending_clear_status
+        && !ctx.suppression_transition_pending;
 
     let idle_hold = if claude_jetbrains_idle_gated_redraw {
         if ctx.display_force_full_banner_redraw {
@@ -190,6 +209,7 @@ mod tests {
             jetbrains_dec_cursor_saved_active: false,
             jetbrains_ansi_cursor_saved_active: false,
             jetbrains_cursor_restore_settle_until: None,
+            jetbrains_codex_resize_settle_until: None,
         }
     }
 
@@ -243,6 +263,35 @@ mod tests {
         assert!(resolve_idle_redraw_timing(ctx).defer_redraw);
 
         ctx.since_output = Duration::from_millis(340);
+        assert!(!resolve_idle_redraw_timing(ctx).defer_redraw);
+    }
+
+    #[test]
+    fn idle_redraw_timing_defers_jetbrains_codex_during_resize_settle() {
+        let mut ctx = idle_context();
+        ctx.runtime_variant = RuntimeVariant::JetBrainsCodex;
+        ctx.host_timing = HostTimingConfig::for_host(TerminalHost::JetBrains);
+        ctx.display_force_full_banner_redraw = true;
+        ctx.since_output = Duration::from_secs(2);
+        ctx.jetbrains_codex_resize_settle_until = Some(ctx.now + Duration::from_millis(1));
+        assert!(resolve_idle_redraw_timing(ctx).defer_redraw);
+
+        ctx.jetbrains_codex_resize_settle_until = Some(ctx.now - Duration::from_millis(1));
+        assert!(!resolve_idle_redraw_timing(ctx).defer_redraw);
+    }
+
+    #[test]
+    fn jetbrains_codex_status_ticks_do_not_bypass_scroll_safety_gate() {
+        let mut ctx = idle_context();
+        ctx.runtime_variant = RuntimeVariant::JetBrainsCodex;
+        ctx.host_timing = HostTimingConfig::for_host(TerminalHost::JetBrains);
+        ctx.display_force_full_banner_redraw = true;
+        ctx.pending_has_any = true;
+        ctx.since_output = Duration::from_millis(120);
+        ctx.since_draw = Duration::from_millis(900);
+        assert!(resolve_idle_redraw_timing(ctx).defer_redraw);
+
+        ctx.force_redraw_after_preclear = true;
         assert!(!resolve_idle_redraw_timing(ctx).defer_redraw);
     }
 
