@@ -43,10 +43,11 @@ jobs:
           echo "version=${VERSION}" >> "${GITHUB_OUTPUT}"
       - name: Clone tap
         env:
-          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
         run: gh repo clone jguida941/homebrew-voiceterm "${RUNNER_TEMP}/homebrew-voiceterm"
       - name: Update and publish formula
         env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
           VERSION: ${{ steps.release.outputs.version }}
           TAP_ROOT: ${{ runner.temp }}/homebrew-voiceterm
         run: |
