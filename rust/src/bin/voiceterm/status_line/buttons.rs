@@ -24,8 +24,8 @@ use super::state::WakeWordHudState;
 use super::state::{ButtonPosition, RecordingState, StatusLineState, VoiceMode};
 use super::text::{display_width, truncate_display, with_color};
 use badges::{
-    format_dev_badge, format_image_badge, format_latency_badge, format_queue_badge,
-    format_ready_badge, format_wake_badge,
+    format_image_badge, format_latency_badge, format_queue_badge, format_ready_badge,
+    format_wake_badge,
 };
 #[cfg(test)]
 use badges::{
@@ -564,9 +564,6 @@ fn format_button_row_with_positions(
     if let Some(image_badge) = format_image_badge(state, colors) {
         items.push(image_badge);
     }
-    if let Some(dev_badge) = format_dev_badge(state, colors) {
-        items.push(dev_badge);
-    }
 
     let ready_badge = format_ready_badge(state, colors, show_ready_badge);
     let latency_badge = if show_latency_badge {
@@ -633,9 +630,6 @@ fn format_button_row_with_positions(
     }
     if let Some(image_badge) = format_image_badge(state, colors) {
         compact_items.push(image_badge);
-    }
-    if let Some(dev_badge) = format_dev_badge(state, colors) {
-        compact_items.push(dev_badge);
     }
 
     let compact_row = truncate_display(&compact_items.join(COMPACT_ITEM_SEPARATOR), inner_width);

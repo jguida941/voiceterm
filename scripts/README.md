@@ -6,10 +6,11 @@ Scripts for installing and running VoiceTerm.
 |--------|---------|-------|
 | `install.sh` | One-time installer | `./scripts/install.sh` |
 | `start.sh` | Launch VoiceTerm | `./scripts/start.sh` |
-| `operator_console.sh` | Launch the optional desktop Operator Console | `./scripts/operator_console.sh --dev-log` |
 | `setup.sh` | Download Whisper models | `./scripts/setup.sh models --base` |
 | `macros.sh` | Macro pack wizard/installer | `./scripts/macros.sh wizard` |
 | `python_fallback.py` | Fallback STT pipeline | Used automatically |
+| `release/` | Version, notes, checksum, and Homebrew helpers | `make release-check V=X.Y.Z` |
+| `tests/` | Integration, latency, wake-word, and benchmark checks | `make integration` |
 
 ## install.sh
 
@@ -29,7 +30,7 @@ Launch the macro wizard at the end of install:
 
 ```bash
 ./scripts/install.sh --with-macros-wizard
-./scripts/install.sh --with-macros-wizard --macros-pack full-dev
+./scripts/install.sh --with-macros-wizard --macros-pack power-git
 ```
 
 ## start.sh
@@ -39,18 +40,6 @@ automatically. Useful when running from the source repo without installing.
 
 ```bash
 ./scripts/start.sh
-```
-
-## operator_console.sh
-
-Launches the optional PyQt6 VoiceTerm Operator Console from a source checkout.
-If `PyQt6` is missing, the launcher attempts `python3 -m pip install PyQt6`
-for the current interpreter before opening the app.
-
-```bash
-./scripts/operator_console.sh
-./scripts/operator_console.sh --dev-log
-./scripts/operator_console.sh --theme coral
 ```
 
 ## setup.sh
@@ -78,7 +67,7 @@ Interactive wizard to generate project-local macro files.
 
 # Non-interactive install
 ./scripts/macros.sh install --pack safe-core
-./scripts/macros.sh install --pack full-dev --overwrite
+./scripts/macros.sh install --pack power-git --overwrite
 
 # Validate an existing file
 ./scripts/macros.sh validate --output ./.voiceterm/macros.yaml
@@ -88,7 +77,6 @@ Pack summary:
 
 - `safe-core`: low-risk git/GitHub inspection commands
 - `power-git`: write actions (commit/push/PR/issue) defaulting to `insert` mode
-- `full-dev`: safe-core + power-git + project checks and release helpers
 
 Wizard personalization:
 
@@ -109,6 +97,17 @@ missing or the audio device is not accessible to the native pipeline.
 Requires: `python3`, `ffmpeg`, `whisper` CLI on PATH.
 You can disable this fallback with `--no-python-fallback`.
 
----
+## Development and release helpers
 
-For developer scripts, see [dev/scripts/](../dev/scripts/).
+The repository-level `Makefile` is the supported entry point:
+
+```bash
+make check
+make ci
+make integration
+make release-check V=X.Y.Z
+```
+
+The scripts in `release/` are dependency-free Python helpers used by those
+targets and the GitHub release workflows. The scripts in `tests/` can also be
+run directly when diagnosing a specific runtime path.

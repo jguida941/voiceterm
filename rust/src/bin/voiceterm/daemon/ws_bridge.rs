@@ -1,4 +1,4 @@
-//! WebSocket bridge so iPhone and remote clients connect to the daemon hub.
+//! WebSocket bridge for external clients connecting to the daemon hub.
 
 use std::sync::Arc;
 

@@ -253,7 +253,7 @@ impl MemoryMode {
 // Retention policy (MP-235)
 // ---------------------------------------------------------------------------
 
-/// Retention policy for memory governance.
+/// Retention policy for project memory.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum RetentionPolicy {
@@ -310,63 +310,6 @@ impl RetentionPolicy {
             Self::Forever => "Forever",
         }
     }
-}
-
-// ---------------------------------------------------------------------------
-// Action policy tiers (MP-234)
-// ---------------------------------------------------------------------------
-
-/// Command safety tier for the Action Center.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
-#[serde(rename_all = "snake_case")]
-pub(crate) enum ActionPolicyTier {
-    /// Execute directly (safe, read-only commands).
-    ReadOnly,
-    /// Preview + explicit user approval required.
-    #[default]
-    ConfirmRequired,
-    /// Cannot execute from overlay.
-    Blocked,
-}
-
-impl ActionPolicyTier {
-    pub(crate) fn as_str(self) -> &'static str {
-        match self {
-            Self::ReadOnly => "read_only",
-            Self::ConfirmRequired => "confirm_required",
-            Self::Blocked => "blocked",
-        }
-    }
-
-    pub(crate) fn display_label(self) -> &'static str {
-        match self {
-            Self::ReadOnly => "Read Only",
-            Self::ConfirmRequired => "Confirm Required",
-            Self::Blocked => "Blocked",
-        }
-    }
-}
-
-/// A single action template in the Action Center.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub(crate) struct ActionTemplate {
-    pub(crate) id: String,
-    pub(crate) label: String,
-    pub(crate) command: String,
-    pub(crate) policy: ActionPolicyTier,
-    pub(crate) description: String,
-}
-
-/// Result of an action execution, logged as a memory event.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub(crate) struct ActionRunResult {
-    pub(crate) action_id: String,
-    pub(crate) command: String,
-    pub(crate) exit_code: Option<i32>,
-    pub(crate) stdout_preview: String,
-    pub(crate) stderr_preview: String,
-    pub(crate) approved_by: String,
-    pub(crate) ts: String,
 }
 
 // ---------------------------------------------------------------------------
@@ -650,16 +593,6 @@ mod tests {
             let parsed = RetentionPolicy::from_str(s);
             assert_eq!(parsed, Some(policy), "roundtrip failed for {s}");
         }
-    }
-
-    #[test]
-    fn action_policy_tier_labels() {
-        assert_eq!(ActionPolicyTier::ReadOnly.as_str(), "read_only");
-        assert_eq!(
-            ActionPolicyTier::ConfirmRequired.as_str(),
-            "confirm_required"
-        );
-        assert_eq!(ActionPolicyTier::Blocked.as_str(), "blocked");
     }
 
     #[test]

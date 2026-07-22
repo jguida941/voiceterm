@@ -1,254 +1,57 @@
-# Purpose: Runs Rust, Python, and workflow security gates.
-# Details: See .github/workflows/README.md for triggers, jobs, and failure handling.
-name: Security Guard
+name: Security
+
+on:
+  push:
+    paths:
+      - "rust/Cargo.toml"
+      - "rust/Cargo.lock"
+      - "rust/deny.toml"
+      - "pypi/**"
+      - ".github/workflows/security_guard.yml"
+  pull_request:
+    paths:
+      - "rust/Cargo.toml"
+      - "rust/Cargo.lock"
+      - "rust/deny.toml"
+      - "pypi/**"
+      - ".github/workflows/security_guard.yml"
+  schedule:
+    - cron: "17 7 * * 1"
+  workflow_dispatch:
 
 permissions:
   contents: read
-  security-events: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: security-${{ github.ref }}
   cancel-in-progress: true
 
-on:
-  workflow_dispatch:
-  schedule:
-    - cron: "30 4 * * *"
-  push:
-    branches:
-      - master
-      - develop
-    paths:
-      - "rust/Cargo.lock"
-      - "rust/Cargo.toml"
-      - "rust/deny.toml"
-      - "dev/scripts/checks/check_rust_audit_patterns.py"
-      - "dev/scripts/checks/check_rustsec_policy.py"
-      - "dev/scripts/devctl/commands/check.py"
-      - "dev/scripts/devctl/commands/check_profile.py"
-      - "dev/scripts/devctl/commands/security.py"
-      - "dev/scripts/devctl/script_catalog.py"
-      - "dev/scripts/devctl/security/codeql.py"
-      - "dev/scripts/devctl/security/parser.py"
-      - "dev/scripts/devctl/security/python_scope.py"
-      - "dev/scripts/devctl/security/tiers.py"
-      - "dev/scripts/devctl/tests/test_check.py"
-      - "dev/scripts/devctl/tests/test_security.py"
-      - "dev/scripts/devctl/tests/test_security_python_scope.py"
-      - "dev/security/rustsec_allowlist.md"
-      - ".github/workflows/security_guard.yml"
-      - ".github/SECURITY.md"
-  pull_request:
-    paths:
-      - "rust/Cargo.lock"
-      - "rust/Cargo.toml"
-      - "rust/deny.toml"
-      - "dev/scripts/checks/check_rust_audit_patterns.py"
-      - "dev/scripts/checks/check_rustsec_policy.py"
-      - "dev/scripts/devctl/commands/check.py"
-      - "dev/scripts/devctl/commands/check_profile.py"
-      - "dev/scripts/devctl/commands/security.py"
-      - "dev/scripts/devctl/script_catalog.py"
-      - "dev/scripts/devctl/security/codeql.py"
-      - "dev/scripts/devctl/security/parser.py"
-      - "dev/scripts/devctl/security/python_scope.py"
-      - "dev/scripts/devctl/security/tiers.py"
-      - "dev/scripts/devctl/tests/test_check.py"
-      - "dev/scripts/devctl/tests/test_security.py"
-      - "dev/scripts/devctl/tests/test_security_python_scope.py"
-      - "dev/security/rustsec_allowlist.md"
-      - ".github/workflows/security_guard.yml"
-      - ".github/SECURITY.md"
-
 jobs:
-  core-security:
+  dependencies:
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: rust
     steps:
-      - name: Checkout
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
-        with:
-          fetch-depth: 0
-
-      - name: Setup Python
-        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
-        with:
-          python-version: "3.11"
-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@631a55b12751854ce901bb631d5902ceb48146f7
-
-      - name: Install ALSA development headers
-        run: sudo apt-get update && sudo apt-get install -y libasound2-dev
-
-      - name: Cache cargo registry and tools
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            ~/.cargo/bin
-            rust/target
-          key: ${{ runner.os }}-security-cargo-${{ hashFiles('rust/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-security-cargo-
-
-      - name: Install cargo-audit
-        run: cargo install cargo-audit --locked --force
-
-      - name: Install cargo-deny
-        run: cargo install cargo-deny --locked --force
-
-      - name: Run cargo deny policy gate
-        run: cargo deny --manifest-path rust/Cargo.toml check advisories bans licenses sources
-
-      - name: Resolve AI-guard commit range
-        id: ai_guard_range
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          PUSH_BEFORE: ${{ github.event.before }}
-          PUSH_HEAD: ${{ github.sha }}
-          PR_BASE: ${{ github.event.pull_request.base.sha }}
-          PR_HEAD: ${{ github.event.pull_request.head.sha }}
-        run: |
-          set -euo pipefail
-          python3 dev/scripts/workflow_bridge/shell.py resolve-range \
-            --event-name "${EVENT_NAME}" \
-            --push-before "${PUSH_BEFORE}" \
-            --push-head "${PUSH_HEAD}" \
-            --pr-base "${PR_BASE}" \
-            --pr-head "${PR_HEAD}" \
-            --changed-files-output /tmp/security-ai-guard-changed-files.txt \
-            --github-output "${GITHUB_OUTPUT}"
-
-      - name: Run Rust audit-pattern guard
-        run: |
-          set -euo pipefail
-          python3 dev/scripts/devctl.py check \
-            --profile ai-guard \
-            --since-ref "${{ steps.ai_guard_range.outputs.since }}" \
-            --head-ref "${{ steps.ai_guard_range.outputs.head }}" \
-            --skip-fmt \
-            --skip-clippy \
-            --format json \
-            --output security-ai-guard-report.json
-
-      - name: Resolve Python security diff scope
-        id: py_scope
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          PUSH_BEFORE: ${{ github.event.before }}
-          PUSH_HEAD: ${{ github.sha }}
-          PR_BASE: ${{ github.event.pull_request.base.sha }}
-          PR_HEAD: ${{ github.event.pull_request.head.sha }}
-        run: |
-          set -euo pipefail
-          python3 dev/scripts/workflow_bridge/shell.py resolve-security-scope \
-            --event-name "${EVENT_NAME}" \
-            --push-before "${PUSH_BEFORE}" \
-            --push-head "${PUSH_HEAD}" \
-            --pr-base "${PR_BASE}" \
-            --pr-head "${PR_HEAD}" \
-            --github-output "${GITHUB_OUTPUT}"
-
-      - name: Run core security tier
-        env:
-          GH_TOKEN: ${{ github.token }}
-          SINCE_REF: ${{ steps.py_scope.outputs.since_ref }}
-          HEAD_REF: ${{ steps.py_scope.outputs.head_ref }}
-        run: |
-          set -euo pipefail
-          CMD=(
-            python3 dev/scripts/devctl.py security
-            --scanner-tier core \
-            --python-scope changed \
-            --with-codeql-alerts \
-            --codeql-repo "${{ github.repository }}" \
-            --codeql-min-severity high \
-            --format json \
-            --output security-core-report.json
-          )
-          if [[ -n "${SINCE_REF}" ]]; then
-            CMD+=(--since-ref "${SINCE_REF}")
-          fi
-          if [[ -n "${HEAD_REF}" ]]; then
-            CMD+=(--head-ref "${HEAD_REF}")
-          fi
-          "${CMD[@]}"
-
-      - name: Upload security core report
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        with:
-          name: security-core-report
-          path: |
-            security-ai-guard-report.json
-            security-core-report.json
-          if-no-files-found: error
-
-  zizmor:
-    if: ${{ vars.SECURITY_ZIZMOR_MODE != '' && vars.SECURITY_ZIZMOR_MODE != 'off' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    env:
-      SECURITY_ZIZMOR_MODE: ${{ vars.SECURITY_ZIZMOR_MODE }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@631a55b12751854ce901bb631d5902ceb48146f7
-
-      - name: Run zizmor workflow security scan
-        run: |
-          # intentional: error suppression for report-only zizmor mode
-          set +e
-          cargo install zizmor --locked
-          INSTALL_RC=$?
-          if [[ "${INSTALL_RC}" -ne 0 ]]; then
-            if [[ "${SECURITY_ZIZMOR_MODE}" == "enforce" ]]; then
-              echo "Failed to install zizmor (SECURITY_ZIZMOR_MODE=enforce)."
-              exit "${INSTALL_RC}"
-            fi
-            echo "::warning::Failed to install zizmor; report-only mode keeps this lane non-blocking."
-            exit 0
-          fi
-
-          zizmor .github/workflows --min-severity high
-          SCAN_RC=$?
-          set -e
-          if [[ "${SCAN_RC}" -eq 0 ]]; then
-            exit 0
-          fi
-          if [[ "${SECURITY_ZIZMOR_MODE}" == "enforce" ]]; then
-            echo "zizmor reported findings/errors (SECURITY_ZIZMOR_MODE=enforce)."
-            exit "${SCAN_RC}"
-          fi
-          echo "::warning::zizmor reported findings/errors (${SCAN_RC}); report-only mode keeps this lane non-blocking."
-          exit 0
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: dtolnay/rust-toolchain@631a55b12751854ce901bb631d5902ceb48146f7
+      - name: Install dependency scanners
+        run: cargo install cargo-audit cargo-deny --locked
+      - name: Cargo audit
+        run: cargo audit
+      - name: Cargo deny
+        run: cargo deny check
 
   codeql:
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 30
     permissions:
-      actions: read
       contents: read
       security-events: write
     steps:
-      - name: Checkout
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
-
-      - name: Install ALSA development headers
-        run: sudo apt-get update && sudo apt-get install -y libasound2-dev
-
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@89a39a4ef9108d8f37853ddfda8d7010eaf5b894
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: github/codeql-action/init@89a39a4ef9108d8f37853ddfda8d7010eaf5b894
         with:
-          languages: rust
-
-      - name: Autobuild
-        uses: github/codeql-action/autobuild@89a39a4ef9108d8f37853ddfda8d7010eaf5b894
-
-      - name: Analyze
-        uses: github/codeql-action/analyze@89a39a4ef9108d8f37853ddfda8d7010eaf5b894
+          languages: python
+      - uses: github/codeql-action/analyze@89a39a4ef9108d8f37853ddfda8d7010eaf5b894

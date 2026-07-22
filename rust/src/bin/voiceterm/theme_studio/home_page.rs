@@ -63,6 +63,7 @@ pub(crate) const THEME_STUDIO_ITEMS: &[ThemeStudioItem] = &[
 ];
 
 pub(crate) const THEME_STUDIO_OPTION_START_ROW: usize = 4;
+pub(crate) const THEME_STUDIO_HUD_PREVIEW_HEIGHT: usize = 4;
 #[cfg(test)]
 const STYLE_PACK_STUDIO_PARITY_COMPLETE: bool = true;
 
@@ -112,6 +113,10 @@ pub(crate) fn theme_studio_total_width_for_terminal(width: usize) -> usize {
 pub(crate) fn theme_studio_height() -> usize {
     // Top border + title + separator + options + tip + separator + footer + bottom border
     1 + 1 + 1 + THEME_STUDIO_ITEMS.len() + 1 + 1 + 1 + 1
+}
+
+pub(crate) fn theme_studio_overlay_height() -> usize {
+    theme_studio_height() + THEME_STUDIO_HUD_PREVIEW_HEIGHT
 }
 
 #[must_use]

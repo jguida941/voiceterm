@@ -64,7 +64,7 @@ Source-build fallback requirements (only when enabled):
   - Override release download base URL (for mirror/proxy setups).
 - `VOICETERM_REPO_URL=https://github.com/jguida941/voiceterm`
   - Use a different source repository URL (source-bootstrap modes only).
-- `VOICETERM_REPO_REF=v1.0.69`
+- `VOICETERM_REPO_REF=vX.Y.Z`
   - Override release tag for binary mode or git ref for source-bootstrap modes.
 
 ## Documentation

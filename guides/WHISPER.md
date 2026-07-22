@@ -7,7 +7,6 @@ Docs map:
 
 - User guides index: [README.md](README.md)
 - Quick start: [../QUICK_START.md](../QUICK_START.md)
-- Engineering history: [../dev/history/ENGINEERING_EVOLUTION.md](../dev/history/ENGINEERING_EVOLUTION.md)
 
 ## Contents
 
@@ -59,12 +58,16 @@ Download a different model:
 ./scripts/setup.sh models --tiny    # 75 MB, fastest
 ```
 
-Or specify at runtime:
+The repository launcher auto-detects downloaded model files. To select an exact
+model when launching the native executable, pass its full path:
 
 ```bash
-voiceterm --whisper-model base
 voiceterm --whisper-model-path /path/to/ggml-medium.en.bin
 ```
+
+`--whisper-model` records the requested model name for compatibility and
+diagnostics; it does not replace `--whisper-model-path` when the raw executable
+needs a concrete model file.
 
 ## Language Support
 

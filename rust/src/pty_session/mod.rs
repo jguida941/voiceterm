@@ -16,6 +16,3 @@ pub use pty::{PtyCliSession, PtyOverlaySession};
 pub(crate) use counters::{
     pty_session_read_count, pty_session_send_count, reset_pty_session_counters,
 };
-
-#[cfg(test)]
-pub(crate) use pty::test_pty_session;

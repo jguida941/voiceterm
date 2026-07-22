@@ -38,32 +38,6 @@ fn startup_guard_enabled_only_for_claude_on_jetbrains() {
 }
 
 #[test]
-fn validate_dev_mode_flags_rejects_unguarded_dev_logging_flags() {
-    let dev_log_only = OverlayConfig::parse_from(["test-app", "--dev-log"]);
-    assert!(validate_dev_mode_flags(&dev_log_only).is_err());
-
-    let dev_path_only = OverlayConfig::parse_from(["test-app", "--dev-path", "/tmp/dev"]);
-    assert!(validate_dev_mode_flags(&dev_path_only).is_err());
-}
-
-#[test]
-fn validate_dev_mode_flags_requires_dev_log_when_dev_path_is_set() {
-    let missing_log = OverlayConfig::parse_from(["test-app", "--dev", "--dev-path", "/tmp/dev"]);
-    assert!(validate_dev_mode_flags(&missing_log).is_err());
-}
-
-#[test]
-fn validate_dev_mode_flags_accepts_dev_log_combo() {
-    let guarded =
-        OverlayConfig::parse_from(["test-app", "--dev", "--dev-log", "--dev-path", "/tmp/dev"]);
-    assert!(validate_dev_mode_flags(&guarded).is_ok());
-    assert_eq!(
-        resolve_dev_root_path(&guarded, "/tmp/work"),
-        PathBuf::from("/tmp/dev")
-    );
-}
-
-#[test]
 fn startup_memory_mode_uses_persisted_user_config_value() {
     let user_config = persistent_config::UserConfig {
         memory_mode: Some("paused".to_string()),

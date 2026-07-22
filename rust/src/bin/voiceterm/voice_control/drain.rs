@@ -7,8 +7,7 @@ mod transcript_delivery;
 use crossbeam_channel::Sender;
 use std::collections::VecDeque;
 use std::time::{Duration, Instant};
-use voiceterm::devtools::{DevEventJsonlWriter, DevModeStats};
-use voiceterm::{log_debug, VoiceCaptureSource, VoiceJobMessage};
+use voiceterm::{VoiceCaptureSource, VoiceJobMessage};
 
 use crate::config::{OverlayConfig, VoiceSendMode};
 use crate::memory::MemoryIngestor;
@@ -70,8 +69,6 @@ pub(crate) struct VoiceDrainContext<'a, S: TranscriptSession> {
     pub sound_on_error: bool,
     pub transcript_history: &'a mut TranscriptHistory,
     pub memory_ingestor: Option<&'a mut MemoryIngestor>,
-    pub dev_mode_stats: Option<&'a mut DevModeStats>,
-    pub dev_event_logger: Option<&'a mut DevEventJsonlWriter>,
 }
 
 pub(crate) fn drain_voice_messages<S: TranscriptSession>(ctx: &mut VoiceDrainContext<'_, S>) {
@@ -101,8 +98,6 @@ pub(crate) fn drain_voice_messages<S: TranscriptSession>(ctx: &mut VoiceDrainCon
     let sound_on_error = ctx.sound_on_error;
     let transcript_history = &mut *ctx.transcript_history;
     let memory_ingestor = &mut ctx.memory_ingestor;
-    let dev_mode_stats = &mut ctx.dev_mode_stats;
-    let dev_event_logger = &mut ctx.dev_event_logger;
 
     let Some(message) = voice_manager.poll_message() else {
         return;
@@ -112,17 +107,6 @@ pub(crate) fn drain_voice_messages<S: TranscriptSession>(ctx: &mut VoiceDrainCon
         message,
         VoiceJobMessage::Empty { .. } | VoiceJobMessage::Error(_)
     );
-    if let Some(dev_mode_stats) = dev_mode_stats.as_deref_mut() {
-        let event = dev_mode_stats.record_voice_message(&message);
-        if let Some(dev_event_logger) = dev_event_logger.as_deref_mut() {
-            if let Err(err) = dev_event_logger.append(&event) {
-                log_debug(&format!(
-                    "dev-mode event logging failed ({}): {err}",
-                    dev_event_logger.path().display()
-                ));
-            }
-        }
-    }
     match message {
         VoiceJobMessage::Transcript {
             text,

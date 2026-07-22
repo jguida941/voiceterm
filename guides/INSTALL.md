@@ -6,7 +6,6 @@ Best default: Homebrew on macOS/Linux.
 Related docs:
 [Quick Start](../QUICK_START.md) |
 [Usage](USAGE.md) |
-[Dev Mode Guide](DEV_MODE.md) |
 [Troubleshooting](TROUBLESHOOTING.md) |
 [CLI Flags](CLI_FLAGS.md)
 
@@ -14,9 +13,10 @@ Related docs:
 
 | Platform | Status | Install Method |
 |----------|--------|----------------|
-| **macOS** (Intel/Apple Silicon) | ✅ Supported | Homebrew (recommended), App, Source |
-| **Linux** (x86_64/arm64) | ✅ Supported | Homebrew (recommended), Source |
-| **Windows** | ⚠️ WSL2 only | Use Linux instructions in WSL2 |
+| **macOS** (Intel/Apple Silicon) | Supported | Homebrew, PyPI, App, Source |
+| **Linux x86_64** | Supported | Homebrew, PyPI, Source |
+| **Linux arm64** | Source supported | Homebrew/source build; PyPI has no prebuilt arm64 asset |
+| **Windows** | WSL2 only | Use the matching Linux instructions inside WSL2 |
 
 ## Contents
 
@@ -28,7 +28,6 @@ Related docs:
 - [Option D: macOS App (folder picker)](#option-d-macos-app-folder-picker)
 - [Option E: Manual run (no install)](#option-e-manual-run-no-install)
 - [Option F: Windows (WSL2 only)](#option-f-windows-wsl2-only)
-- [Optional: Operator Console (source checkout)](#optional-operator-console-source-checkout)
 - [After install: run in your project](#after-install-run-in-your-project)
 - [Optional: Macro Wizard](#optional-macro-wizard)
 - [See Also](#see-also)
@@ -40,7 +39,7 @@ Related docs:
 | CLI | Install Command |
 |-----|-----------------|
 | Codex (default) | `npm install -g @openai/codex` |
-| Claude Code | `bash -c "$(curl -fsSL https://claude.ai/install.sh)"` |
+| Claude Code | `npm install -g @anthropic-ai/claude-code` |
 
 After install, run backend login once:
 
@@ -161,13 +160,13 @@ PyPI launcher notes:
 - The package installs a Python launcher named `voiceterm`.
 - On first run it bootstraps the native Rust binary into
   `~/.local/share/voiceterm/native/bin/voiceterm`.
-- Bootstrap auto-detects both `rust/` (current) and legacy `src/` Cargo layout paths.
-- Bootstrap requires `git` and `cargo` on PATH.
+- Default `binary-only` mode downloads the matching GitHub release asset and
+  verifies its SHA-256 checksum; it does not require Git or Rust.
+- Prebuilt assets currently cover Linux x86_64 and macOS Intel/Apple Silicon.
+- Linux arm64 users can set `VOICETERM_BOOTSTRAP_MODE=source-only`; that mode
+  requires `git`, `cargo`, and the native build prerequisites.
 - If you already have a native binary installed, set:
   `VOICETERM_NATIVE_BIN=/absolute/path/to/voiceterm`.
-
-If you want the optional Operator Console or iPhone/iPad companion, use a
-source checkout instead of a PyPI-only install.
 
 </details>
 
@@ -185,6 +184,16 @@ cd voiceterm
 ```
 
 The installer builds VoiceTerm, installs `voiceterm`, and downloads a model if needed.
+
+For an in-repository test without installing anything globally:
+
+```bash
+make build
+./scripts/start.sh
+```
+
+Use `scripts/start.sh` for this test because it locates/downloads the Whisper
+model and passes `--whisper-model-path` to the local binary.
 
 For startup splash options, see [USAGE.md - Startup splash behavior](USAGE.md#startup-splash-behavior).
 
@@ -204,13 +213,7 @@ To launch macro setup from install:
 
 ```bash
 ./scripts/install.sh --with-macros-wizard
-./scripts/install.sh --with-macros-wizard --macros-pack full-dev
-```
-
-Optional desktop shared-screen wrapper from the same checkout:
-
-```bash
-./scripts/operator_console.sh --dev-log
+./scripts/install.sh --with-macros-wizard --macros-pack power-git
 ```
 
 ### PATH notes
@@ -256,6 +259,10 @@ VOICETERM_CWD="$(pwd)" /path/to/voiceterm/scripts/start.sh
 
 `scripts/start.sh` handles model download and setup when needed.
 
+If you run `rust/target/release/voiceterm` directly instead, provide
+`--whisper-model-path <FILE>` unless the model already exists under the
+checkout's `whisper_models/` directory.
+
 </details>
 
 ## Option F: Windows (WSL2 only)
@@ -278,29 +285,6 @@ Use a Linux environment in WSL2:
 
 </details>
 
-## Optional: Operator Console (source checkout)
-
-This optional PyQt6 desktop wrapper is available from a source checkout only.
-It does not replace the Rust runtime or `devctl`.
-
-Use it when you want one repo-backed desktop surface for current
-review/control state, guarded `Dry Run` preflight, and the `Start Swarm` /
-`Launch Live` workflow from the same checkout.
-
-From the repo root:
-
-```bash
-./scripts/operator_console.sh
-./scripts/operator_console.sh --dev-log
-```
-
-If `PyQt6` is missing, the script attempts to install it for the current
-Python interpreter before launching the app.
-
-The matching iPhone/iPad companion uses the same repo-visible live bundle from
-the source checkout. See [app/ios/README.md](../app/ios/README.md) if you want
-the mobile surface as well.
-
 ## After install: run in your project
 
 Run VoiceTerm from your project directory, or set `VOICETERM_CWD`.
@@ -319,7 +303,9 @@ voiceterm --claude
 First-run basics:
 
 - `Ctrl+R` starts voice capture.
-- `Ctrl+E` ends capture early and keeps the text in the input box.
+- In `insert` mode, `Ctrl+E` finalizes capture early, transcribes it, and keeps
+  the text in the chat composer without sending.
+- Pressing `Ctrl+R` again during an active capture cancels and discards it.
 - In `insert` mode, say `send` / `submit` to send without touching the keyboard.
 - `Ctrl+Y` opens Theme Studio.
 
@@ -338,7 +324,7 @@ Run wizard during source install:
 
 ```bash
 ./scripts/install.sh --with-macros-wizard
-./scripts/install.sh --with-macros-wizard --macros-pack full-dev
+./scripts/install.sh --with-macros-wizard --macros-pack power-git
 ```
 
 Canonical macro docs and pack details:

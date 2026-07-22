@@ -1,71 +1,43 @@
-# Purpose: Lints key markdown docs that users read.
-# Details: See .github/workflows/README.md for triggers, jobs, and failure handling.
-name: docs_lint
+name: Documentation
+
+on:
+  push:
+    paths:
+      - "**/*.md"
+      - ".markdownlint.yaml"
+      - ".markdownlintignore"
+      - ".github/workflows/docs_lint.yml"
+  pull_request:
+    paths:
+      - "**/*.md"
+      - ".markdownlint.yaml"
+      - ".markdownlintignore"
+      - ".github/workflows/docs_lint.yml"
 
 permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: documentation-${{ github.ref }}
   cancel-in-progress: true
 
-on:
-  pull_request:
-    paths:
-      - "README.md"
-      - "QUICK_START.md"
-      - "DEV_INDEX.md"
-      - "guides/*.md"
-      - "dev/README.md"
-      - "scripts/README.md"
-      - "pypi/README.md"
-      - "app/README.md"
-      - "dev/config/markdownlint.yaml"
-      - "dev/config/markdownlint.ignore"
-      - ".github/workflows/docs_lint.yml"
-  push:
-    branches:
-      - master
-      - develop
-    paths:
-      - "README.md"
-      - "QUICK_START.md"
-      - "DEV_INDEX.md"
-      - "guides/*.md"
-      - "dev/README.md"
-      - "scripts/README.md"
-      - "pypi/README.md"
-      - "app/README.md"
-      - "dev/config/markdownlint.yaml"
-      - "dev/config/markdownlint.ignore"
-      - ".github/workflows/docs_lint.yml"
-
 jobs:
-  markdown:
-    name: markdownlint
+  markdownlint:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
     steps:
-      - name: Checkout
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
-
-      - name: Setup Node
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: "20"
-
-      - name: Install markdownlint-cli
-        run: npm install -g markdownlint-cli@0.45.0
-
-      - name: Lint key docs
-        run: |
-          set -euo pipefail
-          markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore \
-            README.md \
-            QUICK_START.md \
-            DEV_INDEX.md \
-            guides/*.md \
-            dev/README.md \
-            scripts/README.md \
-            pypi/README.md \
-            app/README.md
+      - run: npm install --global markdownlint-cli@0.45.0
+      - name: Lint product documentation
+        run: >-
+          markdownlint
+          -c .markdownlint.yaml
+          -p .markdownlintignore
+          README.md QUICK_START.md CHANGELOG.md
+          guides/*.md scripts/*.md scripts/tests/*.md
+          pypi/*.md app/*.md
+          .github/*.md .github/ISSUE_TEMPLATE/*.md
+          .github/PULL_REQUEST_TEMPLATE/*.md .github/workflows/README.md

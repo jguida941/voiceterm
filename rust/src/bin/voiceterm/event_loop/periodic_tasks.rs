@@ -65,7 +65,6 @@ fn reconcile_terminal_geometry(
     );
     refresh_button_registry_if_mouse(state, deps);
     match state.ui.overlay_mode {
-        OverlayMode::DevPanel => render_dev_panel_overlay_for_state(state, deps),
         OverlayMode::Help => render_help_overlay_for_state(state, deps),
         OverlayMode::ThemeStudio => render_theme_studio_overlay_for_state(state, deps),
         OverlayMode::ThemePicker => render_theme_picker_overlay_for_state(state, deps),
@@ -73,7 +72,6 @@ fn reconcile_terminal_geometry(
         OverlayMode::TranscriptHistory => render_transcript_history_overlay_for_state(state, deps),
         OverlayMode::ToastHistory => render_toast_history_overlay_for_state(state, deps),
         OverlayMode::MemoryBrowser => render_memory_browser_overlay_for_state(state, deps),
-        OverlayMode::ActionCenter => render_action_center_overlay_for_state(state, deps),
         OverlayMode::None => {}
     }
 }
@@ -187,8 +185,6 @@ pub(super) fn run_periodic_tasks(
     deps: &mut EventLoopDeps,
     now: Instant,
 ) {
-    poll_dev_command_updates(state, timers, deps);
-    poll_review_artifact(state, timers, deps, now);
     clear_expired_prompt_suppression(state, timers, deps, now);
     poll_terminal_geometry(state, timers, deps, now);
     poll_theme_file_watcher(state, timers, deps, now);
@@ -203,55 +199,6 @@ pub(super) fn run_periodic_tasks(
     tick_toasts(state, timers, deps, now);
     expire_preview_deadline(state, timers, deps, now);
     expire_status_deadline(state, timers, deps, now);
-}
-
-// -- Review artifact hot-reload (every 5s) ------------------------------------
-
-const REVIEW_ARTIFACT_POLL_INTERVAL_MS: u64 = 5_000;
-
-fn poll_review_artifact(
-    state: &mut EventLoopState,
-    timers: &mut EventLoopTimers,
-    deps: &mut EventLoopDeps,
-    now: Instant,
-) {
-    let dev_panel_open = state.ui.overlay_mode == OverlayMode::DevPanel;
-    let active_tab = state.dev_panel_commands.active_tab();
-    let review_tab_visible =
-        dev_panel_open && active_tab == crate::dev_command::DevPanelTab::Review;
-    let cockpit_tab_visible = dev_panel_open
-        && matches!(
-            active_tab,
-            crate::dev_command::DevPanelTab::Control
-                | crate::dev_command::DevPanelTab::Handoff
-                | crate::dev_command::DevPanelTab::Memory
-        );
-    let review_ever_loaded = state.dev_panel_commands.review().loaded_at().is_some();
-    if now.duration_since(timers.last_review_poll)
-        < Duration::from_millis(REVIEW_ARTIFACT_POLL_INTERVAL_MS)
-        || !(review_tab_visible || cockpit_tab_visible || review_ever_loaded)
-    {
-        return;
-    }
-    timers.last_review_poll = now;
-    if !poll_review(state, &deps.session) {
-        return;
-    }
-    let has_error = state.dev_panel_commands.review().load_error().is_some();
-    if review_tab_visible {
-        render_dev_panel_overlay_for_state(state, deps);
-    } else if cockpit_tab_visible {
-        refresh_active_dev_panel_tab(state, deps, super::dev_panel_commands::RefreshMode::Force);
-        render_dev_panel_overlay_for_state(state, deps);
-    } else if !has_error {
-        state
-            .toast_center
-            .push(crate::toast::ToastSeverity::Info, "Review artifact updated");
-        if state.ui.overlay_mode == OverlayMode::ToastHistory {
-            render_toast_history_overlay_for_state(state, deps);
-        }
-        refresh_status_line(state, deps);
-    }
 }
 
 // -- Terminal geometry polling -------------------------------------------------

@@ -10,10 +10,6 @@ use voiceterm::pty_session::PtyOverlaySession;
 use crate::buttons::{ButtonAction, ButtonRegistry};
 use crate::config::OverlayConfig;
 use crate::config::{HudStyle, LatencyDisplayMode};
-use crate::dev_command::{
-    DevCommandCompletion, DevCommandKind, DevCommandStatus, DevPanelState, DevTerminalPacket,
-};
-use crate::dev_panel::{dev_panel_active_footer, dev_panel_height, panel_inner_width, panel_width};
 use crate::event_state::{
     PromptRuntimeState, PtyBufferState, SettingsRuntimeState, ThemeStudioRuntimeState,
     UiRuntimeState,
@@ -36,9 +32,7 @@ use crate::voice_control::VoiceManager;
 use crate::voice_macros::VoiceMacros;
 use crate::wake_word::{WakeWordEvent, WakeWordRuntime};
 
-mod dev_panel_overlay;
 mod input_navigation;
-mod non_interference;
 mod overlay_replay;
 mod periodic_runtime;
 mod prompt_suppression;
@@ -399,7 +393,6 @@ fn build_harness(
 
     let state = EventLoopState {
         config,
-        working_dir: ".".to_string(),
         status_state,
         auto_voice_enabled,
         auto_voice_paused_by_user: false,
@@ -430,9 +423,6 @@ fn build_harness(
         current_status: None,
         pending_transcripts: VecDeque::new(),
         session_stats: SessionStats::new(),
-        dev_mode_stats: None,
-        dev_event_logger: None,
-        dev_panel_commands: DevPanelState::default(),
         prompt: PromptRuntimeState {
             tracker: prompt_tracker,
             occlusion_detector: crate::prompt::PromptOcclusionDetector::new(false),
@@ -479,7 +469,6 @@ fn build_harness(
         last_toast_tick: now,
         last_theme_file_poll: now,
         last_terminal_geometry_poll: now,
-        last_review_poll: now,
         pending_terminal_geometry_sample: None,
     };
 
@@ -499,7 +488,6 @@ fn build_harness(
         auto_idle_timeout: Duration::from_millis(300),
         transcript_idle_timeout: Duration::from_millis(100),
         voice_macros: VoiceMacros::default(),
-        dev_command_broker: None,
     };
 
     (state, timers, deps, writer_rx, input_tx)
@@ -593,43 +581,6 @@ fn settings_overlay_footer_close_click(state: &EventLoopState) -> (u16, u16) {
     )
 }
 
-fn dev_panel_footer_close_click(state: &EventLoopState) -> (u16, u16) {
-    let overlay_height = dev_panel_height() as u16;
-    let overlay_top_y = state
-        .ui
-        .terminal_rows
-        .saturating_sub(overlay_height)
-        .saturating_add(1);
-    let footer_y = overlay_top_y
-        .saturating_add(overlay_height.saturating_sub(1))
-        .saturating_sub(1);
-
-    let cols = resolved_cols(state.ui.terminal_cols) as usize;
-    let _overlay_width = panel_width(cols);
-    let inner_width = panel_inner_width(cols);
-    // Panels render left-anchored at column 1.
-    let centered_left = 1usize;
-
-    let footer_title =
-        dev_panel_active_footer(&state.theme.colors(), &state.dev_panel_commands, cols);
-    let title_len = crate::overlay_frame::display_width(&footer_title);
-    let left_pad = inner_width.saturating_sub(title_len) / 2;
-    let close_prefix = if let Some(prefix_end) = footer_title.find(" close") {
-        &footer_title[..prefix_end + " close".len()]
-    } else {
-        footer_title.as_str()
-    };
-    let close_len = crate::overlay_frame::display_width(close_prefix);
-    let close_start = 2usize.saturating_add(left_pad);
-    let rel_x = close_start.saturating_add(close_len.saturating_sub(1) / 2);
-    let x = centered_left.saturating_add(rel_x).saturating_sub(1);
-
-    (
-        u16::try_from(x).expect("footer close x fits in u16"),
-        footer_y,
-    )
-}
-
 fn theme_picker_overlay_row_y(state: &EventLoopState, option_index: usize) -> u16 {
     let overlay_top_y = state
         .ui
@@ -652,7 +603,7 @@ fn theme_studio_overlay_row_y(state: &EventLoopState, option_index: usize) -> u1
     let overlay_top_y = state
         .ui
         .terminal_rows
-        .saturating_sub(theme_studio_height() as u16)
+        .saturating_sub(crate::theme_studio::theme_studio_overlay_height() as u16)
         .saturating_add(1);
     overlay_top_y
         .saturating_add(THEME_STUDIO_OPTION_START_ROW as u16)
@@ -1097,84 +1048,6 @@ fn open_help_overlay_sets_mode_and_renders_overlay() {
 }
 
 #[test]
-fn dev_panel_toggle_opens_overlay_when_dev_mode_enabled() {
-    let (mut state, mut timers, mut deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.ui.overlay_mode = OverlayMode::None;
-    state.config.dev_mode = true;
-    let mut running = true;
-
-    handle_input_event(
-        &mut state,
-        &mut timers,
-        &mut deps,
-        InputEvent::DevPanelToggle,
-        &mut running,
-    );
-
-    assert!(running);
-    assert_eq!(state.ui.overlay_mode, OverlayMode::DevPanel);
-    match writer_rx
-        .recv_timeout(Duration::from_millis(200))
-        .expect("dev panel render")
-    {
-        WriterMessage::ShowOverlay { content, height } => {
-            assert_eq!(height, dev_panel_height());
-            assert!(content.contains("Actions"));
-        }
-        other => panic!("unexpected writer message: {other:?}"),
-    }
-}
-
-#[test]
-fn dev_panel_toggle_closes_overlay_when_open() {
-    let (mut state, mut timers, mut deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.config.dev_mode = true;
-    state.ui.overlay_mode = OverlayMode::DevPanel;
-    while writer_rx.try_recv().is_ok() {}
-    let mut running = true;
-
-    handle_input_event(
-        &mut state,
-        &mut timers,
-        &mut deps,
-        InputEvent::DevPanelToggle,
-        &mut running,
-    );
-
-    assert!(running);
-    assert_eq!(state.ui.overlay_mode, OverlayMode::None);
-    match writer_rx
-        .recv_timeout(Duration::from_millis(200))
-        .expect("clear overlay message")
-    {
-        WriterMessage::ClearOverlay => {}
-        other => panic!("unexpected writer message: {other:?}"),
-    }
-}
-
-#[test]
-fn dev_panel_toggle_forwards_ctrl_d_when_dev_mode_disabled() {
-    let _guard = install_try_send_hook(hook_would_block);
-    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.ui.overlay_mode = OverlayMode::None;
-    state.config.dev_mode = false;
-    let mut running = true;
-
-    handle_input_event(
-        &mut state,
-        &mut timers,
-        &mut deps,
-        InputEvent::DevPanelToggle,
-        &mut running,
-    );
-
-    assert!(running);
-    assert_eq!(state.ui.overlay_mode, OverlayMode::None);
-    assert_eq!(state.pty_buffer.pending_input_bytes, 1);
-    assert_eq!(state.pty_buffer.pending_input.front(), Some(&vec![0x04]));
-}
-
-#[test]
 fn open_settings_overlay_sets_mode_and_renders_overlay() {
     let (mut state, _timers, mut deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
     state.ui.overlay_mode = OverlayMode::None;
@@ -1233,7 +1106,7 @@ fn open_theme_studio_overlay_sets_mode_and_renders_overlay() {
         .expect("theme studio overlay render")
     {
         WriterMessage::ShowOverlay { height, content } => {
-            assert_eq!(height, theme_studio_height());
+            assert_eq!(height, crate::theme_studio::theme_studio_overlay_height());
             assert!(content.contains("Theme Studio"));
             assert!(content.contains("[ Hidden ]"));
             assert!(content.contains("[ Double ]"));

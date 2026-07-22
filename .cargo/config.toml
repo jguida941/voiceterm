@@ -1,0 +1,4 @@
+[env]
+# whisper-rs recommends its checked-in bindings when local Clang generates an
+# incompatible layout. Keep local, CI, release, and Homebrew builds identical.
+WHISPER_DONT_GENERATE_BINDINGS = { value = "1", force = true }

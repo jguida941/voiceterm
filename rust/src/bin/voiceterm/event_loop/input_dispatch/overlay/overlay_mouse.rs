@@ -1,11 +1,6 @@
 //! Overlay mouse interaction helpers extracted from input dispatch.
 
 use super::*;
-use crate::action_center::render::{
-    action_center_footer, action_center_overlay_height, action_center_overlay_width,
-    ACTION_CENTER_ENTRY_START_ROW, ACTION_CENTER_VISIBLE_ROWS,
-};
-use crate::dev_panel::{dev_panel_active_footer, dev_panel_height, panel_inner_width, panel_width};
 use crate::memory_browser::render::{
     memory_browser_footer, memory_browser_overlay_height, memory_browser_overlay_width,
     MEMORY_BROWSER_ENTRY_START_ROW,
@@ -60,7 +55,11 @@ pub(super) fn handle_overlay_mouse_click(
         return;
     };
 
-    let footer_row = overlay_height.saturating_sub(1);
+    let footer_row = if state.ui.overlay_mode == OverlayMode::ThemeStudio {
+        theme_studio_height().saturating_sub(1)
+    } else {
+        overlay_height.saturating_sub(1)
+    };
     if overlay_row == footer_row {
         let title_len = crate::overlay_frame::display_width(&footer_title);
         let left_pad = inner_width.saturating_sub(title_len) / 2;
@@ -119,10 +118,6 @@ pub(super) fn handle_overlay_mouse_click(
         return;
     }
 
-    if handle_action_center_click(state, deps, overlay_row, rel_x, overlay_width) {
-        return;
-    }
-
     if state.ui.overlay_mode == OverlayMode::Settings {
         let options_start = SETTINGS_OPTION_START_ROW;
         let options_end = options_start.saturating_add(SETTINGS_ITEMS.len().saturating_sub(1));
@@ -169,9 +164,8 @@ pub(super) fn handle_overlay_mouse_click(
 
 fn overlay_height_for_mode(state: &EventLoopState) -> usize {
     match state.ui.overlay_mode {
-        OverlayMode::DevPanel => dev_panel_height(),
         OverlayMode::Help => help_overlay_height(),
-        OverlayMode::ThemeStudio => theme_studio_height(),
+        OverlayMode::ThemeStudio => crate::theme_studio::theme_studio_overlay_height(),
         OverlayMode::ThemePicker => theme_picker_height(),
         OverlayMode::Settings => settings_overlay_height(),
         OverlayMode::TranscriptHistory => transcript_history_overlay_height(),
@@ -179,18 +173,12 @@ fn overlay_height_for_mode(state: &EventLoopState) -> usize {
             crate::toast::toast_history_overlay_height(&state.toast_center)
         }
         OverlayMode::MemoryBrowser => memory_browser_overlay_height(),
-        OverlayMode::ActionCenter => action_center_overlay_height(),
         OverlayMode::None => 0,
     }
 }
 
 fn overlay_dimensions(state: &EventLoopState, cols: usize) -> (usize, usize, String) {
     match state.ui.overlay_mode {
-        OverlayMode::DevPanel => (
-            panel_width(cols),
-            panel_inner_width(cols),
-            dev_panel_active_footer(&state.theme.colors(), &state.dev_panel_commands, cols),
-        ),
         OverlayMode::Help => (
             help_overlay_width_for_terminal(cols),
             help_overlay_inner_width_for_terminal(cols),
@@ -224,15 +212,6 @@ fn overlay_dimensions(state: &EventLoopState, cols: usize) -> (usize, usize, Str
                 width,
                 width.saturating_sub(2),
                 memory_browser_footer(&colors),
-            )
-        }
-        OverlayMode::ActionCenter => {
-            let colors = state.theme.colors();
-            let width = action_center_overlay_width(cols);
-            (
-                width,
-                width.saturating_sub(2),
-                action_center_footer(&colors),
             )
         }
         OverlayMode::None => (0, 0, String::new()),
@@ -302,36 +281,6 @@ fn handle_memory_browser_click(
     if abs_idx < state.memory_browser_state.filtered_count {
         state.memory_browser_state.selected = abs_idx;
         render_memory_browser_overlay_for_state(state, deps);
-    }
-    true
-}
-
-fn handle_action_center_click(
-    state: &mut EventLoopState,
-    deps: &mut EventLoopDeps,
-    overlay_row: usize,
-    rel_x: usize,
-    overlay_width: usize,
-) -> bool {
-    if state.ui.overlay_mode != OverlayMode::ActionCenter {
-        return false;
-    }
-    let entry_end =
-        ACTION_CENTER_ENTRY_START_ROW.saturating_add(ACTION_CENTER_VISIBLE_ROWS.saturating_sub(1));
-    if overlay_row < ACTION_CENTER_ENTRY_START_ROW
-        || overlay_row > entry_end
-        || rel_x <= 1
-        || rel_x >= overlay_width
-    {
-        return true;
-    }
-    let display_idx = overlay_row.saturating_sub(ACTION_CENTER_ENTRY_START_ROW);
-    let selected = state.dev_panel_commands.selected_index();
-    let scroll_offset = selected.saturating_sub(ACTION_CENTER_VISIBLE_ROWS.saturating_sub(1));
-    let abs_idx = scroll_offset + display_idx;
-    if abs_idx < state.dev_panel_commands.catalog().len() {
-        state.dev_panel_commands.select_index(abs_idx);
-        render_action_center_overlay_for_state(state, deps);
     }
     true
 }

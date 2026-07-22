@@ -1,4 +1,4 @@
-# Pre-commit hooks for codex-voice
+# Pre-commit hooks for VoiceTerm
 #
 # Install:  pip install pre-commit && pre-commit install
 # Run all:  pre-commit run --all-files

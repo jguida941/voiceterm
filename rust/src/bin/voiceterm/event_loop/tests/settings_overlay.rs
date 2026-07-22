@@ -269,48 +269,6 @@ fn settings_overlay_mouse_click_footer_outside_close_prefix_keeps_overlay_open()
 }
 
 #[test]
-fn centered_overlay_gutter_click_does_not_close_dev_panel_but_footer_close_still_works() {
-    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.config.dev_mode = true;
-    state.ui.terminal_cols = 120;
-    state.ui.terminal_rows = 40;
-    state.ui.overlay_mode = OverlayMode::DevPanel;
-    let cols = resolved_cols(state.ui.terminal_cols) as usize;
-    let gutter_x = centered_overlay_left_gutter_x(state.ui.terminal_cols, panel_width(cols));
-    let (_close_x, footer_y) = dev_panel_footer_close_click(&state);
-
-    let mut running = true;
-    handle_input_event(
-        &mut state,
-        &mut timers,
-        &mut deps,
-        InputEvent::MouseClick {
-            x: gutter_x,
-            y: footer_y,
-        },
-        &mut running,
-    );
-
-    assert!(running);
-    assert_eq!(state.ui.overlay_mode, OverlayMode::DevPanel);
-
-    let (close_x, close_y) = dev_panel_footer_close_click(&state);
-    handle_input_event(
-        &mut state,
-        &mut timers,
-        &mut deps,
-        InputEvent::MouseClick {
-            x: close_x,
-            y: close_y,
-        },
-        &mut running,
-    );
-
-    assert!(running);
-    assert_eq!(state.ui.overlay_mode, OverlayMode::None);
-}
-
-#[test]
 fn centered_overlay_gutter_click_does_not_trigger_settings_action_but_centered_click_still_works() {
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
     state.ui.overlay_mode = OverlayMode::Settings;

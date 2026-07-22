@@ -80,7 +80,7 @@ impl SessionMemoryLogger {
             return;
         }
 
-        let cleaned = voiceterm::codex::sanitize_pty_output(bytes);
+        let cleaned = voiceterm::agent_runtime::sanitize_pty_output(bytes);
         if cleaned.is_empty() {
             return;
         }

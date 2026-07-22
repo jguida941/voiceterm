@@ -1,26 +1,21 @@
 //! Help/settings overlay rendering so panel layout stays centralized and consistent.
 
-use std::path::Path;
-
 use crossbeam_channel::Sender;
-use voiceterm::devtools::DevModeSnapshot;
 
-use crate::action_center::render::{action_center_overlay_height, format_action_center_overlay};
 use crate::config::OverlayConfig;
-use crate::dev_command::{DevPanelState, DevPanelTab};
-use crate::dev_panel::{
-    dev_panel_height, format_cockpit_page, format_dev_panel, format_review_surface,
-};
 use crate::help::{format_help_overlay, help_overlay_height};
 use crate::memory_browser::render::{format_memory_browser_overlay, memory_browser_overlay_height};
 use crate::memory_browser::MemoryBrowserState;
 use crate::settings::{
     format_settings_overlay, settings_overlay_height, SettingsMenuState, SettingsView,
 };
-use crate::status_line::StatusLineState;
+use crate::status_line::{format_status_banner, StatusLineState};
 use crate::theme::{style_pack_theme_lock, Theme};
 use crate::theme_picker::{format_theme_picker, theme_picker_height};
-use crate::theme_studio::{format_theme_studio, theme_studio_height, ThemeStudioView};
+use crate::theme_studio::{
+    format_theme_studio, theme_studio_overlay_height, ThemeStudioView,
+    THEME_STUDIO_HUD_PREVIEW_HEIGHT,
+};
 use crate::toast::{format_toast_history_overlay, toast_history_overlay_height, ToastCenter};
 use crate::transcript_history::{
     format_transcript_history_overlay, transcript_history_overlay_height, TranscriptHistory,
@@ -31,7 +26,6 @@ use crate::writer::{try_send_message, WriterMessage};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum OverlayMode {
     None,
-    DevPanel,
     Help,
     ThemeStudio,
     ThemePicker,
@@ -39,7 +33,6 @@ pub(crate) enum OverlayMode {
     TranscriptHistory,
     ToastHistory,
     MemoryBrowser,
-    ActionCenter,
 }
 
 // Overlay naming convention:
@@ -81,50 +74,6 @@ pub(crate) fn show_settings_overlay(
     let _ = try_send_message(writer_tx, WriterMessage::ShowOverlay { content, height });
 }
 
-pub(crate) fn show_dev_panel_overlay(
-    writer_tx: &Sender<WriterMessage>,
-    theme: Theme,
-    snapshot: Option<DevModeSnapshot>,
-    dev_log_enabled: bool,
-    dev_path: Option<&Path>,
-    commands: &DevPanelState,
-    cols: u16,
-) {
-    let content = format_dev_panel(
-        theme,
-        snapshot,
-        dev_log_enabled,
-        dev_path,
-        commands,
-        cols as usize,
-    );
-    let height = dev_panel_height();
-    let _ = try_send_message(writer_tx, WriterMessage::ShowOverlay { content, height });
-}
-
-pub(crate) fn show_review_surface_overlay(
-    writer_tx: &Sender<WriterMessage>,
-    theme: Theme,
-    commands: &DevPanelState,
-    cols: u16,
-) {
-    let content = format_review_surface(theme, commands, cols as usize);
-    let height = dev_panel_height();
-    let _ = try_send_message(writer_tx, WriterMessage::ShowOverlay { content, height });
-}
-
-pub(crate) fn show_cockpit_page_overlay(
-    writer_tx: &Sender<WriterMessage>,
-    theme: Theme,
-    commands: &DevPanelState,
-    page: DevPanelTab,
-    cols: u16,
-) {
-    let content = format_cockpit_page(theme, commands, page, cols as usize);
-    let height = dev_panel_height();
-    let _ = try_send_message(writer_tx, WriterMessage::ShowOverlay { content, height });
-}
-
 pub(crate) fn show_theme_picker_overlay(
     writer_tx: &Sender<WriterMessage>,
     theme: Theme,
@@ -140,10 +89,34 @@ pub(crate) fn show_theme_picker_overlay(
 pub(crate) fn show_theme_studio_overlay(
     writer_tx: &Sender<WriterMessage>,
     view: &ThemeStudioView,
+    status_state: &StatusLineState,
     cols: u16,
 ) {
-    let content = format_theme_studio(view, cols as usize);
-    let height = theme_studio_height();
+    let mut content = format_theme_studio(view, cols as usize);
+    let mut preview_state = status_state.clone();
+    preview_state.hud_style = view.hud_style;
+    preview_state.hud_border_style = view.hud_border_style;
+    preview_state.hud_right_panel = view.hud_right_panel;
+    preview_state.hud_right_panel_recording_only = view.hud_right_panel_recording_only;
+    preview_state.prompt_suppressed = false;
+    preview_state.full_hud_single_line = false;
+    preview_state.hidden_launcher_collapsed = false;
+
+    let preview = format_status_banner(&preview_state, view.theme, cols as usize);
+    let preview_lines = preview
+        .lines
+        .into_iter()
+        .take(THEME_STUDIO_HUD_PREVIEW_HEIGHT)
+        .collect::<Vec<_>>();
+    for _ in preview_lines.len()..THEME_STUDIO_HUD_PREVIEW_HEIGHT {
+        content.push('\n');
+    }
+    for line in preview_lines {
+        content.push('\n');
+        content.push_str(&line);
+    }
+
+    let height = theme_studio_overlay_height();
     let _ = try_send_message(writer_tx, WriterMessage::ShowOverlay { content, height });
 }
 
@@ -176,17 +149,6 @@ pub(crate) fn show_memory_browser_overlay(
     let _ = try_send_message(writer_tx, WriterMessage::ShowOverlay { content, height });
 }
 
-pub(crate) fn show_action_center_overlay(
-    writer_tx: &Sender<WriterMessage>,
-    action_state: &DevPanelState,
-    theme: Theme,
-    cols: u16,
-) {
-    let content = format_action_center_overlay(action_state, theme, cols as usize);
-    let height = action_center_overlay_height();
-    let _ = try_send_message(writer_tx, WriterMessage::ShowOverlay { content, height });
-}
-
 pub(crate) fn show_transcript_history_overlay(
     writer_tx: &Sender<WriterMessage>,
     history: &TranscriptHistory,
@@ -206,7 +168,6 @@ mod tests {
     use crate::status_line::Pipeline;
     use clap::Parser;
     use crossbeam_channel::bounded;
-    use std::path::Path;
 
     #[test]
     fn show_settings_overlay_sends_overlay() {
@@ -258,7 +219,7 @@ mod tests {
             theme: Theme::Coral,
             selected: 0,
             hud_style: HudStyle::Full,
-            hud_border_style: HudBorderStyle::Theme,
+            hud_border_style: HudBorderStyle::Double,
             hud_right_panel: HudRightPanel::Ribbon,
             hud_right_panel_recording_only: true,
             border_style_override: None,
@@ -275,14 +236,17 @@ mod tests {
             redo_available: false,
             runtime_overrides_dirty: false,
         };
-        show_theme_studio_overlay(&writer_tx, &view, 80);
+        let status_state = StatusLineState::new();
+        show_theme_studio_overlay(&writer_tx, &view, &status_state, 80);
         match writer_rx
             .recv_timeout(std::time::Duration::from_millis(200))
             .expect("overlay message")
         {
             WriterMessage::ShowOverlay { content, height } => {
-                assert_eq!(height, theme_studio_height());
+                assert_eq!(height, theme_studio_overlay_height());
                 assert!(content.contains("Theme Studio"));
+                assert!(content.contains("VoiceTerm"));
+                assert!(content.contains('╔'));
             }
             other => panic!("unexpected writer message: {other:?}"),
         }
@@ -301,30 +265,6 @@ mod tests {
                 assert!(content.contains("Shortcuts"));
             }
             other => panic!("unexpected writer message: {other:?}"),
-        }
-    }
-
-    #[test]
-    fn show_dev_panel_overlay_sends_overlay() {
-        let (writer_tx, writer_rx) = bounded(4);
-        let command_state = DevPanelState::default();
-        show_dev_panel_overlay(
-            &writer_tx,
-            Theme::Coral,
-            None,
-            true,
-            Some(Path::new("/tmp")),
-            &command_state,
-            80,
-        );
-        let message = writer_rx.recv_timeout(std::time::Duration::from_millis(200));
-        match message {
-            Ok(WriterMessage::ShowOverlay { content, height }) => {
-                assert_eq!(height, dev_panel_height());
-                assert!(content.contains("Actions"));
-            }
-            Ok(other) => panic!("unexpected writer message: {other:?}"),
-            Err(err) => panic!("missing overlay message: {err}"),
         }
     }
 }

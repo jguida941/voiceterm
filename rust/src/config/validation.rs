@@ -36,7 +36,6 @@ impl AppConfig {
         self.validate_voice_pipeline_bounds()?;
 
         self.codex_cmd = sanitize_binary(&self.codex_cmd, "--codex-cmd", &["codex"])?;
-        self.claude_cmd = sanitize_binary(&self.claude_cmd, "--claude-cmd", &["claude"])?;
         self.python_cmd =
             sanitize_binary(&self.python_cmd, "--python-cmd", &["python3", "python"])?;
         self.ffmpeg_cmd = sanitize_binary(&self.ffmpeg_cmd, "--ffmpeg-cmd", &["ffmpeg"])?;

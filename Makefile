@@ -1,98 +1,35 @@
-# VoiceTerm Developer Makefile
-# Run `make help` to see available commands
+# VoiceTerm developer commands. Run `make help` for the short command list.
 
-.PHONY: help build run doctor fmt fmt-check lint check test test-bin test-perf test-mem test-mem-loop parser-fuzz security-audit bench ci prepush mutants mutants-all mutants-audio mutants-config mutants-voice mutants-pty mutants-results mutants-raw dev-check dev-ci dev-prepush dev-mutants dev-mutants-results dev-mutation-score dev-docs-check dev-hygiene dev-active-sync dev-list dev-status dev-report release release-notes homebrew pypi ship model-base model-small model-tiny clean clean-tests
+.PHONY: help build run doctor fmt fmt-check lint check test test-bin test-perf test-mem parser-fuzz bench integration ci prepush security pypi release-check release-notes release homebrew model-base model-small model-tiny clean
 
-# On macOS, pin bindgen to Apple's libclang. Homebrew's bleeding-edge llvm
-# (e.g. clang 22) can shadow it and makes bindgen emit opaque structs for
-# whisper.cpp headers, which fails whisper-rs-sys layout asserts at compile
-# time. Override with `make LIBCLANG_PATH=...` if needed.
 ifeq ($(shell uname),Darwin)
 ifneq ($(wildcard /Library/Developer/CommandLineTools/usr/lib/libclang.dylib),)
 export LIBCLANG_PATH ?= /Library/Developer/CommandLineTools/usr/lib
 endif
 endif
 
-# Default target
 help:
-	@echo "VoiceTerm Developer Commands"
-	@echo ""
-	@echo "Building:"
-	@echo "  make build        Build release binary"
-	@echo "  make run          Build and run voiceterm"
-	@echo "  make doctor       Run voiceterm --doctor diagnostics"
-	@echo ""
-	@echo "Code Quality:"
-	@echo "  make fmt          Format code"
-	@echo "  make lint         Run clippy linter"
-	@echo "  make test         Run all tests"
-	@echo "  make check        Format + lint (no tests)"
-	@echo ""
-	@echo "CI / Pre-push:"
-	@echo "  make ci           Core CI check (fmt + lint + test)"
-	@echo "  make prepush      All push/PR checks (ci + perf + memory guard)"
-	@echo "  make security-audit RustSec policy check (high/critical + yanked/unsound)"
-	@echo ""
-	@echo "Mutation Testing:"
-	@echo "  make mutants           Interactive module selection"
-	@echo "  make mutants-all       Test all modules (slow)"
-	@echo "  make mutants-audio     Test audio module only"
-	@echo "  make mutants-results   Show last results"
-	@echo ""
-	@echo "Dev CLI:"
-	@echo "  make dev-check         Run devctl check"
-	@echo "  make dev-ci            Run devctl check --ci"
-	@echo "  make dev-prepush       Run devctl check --prepush"
-	@echo "  make dev-mutants       Run devctl mutants"
-	@echo "  make dev-mutants-results Show devctl mutants results"
-	@echo "  make dev-mutation-score  Run devctl mutation-score"
-	@echo "  make dev-docs-check    Run devctl docs-check --user-facing"
-	@echo "  make dev-hygiene      Run devctl hygiene audit"
-	@echo "  make dev-active-sync   Run active-plan sync guard"
-	@echo "  make dev-list          List devctl commands/profiles"
-	@echo "  make dev-status        Run devctl status"
-	@echo "  make dev-report        Run devctl report"
-	@echo ""
-	@echo "Testing:"
-	@echo "  make test-bin     Test overlay binary only"
-	@echo "  make test-perf    Run perf smoke test + metrics verification"
-	@echo "  make test-mem     Run memory guard test once"
-	@echo "  make test-mem-loop Run memory guard loop (CI parity)"
-	@echo "  make parser-fuzz  Run parser property-fuzz tests"
-	@echo "  make bench        Run voice benchmark"
-	@echo ""
-	@echo "Release:"
-	@echo "  make release V=X.Y.Z   Create/push release tag + notes via devctl"
-	@echo "  make release-notes V=X.Y.Z  Generate release notes markdown via devctl"
-	@echo "  make homebrew V=X.Y.Z  Update Homebrew formula via devctl"
-	@echo "  make pypi               Build/check PyPI package via devctl"
-	@echo "  make ship V=X.Y.Z      Full release control-plane flow via devctl ship"
-	@echo ""
-	@echo "Models:"
-	@echo "  make model-base   Download base.en model (recommended)"
-	@echo "  make model-small  Download small.en model"
-	@echo "  make model-tiny   Download tiny.en model (fastest)"
-	@echo ""
-	@echo "Cleanup:"
-	@echo "  make clean        Remove build artifacts"
-	@echo ""
-
-# =============================================================================
-# Building
-# =============================================================================
+	@echo "VoiceTerm commands"
+	@echo "  make build                 Build the optimized binary"
+	@echo "  make run                   Build and run VoiceTerm"
+	@echo "  make doctor                Run environment diagnostics"
+	@echo "  make check                 Run rustfmt and Clippy"
+	@echo "  make test                  Run the complete Rust test suite"
+	@echo "  make ci                    Run formatting, linting, and tests"
+	@echo "  make prepush               Run CI plus runtime smoke tests"
+	@echo "  make pypi                  Build and validate PyPI artifacts"
+	@echo "  make release-check V=X.Y.Z Verify release version and notes"
+	@echo "  make release V=X.Y.Z       Publish a GitHub release"
+	@echo "  make homebrew V=X.Y.Z TAP=/path/to/tap"
 
 build:
 	cd rust && cargo build --release --bin voiceterm
 
 run: build
-	./rust/target/release/voiceterm
+	./scripts/start.sh
 
 doctor: build
 	./rust/target/release/voiceterm --doctor
-
-# =============================================================================
-# Code Quality
-# =============================================================================
 
 fmt:
 	cd rust && cargo fmt --all
@@ -101,13 +38,9 @@ fmt-check:
 	cd rust && cargo fmt --all -- --check
 
 lint:
-	cd rust && cargo clippy --workspace --all-features -- -D warnings
+	cd rust && cargo clippy --workspace --all-targets --all-features -- -D warnings
 
 check: fmt-check lint
-
-# =============================================================================
-# Testing
-# =============================================================================
 
 test:
 	cd rust && cargo test --workspace --all-features
@@ -116,162 +49,65 @@ test-bin:
 	cd rust && cargo test --bin voiceterm
 
 test-perf:
-	cd rust && cargo test --no-default-features legacy_tui::tests::perf_smoke_emits_voice_metrics -- --nocapture
-	@LOG_PATH=$$(python3 -c "import os, tempfile; print(os.path.join(tempfile.gettempdir(), 'voiceterm_tui.log'))"); \
-	echo "Inspecting $$LOG_PATH"; \
-	if ! grep -q "voice_metrics|" "$$LOG_PATH"; then \
-		echo "voice_metrics log missing from log" >&2; \
-		exit 1; \
-	fi; \
-	python3 .github/scripts/verify_perf_metrics.py "$$LOG_PATH"
+	@LOG_PATH=$$(python3 -c "import os,tempfile; print(os.path.join(tempfile.gettempdir(), 'voiceterm_perf_test.log'))"); \
+	rm -f "$$LOG_PATH"; \
+	(cd rust && VOICETERM_LOG_PATH="$$LOG_PATH" cargo test --no-default-features runtime_support::tests::perf_smoke_emits_voice_metrics -- --nocapture); \
+	python3 .github/scripts/verify_perf_metrics.py "$$LOG_PATH"; \
+	rm -f "$$LOG_PATH"
 
 test-mem:
-	cd rust && cargo test --no-default-features legacy_tui::tests::memory_guard_backend_threads_drop -- --nocapture
-
-test-mem-loop:
-	@set -eu; \
-	cd rust; \
-	for i in $$(seq 1 20); do \
-		echo "Iteration $$i"; \
-		cargo test --no-default-features legacy_tui::tests::memory_guard_backend_threads_drop -- --nocapture; \
-	done
+	cd rust && cargo test --no-default-features agent_runtime::tests::backend_threads_return_to_baseline -- --nocapture
 
 parser-fuzz:
 	cd rust && cargo test pty_session::tests::prop_find_csi_sequence_respects_bounds -- --nocapture
 	cd rust && cargo test pty_session::tests::prop_find_osc_terminator_respects_bounds -- --nocapture
 	cd rust && cargo test pty_session::tests::prop_split_incomplete_escape_preserves_original_bytes -- --nocapture
 
-security-audit:
-	cargo install cargo-audit --locked
-	cd rust && (cargo audit --json > ../rustsec-audit.json || true)
-	python3 dev/scripts/checks/check_rustsec_policy.py --input rustsec-audit.json --min-cvss 7.0 --fail-on-kind yanked --fail-on-kind unsound --allowlist-file dev/security/rustsec_allowlist.md
-
-# Voice benchmark
 bench:
-	./dev/scripts/tests/benchmark_voice.sh
+	./scripts/tests/benchmark_voice.sh
 
-# Full CI check (matches GitHub Actions)
+integration: build
+	./scripts/tests/integration_test.sh
+
 ci: fmt-check lint test
-	@echo ""
-	@echo "✓ CI checks passed!"
 
-# Run all push/PR checks locally (rust_ci + perf_smoke + memory_guard)
-prepush: ci test-perf test-mem-loop
-	@echo ""
-	@echo "✓ Pre-push checks passed!"
+prepush: ci test-perf test-mem parser-fuzz
 
-# =============================================================================
-# Mutation Testing
-# =============================================================================
+security:
+	cd rust && cargo audit
+	cd rust && cargo deny check
 
-# Interactive module selection
-mutants:
-	python3 dev/scripts/mutation/cli.py
+pypi:
+	python3 -m build pypi
+	python3 -m twine check pypi/dist/*
 
-# Test all modules (slow)
-mutants-all:
-	python3 dev/scripts/mutation/cli.py --all
-
-# Test specific modules
-mutants-audio:
-	python3 dev/scripts/mutation/cli.py --module audio
-
-mutants-config:
-	python3 dev/scripts/mutation/cli.py --module config
-
-mutants-voice:
-	python3 dev/scripts/mutation/cli.py --module voice
-
-mutants-pty:
-	python3 dev/scripts/mutation/cli.py --module pty
-
-# Show last mutation test results
-mutants-results:
-	python3 dev/scripts/mutation/cli.py --results-only
-
-# Legacy: run cargo mutants directly
-mutants-raw:
-	cd rust && cargo mutants --timeout 300 -o mutants.out
-	python3 dev/scripts/checks/check_mutation_score.py --path rust/mutants.out/outcomes.json --threshold 0.80
-
-# =============================================================================
-# Dev CLI (devctl)
-# =============================================================================
-
-dev-check:
-	python3 dev/scripts/devctl.py check
-
-dev-ci:
-	python3 dev/scripts/devctl.py check --ci
-
-dev-prepush:
-	python3 dev/scripts/devctl.py check --prepush
-
-dev-mutants:
-	python3 dev/scripts/devctl.py mutants
-
-dev-mutants-results:
-	python3 dev/scripts/devctl.py mutants --results-only
-
-dev-mutation-score:
-	python3 dev/scripts/devctl.py mutation-score
-
-dev-docs-check:
-	python3 dev/scripts/devctl.py docs-check --user-facing
-
-dev-hygiene:
-	python3 dev/scripts/devctl.py hygiene --format md
-
-dev-active-sync:
-	python3 dev/scripts/checks/check_active_plan_sync.py
-
-dev-list:
-	python3 dev/scripts/devctl.py list
-
-dev-status:
-	python3 dev/scripts/devctl.py status --format md
-
-dev-report:
-	python3 dev/scripts/devctl.py report --format md
-
-# =============================================================================
-# Release
-# =============================================================================
-
-# Usage: make release V=X.Y.Z
-release:
+release-check:
 ifndef V
-	$(error Version required. Usage: make release V=X.Y.Z)
+	$(error Version required. Usage: make release-check V=X.Y.Z)
 endif
-	python3 dev/scripts/devctl.py release --version $(V)
+	python3 scripts/release/check_version.py --expected $(V)
+	python3 scripts/release/release_notes.py $(V) >/dev/null
 
-# Usage: make release-notes V=X.Y.Z
 release-notes:
 ifndef V
 	$(error Version required. Usage: make release-notes V=X.Y.Z)
 endif
-	python3 dev/scripts/devctl.py release-notes --version $(V)
+	python3 scripts/release/release_notes.py $(V)
 
-# Usage: make homebrew V=X.Y.Z
+release: release-check
+	@NOTES=$$(mktemp); \
+	python3 scripts/release/release_notes.py $(V) >"$$NOTES"; \
+	gh release create v$(V) --target master --title "VoiceTerm v$(V)" --notes-file "$$NOTES"; \
+	rm -f "$$NOTES"
+
 homebrew:
 ifndef V
-	$(error Version required. Usage: make homebrew V=X.Y.Z)
+	$(error Version required. Usage: make homebrew V=X.Y.Z TAP=/path/to/homebrew-voiceterm)
 endif
-	python3 dev/scripts/devctl.py homebrew --version $(V)
-
-pypi:
-	python3 dev/scripts/devctl.py pypi
-
-# Usage: make ship V=X.Y.Z
-ship:
-ifndef V
-	$(error Version required. Usage: make ship V=X.Y.Z)
+ifndef TAP
+	$(error Tap path required. Usage: make homebrew V=X.Y.Z TAP=/path/to/homebrew-voiceterm)
 endif
-	python3 dev/scripts/devctl.py ship --version $(V) --verify --tag --notes --github --pypi --homebrew --verify-pypi
-
-# =============================================================================
-# Model Management
-# =============================================================================
+	python3 scripts/release/update_homebrew.py --version $(V) --formula "$(TAP)/Formula/voiceterm.rb" --readme "$(TAP)/README.md"
 
 model-base:
 	./scripts/setup.sh models --base
@@ -282,20 +118,5 @@ model-small:
 model-tiny:
 	./scripts/setup.sh models --tiny
 
-# =============================================================================
-# Cleanup
-# =============================================================================
-
 clean:
 	cd rust && cargo clean
-	rm -rf rust/mutants.out
-
-# Remove test scripts clutter
-clean-tests:
-	@echo "Removing one-off test scripts..."
-	find dev/scripts/tests -maxdepth 1 -type f \
-		! -name 'benchmark_voice.sh' \
-		! -name 'integration_test.sh' \
-		! -name 'measure_latency.sh' \
-		-exec rm -f {} +
-	@echo "Done. Kept: benchmark_voice.sh, measure_latency.sh, integration_test.sh"

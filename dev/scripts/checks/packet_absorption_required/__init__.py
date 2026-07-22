@@ -1,1 +1,0 @@
-"""Packet absorption guard package."""

@@ -64,8 +64,7 @@ voiceterm --capture-once --format text
 ```
 
 This records once, prints the transcript to stdout, and exits without starting
-the PTY overlay. If you want slash-command templates for Codex or Claude, see
-`dev/templates/slash/`.
+the PTY overlay.
 
 ## Backend Support
 
@@ -78,9 +77,8 @@ the PTY overlay. If you want slash-command templates for Codex or Claude, see
 | OpenCode | `voiceterm --backend opencode` | Experimental (untested, overlay-only) |
 | Custom backend | `voiceterm --backend "my-cli --flag"` | Experimental (overlay-only) |
 
-IPC provider sessions support only `codex` and `claude`.
-`gemini` is overlay-only experimental, and `aider` / `opencode` / `custom` are
-overlay-only non-IPC backends.
+`gemini`, `aider`, `opencode`, and custom commands use the generic overlay
+path and remain experimental.
 
 If you are deciding what to try first:
 
@@ -97,30 +95,15 @@ Active verified hosts are Cursor terminal and JetBrains terminals.
 | IDE host | Codex | Claude Code | Status |
 |---|---|---|---|
 | Cursor terminal | Fully supported | Fully supported | Recommended primary host |
-| JetBrains terminals (`IntelliJ`, `PyCharm`, `WebStorm`, `CLion`) | Fully supported | Fully supported | Keep current release and use troubleshooting guidance for rare host-specific edge cases |
+| JetBrains terminals (`IntelliJ`, `PyCharm`, `WebStorm`, `CLion`) | Fully supported | Fully supported | Verified with the current release |
 | AntiGravity | Not supported | Not supported | Deferred until runtime fingerprint evidence exists (not supported in current releases) |
 | Other IDE terminals | Unverified | Unverified | Treat as experimental until listed here |
 
-JetBrains + Claude rare edge case (long parallel turns):
-after very long parallel tool calls or parallel web-search turns, HUD/transcript
-overlap can appear at turn completion. Quick workaround: resize the terminal
-once (even by 1 row/column) to force layout recalculation.
-Details: [Troubleshooting -> JetBrains + Claude overlay overlap after long parallel output](TROUBLESHOOTING.md#jetbrains--claude-overlay-overlap-after-long-parallel-output).
-
-If you want the least surprising setup, use Cursor terminal first.
-
-## Optional Companion Surfaces
-
-If you are working from a source checkout, VoiceTerm also has optional
-repo-backed companion surfaces:
-
-- Operator Console: desktop read/control room over repo-visible
-  `review-channel`, `mobile-status`, and related `devctl` workflow outputs.
-- iPhone/iPad companion: reads the same live mobile bundle for status views and
-  typed control actions on-device.
-
-These are advanced workflow tools. They do not replace the overlay or the
-voice-capture flow described in the rest of this guide.
+The current release includes fixes for overlay flicker, stale HUD artifacts,
+pane resizing, and backend selector navigation in the verified matrix. Report
+any recurrence with the terminal, backend, version, and reproduction steps.
+If a visual artifact does appear, resize the terminal once—even by one row or
+column—to force a clean layout recalculation.
 
 ## How Voice Input Works
 
@@ -138,7 +121,7 @@ flowchart TD
     F --> G
     G --> H{"Send mode"}
     H -->|auto| I["Submit (Enter)"]
-    H -->|insert| J["Wait for Enter (Ctrl+E finalizes capture only)"]
+    H -->|insert| J["Wait for Enter (Ctrl+E can finalize and stage early)"]
 ```
 
 Simple flow:
@@ -161,7 +144,7 @@ Simple flow:
 |-----|--------|
 | `Ctrl+R` | Trigger voice capture |
 | `Ctrl+X` | Capture one screenshot prompt |
-| `Ctrl+E` | Finalize active capture early (stage text only, never sends Enter) |
+| `Ctrl+E` | In `insert` mode, finalize early, transcribe, and place text in the chat composer without sending Enter |
 | `Ctrl+V` | Toggle auto-voice |
 | `Ctrl+T` | Toggle send mode (`auto` <-> `insert`) |
 | `Enter` | In `insert` mode: send staged prompt text |
@@ -177,7 +160,7 @@ Simple flow:
 | `Ctrl+H` | Open history (`mic`/`you`/`ai`) |
 | `Ctrl+N` | Open notifications history |
 | `Ctrl+O` | Open settings |
-| `Ctrl+D` | Toggle Dev panel (`--dev` only; otherwise EOF goes to backend CLI) |
+| `Ctrl+D` | Forward EOF to the backend CLI |
 | `Ctrl+Y` | Open Theme Studio |
 | `Ctrl+U` | Cycle HUD style (Full -> Minimal -> Hidden) |
 | `?` | Open shortcut help overlay |
@@ -196,7 +179,7 @@ Mouse and overlay behavior:
 - In Cursor terminal, wheel/touchpad scrolling may not move chat history while
   Mouse is ON. The scrollbar can still be dragged.
 - If you want touchpad/wheel scrolling in Cursor, set `Mouse` to `OFF` and use
-  keyboard HUD navigation (Left/Right or `Tab` + `Enter`) for controls.
+  keyboard HUD navigation (Left/Right + Enter) for controls.
 - If help/settings/theme overlays are open, unmatched input closes the overlay
   and replays the key/action into normal input handling.
 - Help overlay includes clickable Docs/Troubleshooting links (terminals that
@@ -234,7 +217,7 @@ Visual controls are now in Theme Studio:
 
 | Page | Purpose |
 |------|---------|
-| **Home** | Cycle-button controls for HUD style, borders, right panel, animation, glyphs, indicators, spinners, progress bars, voice scene, toast, startup, banner, undo/redo/rollback |
+| **Home** | Cycle-button controls for HUD style, borders, right panel, animation, glyphs, indicators, spinners, progress bars, voice scene, toast, startup, banner, undo/redo/rollback; the real HUD preview beneath the panel updates immediately |
 | **Colors** | Edit all 10 semantic colors (Recording, Processing, Success, Warning, Error, Info, Dim, Bg Primary, Bg Secondary, Border) with an inline RGB color picker. Changes apply live. Indicator set and glyph set selectors at the bottom (Left/Right to cycle) |
 | **Borders** | Pick border style (Single, Rounded, Double, Heavy, None) with live mini-box previews. Press Enter to apply |
 | **Components** | Browse 54 component IDs grouped by category (HUD, Buttons, Toast, Overlay, etc.) with color swatches showing which semantic color each component uses |
@@ -244,6 +227,9 @@ Visual controls are now in Theme Studio:
 - Use `Undo edit`, `Redo edit`, and `Rollback edits` on the Home page if you want to revert visual changes.
 - Keyboard behavior is consistent across Studio pages: `Up`/`Down` moves
   selection, and `Left`/`Right` adjusts only rows that support value cycling.
+- Theme Studio renders its live HUD preview inside the isolated overlay. HUD
+  style, border, right-panel, color, and glyph changes are visible immediately,
+  while the underlying Codex or Claude conversation is never repainted.
 - `Ctrl+U` is still the fastest way to cycle HUD styles.
 - You can still set visuals with launch flags such as `--hud-border-style` and `--hud-right-panel`.
 
@@ -273,32 +259,6 @@ Capture command:
 - macOS default: uses `screencapture`.
 - Other platforms: set `--image-capture-command` (or `VOICETERM_IMAGE_CAPTURE_COMMAND`).
 - Custom commands receive output path via `VOICETERM_IMAGE_PATH`.
-
-## Developer Guard Mode
-
-Use `--dev` (or `--dev-mode` / `-D`) for guarded developer-only tools in one
-launch. Normal default behavior stays unchanged when this flag is off.
-
-```bash
-voiceterm --dev
-voiceterm --dev --dev-log
-voiceterm --dev --dev-log --dev-path ~/.voiceterm/dev
-```
-
-What you get:
-
-- Default launch stays unchanged when the flag is not present.
-- Full HUD shows `DEV` when guard mode is active.
-- `Ctrl+D` toggles the in-session Dev panel.
-- Without `--dev`, `Ctrl+D` is forwarded as EOF (`0x04`) to the backend CLI and may close/exit that session.
-- The panel shows live counters plus `Dev Tools` commands (`status`, `report`, `triage`, `security`, `sync`) through an allowlisted async broker.
-- `sync` is mutating and requires a second `Enter` confirmation before it runs.
-- `--dev-log` writes per-session JSONL event logs to `<dev-path>/sessions/`.
-- `--dev-path` requires `--dev --dev-log`.
-- Mutating commands like `sync` require explicit confirmation before execution.
-
-Detailed Dev panel command guide:
-[DEV_MODE.md](DEV_MODE.md)
 
 ## Transcript History
 
@@ -374,9 +334,12 @@ You can also do one-shot submit with:
 - In `insert` mode, Enter submits staged text.
 - In `insert` mode, saying `send`, `send message`, or `submit` also submits staged text.
 - One-shot wake submit works: `hey codex send` or `hey claude send` (in `insert` mode).
-- `Ctrl+R` toggles voice recording start/stop without sending.
+- `Ctrl+R` starts voice recording; pressing it again during capture cancels
+  and discards that capture.
 - `Ctrl+X` captures one screenshot prompt into the terminal.
-- `Ctrl+E` finalizes only. It never sends.
+- In `insert` mode, `Ctrl+E` finalizes the recording early, transcribes it, and
+  inserts the result into the chat composer. It never sends Enter.
+- Pressing `Ctrl+R` again during recording cancels that capture instead.
 - Wake state labels in Full HUD:
   `Wake: ON` (listening), `Wake: PAUSED` (temporarily paused), `Wake: ERR` (startup failed).
 - If auto-voice does not trigger as expected, try `--prompt-regex`.
@@ -403,7 +366,8 @@ Priority:
 
 Capture is chunked by duration (default 30s, max 60s via
 `--voice-max-capture-ms`). Each chunk is transcribed and injected.
-Press Enter when ready to submit, or use `Ctrl+E` to stop early and stage text.
+Press Enter when ready to submit. While recording in `insert` mode, use
+`Ctrl+E` to finalize early and place the transcript in the composer.
 
 ## Common Tasks
 
@@ -587,7 +551,6 @@ Setup:
 # Non-interactive install from a starter pack
 ./scripts/macros.sh install --pack safe-core
 ./scripts/macros.sh install --pack power-git --overwrite
-./scripts/macros.sh install --pack full-dev --overwrite
 ```
 
 Macro shortcuts:
@@ -600,7 +563,6 @@ Starter packs:
 
 - `safe-core`: low-risk git/GitHub inspection commands
 - `power-git`: write actions (commit/push/PR/issue), default `insert` mode
-- `full-dev`: safe-core + power-git + project checks and release helpers
 
 Wizard extras:
 
@@ -627,7 +589,7 @@ Rules:
 - `mode` is optional (`auto` or `insert`).
 - Expansion runs only when `Settings -> Macros` is `ON`.
 - This repo ships a starter pack at `.voiceterm/macros.yaml` with expanded
-  git/GitHub workflows plus codex-voice check/release commands.
+  git/GitHub workflows and VoiceTerm project commands.
 
 </details>
 
@@ -670,7 +632,7 @@ Common statuses:
 | `Listening Manual Mode` | Recording from manual trigger |
 | `Processing ...` | Transcription is in progress |
 | `Ready` | Idle/success state after transcript delivery |
-| `Transcript queued (N)` | Backend was busy; transcript is queued |
+| `Transcript queued (N)` | Claude was busy; transcript delivery is deferred until Claude is ready. Codex transcripts stage immediately in its composer. |
 | `Macros: OFF` | Raw transcript injection, no macro expansion |
 | `No speech detected` | Capture ended without enough detected speech (manual/PTT mode now includes a short extra grace window before silence stop) |
 
@@ -699,4 +661,4 @@ You can check or change the active voice pipeline in Settings (`Ctrl+O`).
 | [TROUBLESHOOTING.md#backend-issues](TROUBLESHOOTING.md#backend-issues) | Backend troubleshooting |
 | [TROUBLESHOOTING.md#terminal-and-ide-issues](TROUBLESHOOTING.md#terminal-and-ide-issues) | Terminal/IDE troubleshooting |
 | [TROUBLESHOOTING.md#install-and-update-issues](TROUBLESHOOTING.md#install-and-update-issues) | Install/update troubleshooting |
-| [ARCHITECTURE.md](../dev/ARCHITECTURE.md) | Internal design and module flow |
+| [CHANGELOG.md](../CHANGELOG.md) | Release history |

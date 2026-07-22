@@ -303,7 +303,7 @@ impl<'a> ButtonActionContext<'a> {
             redo_available: !self.theme_studio_redo_history.is_empty(),
             runtime_overrides_dirty: style_pack_overrides != RuntimeStylePackOverrides::default(),
         };
-        show_theme_studio_overlay(self.writer_tx, &view, cols);
+        show_theme_studio_overlay(self.writer_tx, &view, self.status_state, cols);
     }
 
     fn settings_context(&mut self) -> SettingsActionContext<'_> {

@@ -1,1 +1,0 @@
-"""ReviewSnapshot freshness guard package."""

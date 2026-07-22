@@ -7,71 +7,6 @@ pub(super) fn render_help_overlay_for_state(state: &EventLoopState, deps: &Event
     show_help_overlay(&deps.writer_tx, state.theme, cols);
 }
 
-pub(super) fn render_dev_panel_overlay_for_state(state: &EventLoopState, deps: &EventLoopDeps) {
-    let cols = resolved_cols(state.ui.terminal_cols);
-    match state.dev_panel_commands.active_tab() {
-        crate::dev_command::DevPanelTab::Review => {
-            show_review_surface_overlay(
-                &deps.writer_tx,
-                state.theme,
-                &state.dev_panel_commands,
-                cols,
-            );
-        }
-        crate::dev_command::DevPanelTab::Control => {
-            show_cockpit_page_overlay(
-                &deps.writer_tx,
-                state.theme,
-                &state.dev_panel_commands,
-                crate::dev_command::DevPanelTab::Control,
-                cols,
-            );
-        }
-        crate::dev_command::DevPanelTab::Ops => {
-            show_cockpit_page_overlay(
-                &deps.writer_tx,
-                state.theme,
-                &state.dev_panel_commands,
-                crate::dev_command::DevPanelTab::Ops,
-                cols,
-            );
-        }
-        crate::dev_command::DevPanelTab::Handoff => {
-            show_cockpit_page_overlay(
-                &deps.writer_tx,
-                state.theme,
-                &state.dev_panel_commands,
-                crate::dev_command::DevPanelTab::Handoff,
-                cols,
-            );
-        }
-        crate::dev_command::DevPanelTab::Memory => {
-            show_cockpit_page_overlay(
-                &deps.writer_tx,
-                state.theme,
-                &state.dev_panel_commands,
-                crate::dev_command::DevPanelTab::Memory,
-                cols,
-            );
-        }
-        crate::dev_command::DevPanelTab::Actions => {
-            let snapshot = state
-                .dev_mode_stats
-                .as_ref()
-                .map(voiceterm::devtools::DevModeStats::snapshot);
-            show_dev_panel_overlay(
-                &deps.writer_tx,
-                state.theme,
-                snapshot,
-                state.config.dev_log,
-                state.config.dev_path.as_deref(),
-                &state.dev_panel_commands,
-                cols,
-            );
-        }
-    }
-}
-
 pub(super) fn render_theme_picker_overlay_for_state(state: &EventLoopState, deps: &EventLoopDeps) {
     let cols = resolved_cols(state.ui.terminal_cols);
     let locked_theme = style_pack_theme_lock();
@@ -123,7 +58,7 @@ pub(super) fn render_theme_studio_overlay_for_state(state: &EventLoopState, deps
                 runtime_overrides_dirty: style_pack_overrides
                     != RuntimeStylePackOverrides::default(),
             };
-            show_theme_studio_overlay(&deps.writer_tx, &view, cols);
+            show_theme_studio_overlay(&deps.writer_tx, &view, &state.status_state, cols);
         }
         page => {
             // Non-home pages: render tab bar + page content.
@@ -260,16 +195,6 @@ pub(super) fn render_memory_browser_overlay_for_state(
     );
 }
 
-pub(super) fn render_action_center_overlay_for_state(state: &EventLoopState, deps: &EventLoopDeps) {
-    let cols = resolved_cols(state.ui.terminal_cols);
-    show_action_center_overlay(
-        &deps.writer_tx,
-        &state.dev_panel_commands,
-        state.theme,
-        cols,
-    );
-}
-
 pub(super) fn render_settings_overlay_for_state(state: &EventLoopState, deps: &EventLoopDeps) {
     let cols = resolved_cols(state.ui.terminal_cols);
     show_settings_overlay(
@@ -304,15 +229,6 @@ pub(super) fn open_help_overlay(state: &mut EventLoopState, deps: &mut EventLoop
     state.ui.overlay_mode = OverlayMode::Help;
     sync_overlay_winsize(state, deps);
     render_help_overlay_for_state(state, deps);
-}
-
-pub(super) fn open_dev_panel_overlay(state: &mut EventLoopState, deps: &mut EventLoopDeps) {
-    state.ui.overlay_mode = OverlayMode::DevPanel;
-    // Refresh tab-specific data so reopening on a persisted non-Actions tab
-    // shows fresh content instead of stale cached snapshots.
-    refresh_active_dev_panel_tab(state, deps, super::dev_panel_commands::RefreshMode::Force);
-    sync_overlay_winsize(state, deps);
-    render_dev_panel_overlay_for_state(state, deps);
 }
 
 pub(super) fn open_settings_overlay(state: &mut EventLoopState, deps: &mut EventLoopDeps) {
@@ -356,16 +272,4 @@ pub(super) fn open_toast_history_overlay(state: &mut EventLoopState, deps: &mut 
     state.ui.overlay_mode = OverlayMode::ToastHistory;
     sync_overlay_winsize(state, deps);
     render_toast_history_overlay_for_state(state, deps);
-}
-
-pub(super) fn open_memory_browser_overlay(state: &mut EventLoopState, deps: &mut EventLoopDeps) {
-    state.ui.overlay_mode = OverlayMode::MemoryBrowser;
-    sync_overlay_winsize(state, deps);
-    render_memory_browser_overlay_for_state(state, deps);
-}
-
-pub(super) fn open_action_center_overlay(state: &mut EventLoopState, deps: &mut EventLoopDeps) {
-    state.ui.overlay_mode = OverlayMode::ActionCenter;
-    sync_overlay_winsize(state, deps);
-    render_action_center_overlay_for_state(state, deps);
 }

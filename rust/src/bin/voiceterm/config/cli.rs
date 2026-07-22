@@ -217,18 +217,6 @@ pub(crate) struct OverlayConfig {
     )]
     pub(crate) image_capture_command: Option<String>,
 
-    /// Enable guarded developer-mode surfaces (`--dev-mode` / `-D` aliases supported).
-    #[arg(long = "dev", alias = "dev-mode", short = 'D', default_value_t = false)]
-    pub(crate) dev_mode: bool,
-
-    /// Persist guarded dev-mode events to JSONL files (requires `--dev`).
-    #[arg(long = "dev-log", default_value_t = false)]
-    pub(crate) dev_log: bool,
-
-    /// Dev-mode data root directory used by `--dev-log` session JSONL files.
-    #[arg(long = "dev-path")]
-    pub(crate) dev_path: Option<PathBuf>,
-
     /// Color theme for status line (chatgpt, claude, codex, coral, catppuccin, dracula, gruvbox, nord, tokyonight, ansi, none)
     /// Defaults to the backend-specific theme if not provided.
     #[arg(long = "theme")]
@@ -304,8 +292,7 @@ pub(crate) struct OverlayConfig {
     #[arg(long = "export-theme")]
     pub(crate) export_theme: Option<String>,
 
-    /// Run as a headless daemon hub (Unix socket + optional WebSocket).
-    /// Other surfaces (PyQt6, iPhone, TUI) connect as clients.
+    /// Run as a headless daemon hub for custom socket clients.
     #[arg(long = "daemon", default_value_t = false)]
     pub(crate) daemon: bool,
 
@@ -379,9 +366,6 @@ mod tests {
         assert_eq!(cfg.capture_once_format, CaptureOnceFormat::Text);
         assert!(!cfg.image_mode);
         assert!(cfg.image_capture_command.is_none());
-        assert!(!cfg.dev_mode);
-        assert!(!cfg.dev_log);
-        assert!(cfg.dev_path.is_none());
     }
 
     #[test]
@@ -424,32 +408,6 @@ mod tests {
     #[test]
     fn capture_once_format_requires_capture_once() {
         assert!(OverlayConfig::try_parse_from(["test-app", "--format", "text"]).is_err());
-    }
-
-    #[test]
-    fn dev_mode_parser_accepts_guarded_aliases() {
-        let long = OverlayConfig::parse_from(["test-app", "--dev"]);
-        assert!(long.dev_mode);
-
-        let alias = OverlayConfig::parse_from(["test-app", "--dev-mode"]);
-        assert!(alias.dev_mode);
-
-        let short = OverlayConfig::parse_from(["test-app", "-D"]);
-        assert!(short.dev_mode);
-    }
-
-    #[test]
-    fn dev_log_parser_accepts_optional_path() {
-        let cfg = OverlayConfig::parse_from([
-            "test-app",
-            "--dev",
-            "--dev-log",
-            "--dev-path",
-            "/tmp/dev-events",
-        ]);
-        assert!(cfg.dev_mode);
-        assert!(cfg.dev_log);
-        assert_eq!(cfg.dev_path, Some(PathBuf::from("/tmp/dev-events")));
     }
 
     #[test]

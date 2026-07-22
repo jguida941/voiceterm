@@ -173,8 +173,6 @@ pub struct StatusLineState {
     pub send_mode: VoiceSendMode,
     /// Whether persistent image mode is enabled (`[rec]` captures image prompts).
     pub image_mode_enabled: bool,
-    /// Whether guarded developer mode is enabled for deferred experiments.
-    pub dev_mode_enabled: bool,
     /// Whether insert mode currently has unsent prompt text staged in the terminal.
     pub insert_pending_send: bool,
     /// Whether macro expansion from `.voiceterm/macros.yaml` is enabled.
@@ -249,7 +247,6 @@ mod tests {
         assert_eq!(state.wake_word_state, WakeWordHudState::Off);
         assert!(!state.macros_enabled);
         assert!(!state.image_mode_enabled);
-        assert!(!state.dev_mode_enabled);
         assert!(!state.insert_pending_send);
         assert!(state.latency_history_ms.is_empty());
         assert!(state.last_latency_speech_ms.is_none());

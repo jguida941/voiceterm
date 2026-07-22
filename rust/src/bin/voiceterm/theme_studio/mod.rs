@@ -15,9 +15,9 @@ mod preview_page;
 // Re-export all items from home_page for backward compatibility.
 pub(crate) use home_page::{
     format_theme_studio, theme_studio_footer, theme_studio_height,
-    theme_studio_inner_width_for_terminal, theme_studio_item_at,
-    theme_studio_total_width_for_terminal, ThemeStudioItem, ThemeStudioView, THEME_STUDIO_ITEMS,
-    THEME_STUDIO_OPTION_START_ROW,
+    theme_studio_inner_width_for_terminal, theme_studio_item_at, theme_studio_overlay_height,
+    theme_studio_total_width_for_terminal, ThemeStudioItem, ThemeStudioView,
+    THEME_STUDIO_HUD_PREVIEW_HEIGHT, THEME_STUDIO_ITEMS, THEME_STUDIO_OPTION_START_ROW,
 };
 
 pub(crate) use borders_page::{BorderOption, BordersPageState};

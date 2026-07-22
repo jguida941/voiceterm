@@ -90,10 +90,6 @@ const NAVIGATION_SHORTCUTS: &[Shortcut] = &[
         description: "History (notifications)",
     },
     Shortcut {
-        key: "Ctrl+D",
-        description: "Dev panel (--dev only)",
-    },
-    Shortcut {
         key: "Enter",
         description: "Send prompt",
     },

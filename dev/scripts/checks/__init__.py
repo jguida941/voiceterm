@@ -1,1 +1,0 @@
-"""Developer check scripts package."""

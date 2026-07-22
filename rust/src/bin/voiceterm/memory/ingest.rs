@@ -151,7 +151,7 @@ impl MemoryIngestor {
         if trimmed.is_empty() {
             return;
         }
-        let redacted_text = super::governance::redact_secrets(trimmed);
+        let redacted_text = super::privacy::redact_secrets(trimmed);
         if redacted_text.trim().is_empty() {
             return;
         }
@@ -228,7 +228,7 @@ impl MemoryIngestor {
             Ok(evts) => evts,
             Err(_) => return 0,
         };
-        let cap = super::governance::MAX_INDEX_EVENTS;
+        let cap = super::privacy::MAX_INDEX_EVENTS;
         let skip = events.len().saturating_sub(cap);
         let mut count: usize = 0;
         for event in events.into_iter().skip(skip) {
@@ -237,9 +237,9 @@ impl MemoryIngestor {
         }
         // Run retention GC on recovered events.
         let now_ts = super::types::iso_timestamp();
-        let deprecated = super::governance::run_gc(
+        let deprecated = super::privacy::run_gc(
             &mut self.index,
-            super::governance::GovernanceConfig::default().retention,
+            super::privacy::PrivacyConfig::default().retention,
             &now_ts,
         );
         count.saturating_sub(deprecated)
@@ -424,7 +424,7 @@ fn extract_topic_tags(text: &str) -> Vec<String> {
         &mut tags,
         "review",
         &lower,
-        &["review", "approval", "approve", "deny", "review-channel"],
+        &["review", "approval", "approve", "deny"],
     );
     maybe_add_topic(
         &mut tags,
@@ -571,7 +571,7 @@ mod tests {
     fn ingest_transcript_extracts_task_topic_and_entity_metadata() {
         let mut ing = make_ingestor(MemoryMode::Assist);
         ing.ingest_transcript(
-            "Review MP-230 in rust/src/bin/voiceterm/memory/ingest.rs before updating dev/active/memory_studio.md",
+            "Review MP-230 in rust/src/bin/voiceterm/memory/ingest.rs before updating guides/USAGE.md",
         );
 
         let recent = ing.index().recent(1);
@@ -583,9 +583,7 @@ mod tests {
         assert!(recent[0]
             .entities
             .contains(&"rust/src/bin/voiceterm/memory/ingest.rs".to_string()));
-        assert!(recent[0]
-            .entities
-            .contains(&"dev/active/memory_studio.md".to_string()));
+        assert!(recent[0].entities.contains(&"guides/USAGE.md".to_string()));
     }
 
     #[test]
@@ -692,7 +690,7 @@ mod tests {
             0.8,
             &["review", "docs"],
             &["mp-230"],
-            &["dev/active/memory_studio.md"],
+            &["guides/USAGE.md"],
         );
 
         let event = ing.index().recent(1)[0].clone();
@@ -703,9 +701,7 @@ mod tests {
         assert!(event.topic_tags.contains(&"review".to_string()));
         assert!(event.topic_tags.contains(&"docs".to_string()));
         assert!(event.topic_tags.contains(&"rust".to_string()));
-        assert!(event
-            .entities
-            .contains(&"dev/active/memory_studio.md".to_string()));
+        assert!(event.entities.contains(&"guides/USAGE.md".to_string()));
         assert!(event
             .entities
             .contains(&"rust/src/bin/voiceterm/memory/context_pack.rs".to_string()));
@@ -774,7 +770,7 @@ mod tests {
             generate_event_id()
         );
         let path = std::env::temp_dir().join(unique);
-        let cap = super::super::governance::MAX_INDEX_EVENTS;
+        let cap = super::super::privacy::MAX_INDEX_EVENTS;
 
         {
             let mut writer = super::super::store::jsonl::JsonlWriter::open(&path)

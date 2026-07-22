@@ -18,24 +18,19 @@ Fast first checks:
 | Voice not recording | Check microphone permissions | [Audio Setup](#audio-setup) |
 | Voice macro not expanding | Validate macros file + toggle state | [Status Messages](#status-messages) |
 | Codex/Claude not responding | Verify install + login | [Backend Issues](#backend-issues) |
-| Claude executes actions without confirmation | Disable permission-skip mode | [Backend Issues](#backend-issues) |
+| Claude executes actions without confirmation | Check Claude Code's own permission configuration | [Backend Issues](#backend-issues) |
 | Full HUD shows `Wake: ERR` | Verify wake listener startup/log path details | [Status Messages](#status-messages) |
 | Wake phrase does not trigger capture | Verify wake mode and phrase match | [Wake-word enabled but no wake triggers yet](#wake-word-enabled-but-no-wake-triggers-yet) |
 | Auto-voice not triggering | Check prompt detection | [Backend Issues](#backend-issues) |
-| Dev panel not opening | Verify `--dev` flag at launch | [Backend Issues](#backend-issues) |
-| Dev panel output is confusing or inserts packet text | Use the Dev Mode command guide | [Backend Issues](#backend-issues) |
-| Transcript queued while backend is busy | Wait for prompt or tune regex | [Backend Issues](#backend-issues) |
+| Claude transcript queued while Claude is busy | Wait for Claude's prompt or tune readiness detection | [Backend Issues](#backend-issues) |
 | Wrong version after update | Check PATH + reinstall flow | [Install and Update Issues](#install-and-update-issues) |
 | Settings/HUD lags while backend is busy | Reduce output load and capture logs | [Terminal and IDE Issues](#terminal-and-ide-issues) |
 | Meter looks too loud at normal speech | Validate meter behavior and sensitivity | [Terminal and IDE Issues](#terminal-and-ide-issues) |
-| JetBrains + Claude overlay overlap after long parallel output | Resize terminal once to force a redraw | [Terminal and IDE Issues](#terminal-and-ide-issues) |
-| Prompt text turns dark in JetBrains + Claude | Verify `v1.0.98+` and collect logs | [Terminal and IDE Issues](#terminal-and-ide-issues) |
+| JetBrains overlay artifact or flicker recurs | Resize the terminal once to force a clean redraw | [Terminal and IDE Issues](#terminal-and-ide-issues) |
+| Prompt text turns dark in JetBrains + Claude | Verify the latest release and collect logs | [Terminal and IDE Issues](#terminal-and-ide-issues) |
 | Startup splash behaves oddly | Tune splash env vars | [Terminal and IDE Issues](#terminal-and-ide-issues) |
 | Theme colors look muted | Verify truecolor env | [Terminal and IDE Issues](#terminal-and-ide-issues) |
 | Theme file edits do not apply | Verify `--theme-file` / `VOICETERM_THEME_FILE` and check logs | [Terminal and IDE Issues](#terminal-and-ide-issues) |
-| Operator Console `Start Swarm` stays disabled or red | Run `Dry Run` first and verify current review state | [Optional Companion Surfaces](#optional-companion-surfaces) |
-| iPhone app import screen does not clear | Re-sync the live bundle and relaunch the app | [Mobile App Issues](#mobile-app-issues) |
-| iPhone install command cannot find device | Verify trust, cable, team ID, and device support | [Mobile App Issues](#mobile-app-issues) |
 
 ## Status Messages
 
@@ -84,10 +79,19 @@ Capture could not start.
 
 Recording or transcription failed at runtime.
 
-1. Run with logs: `voiceterm --logs`.
-2. Check `${TMPDIR:-/tmp}/voiceterm_tui.log` (macOS resolves from `TMPDIR`;
+1. If running from a source checkout, use `./scripts/start.sh`; it finds or
+   downloads a Whisper model and supplies the required model path.
+2. If launching the raw binary, provide a model explicitly:
+
+   ```bash
+   ./rust/target/release/voiceterm \
+     --whisper-model-path ./whisper_models/ggml-base.en.bin
+   ```
+
+3. Run with logs: `voiceterm --logs`.
+4. Check `${TMPDIR:-/tmp}/voiceterm_tui.log` (macOS resolves from `TMPDIR`;
    Linux is usually `/tmp`).
-3. Restart `voiceterm`.
+5. Restart `voiceterm`.
 
 ### Processing... (stuck)
 
@@ -111,7 +115,7 @@ In auto mode, the last good sample stays visible between captures.
 7. Run a strict math audit:
 
 ```bash
-python3 dev/scripts/tests/audit_latency_math.py --log-path "${TMPDIR:-/tmp}/voiceterm_tui.log"
+python3 scripts/tests/audit_latency_math.py --log-path "${TMPDIR:-/tmp}/voiceterm_tui.log"
 ```
 
 ### Transcript includes ambient-sound tags
@@ -204,63 +208,6 @@ Note for Cursor terminal:
   You can still operate HUD controls with keyboard focus and `Enter`.
 
 </details>
-
-## Optional Companion Surfaces
-
-### Operator Console `Start Swarm` stays disabled or red
-
-The optional desktop companion will not launch a live swarm until the current
-repo-backed review preflight is green.
-
-1. Launch it from a source checkout with `./scripts/operator_console.sh`.
-2. Run `Dry Run` first and wait for the preflight status to settle.
-3. If it stays red, inspect the app's current review/bridge status or run:
-
-```bash
-python3 dev/scripts/devctl.py review-channel --action status --terminal none --format md
-```
-
-1. Refresh stale live bundles or bridge state before retrying `Start Swarm` or
-   `Launch Live`.
-
-## Mobile App Issues
-
-### iPhone app import screen does not clear
-
-The phone/simulator app only clears the import prompt after it sees a valid
-live bundle.
-
-1. Re-run the guided simulator path:
-
-```bash
-python3 dev/scripts/devctl.py mobile-app --action simulator-demo --live-review --format md
-```
-
-1. If you are using Simulator, confirm the app container contains
-   `Documents/LiveBundle/full.json`.
-2. Relaunch the app after the sync step completes.
-3. If the app still stays on the import screen, use the sample bundle once to
-   verify the UI itself still responds, then inspect the live bundle path and
-   app logs.
-
-### iPhone install command cannot find device
-
-`device-install` uses Apple tooling to detect real connected hardware. It does
-not guess.
-
-1. Unlock the phone and trust this Mac.
-2. Confirm Xcode can see the device.
-3. Re-run with your Apple Development Team:
-
-```bash
-python3 dev/scripts/devctl.py mobile-app --action device-install --development-team <TEAM_ID> --allow-provisioning-updates --format md
-```
-
-1. If detection still fails, check the physical connection and whether the
-   installed Xcode supports the device OS version.
-2. If build/signing succeeds but the app still does not launch, collect the
-   printed `xcodebuild` / `devicectl` failure and compare it with
-   `app/ios/VoiceTermMobileApp/README.md`.
 
 ## Audio Setup
 
@@ -366,19 +313,12 @@ CLI flag range: `-120 dB` to `0 dB`.
 
 ### Claude running without permission prompts
 
-If Claude tool actions run without approval prompts, check whether
-`--claude-skip-permissions` was enabled.
+The normal VoiceTerm overlay does not enable or alter Claude Code's permission
+mode. Configure approval and permission behavior through Claude Code itself.
 
-1. Restart VoiceTerm without that flag:
-
-   ```bash
-   voiceterm --json-ipc
-   ```
-
-2. If you need skip-permissions for automation, run only in isolated/trusted
-   environments (for example sandboxed or disposable workspaces).
-3. Avoid using skip-permissions mode with untrusted repositories or with
-   credentials/secrets available in your shell environment.
+1. Check Claude Code's own settings and launch configuration.
+2. Start Claude directly once and confirm its permission prompts there.
+3. Restart with `voiceterm --claude` after correcting the Claude configuration.
 
 ### Codex or Claude approval prompts are occluded
 
@@ -448,16 +388,6 @@ Auto-voice waits for prompt readiness before listening again.
 
 3. Inspect the prompt log and adjust regex.
 
-### Dev panel output is confusing or inserts packet text
-
-1. Open the Dev guide:
-   [DEV_MODE.md](DEV_MODE.md)
-2. Confirm `DEV` badge is visible (you launched with `--dev`).
-3. Read-only tools: `status`, `report`, `triage`, `loop-packet`, `security`.
-4. Mutating tool: `sync` (requires second `Enter` confirmation).
-5. `loop-packet` can stage generated draft text into the active terminal input;
-   run it only when you want packet draft text inserted.
-
 ### Wake-word enabled but no wake triggers yet
 
 Wake-word listening is local. It depends on mic capture + local Whisper
@@ -496,24 +426,31 @@ in `insert` send mode.
 
 ### Ctrl+E behavior feels inconsistent
 
-`Ctrl+E` is finalize-only in `insert` mode.
+`Ctrl+E` is finalize-and-stage in `insert` mode.
 
-1. While recording, `Ctrl+E` requests early finalize so transcript text lands in the input box sooner.
+1. While recording, `Ctrl+E` requests early finalization, transcribes the
+   captured audio, and puts the result into the chat composer.
 2. It does not send Enter to the backend.
 3. When ready to submit, press Enter (or use `hey codex send`).
+4. To cancel and discard an active capture instead, press `Ctrl+R` again.
 
 ### Transcript queued (N)
 
-Backend output is still streaming, so transcript injection is deferred.
+Claude output is still streaming, so transcript injection is deferred until
+Claude is ready. Codex uses a different path: transcripts captured while Codex
+is working should appear immediately in the visible composer.
 
-1. Wait for prompt return.
-2. If urgent, stop current generation (`Ctrl+C`) and retry.
-3. If this happens often, tune prompt detection (`--prompt-regex`) and
+1. For Claude, wait for the prompt to return.
+2. If urgent, stop the current Claude generation (`Ctrl+C`) and retry.
+3. If this happens often in Claude, tune prompt detection (`--prompt-regex`) and
    transcript timeout (`--transcript-idle-ms`).
+4. If Codex shows this status instead of staging the transcript immediately,
+   report it as a regression with `voiceterm --logs` output.
 
 ### Transcript queue full (oldest dropped)
 
-You recorded more items than queue capacity while backend was busy.
+You recorded more items than the Claude delivery queue could hold while Claude
+was busy.
 
 1. Pause speaking until prompt returns.
 2. Use shorter chunks.
@@ -556,11 +493,12 @@ Section shortcuts:
 
 - [Settings or HUD lags](#settings-or-hud-lags-during-heavy-backend-output)
 - [Meter looks too loud](#meter-looks-too-loud-for-normal-speech)
-- [JetBrains + Claude overlap after long parallel output](#jetbrains--claude-overlay-overlap-after-long-parallel-output)
+- [JetBrains overlay artifacts](#jetbrains-overlay-artifacts)
 - [HUD duplicates in JetBrains terminals](#hud-duplicates-in-jetbrains-terminals)
 - [Overlay flickers in JetBrains terminals](#overlay-flickers-in-jetbrains-terminals)
 - [Prompt text turns dark in JetBrains + Claude](#prompt-text-turns-dark-in-jetbrains--claude)
 - [Theme Studio fallback line](#theme-studio-shows-fallback-line)
+- [Theme Studio HUD preview does not update](#theme-studio-hud-preview-does-not-update)
 - [Startup banner lingers](#startup-banner-lingers-in-ide-terminal)
 - [Theme colors look muted](#theme-colors-look-muted-in-ide-terminal)
 - [Theme file edits do not apply](#theme-file-edits-do-not-apply)
@@ -664,6 +602,19 @@ crashing.
 4. Include terminal/IDE details and relevant `${TMPDIR:-/tmp}/voiceterm_tui.log`
    lines when reporting.
 
+### Theme Studio HUD preview does not update
+
+Current releases render a live HUD preview beneath the isolated Theme Studio
+panel. Changing HUD style, borders, right panel, colors, or glyphs should
+update that preview immediately without repainting the conversation.
+
+1. Confirm `voiceterm --version` reports the current release.
+2. Use `Left`/`Right` on a supported Home-page row; `Up`/`Down` only moves the
+   selection.
+3. If the preview remains stale, close and reopen Theme Studio once with
+   `Ctrl+Y`, then reproduce with `voiceterm --logs` and report the terminal,
+   backend, and log path.
+
 ### Settings or HUD lags during heavy backend output
 
 If arrow keys/settings updates feel delayed while backend output is streaming:
@@ -719,18 +670,21 @@ speech:
 4. If behavior is still clearly incorrect, capture a short screen recording and
    include logs from `${TMPDIR:-/tmp}/voiceterm_tui.log`.
 
-### JetBrains + Claude overlay overlap after long parallel output
+### JetBrains overlay artifacts
 
-This issue is specific to JetBrains terminals when running the Claude backend.
-It can happen after very long parallel tool calls or long parallel web-search
-turns with heavy output.
+Current releases include fixes for HUD overlap after long Claude turns, Codex
+HUD disappearance during work, stale borders, and artifacts caused by rapid
+pane dragging or terminal resizing.
 
-When it appears, the fix is simple:
+If any of these return:
 
-1. Resize the terminal once (even by 1 row or 1 column).
-2. VoiceTerm will recalculate layout and the HUD/input alignment should restore.
-3. If you need a temporary mitigation during heavy output, switch to `Minimal`
-   HUD (`Ctrl+U`) until the turn completes.
+1. Resize the terminal once, even by one row or column. This forces a fresh
+   geometry calculation and normally clears the artifact immediately.
+2. Confirm you are running the latest release.
+3. If it recurs, reproduce once with `voiceterm --logs`.
+4. Record the JetBrains product/version, backend, and exact resize or output
+   sequence that triggered it.
+5. Report the recurrence with the log and a screenshot or recording.
 
 ### HUD duplicates in JetBrains terminals
 
@@ -772,7 +726,8 @@ If typed prompt/composer text appears dark or inherits HUD colors in JetBrains:
    voiceterm --version
    ```
 
-2. Update to `v1.0.98+`, which resets HUD attributes before clear-to-EOL.
+2. Update to the latest release, which resets HUD attributes before
+   clear-to-EOL.
 3. Reproduce once with logs:
 
    ```bash

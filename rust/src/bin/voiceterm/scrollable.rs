@@ -1,17 +1,12 @@
 //! Shared scroll-offset trait for overlay panels that need vertical scrolling.
 //!
-//! Panels like Preview Page and Review Artifact share the same
-//! saturating-add / saturating-sub scroll math. This trait provides default
-//! implementations so each panel only needs to expose its `scroll_offset` field.
+//! This trait provides shared saturating scroll math for overlay panels.
 
 /// Vertical scroll behaviour for any overlay panel that tracks a `scroll_offset`.
 ///
-/// Implementors supply two accessor methods; the default `scroll_up` and
+/// Implementors supply a mutable offset accessor; the default `scroll_up` and
 /// `scroll_down` implementations handle the clamping arithmetic.
 pub(crate) trait Scrollable {
-    /// Current scroll position (read-only).
-    fn scroll_offset(&self) -> usize;
-
     /// Mutable reference to the scroll position, used by the default methods.
     fn scroll_offset_mut(&mut self) -> &mut usize;
 

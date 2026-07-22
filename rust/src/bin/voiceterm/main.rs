@@ -10,7 +10,6 @@
 //! - Writer thread: serializes output to avoid interleaving
 //! - Voice worker: background audio capture and STT
 
-mod action_center;
 mod ansi;
 mod arrow_keys;
 mod audio_meter;
@@ -24,8 +23,6 @@ mod config;
 mod custom_help;
 mod cycle_index;
 mod daemon;
-mod dev_command;
-mod dev_panel;
 mod event_loop;
 mod event_state;
 mod help;
@@ -82,12 +79,8 @@ use std::thread;
 use std::time::{Duration, Instant};
 use voiceterm::pty_session::PtyOverlaySession;
 use voiceterm::{
-    auth::run_login_command,
-    devtools::{default_dev_root_dir, DevEventJsonlWriter, DevModeStats},
-    doctor::base_doctor_report,
-    init_logging, log_debug, log_file_path,
-    terminal_restore::TerminalRestoreGuard,
-    VoiceCaptureTrigger,
+    auth::run_login_command, doctor::base_doctor_report, init_logging, log_debug, log_file_path,
+    terminal_restore::TerminalRestoreGuard, VoiceCaptureTrigger,
 };
 
 use crate::banner::{should_skip_banner, show_startup_splash, BannerConfig};
@@ -95,7 +88,6 @@ use crate::button_handlers::send_enhanced_status_with_buttons;
 use crate::buttons::ButtonRegistry;
 use crate::cli_utils::{list_input_devices, resolve_sound_flag, should_print_stats};
 use crate::config::{HudStyle, OverlayConfig};
-use crate::dev_command::{DevCommandBroker, DevPanelState};
 use crate::event_loop::run_event_loop;
 use crate::event_state::{
     EventLoopDeps, EventLoopState, EventLoopTimers, PromptRuntimeState, PtyBufferState,
@@ -154,7 +146,6 @@ struct RuntimeBuildInputs {
     voice_macros: VoiceMacros,
     session_memory_path: PathBuf,
     session_memory_enabled: bool,
-    dev_event_logger: Option<DevEventJsonlWriter>,
     prompt_tracker: PromptTracker,
     terminal_guard: TerminalRestoreGuard,
     writer_handle: thread::JoinHandle<()>,
@@ -191,41 +182,6 @@ fn default_session_memory_path(working_dir: &str) -> PathBuf {
         .join("session-memory.md")
 }
 
-fn validate_dev_mode_flags(config: &OverlayConfig) -> Result<()> {
-    if !config.dev_mode {
-        if config.dev_log {
-            bail!(
-                "--dev-log requires --dev (got dev_mode={}, dev_log={})",
-                config.dev_mode,
-                config.dev_log
-            );
-        }
-        if config.dev_path.is_some() {
-            bail!(
-                "--dev-path requires --dev (got dev_mode={}, dev_path={:?})",
-                config.dev_mode,
-                config.dev_path
-            );
-        }
-    }
-
-    if config.dev_path.is_some() && !config.dev_log {
-        bail!(
-            "--dev-path requires --dev-log (got dev_log={}, dev_path={:?})",
-            config.dev_log,
-            config.dev_path
-        );
-    }
-    Ok(())
-}
-
-fn resolve_dev_root_path(config: &OverlayConfig, working_dir: &str) -> PathBuf {
-    config
-        .dev_path
-        .clone()
-        .unwrap_or_else(|| default_dev_root_dir(Path::new(working_dir)))
-}
-
 fn resolved_meter_update_ms(hud_registry: &HudRegistry) -> u64 {
     let base_ms = hud_registry
         .min_tick_interval()
@@ -260,7 +216,6 @@ fn main() -> Result<()> {
         return Ok(());
     };
     if loaded.config.capture_once {
-        validate_dev_mode_flags(&loaded.config)?;
         loaded.config.app.validate()?;
         init_logging(&loaded.config.app);
         return capture_once::run_capture_once(&loaded.config);
@@ -409,7 +364,6 @@ fn load_config_phase() -> Result<Option<LoadedConfigPhase>> {
 }
 
 fn prepare_runtime_phase(mut loaded: LoadedConfigPhase) -> Result<RuntimeBuildInputs> {
-    validate_dev_mode_flags(&loaded.config)?;
     loaded.config.app.validate()?;
     init_logging(&loaded.config.app);
     let log_path = log_file_path();
@@ -452,18 +406,6 @@ fn prepare_runtime_phase(mut loaded: LoadedConfigPhase) -> Result<RuntimeBuildIn
         .clone()
         .unwrap_or_else(|| default_session_memory_path(&working_dir));
     let session_memory_enabled = loaded.config.app.session_memory;
-    let dev_event_logger = if loaded.config.dev_mode && loaded.config.dev_log {
-        let dev_root = resolve_dev_root_path(&loaded.config, &working_dir);
-        let logger = DevEventJsonlWriter::open_session(&dev_root)?;
-        log_debug(&format!(
-            "dev mode event logging enabled at {}",
-            logger.path().display()
-        ));
-        Some(logger)
-    } else {
-        None
-    };
-
     let prompt_log_path = if loaded.config.app.no_logs {
         None
     } else {
@@ -560,7 +502,6 @@ fn prepare_runtime_phase(mut loaded: LoadedConfigPhase) -> Result<RuntimeBuildIn
         voice_macros,
         session_memory_path,
         session_memory_enabled,
-        dev_event_logger,
         prompt_tracker,
         terminal_guard,
         writer_handle,
@@ -582,7 +523,6 @@ fn build_state_phase(inputs: RuntimeBuildInputs) -> RuntimeExecutionPhase {
         voice_macros,
         session_memory_path,
         session_memory_enabled,
-        dev_event_logger,
         prompt_tracker,
         terminal_guard,
         writer_handle,
@@ -622,7 +562,6 @@ fn build_state_phase(inputs: RuntimeBuildInputs) -> RuntimeExecutionPhase {
     status_state.wake_word_state = WakeWordHudState::Off;
     status_state.send_mode = config.voice_send_mode;
     status_state.image_mode_enabled = config.image_mode;
-    status_state.dev_mode_enabled = config.dev_mode;
     status_state.latency_display = config.latency_display;
     status_state.macros_enabled = false;
     persistent_config::apply_user_config_to_status_state(&user_config, &mut status_state);
@@ -643,7 +582,6 @@ fn build_state_phase(inputs: RuntimeBuildInputs) -> RuntimeExecutionPhase {
         "runtime build: enable mouse",
     );
 
-    let dev_mode_stats = config.dev_mode.then(DevModeStats::default);
     let session_memory_logger = if session_memory_enabled {
         match SessionMemoryLogger::new(&session_memory_path, &backend_label, &working_dir) {
             Ok(logger) => {
@@ -667,7 +605,7 @@ fn build_state_phase(inputs: RuntimeBuildInputs) -> RuntimeExecutionPhase {
 
     let mut memory_ingestor = {
         let project_root = std::path::Path::new(&working_dir);
-        let jsonl_path = crate::memory::governance::events_jsonl_path(project_root);
+        let jsonl_path = crate::memory::privacy::events_jsonl_path(project_root);
         let session_id = crate::memory::types::generate_session_id();
         let project_id = working_dir.clone();
         match crate::memory::MemoryIngestor::new(
@@ -688,7 +626,7 @@ fn build_state_phase(inputs: RuntimeBuildInputs) -> RuntimeExecutionPhase {
     };
     if let Some(ref mut ingestor) = memory_ingestor {
         let jsonl_path =
-            crate::memory::governance::events_jsonl_path(std::path::Path::new(&working_dir));
+            crate::memory::privacy::events_jsonl_path(std::path::Path::new(&working_dir));
         let recovered = ingestor.recover_from_jsonl(&jsonl_path);
         if recovered > 0 {
             log_debug(&format!(
@@ -697,12 +635,8 @@ fn build_state_phase(inputs: RuntimeBuildInputs) -> RuntimeExecutionPhase {
         }
     }
 
-    let dev_command_broker = config
-        .dev_mode
-        .then(|| DevCommandBroker::spawn(PathBuf::from(&working_dir)));
     let mut state = EventLoopState {
         config,
-        working_dir,
         status_state,
         auto_voice_enabled,
         auto_voice_paused_by_user: false,
@@ -733,9 +667,6 @@ fn build_state_phase(inputs: RuntimeBuildInputs) -> RuntimeExecutionPhase {
         current_status: None,
         pending_transcripts: VecDeque::new(),
         session_stats: SessionStats::new(),
-        dev_mode_stats,
-        dev_event_logger,
-        dev_panel_commands: DevPanelState::default(),
         prompt: PromptRuntimeState {
             tracker: prompt_tracker,
             occlusion_detector: build_prompt_occlusion_detector(&backend_label),
@@ -787,7 +718,6 @@ fn build_state_phase(inputs: RuntimeBuildInputs) -> RuntimeExecutionPhase {
         last_toast_tick: Instant::now(),
         last_theme_file_poll: Instant::now(),
         last_terminal_geometry_poll: Instant::now(),
-        last_review_poll: Instant::now(),
         pending_terminal_geometry_sample: None,
     };
     let mut deps = EventLoopDeps {
@@ -806,7 +736,6 @@ fn build_state_phase(inputs: RuntimeBuildInputs) -> RuntimeExecutionPhase {
         auto_idle_timeout,
         transcript_idle_timeout,
         voice_macros,
-        dev_command_broker,
     };
 
     let claude_jetbrains_startup_guard =
@@ -917,9 +846,6 @@ fn run_runtime_phase(runtime: &mut RuntimeExecutionPhase) {
         .flush_pending_stream_lines();
     if let Some(logger) = runtime.state.session_memory_logger.as_mut() {
         logger.flush_pending();
-    }
-    if let Some(logger) = runtime.state.dev_event_logger.as_mut() {
-        let _ = logger.flush();
     }
 }
 

@@ -1,1 +1,0 @@
-"""Governed transition verifier package."""

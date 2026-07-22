@@ -35,7 +35,6 @@ pack_path_for() {
     case "$1" in
         safe-core) echo "$PACK_DIR/safe-core.yaml" ;;
         power-git) echo "$PACK_DIR/power-git.yaml" ;;
-        full-dev) echo "$PACK_DIR/full-dev.yaml" ;;
         *) return 1 ;;
     esac
 }
@@ -44,7 +43,6 @@ pack_description() {
     case "$1" in
         safe-core) echo "Low-risk daily git/GitHub inspection commands (recommended)" ;;
         power-git) echo "High-impact git/GitHub write actions (insert mode by default)" ;;
-        full-dev) echo "Combined safe-core + power-git + codex-voice maintainer workflow" ;;
         *) echo "Unknown" ;;
     esac
 }
@@ -316,7 +314,7 @@ wizard() {
     local pack="safe-core"
     if [ -n "$preselected_pack" ]; then
         case "$preselected_pack" in
-            safe-core|power-git|full-dev)
+            safe-core|power-git)
                 pack="$preselected_pack"
                 ;;
             *)
@@ -330,14 +328,12 @@ wizard() {
         echo "Choose a macro pack:"
         echo "  1) safe-core (Recommended)"
         echo "  2) power-git"
-        echo "  3) full-dev"
 
         local choice
         choice="$(prompt_with_default "Pack" "1")"
         case "$choice" in
             1|safe-core) pack="safe-core" ;;
             2|power-git) pack="power-git" ;;
-            3|full-dev) pack="full-dev" ;;
             *)
                 print_error "Invalid pack choice: $choice"
                 return 1
@@ -441,7 +437,7 @@ show_usage() {
     echo "  validate            Validate an existing macros file"
     echo ""
     echo "Install options:"
-    echo "  --pack <name>         safe-core | power-git | full-dev (default: safe-core)"
+    echo "  --pack <name>         safe-core | power-git (default: safe-core)"
     echo "  --project-dir <dir>   Target project directory (default: current directory)"
     echo "  --output <path>       Output macro file path (default: <project>/.voiceterm/macros.yaml)"
     echo "  --repo <owner/name>   Repo slug for __GITHUB_REPO__ (auto-detected if omitted)"
@@ -455,13 +451,13 @@ show_usage() {
     echo "  $0"
     echo "  $0 wizard"
     echo "  $0 install --pack safe-core"
-    echo "  $0 install --pack full-dev --repo jguida941/codex-voice --overwrite"
+    echo "  $0 install --pack power-git --repo jguida941/voiceterm --overwrite"
     echo "  $0 validate --output ./.voiceterm/macros.yaml"
 }
 
 list_packs() {
     echo "Available macro packs:"
-    for pack in safe-core power-git full-dev; do
+    for pack in safe-core power-git; do
         echo "  - $pack: $(pack_description "$pack")"
     done
 }

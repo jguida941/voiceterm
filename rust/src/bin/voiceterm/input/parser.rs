@@ -196,7 +196,6 @@ fn parse_control_byte_event(byte: u8) -> Option<InputEvent> {
         0x12 => Some(InputEvent::VoiceTrigger),
         0x18 => Some(InputEvent::ImageCaptureTrigger),
         0x05 => Some(InputEvent::SendStagedText),
-        0x04 => Some(InputEvent::DevPanelToggle),
         0x16 => Some(InputEvent::ToggleAutoVoice),
         0x14 => Some(InputEvent::ToggleSendMode),
         0x1d => Some(InputEvent::IncreaseSensitivity),
@@ -294,7 +293,6 @@ fn parse_csi_u_event(buffer: &[u8]) -> Option<InputEvent> {
         'r' => Some(InputEvent::VoiceTrigger),
         'x' => Some(InputEvent::ImageCaptureTrigger),
         'e' => Some(InputEvent::SendStagedText),
-        'd' => Some(InputEvent::DevPanelToggle),
         'v' => Some(InputEvent::ToggleAutoVoice),
         't' => Some(InputEvent::ToggleSendMode),
         'y' => Some(InputEvent::ThemePicker),
@@ -345,8 +343,7 @@ mod tests {
         let mut out = Vec::new();
         parser.consume_bytes(
             &[
-                0x11, 0x12, 0x18, 0x05, 0x04, 0x16, 0x14, 0x1d, 0x1c, 0x1f, 0x07, 0x0f, 0x15, 0x08,
-                0x0e,
+                0x11, 0x12, 0x18, 0x05, 0x16, 0x14, 0x1d, 0x1c, 0x1f, 0x07, 0x0f, 0x15, 0x08, 0x0e,
             ],
             &mut out,
         );
@@ -358,7 +355,6 @@ mod tests {
                 InputEvent::VoiceTrigger,
                 InputEvent::ImageCaptureTrigger,
                 InputEvent::SendStagedText,
-                InputEvent::DevPanelToggle,
                 InputEvent::ToggleAutoVoice,
                 InputEvent::ToggleSendMode,
                 InputEvent::IncreaseSensitivity,
@@ -525,16 +521,6 @@ mod tests {
     }
 
     #[test]
-    fn input_parser_maps_csi_u_ctrl_d_dev_panel_toggle() {
-        let mut parser = InputParser::new();
-        let mut out = Vec::new();
-        // Ctrl+D (kitty/CSI-u: ESC [ 100 ; 5 u)
-        parser.consume_bytes(b"\x1b[100;5u", &mut out);
-        parser.flush_pending(&mut out);
-        assert_eq!(out, vec![InputEvent::DevPanelToggle]);
-    }
-
-    #[test]
     fn input_parser_maps_csi_u_quick_theme_cycle() {
         let mut parser = InputParser::new();
         let mut out = Vec::new();
@@ -650,10 +636,7 @@ mod tests {
             parse_csi_u_event(b"\x1b[120;5u"),
             Some(InputEvent::ImageCaptureTrigger)
         );
-        assert_eq!(
-            parse_csi_u_event(b"\x1b[100;5u"),
-            Some(InputEvent::DevPanelToggle)
-        );
+        assert_eq!(parse_csi_u_event(b"\x1b[100;5u"), None);
         assert_eq!(
             parse_csi_u_event(b"\x1b[121;5u"),
             Some(InputEvent::ThemePicker)

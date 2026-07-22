@@ -30,10 +30,6 @@ pub struct AppConfig {
     #[arg(long, default_value = "codex")]
     pub codex_cmd: String,
 
-    /// Path to the Claude CLI binary (IPC mode)
-    #[arg(long = "claude-cmd", env = "CLAUDE_CMD", default_value = "claude")]
-    pub claude_cmd: String,
-
     /// Extra arguments to pass to the Codex CLI (repeatable)
     #[arg(long = "codex-arg", action = ArgAction::Append, value_name = "ARG")]
     pub codex_args: Vec<String>,
@@ -118,10 +114,6 @@ pub struct AppConfig {
     /// Path for the markdown session-memory log file.
     #[arg(long = "session-memory-path", env = "VOICETERM_SESSION_MEMORY_PATH")]
     pub session_memory_path: Option<PathBuf>,
-
-    /// Allow Claude CLI to run without permission prompts (IPC mode)
-    #[arg(long = "claude-skip-permissions", default_value_t = false)]
-    pub claude_skip_permissions: bool,
 
     /// Path to whisper executable
     #[arg(long, default_value = "whisper")]
@@ -226,10 +218,6 @@ pub struct AppConfig {
     /// Fail instead of using the python STT fallback
     #[arg(long = "no-python-fallback")]
     pub no_python_fallback: bool,
-
-    /// Run in JSON IPC mode for external UI integration
-    #[arg(long = "json-ipc")]
-    pub json_ipc: bool,
 }
 
 /// Tunable parameters for the voice capture + STT pipeline.

@@ -168,35 +168,19 @@ macros:
     mode: insert
 
   run ci checks:
-    expansion: "python3 dev/scripts/devctl.py check --profile ci"
+    expansion: "make ci"
     mode: auto
 
   run prepush checks:
-    expansion: "python3 dev/scripts/devctl.py check --profile prepush"
+    expansion: "make prepush"
     mode: auto
 
   run docs check:
-    expansion: "python3 dev/scripts/devctl.py docs-check --user-facing"
+    expansion: "markdownlint -c .markdownlint.yaml README.md QUICK_START.md guides/*.md scripts/*.md app/*.md pypi/*.md"
     mode: auto
 
   run docs strict check:
-    expansion: "python3 dev/scripts/devctl.py docs-check --user-facing --strict"
-    mode: auto
-
-  run hygiene audit:
-    expansion: "python3 dev/scripts/devctl.py hygiene"
-    mode: auto
-
-  check mutation score:
-    expansion: "python3 dev/scripts/devctl.py mutation-score --threshold 0.80"
-    mode: auto
-
-  check ci status:
-    expansion: "python3 dev/scripts/devctl.py status --ci --format md"
-    mode: auto
-
-  check traceability:
-    expansion: "python3 dev/scripts/check_audit_traceability.py --master-plan dev/active/MASTER_PLAN.md --audit RUST_GUI_AUDIT_2026-02-15.md"
+    expansion: "markdownlint -c .markdownlint.yaml README.md QUICK_START.md guides/*.md scripts/*.md app/*.md pypi/*.md"
     mode: auto
 
   run rust fmt check:
@@ -227,12 +211,8 @@ macros:
     expansion: "make test-mem"
     mode: auto
 
-  run memory guard loop:
-    expansion: "make test-mem-loop"
-    mode: auto
-
   run security audit:
-    expansion: "make security-audit"
+    expansion: "make security"
     mode: auto
 
   build release binary:
@@ -252,7 +232,7 @@ macros:
     mode: insert
 
   publish pypi package:
-    expansion: "./dev/scripts/publish-pypi.sh --upload"
+    expansion: "make pypi"
     mode: insert
 
   verify pypi release:
@@ -260,5 +240,5 @@ macros:
     mode: auto
 
   create github release:
-    template: "gh release create v{TRANSCRIPT} --title 'v{TRANSCRIPT}' --notes 'See dev/CHANGELOG.md'"
+    template: "make release V={TRANSCRIPT}"
     mode: insert

@@ -119,12 +119,6 @@ fn rejects_whisper_temperature_out_of_bounds() {
 }
 
 #[test]
-fn rejects_invalid_claude_cmd() {
-    let mut cfg = AppConfig::parse_from(["test-app", "--claude-cmd", "not-claude"]);
-    assert!(cfg.validate().is_err());
-}
-
-#[test]
 fn max_codex_arg_bytes_constant_matches_expectation() {
     assert_eq!(MAX_CODEX_ARG_BYTES, 8 * 1024);
 }

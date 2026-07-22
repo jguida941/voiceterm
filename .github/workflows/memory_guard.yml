@@ -41,5 +41,5 @@ jobs:
           set -euo pipefail
           for i in $(seq 1 20); do
             echo "Iteration $i"
-            cargo test --no-default-features legacy_tui::tests::memory_guard_backend_threads_drop -- --nocapture
+            cargo test --no-default-features agent_runtime::tests::backend_threads_return_to_baseline -- --nocapture
           done

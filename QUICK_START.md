@@ -20,7 +20,7 @@ npm install -g @openai/codex
 If you use Claude instead, install Claude Code:
 
 ```bash
-curl -fsSL https://claude.ai/install.sh | bash
+npm install -g @anthropic-ai/claude-code
 ```
 
 ## 2) Install VoiceTerm
@@ -65,19 +65,24 @@ voiceterm --login --codex
 voiceterm --login --claude
 ```
 
-First run downloads a Whisper model if missing.
-To choose a model at launch, use `--whisper-model`:
+First run through an installed wrapper downloads a Whisper model if missing.
+To choose a specific model, download it and pass its exact path:
 
 ```bash
-voiceterm --whisper-model base
-voiceterm --whisper-model medium
+./scripts/setup.sh models --base
+voiceterm --whisper-model-path ./whisper_models/ggml-base.en.bin
 ```
 
-If you installed from source and want to pre-download a model:
+For a source checkout, build and launch through the model-aware start script:
 
 ```bash
-./scripts/setup.sh models --small
+make build
+./scripts/start.sh
 ```
+
+The raw `rust/target/release/voiceterm` binary needs
+`--whisper-model-path <FILE>` unless a matching model is already under the
+repository's `whisper_models/` directory.
 
 Codex is default; `voiceterm --codex` is optional.
 Use `voiceterm --claude` to target Claude.
@@ -92,18 +97,20 @@ Start here:
 
 - `Ctrl+R` - trigger voice capture
 - `Ctrl+X` - one-shot screenshot prompt capture
-- `Ctrl+E` - stop recording early and keep the text in input (does not send)
+- `Ctrl+E` - in `insert` mode, finalize early, transcribe, and place the text in the chat composer without sending
 - `Ctrl+T` - toggle send mode (auto vs insert)
 - `Ctrl+V` - toggle auto-voice (disabling cancels running capture)
-- `Ctrl+D` - open/close Dev panel (`--dev` only; otherwise EOF is sent to the backend CLI)
+- `Ctrl+D` - send EOF to the backend CLI
 - `Ctrl+Q` - quit VoiceTerm
 
 In `auto` mode, text is typed and submitted.
 In `insert` mode, text is typed and waits for Enter (or spoken `send`).
 Latency badges are based on completed STT turns and hide while VoiceTerm is
 actively recording or processing.
-When Codex/Claude approval or reply/composer prompts appear, VoiceTerm hides
-HUD rows until you submit/cancel so prompt text stays readable.
+Pressing `Ctrl+R` again during an active capture cancels and discards it.
+When a high-confidence Codex/Claude approval card appears, VoiceTerm can hide
+HUD rows so the interactive choices stay readable; ordinary composer and hint
+text does not trigger suppression.
 
 Full controls reference:
 
@@ -117,9 +124,12 @@ Mouse note:
 - In Cursor terminal, wheel/touchpad scrolling may not move chat history while
   `Mouse` stays ON, but the scrollbar can still be dragged.
 - If you want touchpad/wheel scrolling, set `Mouse` to `OFF` and use keyboard
-  HUD navigation (`Tab`/arrows + `Enter`) for controls.
+  HUD navigation (`Left`/`Right` + `Enter`) for controls.
 - `Ctrl+Y` opens Theme Studio; use `Tab` / `Shift+Tab` to move across pages
   (`Home`, `Colors`, `Borders`, `Components`, `Preview`, `Export`).
+- The live HUD preview beneath Theme Studio updates immediately as you change
+  HUD style, borders, right panel, colors, or glyphs. The conversation remains
+  untouched behind the isolated editor.
 
 ## 5) Hands-free starter (optional)
 
@@ -159,18 +169,14 @@ voiceterm --wake-word
 voiceterm --voice-send-mode insert
 voiceterm --image-mode    # persistent image capture for HUD [rec]
 voiceterm --theme-file ~/.config/voiceterm/themes/my-theme.toml
-voiceterm --dev
-voiceterm --dev --dev-log
 voiceterm --voice-vad-threshold-db -50
 voiceterm --mic-meter
 voiceterm --logs
 ```
 
-If you press `Ctrl+D` without `--dev`, VoiceTerm forwards EOF (`0x04`) to the
-wrapped CLI and that session may close.
+`Ctrl+D` forwards EOF (`0x04`) to the wrapped CLI, so that session may close.
 
 See [guides/CLI_FLAGS.md](guides/CLI_FLAGS.md) for the full option reference.
-For Dev panel command behavior and outputs, see [guides/DEV_MODE.md](guides/DEV_MODE.md).
 
 ## 7) Need help?
 
@@ -179,34 +185,3 @@ For Dev panel command behavior and outputs, see [guides/DEV_MODE.md](guides/DEV_
 - Daily usage and controls: [guides/USAGE.md](guides/USAGE.md)
 - Full flag list: [guides/CLI_FLAGS.md](guides/CLI_FLAGS.md)
 - Troubleshooting hub: [guides/TROUBLESHOOTING.md](guides/TROUBLESHOOTING.md)
-
-## 8) iPhone companion app (optional)
-
-If you want the repo-backed mobile control surface, use the first-party iPhone
-app in `app/ios/VoiceTermMobileApp`.
-
-For a real simulator demo with current repo data:
-
-```bash
-python3 dev/scripts/devctl.py mobile-app --action simulator-demo --live-review --format md
-```
-
-For a real signed install on a connected iPhone:
-
-```bash
-python3 dev/scripts/devctl.py mobile-app --action device-install --development-team <TEAM_ID> --allow-provisioning-updates --format md
-```
-
-What is real today:
-
-- the app can load the live repo-backed mobile bundle instead of sample data
-- it shows controller/review status and typed action previews for the Ralph loop
-- it is still a control/read surface, not a raw terminal executor on the phone
-
-If you want the matching desktop companion for the same repo-backed workflow,
-launch `./scripts/operator_console.sh` from a source checkout. Both companion
-surfaces are optional and do not replace the normal overlay.
-
-If install/import fails, start with
-[guides/TROUBLESHOOTING.md](guides/TROUBLESHOOTING.md) and
-`app/ios/VoiceTermMobileApp/README.md`.

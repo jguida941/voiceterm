@@ -1,6 +1,4 @@
-# Purpose: Builds and uploads release binaries for Linux and macOS.
-# Details: See .github/workflows/README.md for triggers, jobs, and failure handling.
-name: publish_release_binaries
+name: Publish release binaries
 
 on:
   release:
@@ -8,113 +6,58 @@ on:
 
 permissions:
   contents: write
-  actions: read
 
 concurrency:
-  group: publish-release-binaries-${{ github.event.release.tag_name }}
+  group: release-binaries-${{ github.event.release.tag_name }}
   cancel-in-progress: false
 
 jobs:
   publish:
-    name: publish-release-binaries (${{ matrix.package_os }}-${{ matrix.arch }})
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 45
     if: startsWith(github.event.release.tag_name, 'v')
+    name: ${{ matrix.package_os }}-${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
+          - runner: ubuntu-latest
             package_os: linux
             arch: amd64
-          - os: macos-15-intel
+          - runner: macos-15-intel
             package_os: darwin
             arch: amd64
-          - os: macos-14
+          - runner: macos-14
             package_os: darwin
             arch: arm64
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
           fetch-depth: 0
-
-      - name: Resolve release ref
-        id: release_ref
-        env:
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
-          RELEASE_TARGET_BRANCH: ${{ github.event.release.target_commitish }}
-        run: |
-          set -euo pipefail
-          TAG="${RELEASE_TAG}"
-          BRANCH="${RELEASE_TARGET_BRANCH}"
-          if [[ ! "${TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "Invalid release tag: ${TAG}"
-            exit 1
-          fi
-          if [[ -z "${BRANCH}" ]]; then
-            echo "Release target branch is missing."
-            exit 1
-          fi
-          if [[ "${BRANCH}" == "refs/heads/master" ]]; then
-            BRANCH="master"
-          fi
-          if [[ "${BRANCH}" != "master" && ! "${BRANCH}" =~ ^[0-9a-fA-F]{40}$ ]]; then
-            echo "Release target branch must be master (got: ${BRANCH})."
-            exit 1
-          fi
-          git fetch --force --tags origin master
-          SHA="$(git rev-list -n 1 "refs/tags/${TAG}")"
-          if [[ -z "${SHA}" ]]; then
-            echo "Failed to resolve commit SHA for tag ${TAG}."
-            exit 1
-          fi
-          if ! git merge-base --is-ancestor "${SHA}" "origin/master"; then
-            echo "Release tag ${TAG} points to commit ${SHA} which is not on origin/master."
-            exit 1
-          fi
-          echo "tag=${TAG}" >> "${GITHUB_OUTPUT}"
-          echo "branch=master" >> "${GITHUB_OUTPUT}"
-          echo "sha=${SHA}" >> "${GITHUB_OUTPUT}"
-
-      - name: Verify release gates passed for release commit
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_BRANCH: ${{ steps.release_ref.outputs.branch }}
-          RELEASE_SHA: ${{ steps.release_ref.outputs.sha }}
-        run: |
-          set -euo pipefail
-          # release-gates governance verification bypassed for the v1.2.3
-          # field-bug hotfix line. The constellation governance bundle enforces
-          # dual-agent commit-provenance (packet/plan-row anchors) plus a live
-          # review-channel event log that do not apply to a binary release and
-          # are not present in a release CI checkout. Release soundness is
-          # verified out-of-band: version parity (Cargo/pyproject/Info.plist =
-          # 1.2.3), cargo-deny advisories/licenses, rust tests 1816/1816 +
-          # clippy -D warnings, and devctl docs-check.
-          echo "release-gates governance verification bypassed for v1.2.3"
-          echo "branch=${RELEASE_BRANCH} sha=${RELEASE_SHA}"
-
-      - name: Setup Python
-        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
           python-version: "3.11"
-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@631a55b12751854ce901bb631d5902ceb48146f7
-
-      - name: Install ALSA development headers
+      - uses: dtolnay/rust-toolchain@631a55b12751854ce901bb631d5902ceb48146f7
+      - name: Verify release tag and version
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          VERSION="${TAG#v}"
+          git fetch origin master --tags
+          git merge-base --is-ancestor "${TAG}" origin/master
+          python3 scripts/release/check_version.py --expected "${VERSION}"
+      - name: Install Linux audio headers
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libasound2-dev
-
-      - name: Build release binary
+      - name: Build
+        env:
+          LIBCLANG_PATH: ${{ runner.os == 'macOS' && '/Library/Developer/CommandLineTools/usr/lib' || '' }}
         run: cargo build --release --manifest-path rust/Cargo.toml --bin voiceterm
-
-      - name: Package release binary
+      - name: Package
         id: package
         env:
-          TAG: ${{ steps.release_ref.outputs.tag }}
+          TAG: ${{ github.event.release.tag_name }}
           PACKAGE_OS: ${{ matrix.package_os }}
           PACKAGE_ARCH: ${{ matrix.arch }}
         run: |
@@ -122,16 +65,13 @@ jobs:
           VERSION="${TAG#v}"
           ARCHIVE="voiceterm-${VERSION}-${PACKAGE_OS}-${PACKAGE_ARCH}.tar.gz"
           tar -czf "${ARCHIVE}" -C rust/target/release voiceterm
-          python3 dev/scripts/artifacts/sha256.py --input "${ARCHIVE}"
+          python3 scripts/release/sha256.py --input "${ARCHIVE}"
           echo "archive=${ARCHIVE}" >> "${GITHUB_OUTPUT}"
           echo "checksum=${ARCHIVE}.sha256" >> "${GITHUB_OUTPUT}"
-
-      - name: Upload binary assets to release
+      - name: Upload assets
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ steps.release_ref.outputs.tag }}
+          TAG: ${{ github.event.release.tag_name }}
           ARCHIVE: ${{ steps.package.outputs.archive }}
           CHECKSUM: ${{ steps.package.outputs.checksum }}
-        run: |
-          set -euo pipefail
-          gh release upload "${TAG}" "${ARCHIVE}" "${CHECKSUM}" --clobber
+        run: gh release upload "${TAG}" "${ARCHIVE}" "${CHECKSUM}" --clobber

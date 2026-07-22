@@ -282,7 +282,7 @@ fn theme_studio_mouse_click_above_option_rows_does_not_activate_selection() {
     let overlay_top_y = state
         .ui
         .terminal_rows
-        .saturating_sub(theme_studio_height() as u16)
+        .saturating_sub(crate::theme_studio::theme_studio_overlay_height() as u16)
         .saturating_add(1);
     let row_above_options = overlay_top_y
         .saturating_add(THEME_STUDIO_OPTION_START_ROW as u16)

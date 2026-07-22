@@ -14,27 +14,25 @@ reviews:
     auto_incremental_review: true
     drafts: false
     base_branches:
-      - develop
       - master
     labels:
       - ai-review
   path_filters:
     - "**"
-    - "!dev/archive/**"
     - "!img/**"
     - "!**/mutants.out*/**"
   path_instructions:
-    - path: "src/**"
+    - path: "rust/src/**"
       instructions: |
         Prioritize runtime safety and behavior regressions first: memory bounds,
         concurrency/threading, error handling, and PTY/terminal lifecycle
         invariants.
         Flag non-test unwrap/expect additions unless failure-path rationale is
         explicit and tested.
-    - path: "dev/scripts/**"
+    - path: "scripts/**"
       instructions: |
-        Focus on command-surface compatibility, deterministic output contracts,
-        and backward compatibility for automation consumers.
+        Focus on portable shell/Python behavior, safe installation, and
+        deterministic release or test output.
     - path: ".github/workflows/*.yml"
       instructions: |
         Treat workflow edits as supply-chain and CI-policy sensitive.
@@ -45,10 +43,6 @@ reviews:
         For docs-only edits, focus on factual command/path correctness and avoid
         style-only nitpicks.
     - path: "guides/**"
-      instructions: |
-        For docs-only edits, focus on factual command/path correctness and avoid
-        style-only nitpicks.
-    - path: "dev/**"
       instructions: |
         For docs-only edits, focus on factual command/path correctness and avoid
         style-only nitpicks.

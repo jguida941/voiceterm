@@ -525,24 +525,6 @@ fn image_badge_renders_when_image_mode_is_on() {
 }
 
 #[test]
-fn dev_badge_is_hidden_when_dev_mode_is_off() {
-    let colors = Theme::None.colors();
-    let state = StatusLineState::new();
-    let (row, _) = format_button_row_with_positions(&state, &colors, 160, 2, true, false, 3);
-    assert!(!row.contains("DEV"));
-}
-
-#[test]
-fn dev_badge_renders_when_dev_mode_is_on() {
-    let colors = Theme::Coral.colors();
-    let mut state = StatusLineState::new();
-    state.dev_mode_enabled = true;
-    let (row, _) = format_button_row_with_positions(&state, &colors, 160, 2, true, false, 3);
-    assert!(row.contains("DEV"));
-    assert!(row.contains(&format!("{}DEV{}", colors.warning, colors.reset)));
-}
-
-#[test]
 fn shortcuts_row_stays_within_banner_width() {
     let colors = Theme::Coral.colors();
     let mut state = StatusLineState::new();

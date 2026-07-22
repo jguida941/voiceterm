@@ -13,8 +13,7 @@
 <p align="center">
   <a href="https://github.com/jguida941/voiceterm/releases"><img src="https://img.shields.io/github/v/tag/jguida941/voiceterm?sort=semver&style=flat&label=release&labelColor=7C422B&color=2D2F34" alt="VoiceTerm Version"></a>
   <a href="LICENSE"><img src="https://img.shields.io/static/v1?label=license&message=proprietary&style=flat&labelColor=7C422B&color=2D2F34" alt="Proprietary License"></a>
-  <a href="https://github.com/jguida941/voiceterm/actions/workflows/rust_ci.yml"><img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/jguida941/voiceterm/master/.github/badges/ci-status.json&style=flat&label=ci&labelColor=7C422B&color=2D2F34&logo=github&logoColor=white&logoSize=auto" alt="CI"></a>
-  <a href="https://github.com/jguida941/voiceterm/actions/workflows/rust_ci.yml"><img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/jguida941/voiceterm/master/.github/badges/clippy-warnings.json&style=flat&label=clippy&labelColor=7C422B&color=2D2F34&logo=rust&logoColor=white&logoSize=auto" alt="Clippy Warnings"></a>
+  <a href="https://github.com/jguida941/voiceterm/actions/workflows/rust_ci.yml"><img src="https://github.com/jguida941/voiceterm/actions/workflows/rust_ci.yml/badge.svg" alt="Rust CI"></a>
   <a href="https://codecov.io/gh/jguida941/voiceterm"><img src="https://img.shields.io/codecov/c/github/jguida941/voiceterm?style=flat&label=coverage&labelColor=7C422B&color=2D2F34&logo=codecov&logoColor=white&logoSize=auto" alt="Coverage"></a>
 </p>
 
@@ -22,7 +21,7 @@ Low-latency Rust terminal overlay for Codex and Claude Code with local Whisper
 STT, PTY passthrough, wake words, macros, and a customizable HUD.
 
 Whisper runs locally by default — no cloud API keys required.
-Release history: [CHANGELOG](dev/CHANGELOG.md).
+Release history: [CHANGELOG](CHANGELOG.md).
 
 If you are new, use this path:
 
@@ -59,8 +58,11 @@ npm install -g @openai/codex
 **Claude Code:**
 
 ```bash
-curl -fsSL https://claude.ai/install.sh | bash
+npm install -g @anthropic-ai/claude-code
 ```
+
+Anthropic also provides a native installer:
+`curl -fsSL https://claude.ai/install.sh | bash`.
 
 Then choose one VoiceTerm setup path:
 
@@ -117,18 +119,15 @@ cd voiceterm
 If you are running from source while developing, run:
 
 ```bash
-python3 dev/scripts/devctl.py check --profile ci
+make ci
+make build
+./scripts/start.sh
 ```
 
-Optional advanced tools from the same checkout:
-
-- [Operator Console README](app/operator_console/README.md)
-- [iOS README](app/ios/README.md)
-- [Install Guide: optional source-only tools](guides/INSTALL.md#optional-operator-console-source-checkout)
-
-These companion surfaces are optional source-checkout workflow tools. They read
-repo-visible live review/control state and do not replace the normal VoiceTerm
-overlay path.
+`scripts/start.sh` selects or downloads a Whisper model before launching the
+local release binary. Running `rust/target/release/voiceterm` directly requires
+an explicit `--whisper-model-path` unless the model is under the repository's
+`whisper_models/` directory.
 
 </details>
 
@@ -182,7 +181,7 @@ voiceterm --auto-voice --wake-word --voice-send-mode insert
 | **Auto voice mode** | Keep listening on so you can talk instead of typing |
 | **Wake mode + voice send** | Say `hey codex`/`hey claude`, then say `send`/`submit` |
 | **Image prompts** | Use `Ctrl+X` for screenshot prompts, or enable persistent image mode |
-| **Transcript queue** | If the CLI is busy, VoiceTerm waits and sends text when ready |
+| **Live dictation** | Dictate the next instruction while an agent is working; Codex stages it immediately, while Claude delivers it when ready |
 | **Codex + Claude support** | Primary support for Codex and Claude Code |
 
 ### Everyday tools
@@ -196,6 +195,7 @@ voiceterm --auto-voice --wake-word --voice-send-mode insert
 | **Notification history** | `Ctrl+N` to review recent status messages |
 | **Saved settings** | Stored in `~/.config/voiceterm/config.toml` |
 | **HUD controls** | Mouse and keyboard both work by default |
+| **Live Theme Studio** | Preview HUD borders, style, panel, colors, and glyph changes immediately without repainting the conversation |
 
 For full details: [Usage Guide](guides/USAGE.md).
 
@@ -219,13 +219,23 @@ For full backend status and setup details, see
 | IDE host | Codex | Claude Code | Notes |
 |---|---|---|---|
 | Cursor terminal | Fully supported | Fully supported | Recommended host |
-| JetBrains terminals (IntelliJ, PyCharm, WebStorm, CLion) | Fully supported | Fully supported | Claude may need a one-time terminal resize after long outputs — see [Troubleshooting](guides/TROUBLESHOOTING.md#jetbrains--claude-overlay-overlap-after-long-parallel-output) |
+| JetBrains terminals (IntelliJ, PyCharm, WebStorm, CLion) | Fully supported | Fully supported | Validated with current Codex and Claude terminal flows |
 | AntiGravity | Not yet supported | Not yet supported | Not available in current releases |
 | Other IDE terminals | Unverified | Unverified | Treat as experimental |
 
 For more IDE details: [Usage Guide — IDE Compatibility](guides/USAGE.md#ide-compatibility).
 
 ## UI Overview
+
+### Theme Studio
+
+Press `Ctrl+Y` to edit HUD and theme visuals. Theme Studio keeps a live HUD
+preview beneath its isolated panel, so border, HUD style, right-panel, color,
+and glyph changes appear immediately without scrolling or repainting the
+conversation.
+
+For details: [Theme Studio](guides/USAGE.md#settings-menu) ·
+[HUD styles](guides/USAGE.md#hud-styles).
 
 ### Theme Picker
 
@@ -244,7 +254,8 @@ For details: [Settings Menu](guides/USAGE.md#settings-menu) ·
 
 ### Transcript History
 
-`Ctrl+H` opens transcript history where you can search and replay past inputs.
+`Ctrl+H` opens conversation history with `mic`, `you`, and `ai` rows. You can
+search all rows and replay microphone/user inputs; AI output remains read-only.
 
 ![Transcript History](img/transcript-history.png)
 
@@ -280,8 +291,6 @@ Voice macros are project-local shortcuts in `.voiceterm/macros.yaml`.
 Turn macros on in Settings when you want phrase expansion.
 Setup and examples: [Project Voice Macros](guides/USAGE.md#project-voice-macros).
 
-<!-- TODO: add screenshot of voice macros in action -->
-
 ## Documentation
 
 Start with the shortest useful doc for your goal:
@@ -294,47 +303,35 @@ Start with the shortest useful doc for your goal:
 | User | [Usage Guide](guides/USAGE.md) |
 | User | [CLI Flags](guides/CLI_FLAGS.md) |
 | User | [Troubleshooting](guides/TROUBLESHOOTING.md) |
-| Advanced | [Operator Console (optional PyQt6 app)](app/operator_console/README.md) |
-| Advanced | [iPhone/iPad companion app](app/ios/README.md) |
+| Developer | [Contributor Guide](.github/CONTRIBUTING.md) |
+| Developer | [Scripts](scripts/README.md) |
 
 ## Contributing
 
 PRs welcome. See [CONTRIBUTING.md](.github/CONTRIBUTING.md).
 Before opening a PR, run:
 
-- `python3 dev/scripts/devctl.py check --profile ci`
-- `python3 dev/scripts/devctl.py docs-check --user-facing`
-- `python3 dev/scripts/devctl.py hygiene`
+- `make ci`
+- `make integration`
+- `markdownlint -c .markdownlint.yaml -p .markdownlintignore README.md QUICK_START.md CHANGELOG.md guides/*.md scripts/*.md scripts/tests/*.md app/*.md pypi/*.md .github/*.md .github/ISSUE_TEMPLATE/*.md .github/PULL_REQUEST_TEMPLATE/*.md .github/workflows/README.md`
 
 ## For Developers
 
-Looking to contribute or dig into the codebase?
-
-- [Developer Index](dev/README.md) — tooling, architecture, and dev guides
-- [Development Guide](dev/guides/DEVELOPMENT.md) — build, test, and CI instructions
-- [Operator Console README](app/operator_console/README.md) — optional PyQt6 shared-screen app and launcher usage
+Looking to contribute or dig into the codebase? Start with the
+[Contributor Guide](.github/CONTRIBUTING.md), the [scripts reference](scripts/README.md),
+and the Rust source under `rust/`.
 
 **When do I run what?**
 
 | When | Command |
 |------|---------|
-| Quick sanity check while coding | `python3 dev/scripts/devctl.py check --profile quick` |
-| Before pushing to GitHub | `python3 dev/scripts/devctl.py check --profile prepush` |
-| Publish governed AI-governance changes | `python3 dev/scripts/devctl.py push --execute` |
-| Full CI-equivalent check locally | `python3 dev/scripts/devctl.py check --profile ci` |
+| Quick sanity check while coding | `make check` |
+| Before pushing to GitHub | `make prepush` |
+| Full CI-equivalent check locally | `make ci` |
 | Rust tests only | `cd rust && cargo test --bin voiceterm` |
-| Python tests only | `python3 dev/scripts/devctl.py test-python --suite devctl` |
-| Check review-channel remote-control health | `python3 dev/scripts/devctl.py review-channel --action doctor --terminal none --format md` |
-| Check docs are up to date | `python3 dev/scripts/devctl.py docs-check --strict-tooling` |
-| Governance / archive hygiene | `python3 dev/scripts/devctl.py hygiene` |
-| See project status | `python3 dev/scripts/devctl.py status` |
-| List all devctl commands | `python3 dev/scripts/devctl.py list` |
-
-Remote-control installs that need the detached review-channel publisher to
-survive login/crash cycles can start from the checked-in launchd template and
-wrapper under `dev/config/launchd/`.
-
-For all available commands, what they do, and when to use them: [devctl guide](dev/scripts/README.md).
+| PyPI launcher tests | `python3 -m unittest discover -s pypi/tests` |
+| Integration smoke test | `make integration` |
+| Validate release versions | `make release-check V=X.Y.Z` |
 
 ## Support
 
@@ -354,6 +351,3 @@ VoiceTerm is source-available under the proprietary evaluation license in
   derivative commercialization is allowed without prior written permission.
 - Separate commercial or production rights require a direct written license
   from the Licensor.
-- Subtrees that ship their own local `LICENSE` file, such as
-  [integrations/ci-cd-hub/LICENSE](integrations/ci-cd-hub/LICENSE), keep that
-  local license for their subtree.

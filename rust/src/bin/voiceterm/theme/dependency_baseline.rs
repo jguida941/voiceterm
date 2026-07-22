@@ -230,7 +230,7 @@ pub(crate) const STAGED_UPGRADE_PLAN: &[UpgradeStep] = &[
         ],
         validation: &[
             "cargo test --bin voiceterm",
-            "devctl check --profile ci",
+            "make ci",
             "re-run terminal compatibility matrix tests",
         ],
     },
@@ -245,7 +245,7 @@ pub(crate) const STAGED_UPGRADE_PLAN: &[UpgradeStep] = &[
         ],
         validation: &[
             "cargo test --bin voiceterm",
-            "devctl check --profile ci",
+            "make ci",
             "re-run capability parity gate",
             "re-evaluate COMPATIBILITY_MATRIX entries",
         ],

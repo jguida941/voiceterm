@@ -10,10 +10,8 @@ set -e
 
 # Detect platform
 OS="$(uname -s)"
-ARCH="$(uname -m)"
 case "$OS" in
-    Darwin) PLATFORM="macos" ;;
-    Linux)  PLATFORM="linux" ;;
+    Darwin|Linux) ;;
     MINGW*|MSYS*|CYGWIN*)
         echo "Windows is not yet supported. Try WSL2 with Linux instructions."
         exit 1
@@ -66,7 +64,8 @@ print_banner() {
     local width=50
     local text_len=${#text}
     local padding=$(( (width - text_len) / 2 ))
-    local line=$(printf '━%.0s' $(seq 1 $width))
+    local line
+    line=$(printf '━%.0s' $(seq 1 "$width"))
     echo ""
     echo -e "${GREEN}${line}${NC}"
     printf "${GREEN}%*s%s%*s${NC}\n" $padding "" "$text" $((width - padding - text_len)) ""
@@ -263,7 +262,8 @@ download_whisper_model() {
     local model_file="ggml-${model_name}.bin"
     local model_path="$MODELS_DIR/$model_file"
     local model_url="$WHISPER_BASE_URL/$model_file"
-    local model_size=$(get_model_size "$model_name")
+    local model_size
+    model_size=$(get_model_size "$model_name")
 
     if [ -f "$model_path" ]; then
         print_success "Model '$model_name' already exists at $model_path"
@@ -303,7 +303,8 @@ check_rust() {
     print_step "Checking Rust toolchain..."
 
     if command -v cargo &> /dev/null; then
-        local rust_version=$(rustc --version 2>/dev/null || echo "unknown")
+        local rust_version
+        rust_version=$(rustc --version 2>/dev/null || echo "unknown")
         print_success "Rust found: $rust_version"
         return 0
     else
@@ -426,7 +427,7 @@ show_usage() {
     echo "Install options (for 'install' command):"
     echo "  --tiny|--base|--small|--medium  Model size shortcut"
     echo "  --with-macros-wizard             Launch macro wizard after install"
-    echo "  --macros-pack <name>             safe-core | power-git | full-dev (used with --with-macros-wizard)"
+    echo "  --macros-pack <name>             safe-core | power-git (used with --with-macros-wizard)"
     echo ""
     echo "Examples:"
     echo "  $0                                # Full setup with base.en model"
@@ -557,7 +558,8 @@ main() {
             print_step "Checking Whisper models..."
             if ls "$MODELS_DIR"/ggml-*.bin 1> /dev/null 2>&1; then
                 for model in "$MODELS_DIR"/ggml-*.bin; do
-                    local size=$(du -h "$model" | cut -f1)
+                    local size
+                    size=$(du -h "$model" | cut -f1)
                     print_success "Found: $(basename "$model") ($size)"
                 done
             else

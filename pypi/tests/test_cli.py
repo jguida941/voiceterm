@@ -11,7 +11,6 @@ from unittest.mock import patch
 
 from voiceterm import bootstrap
 from voiceterm import bootstrap_support
-from voiceterm import cli
 
 
 class BootstrapModeTests(unittest.TestCase):

@@ -1,11 +1,3 @@
-# GitHub Linguist configuration.
-#
-# The shipped product is the Rust TUI under rust/. The Python in this repo is
-# dev tooling (dev/scripts), CI helpers, the operator console, and the optional
-# Python fallback pipeline — support code, not the product. Keep it out of the
-# language bar so the repository is classified as Rust.
+# VoiceTerm ships as a Rust application. Python files provide packaging,
+# release automation, benchmarks, and the optional transcription fallback.
 *.py linguist-detectable=false
-
-# Dev tooling and generated/report-heavy areas: exclude from stats entirely.
-dev/** linguist-vendored
-data_science/** linguist-vendored

@@ -4,11 +4,11 @@
 
 use crate::prompt::PromptOcclusionDetector;
 use crate::runtime_compat::BackendFamily;
-use voiceterm::ipc::Provider as IpcProvider;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ProviderId {
-    Ipc(IpcProvider),
+    Claude,
+    Codex,
     Gemini,
     Other,
 }
@@ -45,7 +45,7 @@ impl PromptDetectionStrategy for ClaudePromptDetectionStrategy {
 
 impl ProviderAdapter for ClaudeProviderAdapter {
     fn provider(&self) -> ProviderId {
-        ProviderId::Ipc(IpcProvider::Claude)
+        ProviderId::Claude
     }
 
     fn supports_prompt_occlusion(&self) -> bool {
@@ -59,7 +59,7 @@ impl ProviderAdapter for ClaudeProviderAdapter {
 
 impl ProviderAdapter for CodexProviderAdapter {
     fn provider(&self) -> ProviderId {
-        ProviderId::Ipc(IpcProvider::Codex)
+        ProviderId::Codex
     }
 
     fn supports_prompt_occlusion(&self) -> bool {
@@ -101,8 +101,8 @@ impl ProviderAdapter for OtherProviderAdapter {
 
 pub(crate) fn provider_id_from_backend_label(backend_label: &str) -> ProviderId {
     match BackendFamily::from_label(backend_label) {
-        BackendFamily::Claude => ProviderId::Ipc(IpcProvider::Claude),
-        BackendFamily::Codex => ProviderId::Ipc(IpcProvider::Codex),
+        BackendFamily::Claude => ProviderId::Claude,
+        BackendFamily::Codex => ProviderId::Codex,
         BackendFamily::Gemini => ProviderId::Gemini,
         BackendFamily::Other => ProviderId::Other,
     }
@@ -110,8 +110,8 @@ pub(crate) fn provider_id_from_backend_label(backend_label: &str) -> ProviderId 
 
 pub(crate) fn resolve_provider_adapter(backend_label: &str) -> &'static dyn ProviderAdapter {
     match provider_id_from_backend_label(backend_label) {
-        ProviderId::Ipc(IpcProvider::Claude) => &CLAUDE_PROVIDER_ADAPTER,
-        ProviderId::Ipc(IpcProvider::Codex) => &CODEX_PROVIDER_ADAPTER,
+        ProviderId::Claude => &CLAUDE_PROVIDER_ADAPTER,
+        ProviderId::Codex => &CODEX_PROVIDER_ADAPTER,
         ProviderId::Gemini => &GEMINI_PROVIDER_ADAPTER,
         ProviderId::Other => &OTHER_PROVIDER_ADAPTER,
     }
@@ -141,8 +141,8 @@ mod tests {
     #[test]
     fn provider_contract_enum_variants_are_exhaustive() {
         let providers = [
-            ProviderId::Ipc(IpcProvider::Codex),
-            ProviderId::Ipc(IpcProvider::Claude),
+            ProviderId::Codex,
+            ProviderId::Claude,
             ProviderId::Gemini,
             ProviderId::Other,
         ];
@@ -153,11 +153,11 @@ mod tests {
     fn resolve_provider_adapter_maps_backend_label() {
         assert_eq!(
             resolve_provider_adapter("claude").provider(),
-            ProviderId::Ipc(IpcProvider::Claude)
+            ProviderId::Claude
         );
         assert_eq!(
             resolve_provider_adapter("codex").provider(),
-            ProviderId::Ipc(IpcProvider::Codex)
+            ProviderId::Codex
         );
         assert_eq!(
             resolve_provider_adapter("gemini").provider(),
@@ -173,11 +173,11 @@ mod tests {
     fn provider_id_mapping_stays_aligned_with_backend_family_labels() {
         assert_eq!(
             provider_id_from_backend_label("Claude Code"),
-            ProviderId::Ipc(IpcProvider::Claude)
+            ProviderId::Claude
         );
         assert_eq!(
             provider_id_from_backend_label("codex-cli"),
-            ProviderId::Ipc(IpcProvider::Codex)
+            ProviderId::Codex
         );
         assert_eq!(provider_id_from_backend_label("Gemini"), ProviderId::Gemini);
         assert_eq!(
@@ -187,21 +187,15 @@ mod tests {
     }
 
     #[test]
-    fn ipc_provider_ids_match_ipc_provider_contract() {
-        let mapped = [
-            provider_id_from_backend_label("claude"),
-            provider_id_from_backend_label("codex"),
-        ];
-        let expected = [IpcProvider::Claude, IpcProvider::Codex];
-        for (mapped_provider, expected_provider) in mapped.into_iter().zip(expected) {
-            assert_eq!(mapped_provider, ProviderId::Ipc(expected_provider));
-        }
+    fn provider_ids_match_backend_contract() {
+        assert_eq!(provider_id_from_backend_label("claude"), ProviderId::Claude);
+        assert_eq!(provider_id_from_backend_label("codex"), ProviderId::Codex);
     }
 
     #[test]
     fn claude_adapter_exposes_prompt_detection_strategy() {
         let adapter = resolve_provider_adapter("claude");
-        assert_eq!(adapter.provider(), ProviderId::Ipc(IpcProvider::Claude));
+        assert_eq!(adapter.provider(), ProviderId::Claude);
         assert!(adapter.supports_prompt_occlusion());
         assert!(adapter.prompt_detection_strategy().is_some());
     }

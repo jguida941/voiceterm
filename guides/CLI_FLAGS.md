@@ -14,14 +14,13 @@ Docs map:
 
 - [Quick Reference](#quick-reference)
 - [Voice Behavior](#voice-behavior)
-- [Developer Guard](#developer-guard)
 - [Backend Selection](#backend-selection)
 - [Microphone & Audio](#microphone--audio)
 - [Whisper STT](#whisper-stt)
 - [Capture Tuning](#capture-tuning)
 - [Themes & Display](#themes--display)
 - [Logging](#logging)
-- [IPC / Integration](#ipc--integration)
+- [Daemon Mode](#daemon-mode)
 - [Sounds](#sounds)
 - [Environment Variables](#environment-variables)
 - [See Also](#see-also)
@@ -41,8 +40,6 @@ voiceterm --auto-voice                  # Hands-free mode
 voiceterm --auto-voice --wake-word --voice-send-mode insert  # Wake + voice submit
 voiceterm --capture-once --format text # One-shot standalone transcript capture
 voiceterm --image-mode                  # Persistent image mode for HUD [rec] (Ctrl+R stays voice)
-voiceterm --dev                         # Enable guarded deferred dev features (`DEV` badge)
-voiceterm --dev --dev-log              # Also persist dev events to JSONL files
 voiceterm --theme dracula               # Change theme
 voiceterm --voice-vad-threshold-db -50  # Adjust mic sensitivity
 voiceterm --mic-meter                   # Calibrate mic threshold
@@ -65,7 +62,7 @@ Start here if you only need the basics:
 |------|---------|---------|
 | `--auto-voice` | Start in auto-voice mode (hands-free) | off |
 | `--auto-voice-idle-ms <MS>` | Idle time before auto-voice triggers when prompt not detected | 1200 |
-| `--transcript-idle-ms <MS>` | Idle time before queued transcripts are injected into the terminal | 250 |
+| `--transcript-idle-ms <MS>` | Idle time before Claude's deferred transcripts are injected into the terminal | 250 |
 | `--capture-once` | Record once, print the transcript, and exit without launching the overlay | off |
 | `--format <text>` | Output format for `--capture-once` | text |
 | `--voice-send-mode <auto\|insert>` | `auto` types text and presses Enter; `insert` types text and waits for Enter (or voice `send`) | auto |
@@ -96,22 +93,6 @@ Wake labels in Full HUD:
 
 ---
 
-## Developer Guard
-
-| Flag | Purpose | Default |
-|------|---------|---------|
-| `--dev` (`--dev-mode`, `-D`) | Enables guarded deferred developer-mode features for this launch only (includes `Ctrl+D` Dev panel with `Dev Tools` commands: `status`, `report`, `triage`, `security`, `sync`) | off |
-| `--dev-log` | Persist guarded dev events to session JSONL logs (requires `--dev`) | off |
-| `--dev-path <DIR>` | Root directory for `--dev-log` session files (requires `--dev --dev-log`) | `$HOME/.voiceterm/dev` (fallback: `<cwd>/.voiceterm/dev`) |
-
-When enabled, Full HUD shows a `DEV` badge.
-`Ctrl+D` toggles the in-session Dev panel.
-Without `--dev`, `Ctrl+D` is forwarded as EOF (`0x04`) to the backend CLI.
-With `--dev-log`, VoiceTerm writes JSONL session files under `<dev-path>/sessions/`.
-For command-by-command Dev panel behavior, see [DEV_MODE.md](DEV_MODE.md).
-
----
-
 ## Backend Selection
 
 | Flag | Purpose | Default |
@@ -124,9 +105,8 @@ For command-by-command Dev panel behavior, see [DEV_MODE.md](DEV_MODE.md).
 | `--prompt-regex <REGEX>` | Override prompt detection pattern | auto-learned |
 | `--prompt-log <PATH>` | Log detected prompts to file (debugging) | disabled |
 | `--codex-cmd <PATH>` | Path to Codex binary | codex |
-| `--claude-cmd <PATH>` | Path to Claude binary (IPC + overlay) | claude |
 | `--codex-arg <ARG>` | Extra args passed to Codex (repeatable) | - |
-| `--persistent-codex` | Keep a persistent Codex PTY session (advanced) | off |
+| `--persistent-codex` | Legacy compatibility option; the current overlay already owns a persistent child PTY | off |
 
 **Examples:**
 
@@ -141,7 +121,6 @@ voiceterm --login --claude      # Login to Claude CLI
 
 - `--backend` accepts a custom command string, for example: `voiceterm --backend "my-custom-cli --flag"`.
 - Gemini is currently nonfunctional. Aider/OpenCode presets are untested. Custom backends are overlay-only. Only Codex and Claude are fully supported.
-- In `--json-ipc` mode, provider selection accepts only `codex` and `claude`; `gemini`, `aider`, `opencode`, and `custom` are explicitly classified as overlay-only non-IPC backends.
 - IDE-specific caveats and verified-host status live in [USAGE.md](USAGE.md#ide-compatibility) and [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
 
 ---
@@ -216,7 +195,7 @@ VAD (voice activity detection) flags control when VoiceTerm starts and stops rec
 | `--hud-border-style <STYLE>` | Full HUD border style: `theme`, `single`, `rounded`, `double`, `heavy`, `none` | theme |
 | `--hud-right-panel-recording-only` | Only animate right panel while recording | on |
 | `--latency-display <off\|short\|label\|rtf\|both>` | Shortcuts-row latency badge style (`off`, `Nms`, `Latency: Nms`, `RTF`, or `Nms + RTF`) for completed turns | short |
-| `--term <TERM>` | TERM value for the CLI | inherited |
+| `--term <TERM>` | TERM value exported to the wrapped CLI | xterm-256color |
 
 Set `--hud-right-panel-recording-only=false` to keep right-panel animation active while idle.
 `--theme-file` uses the same path source as `VOICETERM_THEME_FILE`.
@@ -246,33 +225,12 @@ For HUD runtime behavior and theme details, see [USAGE.md](USAGE.md#hud-styles).
 **Session-memory location:** `<cwd>/.voiceterm/session-memory.md` by default,
 or `--session-memory-path`.
 
-**Dev-event location (`--dev --dev-log`):** `<dev-path>/sessions/session-*.jsonl`
-where `dev-path` defaults to `$HOME/.voiceterm/dev` (or `<cwd>/.voiceterm/dev`
-if `HOME` is unavailable).
-
 **Trace log (JSON):** `$TMPDIR/voiceterm_trace.jsonl` (macOS) or
 `/tmp/voiceterm_trace.jsonl` (Linux). Override with `VOICETERM_TRACE_LOG`.
 
 ---
 
-## IPC / Integration
-
-| Flag | Purpose | Default |
-|------|---------|---------|
-| `--json-ipc` | Run in JSON IPC mode (external UI integration) | off |
-| `--claude-skip-permissions` | Skip Claude permission prompts (IPC only; high-risk) | off |
-
-`--claude-skip-permissions` forwards Claude's
-`--dangerously-skip-permissions` behavior. Keep this off unless you are in a
-trusted, isolated environment and accept that tool actions may run without
-interactive approval prompts.
-
-IPC provider sessions currently support `codex` and `claude`.
-`gemini` is overlay-only experimental, and `aider` / `opencode` / `custom` are
-overlay-only non-IPC backends. All four are rejected in IPC provider selection
-paths with explicit diagnostics.
-
-### Daemon Mode
+## Daemon Mode
 
 | Flag | Purpose | Default |
 |------|---------|---------|
@@ -281,11 +239,10 @@ paths with explicit diagnostics.
 | `--no-ws` | Disable the WebSocket bridge in daemon mode | off |
 | `--socket-path <PATH>` | Unix socket path used in daemon mode | `~/.voiceterm/control.sock` |
 
-Daemon mode is for external clients such as the PyQt6 Operator Console, the
-repo-backed iPhone/iPad companion, or other repo-owned integrations that read
-the control sockets. Most users do not need these flags; use the normal
-overlay unless you are deliberately running one of those advanced
-source-checkout companion surfaces.
+Daemon mode exposes VoiceTerm's control stream to custom external clients over
+a Unix socket and, optionally, WebSocket. Most users do not need these flags;
+use the normal overlay unless you are building an integration against that
+interface.
 
 ---
 
@@ -324,8 +281,6 @@ source-checkout companion surfaces.
 | `VOICETERM_CLAUDE_EXTRA_GAP_ROWS` | Override extra reserved HUD gap rows for Claude prompt safety (`0..20`) | host default |
 | `VOICETERM_HUD_SAFETY_GAP_ROWS` | Override global HUD safety gap rows (`0..6`) | host default |
 | `VOICETERM_SESSION_MEMORY_PATH` | Default path for `--session-memory-path` | unset |
-| `CLAUDE_CMD` | Override Claude CLI path | unset |
-| `VOICETERM_PROVIDER` | IPC default provider (`codex` or `claude`; `gemini`, `aider`, `opencode`, and `custom` are rejected in IPC mode) | unset |
 | `NO_COLOR` | Disable colors (standard) | unset |
 
 ---

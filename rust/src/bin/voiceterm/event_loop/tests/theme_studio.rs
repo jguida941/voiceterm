@@ -80,6 +80,46 @@ fn theme_studio_arrow_left_on_hud_style_row_cycles_backward() {
 }
 
 #[test]
+fn theme_studio_hud_border_change_redraws_live_hud_preview() {
+    let (mut state, mut timers, mut deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.ui.overlay_mode = OverlayMode::ThemeStudio;
+    state.theme_studio.selected = 2; // HUD borders
+    state.config.hud_border_style = crate::config::HudBorderStyle::Rounded;
+    state.status_state.hud_border_style = crate::config::HudBorderStyle::Rounded;
+    while writer_rx.try_recv().is_ok() {}
+    let mut running = true;
+
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::Bytes(b"\x1b[C".to_vec()),
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(state.ui.overlay_mode, OverlayMode::ThemeStudio);
+    assert_eq!(
+        state.config.hud_border_style,
+        crate::config::HudBorderStyle::Double
+    );
+    assert_eq!(
+        state.status_state.hud_border_style,
+        crate::config::HudBorderStyle::Double
+    );
+    let content = writer_rx
+        .try_iter()
+        .filter_map(|message| match message {
+            WriterMessage::ShowOverlay { content, .. } => Some(content),
+            _ => None,
+        })
+        .last()
+        .expect("theme studio live preview redraw");
+    assert!(content.contains("VoiceTerm"));
+    assert!(content.contains('╔'));
+}
+
+#[test]
 fn theme_studio_enter_on_glyph_profile_row_cycles_runtime_override() {
     let _override_guard =
         install_runtime_style_pack_overrides(RuntimeStylePackOverrides::default());

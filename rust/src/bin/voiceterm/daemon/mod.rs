@@ -1,7 +1,7 @@
-//! Hub-and-spoke daemon so multiple agent PTY sessions broadcast to all surfaces.
+//! Hub-and-spoke daemon for external VoiceTerm clients.
 //!
 //! Runs VoiceTerm as a background service on a Unix domain socket (and optional
-//! WebSocket bridge) so PyQt6, iPhone, and TUI clients share one event stream.
+//! WebSocket bridge) so custom clients can share one event stream.
 
 mod agent_driver;
 mod client_codec;

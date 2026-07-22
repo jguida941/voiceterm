@@ -1,1 +1,0 @@
-"""Code-shape guard implementations."""

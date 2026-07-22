@@ -13,12 +13,12 @@ on:
   push:
     paths:
       - "rust/src/**"
-      - "dev/scripts/tests/wake_word_guard.sh"
+      - "scripts/tests/wake_word_guard.sh"
       - ".github/workflows/wake_word_guard.yml"
   pull_request:
     paths:
       - "rust/src/**"
-      - "dev/scripts/tests/wake_word_guard.sh"
+      - "scripts/tests/wake_word_guard.sh"
       - ".github/workflows/wake_word_guard.yml"
 
 jobs:
@@ -38,4 +38,4 @@ jobs:
       - name: Run wake-word guardrails
         env:
           WAKE_WORD_SOAK_ROUNDS: "4"
-        run: bash dev/scripts/tests/wake_word_guard.sh
+        run: bash scripts/tests/wake_word_guard.sh

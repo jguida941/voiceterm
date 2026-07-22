@@ -7,9 +7,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use voiceterm::log_debug;
 use voiceterm::pty_session::PtyOverlaySession;
 
-use crate::action_center::render::action_center_overlay_height;
 use crate::config::HudStyle;
-use crate::dev_panel::dev_panel_height;
 use crate::help::help_overlay_height;
 use crate::hud_debug::claude_hud_debug_enabled;
 use crate::memory_browser::render::memory_browser_overlay_height;
@@ -17,7 +15,6 @@ use crate::runtime_compat::{self, BackendFamily};
 use crate::settings::settings_overlay_height;
 use crate::status_line::status_banner_height_with_policy;
 use crate::theme_picker::theme_picker_height;
-use crate::theme_studio::theme_studio_height;
 use crate::OverlayMode;
 
 /// Flag set by SIGWINCH handler to trigger terminal resize.
@@ -159,9 +156,8 @@ pub(crate) fn reserved_rows_for_mode(
                 }
             }
         }
-        OverlayMode::DevPanel => dev_panel_height(),
         OverlayMode::Help => help_overlay_height(),
-        OverlayMode::ThemeStudio => theme_studio_height(),
+        OverlayMode::ThemeStudio => crate::theme_studio::theme_studio_overlay_height(),
         OverlayMode::ThemePicker => theme_picker_height(),
         OverlayMode::Settings => settings_overlay_height(),
         OverlayMode::TranscriptHistory => {
@@ -171,7 +167,6 @@ pub(crate) fn reserved_rows_for_mode(
         // height depends on runtime state; 10 rows is a safe conservative value.
         OverlayMode::ToastHistory => 10,
         OverlayMode::MemoryBrowser => memory_browser_overlay_height(),
-        OverlayMode::ActionCenter => action_center_overlay_height(),
     }
 }
 
@@ -531,10 +526,6 @@ mod tests {
         assert_eq!(
             reserved_rows_for_mode(OverlayMode::Help, cols, HudStyle::Full, false),
             help_overlay_height()
-        );
-        assert_eq!(
-            reserved_rows_for_mode(OverlayMode::DevPanel, cols, HudStyle::Full, false),
-            dev_panel_height()
         );
         assert_eq!(
             reserved_rows_for_mode(OverlayMode::ThemePicker, cols, HudStyle::Full, false),

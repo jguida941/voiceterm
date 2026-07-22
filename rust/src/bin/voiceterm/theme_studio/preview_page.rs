@@ -13,10 +13,6 @@ pub(crate) struct PreviewPageState {
 }
 
 impl Scrollable for PreviewPageState {
-    fn scroll_offset(&self) -> usize {
-        self.scroll_offset
-    }
-
     fn scroll_offset_mut(&mut self) -> &mut usize {
         &mut self.scroll_offset
     }

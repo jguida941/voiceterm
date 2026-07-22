@@ -13,8 +13,8 @@ use std::io::{self, IsTerminal, Write};
 use std::sync::mpsc::TryRecvError;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
+use voiceterm::agent_runtime::{CodexCliBackend, CodexEventKind, CodexJobRunner, CodexRequest};
 use voiceterm::audio;
-use voiceterm::codex::{CodexCliBackend, CodexEventKind, CodexJobRunner, CodexRequest};
 use voiceterm::config::AppConfig;
 use voiceterm::stt;
 use voiceterm::voice::{self, VoiceCaptureSource, VoiceJobMessage};
@@ -420,7 +420,7 @@ fn wait_for_voice_job(mut job: voice::VoiceJob) -> Result<VoiceJobMessage> {
     }
 }
 
-fn wait_for_codex_job(mut job: voiceterm::codex::CodexJob) -> Result<String> {
+fn wait_for_codex_job(mut job: voiceterm::agent_runtime::CodexJob) -> Result<String> {
     let mut output_lines = Vec::new();
 
     loop {

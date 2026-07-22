@@ -4,9 +4,9 @@
 # Runtime and lifecycle-critical Rust code.
 /rust/src/ @jguida941
 
-# CI and automation control plane.
+# CI and release automation.
 /.github/workflows/ @jguida941
-/dev/scripts/ @jguida941
+/scripts/release/ @jguida941
 /scripts/macro-packs/ @jguida941
 
 # Distribution surfaces.

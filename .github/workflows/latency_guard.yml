@@ -13,12 +13,12 @@ on:
   push:
     paths:
       - "rust/src/**"
-      - "dev/scripts/tests/measure_latency.sh"
+      - "scripts/tests/measure_latency.sh"
       - ".github/workflows/latency_guard.yml"
   pull_request:
     paths:
       - "rust/src/**"
-      - "dev/scripts/tests/measure_latency.sh"
+      - "scripts/tests/measure_latency.sh"
       - ".github/workflows/latency_guard.yml"
 
 jobs:
@@ -39,4 +39,4 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libasound2-dev
 
       - name: Run synthetic latency guardrails
-        run: bash ../dev/scripts/tests/measure_latency.sh --ci-guard --count 3
+        run: bash ../scripts/tests/measure_latency.sh --ci-guard --count 3
