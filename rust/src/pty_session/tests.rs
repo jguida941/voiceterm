@@ -64,7 +64,7 @@ fn open_pty_pair() -> (RawFd, RawFd) {
             &mut slave,
             ptr::null_mut(),
             ptr::null_mut(),
-            &mut ws,
+            ptr::addr_of_mut!(ws),
         )
     };
     assert_eq!(
