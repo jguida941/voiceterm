@@ -25,8 +25,8 @@ jobs:
         run: |
           set -euo pipefail
           VERSION="${TAG#v}"
-          git fetch origin master --tags
-          git merge-base --is-ancestor "${TAG}" origin/master
+          git fetch --no-tags origin master
+          git merge-base --is-ancestor "${TAG}" FETCH_HEAD
           ARCHIVE="voiceterm-${VERSION}-source.tar.gz"
           git archive --format=tar.gz --prefix="voiceterm-${VERSION}/" -o "${ARCHIVE}" "${TAG}"
           python3 scripts/release/sha256.py --input "${ARCHIVE}"

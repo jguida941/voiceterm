@@ -44,8 +44,8 @@ jobs:
         run: |
           set -euo pipefail
           VERSION="${TAG#v}"
-          git fetch origin master --tags
-          git merge-base --is-ancestor "${TAG}" origin/master
+          git fetch --no-tags origin master
+          git merge-base --is-ancestor "${TAG}" FETCH_HEAD
           python3 scripts/release/check_version.py --expected "${VERSION}"
       - name: Install Linux audio headers
         if: runner.os == 'Linux'

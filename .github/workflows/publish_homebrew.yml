@@ -37,8 +37,8 @@ jobs:
           set -euo pipefail
           VERSION="${INPUT_VERSION:-${RELEASE_TAG#v}}"
           TAG="v${VERSION}"
-          git fetch origin master --tags
-          git merge-base --is-ancestor "${TAG}" origin/master
+          git fetch --no-tags origin master
+          git merge-base --is-ancestor "${TAG}" FETCH_HEAD
           python3 scripts/release/check_version.py --expected "${VERSION}"
           echo "version=${VERSION}" >> "${GITHUB_OUTPUT}"
       - name: Clone tap
