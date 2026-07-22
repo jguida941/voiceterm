@@ -20,7 +20,7 @@ fn map_arrow_final(byte: u8) -> Option<ArrowKey> {
 }
 
 /// True when a kitty keyboard-protocol event-type subparameter marks the
-/// sequence as a REPEAT (2) or RELEASE (3) event — `CSI 1 ; mods : event {ABCD}`.
+/// sequence as a REPEAT (2) or RELEASE (3) event - `CSI 1 ; mods : event {ABCD}`.
 /// Terminals in kitty mode (pushed by wrapped CLIs like codex) report those as
 /// separate sequences; counting them as presses makes one keystroke move twice.
 fn kitty_params_are_repeat_or_release(params: &[u8]) -> bool {
@@ -195,7 +195,7 @@ mod tests {
     #[test]
     fn parse_arrow_keys_consumes_kitty_release_and_repeat_without_moving() {
         // :3 = release, :2 = repeat (kitty event types). These used to count as
-        // presses — one physical keystroke moved twice (field bug).
+        // presses - one physical keystroke moved twice (field bug).
         let bytes = [
             0x1b, b'[', b'1', b';', b'1', b':', b'3', b'A', 0x1b, b'[', b'1', b';', b'1', b':',
             b'2', b'D',

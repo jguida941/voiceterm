@@ -91,7 +91,7 @@ Wizard personalization:
 ## python_fallback.py
 
 Python fallback pipeline for speech-to-text. VoiceTerm uses this automatically
-when the native Whisper engine cannot run — for example, if the model file is
+when the native Whisper engine cannot run - for example, if the model file is
 missing or the audio device is not accessible to the native pipeline.
 
 Requires: `python3`, `ffmpeg`, `whisper` CLI on PATH.

@@ -65,7 +65,7 @@ pub(crate) enum ColorValue {
     Ansi16(u8),
     /// Reset sequence `\x1b[0m`.
     Reset,
-    /// Empty string — no color applied.
+    /// Empty string - no color applied.
     Empty,
 }
 
@@ -160,7 +160,7 @@ impl ResolvedThemeColors {
     /// Convert to the legacy `ThemeColors` using string interning (`Box::leak`).
     ///
     /// Each leaked string is ~20-60 bytes. With ~16 color fields this costs
-    /// roughly 200-400 bytes per theme conversion — negligible for the rare
+    /// roughly 200-400 bytes per theme conversion - negligible for the rare
     /// event of applying a user theme.
     #[must_use]
     pub(crate) fn to_legacy_theme_colors(&self) -> ThemeColors {
@@ -193,14 +193,14 @@ impl ResolvedThemeColors {
 
 /// Intern a string to `&'static str` via `Box::leak`.
 ///
-/// This is intentionally leaked memory — each call allocates a small heap
+/// This is intentionally leaked memory - each call allocates a small heap
 /// buffer that lives for the remainder of the process. Only used when
 /// converting user-edited themes to the legacy `ThemeColors` representation.
 fn intern_string(s: &str) -> &'static str {
     if s.is_empty() {
         return "";
     }
-    // Common constant — avoid allocation.
+    // Common constant - avoid allocation.
     if s == "\x1b[0m" {
         return "\x1b[0m";
     }

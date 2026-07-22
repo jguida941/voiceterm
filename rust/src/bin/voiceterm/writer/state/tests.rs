@@ -327,7 +327,7 @@ fn resize_jetbrains_codex_preserves_anchor_and_defers_repaint_until_settled() {
 
 // Field bug (Cursor+codex): codex's startup reflow ends with a bare
 // `CSI row;1H` + `CSI J` erase-to-end-of-screen that wipes the freshly
-// painted HUD rows AFTER the 2J-detected repaint already landed — the HUD
+// painted HUD rows AFTER the 2J-detected repaint already landed - the HUD
 // stayed blank until the first message triggered another repaint. Bare
 // erase-below must arm the same idle-gated repaint as a full clear.
 #[test]
@@ -1151,7 +1151,7 @@ fn redraw_policy_jetbrains_claude_scroll_defers_immediate_output_redraw() {
 #[test]
 fn redraw_policy_cursor_claude_non_scroll_cursor_mutation_is_throttled() {
     // Within the min interval (a repaint just happened): a keystroke echo must
-    // NOT force a repaint — the old unthrottled force_full +
+    // NOT force a repaint - the old unthrottled force_full +
     // force_redraw_after_preclear on every echo was the per-keystroke HUD
     // flicker in Cursor (field bug).
     let mut ctx = redraw_policy_context(b"\x1b[2K");
@@ -1578,7 +1578,7 @@ fn scheduled_cursor_claude_repair_redraw_fires_without_pending_status_update() {
             .set_cursor_claude_input_repair_due(Some(Instant::now() - Duration::from_millis(1)));
         state.needs_redraw = false;
         // The repair is a line-diff repaint that honors the normal idle/typing
-        // gates (it no longer forces an immediate full redraw) — settle the
+        // gates (it no longer forces an immediate full redraw) - settle the
         // activity clocks so the cycle commits within this call.
         state.last_output_at = Instant::now() - Duration::from_millis(2_000);
         state.last_status_draw_at = Instant::now() - Duration::from_millis(2_000);

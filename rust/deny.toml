@@ -10,7 +10,7 @@ ignore = [
 [licenses]
 confidence-threshold = 0.8
 # voiceterm itself is proprietary (license-file, no SPDX id) and is never
-# published to crates.io (publish = false) — skip it instead of "unlicensed".
+# published to crates.io (publish = false) - skip it instead of "unlicensed".
 private = { ignore = true }
 allow = [
   "Apache-2.0",

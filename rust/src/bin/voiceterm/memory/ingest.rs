@@ -78,7 +78,7 @@ impl MemoryIngestor {
 
     /// Ingest a voice transcript.
     pub(crate) fn ingest_transcript(&mut self, text: &str) {
-        // Transcripts are already clean text from STT — no ANSI stripping needed.
+        // Transcripts are already clean text from STT - no ANSI stripping needed.
         self.ingest_event_raw(
             EventSource::VoiceCapture,
             EventType::VoiceTranscript,

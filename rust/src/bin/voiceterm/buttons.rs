@@ -7,7 +7,7 @@ use std::sync::{Arc, RwLock};
 /// A clickable button region on the HUD.
 ///
 /// Mouse clicks are now hit-tested live against current banner geometry in
-/// input_dispatch (the cached registry went stale across HUD state changes —
+/// input_dispatch (the cached registry went stale across HUD state changes:
 /// field bug: clicks died after the first response streamed). The registry is
 /// still written on every HUD render for state bookkeeping, but its read-side
 /// consumers are gone; the position fields stay for the writers' contract.

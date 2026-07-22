@@ -467,7 +467,7 @@ fn is_benign_shutdown_write_error(err: &anyhow::Error) -> bool {
 
 /// Forks and execs a child process under a new PTY.
 ///
-/// # CRITICAL — HUD overlap fix
+/// # CRITICAL - HUD overlap fix
 ///
 /// `initial_rows` and `initial_cols` MUST be passed from the caller with the
 /// correct terminal size **minus HUD reserved rows**.  DO NOT revert these

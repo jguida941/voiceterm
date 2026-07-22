@@ -20,7 +20,7 @@
 Low-latency Rust terminal overlay for Codex and Claude Code with local Whisper
 STT, PTY passthrough, wake words, macros, and a customizable HUD.
 
-Whisper runs locally by default — no cloud API keys required.
+Whisper runs locally by default - no cloud API keys required.
 Release history: [CHANGELOG](CHANGELOG.md).
 
 If you are new, use this path:
@@ -159,7 +159,7 @@ types the result into your AI CLI input.
 
 ## Hands-Free Quick Start
 
-VoiceTerm supports a fully hands-free workflow — no typing needed at all.
+VoiceTerm supports a fully hands-free workflow - no typing needed at all.
 
 ```bash
 voiceterm --auto-voice --wake-word --voice-send-mode insert
@@ -175,7 +175,7 @@ voiceterm --auto-voice --wake-word --voice-send-mode insert
 
 | Feature | What it does |
 |---------|---------------|
-| **Local speech-to-text** | Whisper runs on your machine — no cloud calls needed |
+| **Local speech-to-text** | Whisper runs on your machine - no cloud calls needed |
 | **Fast voice-to-text** | Local Whisper turns speech into text quickly |
 | **Keep your CLI as-is** | Your backend CLI layout and behavior stay the same |
 | **Auto voice mode** | Keep listening on so you can talk instead of typing |
@@ -189,7 +189,7 @@ voiceterm --auto-voice --wake-word --voice-send-mode insert
 | Tool | What it does |
 |------|--------------|
 | **Voice navigation** | Spoken `scroll`, `send`, `show last error`, `copy last error`, `explain last error` |
-| **Voice macros** | Expand phrases from `.voiceterm/macros.yaml` — see [Voice Macros](#voice-macros) |
+| **Voice macros** | Expand phrases from `.voiceterm/macros.yaml` - see [Voice Macros](#voice-macros) |
 | **Built-in themes** | 11 themes including ChatGPT, Catppuccin, Dracula, Nord, Tokyo Night, and Gruvbox |
 | **Transcript history** | `Ctrl+H` to search and replay past text |
 | **Notification history** | `Ctrl+N` to review recent status messages |
@@ -203,7 +203,7 @@ For full details: [Usage Guide](guides/USAGE.md).
 
 VoiceTerm is optimized for Codex and Claude Code.
 For full backend status and setup details, see
-[Usage Guide — Backend Support](guides/USAGE.md#backend-support).
+[Usage Guide - Backend Support](guides/USAGE.md#backend-support).
 
 | Backend | Status | Notes |
 |---|---|---|
@@ -223,7 +223,7 @@ For full backend status and setup details, see
 | AntiGravity | Not yet supported | Not yet supported | Not available in current releases |
 | Other IDE terminals | Unverified | Unverified | Treat as experimental |
 
-For more IDE details: [Usage Guide — IDE Compatibility](guides/USAGE.md#ide-compatibility).
+For more IDE details: [Usage Guide - IDE Compatibility](guides/USAGE.md#ide-compatibility).
 
 ## UI Overview
 

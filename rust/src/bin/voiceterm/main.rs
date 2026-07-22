@@ -429,7 +429,7 @@ fn prepare_runtime_phase(mut loaded: LoadedConfigPhase) -> Result<RuntimeBuildIn
     };
     {
         // Start from a sane pane: a previous wrapped-CLI session may have left
-        // the HOST terminal stuck in kitty keyboard mode (leaked push — keys
+        // the HOST terminal stuck in kitty keyboard mode (leaked push - keys
         // then arrive as CSI-u escape codes and releases double-fire in every
         // later process), and old session content otherwise stays on screen.
         // Reset the keyboard protocol and clear screen + scrollback before we

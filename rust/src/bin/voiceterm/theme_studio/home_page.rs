@@ -1,4 +1,4 @@
-//! Theme Studio home page — direct port of the original cycle-button interface.
+//! Theme Studio home page - direct port of the original cycle-button interface.
 //!
 //! This preserves the existing Theme Studio overlay behavior exactly as it was,
 //! while allowing new pages (Colors, Components, Export) to be added alongside.

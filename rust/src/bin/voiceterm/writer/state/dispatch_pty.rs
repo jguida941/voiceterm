@@ -83,7 +83,7 @@ impl WriterState {
     /// on JetBrains AND Cursor: HUD absent until the user presses the HUD
     /// hotkey). Codex reflow frames ALSO erase to end-of-screen with bare
     /// `CSI J` from a row above the HUD (field bug: Cursor HUD blank at
-    /// startup until the first message) — those reach the banner rows just
+    /// startup until the first message) - those reach the banner rows just
     /// like a full clear. Either form arms an idle-gated repaint while a HUD
     /// is displayed or pending.
     fn codex_hud_wipe_detected(&self, bytes: &[u8]) -> bool {

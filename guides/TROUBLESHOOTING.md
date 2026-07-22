@@ -123,7 +123,7 @@ python3 scripts/tests/audit_latency_math.py --log-path "${TMPDIR:-/tmp}/voiceter
 If Whisper emits ambient placeholders such as `(keyboard clicking)`,
 `[typing sounds]`, or `(gunshot)`, update to the latest build. Non-speech
 tokens are suppressed at decode time, and the sanitizer strips any remaining
-bracketed, parenthesized, starred, or `♪`-wrapped annotation span — no word
+bracketed, parenthesized, starred, or `♪`-wrapped annotation span - no word
 list is involved, so previously unseen sound tags are covered too. Stock
 noise hallucinations (a stray `Thank you.` decoded from keyboard clatter)
 are dropped at utterance boundaries.

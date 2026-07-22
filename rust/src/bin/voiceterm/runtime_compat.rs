@@ -9,7 +9,7 @@ use std::{cell::Cell, cell::RefCell, thread_local};
 
 // Gap rows previously provided buffer space for the ToolExecution
 // suppress/unsuppress cycle which toggled PTY winsize rapidly.  That cycle
-// has been removed — the overlay is now stable during tool execution — so
+// has been removed - the overlay is now stable during tool execution - so
 // gap rows are zeroed out.  Users who need extra buffer can override via
 // VOICETERM_CLAUDE_EXTRA_GAP_ROWS / VOICETERM_HUD_SAFETY_GAP_ROWS.
 // Claude's interactive UI (especially in VS Code/Cursor integrated terminals)

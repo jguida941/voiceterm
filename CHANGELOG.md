@@ -11,10 +11,10 @@ Some historical entries reference internal tooling that has since been removed.
 
 ### Stability status
 
-- **Standalone VoiceTerm release** — VoiceTerm's product runtime and release
+- **Standalone VoiceTerm release** - VoiceTerm's product runtime and release
   pipeline are now separated from the unrelated governance/control-plane
   platform that had accumulated in this repository.
-- **Current terminal matrix** — Codex and Claude Code are field-tested in
+- **Current terminal matrix** - Codex and Claude Code are field-tested in
   Cursor and JetBrains terminals. No known bugs remain in that tested matrix.
   Report a recurrence at <https://github.com/jguida941/voiceterm/issues> with
   the terminal, backend, VoiceTerm version, reproduction steps, and a
@@ -90,7 +90,7 @@ Some historical entries reference internal tooling that has since been removed.
 
 ### Stability status
 
-- **Field-validated terminal compatibility release** — the corrected flows
+- **Field-validated terminal compatibility release** - the corrected flows
   were manually verified with both Codex and Claude across Cursor and
   JetBrains terminals. No known bugs remain in the tested interaction matrix.
   If an issue appears, report it at
@@ -99,38 +99,38 @@ Some historical entries reference internal tooling that has since been removed.
 
 ### Fixed
 
-- **Codex speech no longer queues behind an active response** — transcripts
+- **Codex speech no longer queues behind an active response** - transcripts
   captured while Codex is thinking, responding, or running tools are inserted
   directly into the visible Codex composer so they can be edited immediately.
   Claude retains its established delivery and queue semantics.
-- **Codex HUD arrow navigation is reliable** — Left/Right now traverse every
+- **Codex HUD arrow navigation is reliable** - Left/Right now traverse every
   visible VoiceTerm button in order, while Kitty keyboard release/repeat
   frames are ignored instead of clearing focus or restarting navigation.
-- **Codex composer and history keep vertical-arrow ownership** — Up/Down leave
+- **Codex composer and history keep vertical-arrow ownership** - Up/Down leave
   HUD focus and pass through to Codex, restoring composer/history navigation
   after a message has been sent without disturbing horizontal HUD controls.
-- **Cursor+Claude slash selectors receive Left/Right** — Cursor's ordinary
+- **Cursor+Claude slash selectors receive Left/Right** - Cursor's ordinary
   arrow escape sequences no longer get captured as VoiceTerm HUD navigation
   in Claude sessions, so `/` command selectors such as the effort picker can
   be adjusted normally. JetBrains+Claude HUD behavior remains unchanged.
-- **Settings and history overlays no longer repaint the conversation** —
+- **Settings and history overlays no longer repaint the conversation**:
   Codex-mode VoiceTerm overlays use isolated screen state and buffer child PTY
   output while open, preventing settings, transcript history, help, and studio
   panels from overwriting the chat or forcing a top-to-bottom scroll flash.
-- **JetBrains keeps the Codex HUD visible during work** — safe repaint gating
+- **JetBrains keeps the Codex HUD visible during work** - safe repaint gating
   prevents the HUD from disappearing for the full duration of thinking,
   streaming, tool use, or coding and then returning only when Codex becomes
   idle.
-- **Random HUD fragments and detached borders are eliminated** — Codex output
+- **Random HUD fragments and detached borders are eliminated** - Codex output
   is repainted only on safe absolute-positioned frames, with synchronized
   updates keeping the child frame and HUD presentation atomic instead of
   scattering stale HUD rows through the transcript.
-- **JetBrains pane dragging and terminal resizing settle cleanly** — rapid
+- **JetBrains pane dragging and terminal resizing settle cleanly** - rapid
   intermediate resize events are coalesced, old HUD anchors are retained until
   the geometry stabilizes, and one final redraw places the HUD at the new
   bottom edge without orphaned borders or resize flicker.
 - **Cursor and JetBrains terminal state remains stable after Codex UI events**
-  — cursor positioning, screen restoration, and HUD redraw bookkeeping now
+  - cursor positioning, screen restoration, and HUD redraw bookkeeping now
   stay coordinated across full-screen selectors, streamed output, overlays,
   and terminal geometry changes.
 
@@ -145,7 +145,7 @@ Some historical entries reference internal tooling that has since been removed.
 
 ### Fixed
 
-- **Whisper sound-event annotations leaking into transcripts** — the
+- **Whisper sound-event annotations leaking into transcripts** - the
   transcript sanitizer used an enumerated noise-word list, so any tag not on
   it (`(keyboard clicking)`, `[typing sounds]`, `(gunshot)`, `*sighs*`)
   passed straight into the terminal and disrupted voice mode. Non-speech
@@ -153,33 +153,33 @@ Some historical entries reference internal tooling that has since been removed.
   sanitizer strips every bracketed, parenthesized, starred, or `♪`-wrapped
   span regardless of wording, including trailing unclosed markers.
   (`stt.rs`, `voice.rs`)
-- **Stock noise hallucinations injected as text** — phrases Whisper decodes
+- **Stock noise hallucinations injected as text** - phrases Whisper decodes
   from keyboard clatter or room tone (`Thank you.`, `Thanks for watching!`,
   bare `you`) are dropped at utterance boundaries, and a capture that is
   nothing but such a phrase now yields an empty transcript instead of
   reaching the terminal. (`stt.rs`, `voice.rs`)
-- **Sighs and sneezes spelled out as words** — Whisper renders a sigh as
+- **Sighs and sneezes spelled out as words** - Whisper renders a sigh as
   `Ahhh.` and a sneeze as `Achoo!`; these two shapes (elongated `ahh+`,
   `a/ah/at + choo`) are now filtered as tokens. Deliberately narrow so real
   words (`ah`, `choose`, `ssh`) are untouched. (`voice.rs`)
 
 ### Changed
 
-- **macOS builds pin bindgen to Apple's libclang** — a Homebrew llvm 22 on
+- **macOS builds pin bindgen to Apple's libclang** - a Homebrew llvm 22 on
   `PATH` made bindgen emit opaque whisper.cpp structs, failing
   `whisper-rs-sys` layout asserts at compile time; the Makefile now exports
   `LIBCLANG_PATH` to the CommandLineTools libclang on Darwin (overridable
   via `make LIBCLANG_PATH=...`). (`Makefile`)
-- **GitHub language stats classify the repo as Rust** — `.gitattributes`
+- **GitHub language stats classify the repo as Rust** - `.gitattributes`
   marks Python as non-detectable and dev tooling as vendored for Linguist,
   so the language bar reflects the Rust core instead of the Python dev
   scripts. (`.gitattributes`)
 
 ## [1.2.3] - 2026-07-10
 
-### Fixed (field bugs — Cursor / JetBrains IDE terminals)
+### Fixed (field bugs - Cursor / JetBrains IDE terminals)
 
-- **Claude HUD box flicker in Cursor (typing + streaming)** — root cause:
+- **Claude HUD box flicker in Cursor (typing + streaming)** - root cause:
   recent Cursor builds stopped exporting `CURSOR_*` env hints
   (`TERM_PROGRAM` is plain `vscode`), so `detect_terminal_host()`
   classifies Cursor as `Other` and Claude sessions hit the legacy
@@ -188,37 +188,37 @@ Some historical entries reference internal tooling that has since been removed.
   only on genuine transitions (overlay panels / pending status clears),
   mirroring the Cursor branch. (`writer/state/policy.rs`)
 - **HUD prompt-suppression retired on non-rolling hosts (Cursor/Other)**
-  — the approval-hint latch collapsed the HUD to height 0 and released
+  - the approval-hint latch collapsed the HUD to height 0 and released
   on a 3s debounce (black blink while typing; full/min oscillation with
   codex). Structural row protection (reserved gap rows + DECSTBM
   confined to the child viewport) supersedes it; JetBrains keeps its
   rolling-detector suppression. (`event_loop/prompt_occlusion.rs`)
-- **Codex HUD hidden at start / after clears (any host)** — codex 0.144
+- **Codex HUD hidden at start / after clears (any host)** - codex 0.144
   destructive clears (`2J`/`3J`/RIS) wiped the freshly painted HUD with
   nothing arming a repaint; destructive clears now arm an idle-gated
   full repaint. (`writer/state/dispatch_pty.rs`, `policy.rs`)
-- **Dead plain Enter under leaked kitty keyboard protocol** — codex
+- **Dead plain Enter under leaked kitty keyboard protocol** - codex
   0.144 pushes kitty flags through the relay; dead sessions left panes
   poisoned so Enter arrived as CSI-u `ESC[13u` and every key double-fired
   (press+release). The input parser now decodes CSI-u basics (Enter
   press mapped, releases/repeats consumed), and startup/exit write a
   kitty-flags reset plus screen clear to de-poison panes.
   (`input/parser.rs`, `arrow_keys.rs`, `terminal_restore.rs`, `main.rs`)
-- **HUD buttons / overlay clicks dying after banner size changes** —
+- **HUD buttons / overlay clicks dying after banner size changes**:
   clicks are now hit-tested live against current button geometry instead
   of a stale registry cache; overlay panels hit-test against their real
   left-anchored column origin (fixes dead `[Close]` / "Click/Tap select"
   and the apparent freeze). (`event_loop/input_dispatch.rs`,
   `overlay/overlay_mouse.rs`)
-- **Cursor+Claude cadence repaints tear-hardened** — the input-repair
+- **Cursor+Claude cadence repaints tear-hardened** - the input-repair
   timer and non-scroll/scroll throttles request line-diff repaints
   (zero bytes when banner content is unchanged) instead of forced
   full-row rewrites. (`writer/state/policy.rs`, `redraw.rs`)
-- **Claude status-row corruption / trailing artifacts in Cursor** — the
+- **Claude status-row corruption / trailing artifacts in Cursor** - the
   DECSTBM scroll region is confined to the child PTY viewport bottom
   instead of `rows - banner_height`, so child scrolling can never smear
   HUD rows. (`writer/render.rs`, `terminal.rs`)
-- **Previous-session screen residue at startup** — startup now writes a
+- **Previous-session screen residue at startup** - startup now writes a
   full clear (`2J`/`3J`) alongside the kitty reset before the splash.
   (`main.rs`)
 
@@ -234,7 +234,7 @@ Some historical entries reference internal tooling that has since been removed.
 ### Fixed
 
 - `dev/scripts/devctl/commands/vcs/commit.py` +
-  `dev/scripts/checks/startup_authority_contract/runtime_checks.py` —
+  `dev/scripts/checks/startup_authority_contract/runtime_checks.py`:
   `devctl commit` self-block (LIVE_RUN.md Q1) cleared via narrow
   `DEVCTL_COMMIT_GATE_BYPASS_STARTUP_AUTHORITY` env var. The governed
   commit path now works end-to-end instead of falling back to raw
@@ -252,7 +252,7 @@ Some historical entries reference internal tooling that has since been removed.
   governed scheduled-action registry; A8 auto-relaunch on conductor
   death; A9 sync LIVE_RUN entries into reviewer inbox; A10 first-
   class `enhancement` packet kind.
-- `dev/audits/LIVE_RUN.md` — running trial log of a remote-control
+- `dev/audits/LIVE_RUN.md` - running trial log of a remote-control
   session documenting every finding, every confirmed-working surface,
   and every unknown / suspected blind spot during the Q1-Q17 issue
   sweep. Reviewer (Codex) reads from this file to understand session
@@ -260,18 +260,18 @@ Some historical entries reference internal tooling that has since been removed.
 
 ### Fixed
 
-- `dev/scripts/devctl/runtime/review_state_models.py` — defensive
+- `dev/scripts/devctl/runtime/review_state_models.py` - defensive
   `_packet_requires_operator_approval` helper that tolerates dict-shaped
   packets in `ReviewState.packets`, unblocking `review-channel status`,
   `review-channel doctor`, and `devctl dashboard` when the packet queue
   contains entries that upstream deserializers left un-hydrated. Hotfix
   for the crash documented in `LIVE_RUN.md` Q11.
-- `dev/scripts/checks/code_shape/code_shape_policy.py` — removed two
+- `dev/scripts/checks/code_shape/code_shape_policy.py` - removed two
   stale `PATH_POLICY_OVERRIDES` entries (`commands/sync.py`,
   `commands/check_phases.py`) that had stayed below the language default
   soft limit for 30+ days. Both files now fall back to
   `LANGUAGE_POLICIES[".py"]` via `policy_for_path`.
-- `dev/scripts/devctl/runtime/project_governance_contract.py` — flipped
+- `dev/scripts/devctl/runtime/project_governance_contract.py` - flipped
   `BridgeConfig.operator_interaction_mode` dataclass default from
   `"local_terminal"` to `"remote_control"` as a tactical unblock for
   headless launches in remote-operator mode (`LIVE_RUN.md` Q4).

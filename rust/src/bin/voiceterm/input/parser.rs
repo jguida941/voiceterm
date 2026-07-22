@@ -740,7 +740,7 @@ mod tests {
     }
 
     // Field bug (Cursor+codex): kitty-armed terminals report plain Enter as
-    // CSI-u 13 — voiceterm treated it as opaque bytes, so its own Enter
+    // CSI-u 13 - voiceterm treated it as opaque bytes, so its own Enter
     // semantics (submit, overlay activation) went dead and only Shift+Enter
     // (legacy encoding) worked.
     #[test]

@@ -176,7 +176,7 @@ VAD (voice activity detection) flags control when VoiceTerm starts and stops rec
 | `--voice-sample-rate <HZ>` | Audio sample rate | 16000 |
 | `--voice-vad-frame-ms <MS>` | VAD frame size | 20 |
 | `--voice-vad-smoothing-frames <N>` | VAD smoothing window | 3 |
-| `--voice-vad-engine <earshot\|simple>` | VAD implementation — earshot is the built-in advanced engine | earshot (when built with `vad_earshot`), otherwise `simple` |
+| `--voice-vad-engine <earshot\|simple>` | VAD implementation - earshot is the built-in advanced engine | earshot (when built with `vad_earshot`), otherwise `simple` |
 | `--voice-channel-capacity <N>` | Internal frame channel capacity | 100 |
 
 ---

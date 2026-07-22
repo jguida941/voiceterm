@@ -30,7 +30,7 @@ pub(super) fn render_theme_studio_overlay_for_state(state: &EventLoopState, deps
 
     match state.theme_studio.page {
         StudioPage::Home => {
-            // Original home page rendering — unchanged.
+            // Original home page rendering - unchanged.
             let selected = state
                 .theme_studio
                 .selected

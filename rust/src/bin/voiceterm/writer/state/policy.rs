@@ -212,7 +212,7 @@ impl RedrawPolicy {
         // NOTE: Cursor+Claude keystroke echoes (cursor-line mutations) are
         // deliberately NOT force-repainted here. The throttled non-scroll path
         // above covers this profile at claude_non_scroll_redraw_min_interval
-        // cadence and the input-repair timer re-arms after typing settles —
+        // cadence and the input-repair timer re-arms after typing settles:
         // both as LINE-DIFF repaints (zero bytes while the banner is static).
         // Any full-row rewrite tied to typing/streaming cadence blinks the
         // full HUD box in Cursor (field bug, twice): full repaints belong
@@ -380,7 +380,7 @@ pub(super) fn should_preclear_bottom_rows(
             // NOTE: Cursor+Claude scroll chunks no longer pre-clear the HUD
             // band on every chunk. The old per-chunk pre-clear (with the
             // repaint throttled separately) blanked the HUD for visible
-            // stretches while typing/streaming — the field "HUD disappears
+            // stretches while typing/streaming - the field "HUD disappears
             // and reappears" flash. Its original job (HUD rows smearing into
             // transcript history during scrolls) is now handled structurally:
             // the DECSTBM scroll region is confined to the child viewport, so
@@ -392,7 +392,7 @@ pub(super) fn should_preclear_bottom_rows(
         // Non-profiled terminals: transition-only pre-clear, like Cursor.
         // The legacy unconditional per-scroll-chunk pre-clear blanked the HUD
         // band on every typing/streaming chunk and the idle-gated repaint
-        // restored it later — the field "box disappears and reappears" flicker
+        // restored it later - the field "box disappears and reappears" flicker
         // for Claude. This branch is what Cursor actually runs today: recent
         // Cursor builds stopped exporting the CURSOR_* env hints (only
         // TERM_PROGRAM=vscode remains), so detect_terminal_host() classifies

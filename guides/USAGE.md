@@ -102,8 +102,8 @@ Active verified hosts are Cursor terminal and JetBrains terminals.
 The current release includes fixes for overlay flicker, stale HUD artifacts,
 pane resizing, and backend selector navigation in the verified matrix. Report
 any recurrence with the terminal, backend, version, and reproduction steps.
-If a visual artifact does appear, resize the terminal once—even by one row or
-column—to force a clean layout recalculation.
+If a visual artifact does appear, resize the terminal once - even by one row or
+column - to force a clean layout recalculation.
 
 ## How Voice Input Works
 
@@ -616,7 +616,7 @@ Latency badge behavior:
 
 - shows post-capture STT delay (`stt_ms`) when reliable metrics exist
 - larger `ms` values on longer utterances are expected for non-streaming STT
-- severity color follows real-time factor (`rtf = stt_ms / speech_ms` — how fast transcription runs compared to speech length; lower is faster)
+- severity color follows real-time factor (`rtf = stt_ms / speech_ms` - how fast transcription runs compared to speech length; lower is faster)
 - recording duration is shown separately while speaking
 - both manual/PTT and auto modes hide latency while actively recording/processing
 - the badge returns after capture/transcription completes with the latest reliable STT sample

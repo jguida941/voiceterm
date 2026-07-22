@@ -17,7 +17,7 @@ use super::state::display::OverlayPanel;
 const SAVE_CURSOR_COMBINED: &[u8] = b"\x1b[s\x1b7";
 const RESTORE_CURSOR_COMBINED: &[u8] = b"\x1b[u\x1b8";
 // DEC-only variants for JetBrains/JediTerm.  JediTerm does NOT implement
-// CSI s / CSI u (ANSI cursor save/restore) — only DEC DECSC/DECRC
+// CSI s / CSI u (ANSI cursor save/restore) - only DEC DECSC/DECRC
 // (\x1b7 / \x1b8) is supported.  Sending unsupported ANSI sequences
 // before DEC can cause JediTerm to misparse the stream, leaving the
 // cursor stuck in the HUD area.  Scroll regions are disabled for
@@ -203,19 +203,19 @@ pub(super) fn write_status_banner(
         return Ok(());
     }
 
-    // INVARIANT — HUD scroll region: Set scroll region to confine PTY scrolling
+    // INVARIANT - HUD scroll region: Set scroll region to confine PTY scrolling
     // above the HUD.  This is the same technique tmux uses for its status bar
-    // — the child process can only scroll within rows 1..=(rows - height),
+    // - the child process can only scroll within rows 1..=(rows - height),
     // keeping the HUD rows untouched by normal terminal output.  Without this,
     // Claude Code's output scrolls into the HUD area and overlaps the status
     // bar.  The paired reset lives in clear_status_banner().  DO NOT remove
-    // either side without removing the other — mismatched scroll regions break
+    // either side without removing the other - mismatched scroll regions break
     // terminal output.
     //
     // EXCEPTION: JetBrains/JediTerm does NOT support scroll regions correctly.
     // Setting DECSTBM causes stacked/duplicated HUD frames and garbled approval
     // card text.  The PTY row reduction (startup_pty_geometry + apply_pty_winsize)
-    // is sufficient for JetBrains — skip the scroll region there.
+    // is sufficient for JetBrains - skip the scroll region there.
     if family != TerminalHost::JetBrains {
         let scroll_bottom = scroll_bottom.min(rows.saturating_sub(height as u16)).max(1);
         if scroll_bottom >= 1 {
@@ -327,9 +327,9 @@ pub(super) fn clear_status_banner(
         sequence.extend_from_slice(b"\x1b[2K"); // Clear line
     }
 
-    // INVARIANT — HUD scroll region: Reset scroll region to the full terminal
+    // INVARIANT - HUD scroll region: Reset scroll region to the full terminal
     // now that the HUD is removed.  This is the paired reset for the scroll
-    // region set in write_status_banner().  DO NOT remove — without this reset,
+    // region set in write_status_banner().  DO NOT remove - without this reset,
     // the terminal stays locked to a smaller scroll area after the HUD clears.
     // Skipped on JetBrains/JediTerm (see write_status_banner for rationale).
     if family != TerminalHost::JetBrains {
@@ -628,7 +628,7 @@ mod tests {
 
     // Field bug (Cursor+Claude): the scroll region used rows − banner_height
     // while the child PTY was shrunk by banner_height + gap rows, leaving the
-    // child's own status row INSIDE the scrollable area — stale HUD glyphs
+    // child's own status row INSIDE the scrollable area - stale HUD glyphs
     // scrolled onto it and interleaved with Claude's status bar. The region
     // must confine scrolling to the caller-provided child viewport bottom.
     #[test]

@@ -463,7 +463,7 @@ fn sanitize_transcript(text: &str) -> String {
         .filter(|token| !is_vocal_noise_token(token))
         .collect::<Vec<_>>()
         .join(" ");
-    // A capture of pure noise decodes into stock phrases like "Thank you." —
+    // A capture of pure noise decodes into stock phrases like "Thank you.":
     // return nothing instead of injecting them into the terminal.
     if stt::is_silence_hallucination(&cleaned) {
         return String::new();
@@ -472,8 +472,8 @@ fn sanitize_transcript(text: &str) -> String {
 }
 
 /// True for the vocal noises Whisper spells out as words: an elongated sigh
-/// ("Ahh", "Ahhh.") or a sneeze ("Achoo!"). Deliberately narrow — only these
-/// two reported shapes — so real dictation is never swallowed.
+/// ("Ahh", "Ahhh.") or a sneeze ("Achoo!"). Deliberately narrow - only these
+/// two reported shapes - so real dictation is never swallowed.
 fn is_vocal_noise_token(token: &str) -> bool {
     const VOCAL_NOISE_PATTERN: &str = r"(?x)^(?:
         a{2,}h+|a+h{2,}     # aah, ahh, ahhh (sigh; plain 'ah' stays)

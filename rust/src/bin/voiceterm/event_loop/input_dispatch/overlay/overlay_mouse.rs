@@ -88,7 +88,7 @@ pub(super) fn handle_overlay_mouse_click(
     }
 
     if state.ui.overlay_mode == OverlayMode::ThemeStudio {
-        // Mouse selection only applies to the Home page — other pages have
+        // Mouse selection only applies to the Home page - other pages have
         // different layouts and fewer rows, so Home-page index math would
         // map clicks to wrong items (or out-of-bounds).
         if state.theme_studio.page != crate::theme_studio::StudioPage::Home {

@@ -47,7 +47,7 @@ pub(super) struct OutputChunkSignals {
 }
 
 /// Evaluate all signal flags from an output chunk and optional non-rolling
-/// approval window snapshot. No state mutation — the result drives coordinator
+/// approval window snapshot. No state mutation - the result drives coordinator
 /// decisions.
 #[must_use]
 pub(super) fn evaluate_output_chunk_signals(

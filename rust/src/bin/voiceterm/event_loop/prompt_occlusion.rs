@@ -389,7 +389,7 @@ fn feed_detector_and_apply_latch(
         // produced suppress → 3s-debounce → release cycles: the HUD blinking
         // black while typing or awaiting a reply (claude) and full/min
         // oscillation (codex). JetBrains keeps its rolling-detector
-        // suppression above — JediTerm has no scroll-region protection.
+        // suppression above - JediTerm has no scroll-region protection.
         if claude_hud_debug_enabled() {
             log_debug(&format!(
                 "[claude-hud-debug] approval hint observed (non-rolling; suppression retired): explicit_chunk={}, explicit_window={}, numbered_chunk={}, numbered_window={}, window_live={}",

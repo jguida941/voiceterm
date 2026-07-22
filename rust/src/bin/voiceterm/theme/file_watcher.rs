@@ -2,7 +2,7 @@
 //!
 //! Checks the mtime of a theme file on a configurable interval and returns
 //! new content when the file has changed. No additional crate dependencies
-//! required — uses `std::fs::metadata` for mtime.
+//! required - uses `std::fs::metadata` for mtime.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -43,7 +43,7 @@ impl ThemeFileWatcher {
             return None;
         }
 
-        // Mtime changed — read file and compare content hash.
+        // Mtime changed - read file and compare content hash.
         let content = fs::read_to_string(&self.path).ok()?;
         let hash = Self::hash_content(&content);
 
@@ -71,7 +71,7 @@ impl ThemeFileWatcher {
         (mtime, hash)
     }
 
-    /// Simple FNV-1a hash — good enough for change detection, no crypto needed.
+    /// Simple FNV-1a hash - good enough for change detection, no crypto needed.
     fn hash_content(content: &str) -> u64 {
         let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
         for byte in content.bytes() {

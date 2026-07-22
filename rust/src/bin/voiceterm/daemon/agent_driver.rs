@@ -163,7 +163,7 @@ pub(super) fn spawn_agent(
 
     // The spawned task needs its own copies of session_id (as String) and
     // working_dir. Extract the task's copies first, then move the originals
-    // into the handle — avoids an extra SessionId::clone().
+    // into the handle - avoids an extra SessionId::clone().
     let sid = session_id.0.clone();
     let project_id = working_dir.to_string();
 
@@ -257,7 +257,7 @@ fn run_agent_driver(
             log_debug(&format!(
                 "agent {session_id}: exited with code {exit_code:?}"
             ));
-            // Move session_id into the event instead of cloning — this is
+            // Move session_id into the event instead of cloning - this is
             // the last use of session_id before return.
             event_bus.broadcast(DaemonEvent::AgentExited {
                 session_id,
@@ -273,7 +273,7 @@ fn run_agent_driver(
     // Memory bridge flushed on drop via its Drop impl.
     alive.store(false, Ordering::Relaxed);
     log_debug(&format!("agent {session_id}: driver stopped"));
-    // Move session_id into the event — last use before function exit.
+    // Move session_id into the event - last use before function exit.
     event_bus.broadcast(DaemonEvent::AgentKilled { session_id });
 }
 

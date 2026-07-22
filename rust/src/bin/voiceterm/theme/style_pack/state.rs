@@ -139,7 +139,7 @@ pub(crate) fn runtime_theme_file_override() -> Option<String> {
 
 /// Set a full runtime color palette override from the Theme Studio Colors page.
 ///
-/// Takes highest precedence when set — `resolve_theme_colors()` checks this
+/// Takes highest precedence when set - `resolve_theme_colors()` checks this
 /// before style-pack JSON, TOML files, or built-in themes.
 #[cfg(not(test))]
 pub(crate) fn set_runtime_color_override(colors: ThemeColors) {

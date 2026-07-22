@@ -90,10 +90,10 @@ pub(crate) fn resolved_rows(cached: u16) -> u16 {
     }
 }
 
-/// INVARIANT — HUD scroll region: Returns `(terminal_rows, terminal_cols,
+/// INVARIANT - HUD scroll region: Returns `(terminal_rows, terminal_cols,
 /// pty_rows, pty_cols)` with the PTY rows reduced by the HUD reservation.
 /// This MUST be called before `PtyOverlaySession::new()`.  DO NOT remove the
-/// reserved-row subtraction or move PTY creation before this call — backends
+/// reserved-row subtraction or move PTY creation before this call - backends
 /// like Claude Code cache `process.stdout.rows` at startup and will lay out
 /// their input prompt on the HUD rows, causing persistent overlap that no
 /// later SIGWINCH can reliably fix.
@@ -109,11 +109,11 @@ fn startup_pty_rows(rows: u16, cols: u16, hud_style: HudStyle) -> u16 {
     rows.saturating_sub(reserved).max(1)
 }
 
-/// The child's believed bottom row for the plain (no-overlay) banner state —
+/// The child's believed bottom row for the plain (no-overlay) banner state:
 /// the SAME row-aware math `apply_pty_winsize` uses to size the PTY. The
 /// writer confines the DECSTBM scroll region to this bottom so the child's own
-/// bottom row (e.g. Claude's status bar) can never scroll into — or share a
-/// host row with — the HUD band or the reserved gap rows above it.
+/// bottom row (e.g. Claude's status bar) can never scroll into - or share a
+/// host row with - the HUD band or the reserved gap rows above it.
 pub(crate) fn child_viewport_rows_for_banner(
     rows: u16,
     cols: u16,

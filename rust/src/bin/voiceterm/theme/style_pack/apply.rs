@@ -1,4 +1,4 @@
-//! Override application — maps runtime override enums to schema overrides
+//! Override application - maps runtime override enums to schema overrides
 //! and applies them to `StylePack` and `ThemeColors`.
 
 use super::super::runtime_overrides::{

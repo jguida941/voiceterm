@@ -41,7 +41,7 @@ fn jetbrains_destructive_clear_state(cursor_slot_busy: bool) -> WriterState {
 fn pty_output_may_scroll_rows_skips_csi_escape_sequences() {
     let mut col = 0usize;
     // CSI sequence parameters should NOT count as printable characters.
-    // "\x1b[31m" is SGR (3 param bytes + final 'm') — column should stay 0.
+    // "\x1b[31m" is SGR (3 param bytes + final 'm') - column should stay 0.
     assert!(!pty_output_may_scroll_rows(
         80,
         &mut col,
@@ -54,7 +54,7 @@ fn pty_output_may_scroll_rows_skips_csi_escape_sequences() {
 #[test]
 fn pty_output_may_scroll_rows_handles_mixed_csi_and_printable() {
     let mut col = 0usize;
-    // "\x1b[32mHi" — SGR skipped, then 'H' and 'i' count as 2 printable chars.
+    // "\x1b[32mHi" - SGR skipped, then 'H' and 'i' count as 2 printable chars.
     assert!(!pty_output_may_scroll_rows(
         80,
         &mut col,
@@ -67,7 +67,7 @@ fn pty_output_may_scroll_rows_handles_mixed_csi_and_printable() {
 #[test]
 fn pty_output_may_scroll_rows_skips_two_byte_escape_sequences() {
     let mut col = 0usize;
-    // ESC 7 (save cursor) + ESC 8 (restore cursor) — both should be skipped.
+    // ESC 7 (save cursor) + ESC 8 (restore cursor) - both should be skipped.
     assert!(!pty_output_may_scroll_rows(
         80,
         &mut col,
