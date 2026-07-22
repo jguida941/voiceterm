@@ -37,12 +37,16 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libasound2-dev
 
       - name: Run perf smoke test
+        env:
+          VOICETERM_LOG_PATH: ${{ runner.temp }}/voiceterm_perf_test.log
         run: cargo test --no-default-features runtime_support::tests::perf_smoke_emits_voice_metrics -- --nocapture
 
       - name: Verify voice metrics
+        env:
+          VOICETERM_LOG_PATH: ${{ runner.temp }}/voiceterm_perf_test.log
         run: |
           set -euo pipefail
-          LOG_PATH="${TMPDIR:-${TEMP:-${TMP:-/tmp}}}/voiceterm_tui.log"
+          LOG_PATH="${VOICETERM_LOG_PATH}"
           echo "Inspecting $LOG_PATH"
           if ! grep -q "voice_metrics|" "$LOG_PATH"; then
             echo "voice_metrics log missing from log" >&2
