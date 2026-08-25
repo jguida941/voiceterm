@@ -24,8 +24,7 @@ Some historical entries reference internal tooling that has since been removed.
 
 - Removed the portable governance/control-plane implementation, generated
   authority state, review packets, dashboards, and repo policy projections
-  from the VoiceTerm repository. The pre-cleanup repository remains available
-  through the `v1.2.5` tag and Git history.
+  from the VoiceTerm repository.
 - Removed the governance-only Dev panel, Action Center, developer event flags,
   operator console, mobile companion scaffold, and their dedicated tests and
   workflows. `Ctrl+D` once again passes EOF directly to the backend CLI.
