@@ -65,4 +65,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add Formula/voiceterm.rb README.md
           git commit -m "Update VoiceTerm to v${VERSION}"
+          # Plain git never reads GH_TOKEN; route the tap push through gh so the
+          # write token in this step is the credential the push uses.
+          gh auth setup-git
           git push origin HEAD:main
