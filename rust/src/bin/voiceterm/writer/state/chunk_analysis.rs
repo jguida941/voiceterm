@@ -492,3 +492,55 @@ pub(super) fn track_cursor_save_restore(
         next_carry,
     )
 }
+
+/// Index where a trailing incomplete UTF-8 sequence starts, or `bytes.len()`
+/// when the chunk ends on a character boundary. Bytes that can never complete
+/// (stray continuation bytes) are not held.
+pub(super) fn incomplete_utf8_tail_start(bytes: &[u8]) -> usize {
+    let len = bytes.len();
+    for back in 1..=len.min(3) {
+        let idx = len - back;
+        let lead = bytes[idx];
+        if lead & 0b1100_0000 == 0b1000_0000 {
+            continue; // continuation byte: keep looking for the lead
+        }
+        let need = if lead & 0b1110_0000 == 0b1100_0000 {
+            2
+        } else if lead & 0b1111_0000 == 0b1110_0000 {
+            3
+        } else if lead & 0b1111_1000 == 0b1111_0000 {
+            4
+        } else {
+            1
+        };
+        return if need > back { idx } else { len };
+    }
+    len
+}
+
+#[cfg(test)]
+mod utf8_tail_tests {
+    use super::incomplete_utf8_tail_start;
+
+    #[test]
+    fn complete_chunks_are_not_held() {
+        assert_eq!(incomplete_utf8_tail_start(b""), 0);
+        assert_eq!(incomplete_utf8_tail_start(b"abc"), 3);
+        assert_eq!(incomplete_utf8_tail_start("rule: \u{2500}".as_bytes()), 9);
+        assert_eq!(incomplete_utf8_tail_start("x\u{1F600}".as_bytes()), 5);
+    }
+
+    #[test]
+    fn an_incomplete_trailing_sequence_is_held_from_its_lead_byte() {
+        assert_eq!(incomplete_utf8_tail_start(b"rule: \xe2"), 6);
+        assert_eq!(incomplete_utf8_tail_start(b"rule: \xe2\x94"), 6);
+        assert_eq!(incomplete_utf8_tail_start(b"x\xf0\x9f\x98"), 1);
+        assert_eq!(incomplete_utf8_tail_start(b"\xc3"), 0);
+    }
+
+    #[test]
+    fn stray_continuation_bytes_are_written_not_held() {
+        assert_eq!(incomplete_utf8_tail_start(b"\x80\x80\x80"), 3);
+        assert_eq!(incomplete_utf8_tail_start(b"ab\x80"), 3);
+    }
+}

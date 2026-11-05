@@ -245,6 +245,9 @@ pub(super) struct WriterState {
     mouse_enabled: bool,
     codex_overlay_isolation: CodexOverlayIsolation,
     child_scroll_region: scroll_region::ChildScrollRegionTracker,
+    /// Incomplete trailing UTF-8 sequence from the last PTY chunk, written only
+    /// once the child completes it so no HUD paint can land inside a character.
+    utf8_tail: Vec<u8>,
 }
 
 impl WriterState {
@@ -279,7 +282,18 @@ impl WriterState {
             mouse_enabled: false,
             codex_overlay_isolation: CodexOverlayIsolation::default(),
             child_scroll_region: scroll_region::ChildScrollRegionTracker::default(),
+            utf8_tail: Vec::new(),
         }
+    }
+
+    /// Prepend the held tail and split off a trailing incomplete UTF-8 sequence,
+    /// which stays held until the next chunk completes it.
+    fn take_utf8_complete_prefix(&mut self, bytes: Vec<u8>) -> Vec<u8> {
+        let mut stream = std::mem::take(&mut self.utf8_tail);
+        stream.extend_from_slice(&bytes);
+        let split = incomplete_utf8_tail_start(&stream);
+        self.utf8_tail = stream.split_off(split);
+        stream
     }
 
     fn terminal_family(&self) -> TerminalHost {
@@ -518,6 +532,7 @@ fn pty_output_may_scroll_rows(
 
 mod adapter_state;
 mod chunk_analysis;
+use chunk_analysis::incomplete_utf8_tail_start;
 mod codex_overlay;
 mod dispatch;
 mod dispatch_pty;

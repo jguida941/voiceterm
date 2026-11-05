@@ -7,6 +7,16 @@ Some historical entries reference internal tooling that has since been removed.
 
 ## [Unreleased]
 
+### Fixed
+
+- HUD repaints can no longer land inside a multibyte character from the wrapped
+  CLI. PTY output arrives in raw chunks, so a character such as a box-drawing
+  rule could be split across two chunks with a bar repaint written in between,
+  which the terminal rendered as replacement glyphs (seen in Claude's composer
+  border). The writer now holds an incomplete trailing character until the
+  next chunk completes it. Complete output is still written immediately and
+  verbatim.
+
 ## [1.2.8] - 2026-11-04
 
 ### Fixed

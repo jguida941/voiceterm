@@ -52,6 +52,12 @@ enum PtyWriteError {
 
 impl WriterState {
     pub(super) fn handle_pty_output(&mut self, bytes: Vec<u8>) -> bool {
+        // Never let a HUD paint land inside one of the child's multibyte
+        // characters: hold an incomplete trailing sequence for the next chunk.
+        let bytes = self.take_utf8_complete_prefix(bytes);
+        if bytes.is_empty() {
+            return true;
+        }
         // Remember the scroll region the child declares so HUD paints restore it.
         self.child_scroll_region.observe(&bytes);
         let analysis = self.analyze_pty_chunk(&bytes);
