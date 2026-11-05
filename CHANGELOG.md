@@ -7,8 +7,20 @@ Some historical entries reference internal tooling that has since been removed.
 
 ## [Unreleased]
 
+## [1.2.9] - 2026-11-04
+
 ### Fixed
 
+- The HUD no longer drifts or duplicates while Claude streams in JetBrains
+  terminals. JediTerm ignores the scroll region VoiceTerm uses to keep the
+  wrapped CLI inside its viewport, so a line feed on the viewport's last row
+  scrolled the whole screen, bar included, and left stale copies of the bar
+  and of Claude's composer behind. On JetBrains hosts the writer now tracks
+  the child's cursor row and turns a line feed on that row into a scroll of
+  the viewport alone (a delete at the top and an insert at the viewport
+  bottom), so the rows below it never move. Codex keeps its own JetBrains
+  path. Resizing can still leave an occasional stale composer frame, which
+  Claude's next repaint clears.
 - HUD repaints can no longer land inside a multibyte character from the wrapped
   CLI. PTY output arrives in raw chunks, so a character such as a box-drawing
   rule could be split across two chunks with a bar repaint written in between,
