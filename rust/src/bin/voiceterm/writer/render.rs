@@ -161,7 +161,7 @@ pub(super) fn write_status_banner(
     banner: &StatusBanner,
     rows: u16,
     cols: u16,
-    scroll_bottom: u16,
+    scroll_region: (u16, u16),
     previous_lines: Option<&[String]>,
 ) -> io::Result<()> {
     if rows == 0 || cols == 0 || banner.height == 0 {
@@ -216,11 +216,15 @@ pub(super) fn write_status_banner(
     // Setting DECSTBM causes stacked/duplicated HUD frames and garbled approval
     // card text.  The PTY row reduction (startup_pty_geometry + apply_pty_winsize)
     // is sufficient for JetBrains - skip the scroll region there.
+    //
+    // The region written is the child's own declared region clamped to its
+    // viewport (see writer::state::scroll_region), never a blanket 1..viewport
+    // that would undo a region the child relies on.
     if family != TerminalHost::JetBrains {
-        let scroll_bottom = scroll_bottom.min(rows.saturating_sub(height as u16)).max(1);
-        if scroll_bottom >= 1 {
-            sequence.extend_from_slice(format!("\x1b[1;{scroll_bottom}r").as_bytes());
-        }
+        let (top, bottom) = scroll_region;
+        let bottom = bottom.min(rows.saturating_sub(height as u16)).max(1);
+        let top = top.max(1).min(bottom);
+        sequence.extend_from_slice(format!("\x1b[{top};{bottom}r").as_bytes());
     }
 
     push_cursor_suffix(&mut sequence, family);
@@ -572,7 +576,7 @@ mod tests {
             "bottom".to_string(),
         ]);
 
-        write_status_banner(&mut buf, &banner, 24, 80, 20, None).unwrap();
+        write_status_banner(&mut buf, &banner, 24, 80, (1, 20), None).unwrap();
         let output = String::from_utf8_lossy(&buf);
         assert!(output.contains("\u{1b}[21;1H\u{1b}[0m"));
         assert!(output.contains("\u{1b}[K"));
@@ -583,7 +587,7 @@ mod tests {
         let mut buf = Vec::new();
         let banner = StatusBanner::new(vec!["minimal hud".to_string()]);
 
-        write_status_banner(&mut buf, &banner, 24, 80, 23, None).unwrap();
+        write_status_banner(&mut buf, &banner, 24, 80, (1, 23), None).unwrap();
         let output = String::from_utf8_lossy(&buf);
         assert!(output.contains("\u{1b}[24;1H\u{1b}[0m"));
         assert!(output.contains("\u{1b}[K"));
@@ -616,7 +620,7 @@ mod tests {
             "bottom".to_string(),
         ]);
 
-        write_status_banner(&mut buf, &banner, 24, 80, 20, Some(&previous)).unwrap();
+        write_status_banner(&mut buf, &banner, 24, 80, (1, 20), Some(&previous)).unwrap();
         let output = String::from_utf8_lossy(&buf);
 
         // Only row 22 (the main row in a 4-line banner at 24 rows) should redraw.
@@ -642,7 +646,7 @@ mod tests {
         ]);
 
         // Child viewport ends at row 24 (e.g. 40 rows − banner 4 − gap 12).
-        write_status_banner(&mut buf, &banner, 40, 80, 24, None).unwrap();
+        write_status_banner(&mut buf, &banner, 40, 80, (1, 24), None).unwrap();
         let output = String::from_utf8_lossy(&buf);
         assert!(
             output.contains("\u{1b}[1;24r"),
@@ -665,7 +669,7 @@ mod tests {
         ]);
 
         // A too-large child bottom must never let the region cover the HUD.
-        write_status_banner(&mut buf, &banner, 24, 80, 24, None).unwrap();
+        write_status_banner(&mut buf, &banner, 24, 80, (1, 24), None).unwrap();
         let output = String::from_utf8_lossy(&buf);
         assert!(output.contains("\u{1b}[1;20r"));
     }

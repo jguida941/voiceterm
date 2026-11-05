@@ -185,6 +185,8 @@ impl<W: Write> Drop for DeferredWriter<W> {
 enum WriterOutput {
     Direct(io::Stdout),
     JetBrainsCodex(DeferredWriter<io::Stdout>),
+    #[cfg(test)]
+    Capture(Vec<u8>),
 }
 
 impl WriterOutput {
@@ -207,6 +209,8 @@ impl Write for WriterOutput {
         match self {
             Self::Direct(stdout) => stdout.write(bytes),
             Self::JetBrainsCodex(stdout) => stdout.write(bytes),
+            #[cfg(test)]
+            Self::Capture(sink) => sink.write(bytes),
         }
     }
 
@@ -214,6 +218,8 @@ impl Write for WriterOutput {
         match self {
             Self::Direct(stdout) => stdout.flush(),
             Self::JetBrainsCodex(stdout) => stdout.flush(),
+            #[cfg(test)]
+            Self::Capture(_) => Ok(()),
         }
     }
 }
@@ -238,6 +244,7 @@ pub(super) struct WriterState {
     theme: Theme,
     mouse_enabled: bool,
     codex_overlay_isolation: CodexOverlayIsolation,
+    child_scroll_region: scroll_region::ChildScrollRegionTracker,
 }
 
 impl WriterState {
@@ -271,11 +278,33 @@ impl WriterState {
             theme: Theme::default(),
             mouse_enabled: false,
             codex_overlay_isolation: CodexOverlayIsolation::default(),
+            child_scroll_region: scroll_region::ChildScrollRegionTracker::default(),
         }
     }
 
     fn terminal_family(&self) -> TerminalHost {
         self.runtime_profile.terminal_family
+    }
+
+    /// A writer whose output is captured in memory, for tests that judge the
+    /// exact bytes a HUD paint leaves on the host terminal.
+    #[cfg(test)]
+    pub(super) fn with_capture_for_tests(
+        terminal_family: TerminalHost,
+        backend_family: BackendFamily,
+    ) -> Self {
+        let mut state =
+            Self::with_runtime_profile(RuntimeProfile::resolve(terminal_family, backend_family));
+        state.stdout = WriterOutput::Capture(Vec::new());
+        state
+    }
+
+    #[cfg(test)]
+    pub(super) fn captured_output(&self) -> &[u8] {
+        match &self.stdout {
+            WriterOutput::Capture(bytes) => bytes,
+            _ => &[],
+        }
     }
 
     #[cfg(test)]
@@ -497,6 +526,7 @@ mod policy;
 mod profile;
 mod redraw;
 mod redraw_support;
+mod scroll_region;
 
 #[cfg(test)]
 mod tests;

@@ -392,12 +392,18 @@ impl WriterState {
             state.hud_style,
             state.prompt_suppressed,
         );
+        // Restore the child's own scroll region (clamped to its viewport) rather
+        // than imposing the whole viewport over it.
+        let scroll_region = super::scroll_region::host_scroll_region(
+            self.child_scroll_region.declared(),
+            scroll_bottom,
+        );
         let _ = write_status_banner(
             &mut self.stdout,
             &banner,
             self.rows,
             self.cols,
-            scroll_bottom,
+            scroll_region,
             previous_lines,
         );
         self.display.banner_lines = banner.lines.clone();

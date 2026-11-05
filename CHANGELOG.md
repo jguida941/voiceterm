@@ -7,6 +7,23 @@ Some historical entries reference internal tooling that has since been removed.
 
 ## [Unreleased]
 
+## [1.2.8] - 2026-11-04
+
+### Fixed
+
+- HUD repaints no longer override the scroll region the wrapped CLI declared.
+  Codex pins its composer by setting a small scroll region around its history
+  scrolls; VoiceTerm's bar repaint reset the region to the whole child viewport,
+  so Codex's next scroll moved the entire viewport and wiped or displaced its own
+  UI until a resize made it redraw. The writer now tracks the child's declared
+  region (including declarations split across output chunks) and restores it,
+  clamped to the child viewport, after every repaint. When the child declares
+  none or resets it, VoiceTerm confines scrolling to the child viewport as
+  before. JetBrains terminals, where VoiceTerm sets no scroll region, are
+  unchanged.
+- Covered by writer tests that capture the exact bytes a repaint emits, plus a
+  tracker test suite for split, reset, private-mode, and invalid declarations.
+
 ## [1.2.7] - 2026-11-04
 
 ### Fixed
