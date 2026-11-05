@@ -6,6 +6,8 @@ pub(crate) enum MouseEventKind {
     Release,
 }
 
+/// Strip the +32 base offset that X10 and URXVT (1015) add to every button
+/// code. SGR (1006) sends the bare button number and must not go through this.
 #[inline]
 fn decode_button_code(button: u16) -> u16 {
     if button >= 32 {
@@ -13,6 +15,15 @@ fn decode_button_code(button: u16) -> u16 {
     } else {
         button
     }
+}
+
+/// Bit 32 marks a motion report in every xterm mouse encoding: SGR carries it in
+/// the bare button number, X10/URXVT carry it above their +32 base offset.
+const MOTION_FLAG: u16 = 32;
+
+#[inline]
+fn is_motion_report(button: u16) -> bool {
+    button & MOTION_FLAG != 0
 }
 
 #[inline]
@@ -79,10 +90,22 @@ pub(crate) fn parse_sgr_mouse(buffer: &[u8]) -> Option<(MouseEventKind, u16, u16
     let params_str = std::str::from_utf8(params).ok()?;
     let mut parts = params_str.split(';');
 
-    let button = decode_button_code(parts.next()?.parse().ok()?);
+    // SGR carries no +32 base offset, so bit 32 is the motion flag. Drop motion
+    // reports before press/release mapping can read a hover (35) as a release
+    // or a drag (32) as a press.
+    let button: u16 = parts.next()?.parse().ok()?;
+    if is_motion_report(button) {
+        return None;
+    }
     let x: u16 = parts.next()?.parse().ok()?;
     let y: u16 = parts.next()?.parse().ok()?;
     let explicit_release = final_char == b'm';
+    // SGR signals a release only through the lowercase final. The X10 release
+    // code 3 never appears in a real SGR report, but PyCharm's terminal sends
+    // it for pointer motion (uppercase M); it must not read as a click.
+    if !explicit_release && button == 3 {
+        return None;
+    }
     let kind = map_left_click_kind(button, explicit_release)?;
 
     Some((kind, x, y))
@@ -100,6 +123,9 @@ pub(crate) fn parse_urxvt_mouse(buffer: &[u8]) -> Option<(MouseEventKind, u16, u
     let params_str = std::str::from_utf8(params).ok()?;
     let mut parts = params_str.split(';');
     let button = decode_button_code(parts.next()?.parse().ok()?);
+    if is_motion_report(button) {
+        return None;
+    }
     let x: u16 = parts.next()?.parse().ok()?;
     let y: u16 = parts.next()?.parse().ok()?;
     let explicit_release = final_char == b'm';
@@ -117,6 +143,9 @@ pub(crate) fn parse_x10_mouse(buffer: &[u8]) -> Option<(MouseEventKind, u16, u16
     let button = (*buffer.get(3)?).checked_sub(32)? as u16;
     let x = (*buffer.get(4)?).checked_sub(32)? as u16;
     let y = (*buffer.get(5)?).checked_sub(32)? as u16;
+    if is_motion_report(button) {
+        return None;
+    }
     let kind = map_left_click_kind(button & 0b11, false)?;
     Some((kind, x, y))
 }

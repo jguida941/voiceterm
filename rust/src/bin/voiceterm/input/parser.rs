@@ -791,4 +791,78 @@ mod tests {
         parser.flush_pending(&mut out);
         assert_eq!(out, vec![InputEvent::VoiceTrigger]);
     }
+
+    // Field bug (codex in VS Code/JetBrains): codex enables any-motion mouse
+    // reporting, so every pointer movement arrived as an SGR report with the
+    // motion bit (32) set. The SGR decoder stripped that bit as if it were the
+    // URXVT base offset and turned hover/drag reports into clicks, opening
+    // overlays and reaching Quit by mouse movement alone.
+    #[test]
+    fn input_parser_ignores_mouse_motion_reports() {
+        // Fresh parser and empty event sink
+        let mut parser = InputParser::new();
+        let mut out = Vec::new();
+
+        // SGR hover (cb 35) then SGR left-drag (cb 32) reports
+        let sgr_motion = b"\x1b[<35;10;5M\x1b[<32;11;5M";
+
+        // Feed the SGR motion reports through the parser
+        parser.consume_bytes(sgr_motion, &mut out);
+        parser.flush_pending(&mut out);
+
+        // Require no event from SGR motion
+        assert!(
+            out.is_empty(),
+            "SGR motion reports produced events: {out:?}"
+        );
+
+        // X10 hover (cb 32+32+3) then X10 left-drag (cb 32+32+0)
+        let x10_motion = [
+            0x1b,
+            b'[',
+            b'M',
+            32 + 32 + 3,
+            42,
+            37,
+            0x1b,
+            b'[',
+            b'M',
+            32 + 32,
+            43,
+            37,
+        ];
+
+        // Feed the X10 motion reports through the parser
+        parser.consume_bytes(&x10_motion, &mut out);
+        parser.flush_pending(&mut out);
+
+        // Require no event from X10 motion
+        assert!(
+            out.is_empty(),
+            "X10 motion reports produced events: {out:?}"
+        );
+    }
+
+    // Field bug (PyCharm 2024.3): its terminal reports pointer motion as SGR
+    // button code 3 with the uppercase M final. Code 3 is the X10 release code
+    // and must not be read as an SGR release; SGR releases use the lowercase m.
+    #[test]
+    fn input_parser_ignores_sgr_release_code_with_press_final() {
+        // Fresh parser and empty event sink
+        let mut parser = InputParser::new();
+        let mut out = Vec::new();
+
+        // SGR code 3 with uppercase M (PyCharm 2024.3 hover report)
+        let hover = b"\x1b[<3;10;5M";
+
+        // Feed the report through the parser
+        parser.consume_bytes(hover, &mut out);
+        parser.flush_pending(&mut out);
+
+        // Require no event from SGR code 3 with uppercase M
+        assert!(
+            out.is_empty(),
+            "SGR code-3 press-final report produced events: {out:?}"
+        );
+    }
 }

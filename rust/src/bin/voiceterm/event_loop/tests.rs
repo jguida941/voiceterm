@@ -32,6 +32,8 @@ use crate::voice_control::VoiceManager;
 use crate::voice_macros::VoiceMacros;
 use crate::wake_word::{WakeWordEvent, WakeWordRuntime};
 
+mod hud_mouse_motion;
+mod hud_mouse_sgr_release_code;
 mod input_navigation;
 mod overlay_replay;
 mod periodic_runtime;

@@ -7,6 +7,23 @@ Some historical entries reference internal tooling that has since been removed.
 
 ## [Unreleased]
 
+## [1.2.7] - 2026-11-04
+
+### Fixed
+
+- Pointer movement no longer registers as HUD clicks. Codex enables any-motion
+  mouse reporting, and VoiceTerm's SGR decoder read each motion report as a
+  press or release, so moving the mouse across the bar toggled the HUD, opened
+  overlays, and could reach the Settings `Quit` row and exit VoiceTerm. Motion
+  reports (the 32 flag in SGR, and above the base offset in X10 and URXVT) are
+  now ignored in every protocol.
+- JetBrains terminals: PyCharm reports pointer motion as SGR button code 3 with
+  the press final. SGR now ignores that code, since an SGR release is signaled
+  only by the lowercase final, so hovering over the bar no longer triggers
+  buttons.
+- Real clicks, release-without-press clicks, URXVT and X10 presses, and wheel
+  handling are unchanged and covered by new parser and event-loop tests.
+
 ## [1.2.6] - 2026-07-21
 
 ### Stability status
