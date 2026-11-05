@@ -11,6 +11,7 @@ Scripts for installing and running VoiceTerm.
 | `python_fallback.py` | Fallback STT pipeline | Used automatically |
 | `release/` | Version, notes, checksum, and Homebrew helpers | `make release-check V=X.Y.Z` |
 | `tests/` | Integration, latency, wake-word, and benchmark checks | `make integration` |
+| `diagnostics/` | Terminal capture, replay, and probe tools for HUD rendering issues | `scripts/diagnostics/rec.sh claude capture` |
 
 ## install.sh
 
