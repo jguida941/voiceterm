@@ -2059,3 +2059,4 @@ fn jetbrains_forces_full_banner_repaint_even_without_transition() {
 mod pty_passthrough_tests;
 mod scroll_region_tests;
 mod scroll_repair_tests;
+mod viewport_fence_tests;

@@ -248,6 +248,7 @@ pub(super) struct WriterState {
     /// Incomplete trailing UTF-8 sequence from the last PTY chunk, written only
     /// once the child completes it so no HUD paint can land inside a character.
     utf8_tail: Vec<u8>,
+    viewport_fence: viewport_fence::ViewportFence,
 }
 
 impl WriterState {
@@ -283,6 +284,7 @@ impl WriterState {
             codex_overlay_isolation: CodexOverlayIsolation::default(),
             child_scroll_region: scroll_region::ChildScrollRegionTracker::default(),
             utf8_tail: Vec::new(),
+            viewport_fence: viewport_fence::ViewportFence::default(),
         }
     }
 
@@ -294,6 +296,31 @@ impl WriterState {
         let split = incomplete_utf8_tail_start(&stream);
         self.utf8_tail = stream.split_off(split);
         stream
+    }
+
+    /// Last row of the child viewport for the HUD currently shown (or pending).
+    fn child_viewport_bottom(&self) -> u16 {
+        let state = self
+            .display
+            .enhanced_status
+            .as_ref()
+            .or(self.pending.enhanced_status.as_ref());
+        match state {
+            Some(state) => crate::terminal::child_viewport_rows_for_banner(
+                self.rows,
+                self.cols,
+                state.hud_style,
+                state.prompt_suppressed,
+            ),
+            None => self.rows,
+        }
+    }
+
+    /// JediTerm ignores DECSTBM, so the writer sets no region there and must
+    /// fence the child viewport in software instead (Codex keeps its own path).
+    fn fences_child_viewport(&self) -> bool {
+        self.runtime_profile.terminal_family == TerminalHost::JetBrains
+            && !self.runtime_profile.runtime_variant.is_jetbrains_codex()
     }
 
     fn terminal_family(&self) -> TerminalHost {
@@ -542,6 +569,7 @@ mod profile;
 mod redraw;
 mod redraw_support;
 mod scroll_region;
+mod viewport_fence;
 
 #[cfg(test)]
 mod tests;

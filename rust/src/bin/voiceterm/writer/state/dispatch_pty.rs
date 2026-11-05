@@ -58,6 +58,14 @@ impl WriterState {
         if bytes.is_empty() {
             return true;
         }
+        // Keep the child inside its viewport where the host has no scroll region.
+        let bytes = if self.fences_child_viewport() && self.rows > 0 {
+            let bottom = self.child_viewport_bottom();
+            self.viewport_fence
+                .translate(&bytes, bottom, self.rows, self.cols)
+        } else {
+            bytes
+        };
         // Remember the scroll region the child declares so HUD paints restore it.
         self.child_scroll_region.observe(&bytes);
         let analysis = self.analyze_pty_chunk(&bytes);

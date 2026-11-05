@@ -156,6 +156,21 @@ impl WriterState {
             return true;
         }
         let now = Instant::now();
+        // The host geometry moved; keep the software viewport fence inside it.
+        let fence_bottom = crate::terminal::child_viewport_rows_for_banner(
+            rows,
+            cols,
+            self.display
+                .enhanced_status
+                .as_ref()
+                .map(|s| s.hud_style)
+                .unwrap_or(crate::config::HudStyle::Full),
+            self.display
+                .enhanced_status
+                .as_ref()
+                .is_some_and(|s| s.prompt_suppressed),
+        );
+        self.viewport_fence.on_resize(fence_bottom);
         let jetbrains_codex = self.runtime_profile.runtime_variant.is_jetbrains_codex();
         if claude_hud_debug_enabled() && self.runtime_profile.cursor_claude {
             log_debug(&format!(
