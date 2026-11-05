@@ -207,6 +207,15 @@ Note for Cursor terminal:
 - If you want touchpad/wheel scrolling, set `Settings -> Mouse` to `OFF`.
   You can still operate HUD controls with keyboard focus and `Enter`.
 
+### Moving the pointer selects or triggers HUD buttons
+
+If HUD controls react while you only hover or drag across them (seen in
+JetBrains terminals and with Codex, which asks the terminal for pointer
+motion), update to 1.2.7 or later. Motion reports are now ignored; only a
+real press and release counts as a click. If it still happens, capture
+`VOICETERM_DEBUG_INPUT=1 voiceterm --logs`, hover once, and share the
+`input bytes` lines.
+
 </details>
 
 ## Audio Setup
@@ -673,8 +682,9 @@ speech:
 ### JetBrains overlay artifacts
 
 Current releases include fixes for HUD overlap after long Claude turns, Codex
-HUD disappearance during work, stale borders, and artifacts caused by rapid
-pane dragging or terminal resizing.
+HUD disappearance during work, stale borders, the bar drifting upward while
+Claude streams a long answer (1.2.9), and artifacts caused by rapid pane
+dragging or terminal resizing.
 
 If any of these return:
 
@@ -703,7 +713,10 @@ If Full HUD appears stacked/repeated:
    ```
 
 3. Current releases include idle-gated redraw hardening for both Claude and
-   Codex in JetBrains; if you still see duplication, share
+   Codex in JetBrains, and 1.2.9 keeps the wrapped CLI inside its own rows
+   while it streams, so the bar no longer climbs or leaves copies behind. A
+   stale copy of Claude's composer can still appear right after a resize; it
+   clears on Claude's next repaint. If duplication persists, share
    `${TMPDIR:-/tmp}/voiceterm_tui.log`.
 
 ### Overlay flickers in JetBrains terminals
